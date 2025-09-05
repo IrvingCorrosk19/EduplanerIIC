@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copiar archivos de proyecto y restaurar dependencias
-COPY ["SchoolManager/SchoolManager.csproj", "SchoolManager/SchoolManager.sln", "./"]
+COPY ["SchoolManager/SchoolManager.csproj", "SchoolManager.sln", "./"]
 COPY ["SchoolManager/libman.json", "./"]
 RUN dotnet restore
 
