@@ -1,4 +1,4 @@
-﻿@model IEnumerable<SchoolManager.Models.User>
+@model IEnumerable<SchoolManager.Models.User>
 @{
     ViewData["Title"] = "Gestión de Usuarios";
     Layout = "_AdminLayout";
@@ -404,14 +404,24 @@
                                 </td>
                             <td>
                                 <div class="action-buttons">
-                                    <button type="button" class="btn btn-action btn-edit btn-edit-user" data-id="@user.Id" title="Editar">
-                                        <i class="fas fa-edit"></i>
-                                        <span>Editar</span>
-                                    </button>
-                                    <button type="button" class="btn btn-action btn-delete btn-delete-user" data-id="@user.Id" title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                        <span>Eliminar</span>
-                                    </button>
+                                    @if (user.Role?.ToLower() != "admin")
+                                    {
+                                        <button type="button" class="btn btn-action btn-edit btn-edit-user" data-id="@user.Id" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-action btn-delete btn-delete-user" data-id="@user.Id" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-action btn-edit" disabled title="No se puede editar usuarios administradores">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-action btn-delete" disabled title="No se puede eliminar usuarios administradores">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    }
                                 </div>
                                 </td>
                             </tr>
@@ -562,19 +572,40 @@
                 .done(function (response) {
                     Swal.fire({
                         icon: 'success',
-                        title: '¡Éxito!',
-                        text: response.message || 'Usuario creado exitosamente'
+                        title: '¡Usuario Creado!',
+                        text: response.message || 'El usuario se ha creado exitosamente en el sistema',
+                        confirmButtonColor: '#10b981',
+                        confirmButtonText: '¡Excelente!'
                     }).then(() => {
                         resetUserForm();
                         location.reload();
                     });
                 })
                 .fail(function (xhr) {
-                    const message = xhr.responseJSON?.message || xhr.responseText || 'Error inesperado';
+                    let message = 'Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.';
+                    
+                    if (xhr.responseJSON?.message) {
+                        message = xhr.responseJSON.message;
+                    } else if (xhr.responseText) {
+                        // Verificar si el error contiene información sobre DNI duplicado
+                        if (xhr.responseText.toLowerCase().includes('document') || 
+                            xhr.responseText.toLowerCase().includes('dni') || 
+                            xhr.responseText.toLowerCase().includes('cedula') ||
+                            xhr.responseText.toLowerCase().includes('duplicate') ||
+                            xhr.responseText.toLowerCase().includes('ya existe')) {
+                            message = '⚠️ El número de documento (DNI) ya está registrado en el sistema. Por favor, verifica que el documento sea único o contacta al administrador si necesitas ayuda.';
+                        } else if (xhr.responseText.toLowerCase().includes('email') || 
+                                   xhr.responseText.toLowerCase().includes('correo')) {
+                            message = '📧 El correo electrónico ya está registrado en el sistema. Por favor, utiliza un correo diferente.';
+                        }
+                    }
+                    
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: message
+                        icon: 'warning',
+                        title: 'No se pudo crear el usuario',
+                        text: message,
+                        confirmButtonColor: '#ef4444',
+                        confirmButtonText: 'Entendido'
                     });
                 });
             });
@@ -605,19 +636,40 @@
                 .done(function (response) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Actualizado',
-                        text: response.message || 'Usuario actualizado correctamente'
+                        title: '¡Usuario Actualizado!',
+                        text: response.message || 'Los datos del usuario se han actualizado correctamente',
+                        confirmButtonColor: '#10b981',
+                        confirmButtonText: '¡Perfecto!'
                     }).then(() => {
                         resetUserForm();
                         location.reload();
                     });
                 })
                 .fail(function (xhr) {
-                    const message = xhr.responseJSON?.message || xhr.responseText || 'Error inesperado';
+                    let message = 'Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.';
+                    
+                    if (xhr.responseJSON?.message) {
+                        message = xhr.responseJSON.message;
+                    } else if (xhr.responseText) {
+                        // Verificar si el error contiene información sobre DNI duplicado
+                        if (xhr.responseText.toLowerCase().includes('document') || 
+                            xhr.responseText.toLowerCase().includes('dni') || 
+                            xhr.responseText.toLowerCase().includes('cedula') ||
+                            xhr.responseText.toLowerCase().includes('duplicate') ||
+                            xhr.responseText.toLowerCase().includes('ya existe')) {
+                            message = '⚠️ El número de documento (DNI) ya está registrado en el sistema. Por favor, verifica que el documento sea único o contacta al administrador si necesitas ayuda.';
+                        } else if (xhr.responseText.toLowerCase().includes('email') || 
+                                   xhr.responseText.toLowerCase().includes('correo')) {
+                            message = '📧 El correo electrónico ya está registrado en el sistema. Por favor, utiliza un correo diferente.';
+                        }
+                    }
+                    
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: message
+                        icon: 'warning',
+                        title: 'No se pudo actualizar el usuario',
+                        text: message,
+                        confirmButtonColor: '#ef4444',
+                        confirmButtonText: 'Entendido'
                     });
                 });
             });

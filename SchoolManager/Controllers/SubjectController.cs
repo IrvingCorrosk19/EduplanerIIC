@@ -114,6 +114,10 @@ public class SubjectController : Controller
             await _subjectService.DeleteAsync(request.Id);
             return Json(new { success = true, message = "Materia eliminada exitosamente." });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Json(new { success = false, message = ex.Message });
+        }
         catch (Exception ex)
         {
             return Json(new { success = false, message = "Error al eliminar la materia: " + ex.Message });

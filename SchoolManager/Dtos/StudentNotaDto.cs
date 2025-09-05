@@ -26,8 +26,7 @@
         public string Tipo { get; set; }           // tarea, parcial, examen
         public string Actividad { get; set; }      // nombre de la actividad
         public string Nota { get; set; }           // nota en string con 2 decimales
-
-        
+        public DateTime? DueDate { get; set; }     // fecha de entrega
     }
 
 }

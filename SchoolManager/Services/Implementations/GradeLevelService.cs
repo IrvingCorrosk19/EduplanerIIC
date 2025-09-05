@@ -1,13 +1,22 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SchoolManager.Models;
+using SchoolManager.Services.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Linq;
 
+namespace SchoolManager.Services.Implementations
+{
 public class GradeLevelService : IGradeLevelService
 {
     private readonly SchoolDbContext _context;
+        private readonly ICurrentUserService _currentUserService;
 
-    public GradeLevelService(SchoolDbContext context)
+        public GradeLevelService(SchoolDbContext context, ICurrentUserService currentUserService)
     {
         _context = context;
+            _currentUserService = currentUserService;
     }
     public async Task<GradeLevel?> GetByNameAsync(string name)
     {
@@ -24,7 +33,7 @@ public class GradeLevelService : IGradeLevelService
             {
                 Id = Guid.NewGuid(),
                 Name = name,
-                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
+                CreatedAt = DateTime.UtcNow
             };
             _context.GradeLevels.Add(grade);
             await _context.SaveChangesAsync();
@@ -73,6 +82,10 @@ public class GradeLevelService : IGradeLevelService
 
     public async Task<bool> DeleteAsync(Guid id)
     {
+        // Validar si el grado está en uso en alguna asignación de materia
+        bool enUso = await _context.SubjectAssignments.AnyAsync(sa => sa.GradeLevelId == id);
+        if (enUso)
+            throw new InvalidOperationException("No se puede borrar el grado porque está siendo utilizado en el catálogo de materias. Elimina o reasigna esas asignaciones primero.");
         try
         {
             var entity = await _context.GradeLevels.FindAsync(id);
@@ -86,5 +99,6 @@ public class GradeLevelService : IGradeLevelService
         {
             throw new Exception("Error al eliminar el grado académico", ex);
         }
+    }
     }
 }

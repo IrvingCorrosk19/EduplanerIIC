@@ -5,6 +5,7 @@ using SchoolManager.Enums;
 using SchoolManager.Models;
 using SchoolManager.ViewModels;
 using Microsoft.AspNetCore.Authorization;
+using BCrypt.Net;
 
 [Authorize(Roles = "admin")]
 public class UserController : Controller
@@ -32,6 +33,25 @@ public class UserController : Controller
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        // Validar formato del correo electrónico
+        if (!IsValidEmail(model.Email))
+        {
+            return BadRequest(new { message = "El formato del correo electrónico no es válido" });
+        }
+
+        // Validar si el correo electrónico ya existe
+        var existingUser = await _userService.GetByEmailAsync(model.Email);
+        if (existingUser != null)
+        {
+            return BadRequest(new { message = "El correo electrónico ya está registrado en el sistema" });
+        }
+
+        // Validar fortaleza de la contraseña
+        if (!string.IsNullOrEmpty(model.PasswordHash) && !IsStrongPassword(model.PasswordHash))
+        {
+            return BadRequest(new { message = "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial" });
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -41,9 +61,9 @@ public class UserController : Controller
             DocumentId = model.DocumentId,
             Role = model.Role.ToLower(),
             Status = model.Status,
-            CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified),
-            PasswordHash = model.PasswordHash ?? "123456",
-            DateOfBirth = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified),
+            CreatedAt = DateTime.UtcNow,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash ?? "123456"),
+            DateOfBirth = model.DateOfBirth.ToUniversalTime(),
         };
 
         await _userService.CreateAsync(user, model.Subjects, model.Groups);
@@ -51,9 +71,44 @@ public class UserController : Controller
         return Ok(new { message = "Usuario creado correctamente", id = user.Id });
     }
 
+    private bool IsValidEmail(string email)
+    {
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool IsStrongPassword(string password)
+    {
+        // La contraseña debe tener:
+        // - Al menos 8 caracteres
+        // - Al menos una letra mayúscula
+        // - Al menos una letra minúscula
+        // - Al menos un número
+        // - Al menos un carácter especial
+        var hasNumber = password.Any(char.IsDigit);
+        var hasUpperChar = password.Any(char.IsUpper);
+        var hasLowerChar = password.Any(char.IsLower);
+        var hasSpecialChar = password.Any(c => !char.IsLetterOrDigit(c));
+        var hasMinLength = password.Length >= 8;
+
+        return hasNumber && hasUpperChar && hasLowerChar && hasSpecialChar && hasMinLength;
+    }
+
     public async Task<IActionResult> Index()
     {
-        ViewBag.Roles = Enum.GetNames(typeof(UserRole)).ToList();
+        ViewBag.Roles = Enum.GetValues(typeof(UserRole))
+      .Cast<UserRole>()
+      .Where(r => r != UserRole.Superadmin && r != UserRole.Admin && r != UserRole.Student)
+      .Select(r => r.ToString())
+      .ToList();
+
 
         var users = await _userService.GetAllAsync();
         return View(users);
@@ -150,11 +205,12 @@ public class UserController : Controller
         existingUser.DocumentId = model.DocumentId;
         existingUser.Role = model.Role.ToLower();
         existingUser.Status = model.Status;
-        existingUser.DateOfBirth = model.DateOfBirth;
+        existingUser.DateOfBirth = model.DateOfBirth.ToUniversalTime();
 
         if (!string.IsNullOrEmpty(model.PasswordHash))
         {
-            existingUser.PasswordHash = model.PasswordHash;
+            // Hash de la contraseña antes de guardarla
+            existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash);
         }
 
         await _userService.UpdateAsync(existingUser, model.Subjects, model.Groups);

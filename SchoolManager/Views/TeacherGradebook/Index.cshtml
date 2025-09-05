@@ -254,7 +254,7 @@
         font-weight: 600;
     }
 
-    .info-alert p {
+    .info-alert p {image.png
         color: var(--secondary-color);
         margin: 0;
     }
@@ -444,11 +444,11 @@
                 <div class="card-body">
                     <form id="formNew" class="row g-3 align-items-end" enctype="multipart/form-data">
                         @Html.AntiForgeryToken()
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Nombre de la Actividad</label>
                             <input id="activityName" name="Name" class="form-control" placeholder="Ej. Tarea 2, Examen Final" required />
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Tipo</label>
                             <select id="activityType" name="Type" class="form-select">
                                 @foreach (var t in Model.Types)
@@ -456,6 +456,10 @@
                                     <option value="@t.Name">@t.Name</option>
                                 }
                             </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Fecha de Entrega</label>
+                            <input type="date" id="activityDueDate" name="DueDate" class="form-control" />
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Archivo (opcional)</label>
@@ -510,7 +514,23 @@
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Resumen Final por Estudiante</h5>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
+                    <!-- Filtros para promedios finales -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">Materia y Grupo</label>
+                            <select id="selGroupResumen" class="form-select">
+                                @foreach (var subject in Model.Teacher.SubjectGroupDetails)
+                                {
+                                    foreach (var group in subject.GroupGradePairs)
+                                    {
+                                        var value = $"{subject.SubjectId}|{group.GroupId}|{group.GradeLevelId}";
+                                        <option value="@value">@subject.SubjectName - @group.GradeLevelName @group.GroupName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
                     <div class="table-responsive">
                         <table id="summaryTable" class="table table-hover mb-0">
                             <thead>
@@ -524,33 +544,7 @@
                                 </tr>
                             </thead>
                             <tbody id="resumenBody">
-                                @foreach (var student in Model.StudentAverages)
-                                {
-                                    var t1 = student.Promedios.ContainsKey("1T") ? student.Promedios["1T"] : 0.0m;
-                                    var t2 = student.Promedios.ContainsKey("2T") ? student.Promedios["2T"] : 0.0m;
-                                    var t3 = student.Promedios.ContainsKey("3T") ? student.Promedios["3T"] : 0.0m;
-
-                                    var trimestresValidos = 0;
-                                    decimal sumaTrimestreValidos = 0;
-
-                                    if (t1 > 0) { trimestresValidos++; sumaTrimestreValidos += t1; }
-                                    if (t2 > 0) { trimestresValidos++; sumaTrimestreValidos += t2; }
-                                    if (t3 > 0) { trimestresValidos++; sumaTrimestreValidos += t3; }
-
-                                    var promedioFinal = trimestresValidos > 0 ? sumaTrimestreValidos / trimestresValidos : 0.0m;
-                                    var promedioTruncado = Math.Floor(promedioFinal * 10) / 10;
-                                    var estado = promedioTruncado >= 3.0m ? "Aprobado" : "Reprobado";
-                                    var estadoClase = estado == "Aprobado" ? "text-success" : "text-danger";
-
-                                    <tr>
-                                        <td>@student.StudentFullName</td>
-                                        <td>@t1.ToString("0.0")</td>
-                                        <td>@t2.ToString("0.0")</td>
-                                        <td>@t3.ToString("0.0")</td>
-                                        <td><strong>@promedioTruncado.ToString("0.0")</strong></td>
-                                        <td class="@estadoClase fw-semibold">@estado</td>
-                                    </tr>
-                                }
+                                <!-- Aquí se llenará dinámicamente con JS -->
                             </tbody>
                         </table>
                     </div>
@@ -967,8 +961,17 @@
             function updateResumenTable() {
                 const resumenBody = $('#resumenBody');
                 resumenBody.empty();
-
+                // Evitar duplicados por id
+                const uniqueStudents = [];
+                const seen = new Set();
                 students.forEach(s => {
+                    if (s.id && !seen.has(s.id)) {
+                        uniqueStudents.push(s);
+                        seen.add(s.id);
+                    }
+                });
+                uniqueStudents.forEach(s => {
+                    const nombre = s.fullName || '(Sin nombre)';
                     const trimesterData = studentAnnualScores[s.id] || {};
                     const t1 = trimesterData['1T'] || 0;
                     const t2 = trimesterData['2T'] || 0;
@@ -976,16 +979,18 @@
                     const count = [t1, t2, t3].filter(n => n > 0).length;
                     const promedio = count > 0 ? ((t1 + t2 + t3) / count) : 0;
                     const truncPromedio = truncateToOneDecimal(promedio);
-                    const estado = truncPromedio >= 3.0 ? 'Aprobado' : 'Reprobado';
-
+                    let estado = 'Sin calificar';
+                    if (count > 0) {
+                        estado = truncPromedio >= 3.0 ? 'Aprobado' : 'Reprobado';
+                    }
                     const row = `
                         <tr>
-                            <td>${s.fullName}</td>
+                            <td>${nombre}</td>
                             <td>${t1.toFixed(1)}</td>
                             <td>${t2.toFixed(1)}</td>
                             <td>${t3.toFixed(1)}</td>
                             <td><strong>${truncPromedio.toFixed(1)}</strong></td>
-                            <td class="${estado === 'Aprobado' ? 'text-success' : 'text-danger'}">${estado}</td>
+                            <td class="${estado === 'Aprobado' ? 'text-success' : (estado === 'Reprobado' ? 'text-danger' : 'text-danger')}">${estado}</td>
                         </tr>`;
                     resumenBody.append(row);
                 });
@@ -1013,17 +1018,37 @@
                 const hdrRow = $('#hdrRow');
                 hdrRow.html('<th>Estudiante</th>');
 
+                console.log('Objeto activities:', activities);
+
                 const activeTypes = ['tarea', 'parcial', 'examen'];
 
                 activeTypes.forEach(type => {
                     if (activities[type] && activities[type].length > 0) {
-                    activities[type].forEach(a => {
-                        const downloadButton = a.pdfUrl 
-                            ? `<div><a href='${a.pdfUrl}' target='_blank' class='btn btn-sm btn-outline-primary mb-1' title='Descargar archivo'><i class='bi bi-download'></i></a></div>` 
-                            : '';
-                        hdrRow.append(`<th><div>${downloadButton}${a.name}<br/><small>(${type})</small></div></th>`);
-                    });
-                    hdrRow.append(`<th class='text-primary'>Prom. ${type.charAt(0).toUpperCase() + type.slice(1)}</th>`);
+                        activities[type].forEach(a => {
+                            console.log('Actividad en ciclo:', a);
+                            // Botón de descarga
+                            const downloadButton = a.pdfUrl 
+                                ? `<a href='${a.pdfUrl}' target='_blank' class='btn btn-sm btn-outline-primary mb-1' title='Descargar archivo'><i class='bi bi-download'></i></a>` 
+                                : '';
+                            // Botón de eliminar
+                            const deleteButton = a.id ? `<button class='btn btn-sm btn-outline-danger mb-1 btn-delete-activity' data-activity-id='${a.id}' title='Eliminar actividad'><i class='bi bi-trash'></i></button>` : '';
+                            // Fecha de entrega bonita
+                            let fechaEntrega = a.dueDate ? new Date(a.dueDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+                            hdrRow.append(
+                              `<th>
+                                <div class='d-flex flex-column align-items-center'>
+                                  ${downloadButton}${deleteButton}
+                                  <span>
+                                    ${a.name}
+                                    <br/>
+                                    <small>(${type})</small>
+                                    ${fechaEntrega ? `<br/><small class='text-muted' style='font-size:0.85em;'>(Entrega: ${fechaEntrega})</small>` : ''}
+                                  </span>
+                                </div>
+                              </th>`
+                            );
+                        });
+                        hdrRow.append(`<th class='text-primary'>Prom. ${type.charAt(0).toUpperCase() + type.slice(1)}</th>`);
                     }
                 });
                 hdrRow.append("<th class='text-dark'>Nota Final</th>");
@@ -1038,7 +1063,7 @@
                         if (activities[type] && activities[type].length > 0) {
                         activities[type].forEach(a => {
                             const savedScore = scores[s.id]?.[type]?.[a.name] || '';
-                            row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.name}">${savedScore !== '' ? parseFloat(savedScore).toFixed(1) : ''}</td>`;
+                            row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.name}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
                         });
                         row += `<td class='text-primary avg-${type}'></td>`;
                         }
@@ -1048,38 +1073,88 @@
                     body.append(row);
                 });
 
+                function procesarCeldaNota($cell) {
+                    let value = $cell.text().trim();
+
+                    const student = $cell.data('stu');
+                    const type = $cell.data('type');
+                    const act = $cell.data('act');
+
+                    if (!value) {
+                        // Si la celda queda vacía, elimina el valor de scores
+                        if (scores[student] && scores[student][type]) {
+                            delete scores[student][type][act];
+                        }
+                        calcAverages();
+                        return;
+                    }
+
+                    // Si es un entero o termina en punto, formatear a X.0
+                    if (/^[1-5]$/.test(value) || /^[1-5]\.$/.test(value)) {
+                        value = value.replace('.', '') + '.0';
+                    }
+
+                    const validFormat = /^[1-5](\.[0-9])?$/;
+                    if (!validFormat.test(value)) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Formato inválido',
+                            text: 'Por favor ingrese un número entre 1.0 y 5.0 con un decimal'
+                        });
+                        $cell.text('');
+                        calcAverages();
+                        return;
+                    }
+
+                    const numValue = parseFloat(value);
+                    if (numValue < 1 || numValue > 5) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Valor fuera de rango',
+                            text: 'La calificación debe estar entre 1.0 y 5.0'
+                        });
+                        $cell.text('');
+                        calcAverages();
+                        return;
+                    }
+
+                    // Siempre formatear el valor final a un decimal
+                    const formattedValue = numValue.toFixed(1);
+                    $cell.text(formattedValue);
+
+                    if (!scores[student]) scores[student] = {};
+                    if (!scores[student][type]) scores[student][type] = {};
+                    scores[student][type][act] = formattedValue;
+
+                    calcAverages();
+                }
+
                 $('.score-cell').off('blur keypress keydown').on({
                     keypress: function(e) {
                         if (e.which === 13) {
                             e.preventDefault();
+                            procesarCeldaNota($(this));
                             $(this).blur();
                             return false;
                         }
-
                         const $cell = $(this);
                         const currentValue = $cell.text();
                         const selectedText = window.getSelection().toString();
-                        
                         if (selectedText === currentValue) {
                             return true;
                         }
-
                         if (currentValue.includes('.') && currentValue.split('.')[1].length >= 1) {
                             return false;
                         }
-
                         if (!currentValue.includes('.') && currentValue.length >= 1 && e.which !== 46) {
                             return false;
                         }
-
                         if (e.which !== 46 && (e.which < 48 || e.which > 57)) {
                             return false;
                         }
-
                         if (e.which === 46 && currentValue.includes('.')) {
                             return false;
                         }
-
                         return true;
                     },
                     keydown: function(e) {
@@ -1094,58 +1169,14 @@
                     paste: function(e) {
                         e.preventDefault();
                         const pastedText = (e.originalEvent.clipboardData || window.clipboardData).getData('text');
-                        
                         if (/^[1-5](\.[0-9])?$/.test(pastedText)) {
                             $(this).text(pastedText);
+                            procesarCeldaNota($(this));
                             $(this).blur();
                         }
                     },
                     blur: function() {
-                        const $cell = $(this);
-                        let value = $cell.text().trim();
-
-                        if (!value) {
-                            return;
-                        }
-
-                        if (/^[1-5]$/.test(value)) {
-                            value = value + '.0';
-                        }
-
-                        const validFormat = /^[1-5](\.[0-9])?$/;
-                        if (!validFormat.test(value)) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Formato inválido',
-                                text: 'Por favor ingrese un número entre 1.0 y 5.0 con un decimal'
-                            });
-                            $cell.text('');
-                            return;
-                        }
-
-                        const numValue = parseFloat(value);
-                        if (numValue < 1 || numValue > 5) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Valor fuera de rango',
-                                text: 'La calificación debe estar entre 1.0 y 5.0'
-                            });
-                            $cell.text('');
-                            return;
-                        }
-
-                        const formattedValue = truncateToOneDecimal(numValue);
-                        $cell.text(formattedValue);
-
-                        const student = $cell.data('stu');
-                        const type = $cell.data('type');
-                        const act = $cell.data('act');
-
-                        if (!scores[student]) scores[student] = {};
-                        if (!scores[student][type]) scores[student][type] = {};
-                        scores[student][type][act] = formattedValue;
-
-                        calcAverages();
+                        procesarCeldaNota($(this));
                     }
                 });
 
@@ -1158,6 +1189,54 @@
                 });
 
                 calcAverages();
+
+                // Evento para eliminar actividad
+                $('.btn-delete-activity').off('click').on('click', function() {
+                    const activityId = $(this).data('activity-id');
+                    const btn = $(this);
+                    Swal.fire({
+                        title: '¿Eliminar actividad?',
+                        text: 'Esta acción no se puede deshacer. Se eliminará la actividad y sus notas asociadas.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#ef4444',
+                        cancelButtonColor: '#6b7280',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar',
+                        customClass: {
+                            confirmButton: 'btn btn-danger',
+                            cancelButton: 'btn btn-secondary'
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            $.ajax({
+                                url: `/TeacherGradebook/DeleteActivity/${activityId}`,
+                                method: 'DELETE',
+                                success: function(resp) {
+                                    if (resp.success) {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Eliminado',
+                                            text: 'La actividad ha sido eliminada.'
+                                        });
+                                        // Recargar actividades
+                                        const combo = $('#selGroup').val();
+                                        const trimester = $('#selTrimester').val();
+                                        if (combo && trimester) {
+                                            const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                                            loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
+                                        }
+                                    } else {
+                                        Swal.fire({ icon: 'error', title: 'Error', text: resp.error || 'No se pudo eliminar la actividad' });
+                                    }
+                                },
+                                error: function(xhr) {
+                                    Swal.fire({ icon: 'error', title: 'Error', text: xhr.responseJSON?.error || 'No se pudo eliminar la actividad' });
+                                }
+                            });
+                        }
+                    });
+                });
             }
 
             function calcAverages() {
@@ -1204,8 +1283,12 @@
 
                 $.get(`/TeacherGradebook/StudentsByGroupAndGrade?groupId=${groupId}&gradeId=${gradeLevelId}`, data => {
                     students.length = 0;
+                    const ids = new Set();
                     data.forEach(s => {
-                        students.push({ id: s.studentId, fullName: s.fullName });
+                        if (s.studentId && !ids.has(s.studentId)) {
+                            students.push({ id: s.studentId, fullName: s.fullName });
+                            ids.add(s.studentId);
+                        }
                     });
                     scores = {};
                     if (callback) callback();
@@ -1234,15 +1317,13 @@
                         activities.examen = [];
                         scores = {};
 
-                        console.log("Notas cargadas para el trimestre:", trimester, data);
-
                         data.forEach(d => {
                             if (!scores[d.studentId]) scores[d.studentId] = {};
                             d.notas.forEach(nota => {
                                 const tipo = nota.tipo.toLowerCase();
                                 if (!activities[tipo]) activities[tipo] = [];
                                 if (!activities[tipo].some(a => a.name === nota.actividad)) {
-                                    activities[tipo].push({ name: nota.actividad, pdfUrl: nota.pdfUrl });
+                                    activities[tipo].push({ name: nota.actividad, pdfUrl: nota.pdfUrl, id: nota.id, dueDate: nota.dueDate });
                                 }
                                 if (!scores[d.studentId][tipo]) scores[d.studentId][tipo] = {};
                                 scores[d.studentId][tipo][nota.actividad] = truncateToOneDecimal(nota.nota);
@@ -1254,7 +1335,7 @@
             }
 
             function loadPromediosFinales() {
-                const combo = $('#selGroup').val();
+                const combo = $('#selGroupResumen').val();
                 if (!combo) return;
 
                 const [subjectId, groupId, gradeLevelId] = combo.split('|');
@@ -1266,45 +1347,56 @@
                     data: JSON.stringify({
                         subjectId: subjectId,
                         groupId: groupId,
-                        gradeLevelId: gradeLevelId
+                        gradeLevelId: gradeLevelId,
+                        teacherId: teacherId
                     }),
                     success: function(response) {
-                        if (response.success) {
-                            const resumenBody = $('#resumenBody');
-                            resumenBody.empty();
-
-                            response.data.forEach(student => {
-                                const t1 = student.promedios['1T'] || 0.0;
-                                const t2 = student.promedios['2T'] || 0.0;
-                                const t3 = student.promedios['3T'] || 0.0;
-                                
+                        const resumenBody = $('#resumenBody');
+                        resumenBody.empty();
+                        // Limpia el mapa de estudiantes para evitar datos corruptos
+                        const map = {};
+                        if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+                            response.data.forEach(item => {
+                                if (!map[item.studentId]) {
+                                    map[item.studentId] = {
+                                        studentFullName: item.studentFullName && item.studentFullName.trim() ? item.studentFullName : '(Sin nombre)',
+                                        trimestres: { '1T': 0, '2T': 0, '3T': 0 },
+                                        notas: [],
+                                    };
+                                }
+                                map[item.studentId].trimestres[item.trimester] = item.notaFinal ?? 0;
+                                map[item.studentId].notas.push(item.notaFinal ?? 0);
+                            });
+                            Object.values(map).forEach(est => {
+                                const nombre = est.studentFullName && est.studentFullName.trim() ? est.studentFullName : '(Sin nombre)';
+                                const t1 = est.trimestres['1T'] || 0;
+                                const t2 = est.trimestres['2T'] || 0;
+                                const t3 = est.trimestres['3T'] || 0;
+                                const notasValidas = [t1, t2, t3].filter(x => x > 0);
+                                const promedioFinal = notasValidas.length ? (notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length) : 0;
+                                let estado = 'Sin calificar';
+                                if (notasValidas.length) {
+                                    estado = promedioFinal >= 3.0 ? 'Aprobado' : 'Reprobado';
+                                }
                                 const row = `
                                     <tr>
-                                        <td>${student.studentFullName}</td>
+                                        <td>${nombre}</td>
                                         <td>${t1.toFixed(1)}</td>
                                         <td>${t2.toFixed(1)}</td>
                                         <td>${t3.toFixed(1)}</td>
-                                        <td><strong>${student.promedioFinal.toFixed(1)}</strong></td>
-                                        <td class="${student.estado === 'Aprobado' ? 'text-success' : 'text-danger'} fw-semibold">
-                                            ${student.estado}
-                                        </td>
+                                        <td><strong>${promedioFinal.toFixed(1)}</strong></td>
+                                        <td class="${estado === 'Aprobado' ? 'text-success' : (estado === 'Reprobado' ? 'text-danger' : 'text-danger')}">${estado}</td>
                                     </tr>`;
                                 resumenBody.append(row);
                             });
                         } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: response.error || 'No se pudieron cargar los promedios finales'
-                            });
+                            resumenBody.append('<tr><td colspan="6" class="text-center text-muted">No hay datos para mostrar.</td></tr>');
                         }
                     },
                     error: function() {
-                            Swal.fire({
-                                icon: 'error',
-                            title: 'Error',
-                            text: 'No se pudieron cargar los promedios finales'
-                        });
+                        const resumenBody = $('#resumenBody');
+                        resumenBody.empty();
+                        resumenBody.append('<tr><td colspan="6" class="text-center text-danger">Error al cargar los promedios finales.</td></tr>');
                     }
                 });
             }
@@ -1332,6 +1424,10 @@
                 }
                 formData.append('TrimesterCode', trimester);
                 formData.append('Date', new Date().toISOString());
+                const dueDate = $('#activityDueDate').val();
+                if (dueDate) {
+                    formData.append('DueDate', dueDate);
+                }
                 formData.append('TeacherId', '@Model.TeacherId');
                 formData.append('SubjectId', subjectId);
                 formData.append('GroupId', groupId);
@@ -1349,6 +1445,7 @@
                             Swal.fire({ icon: 'success', title: 'Actividad agregada', text: 'La actividad se ha agregado correctamente' });
                             $('#activityName').val('');
                             $('#activityFile').val('');
+                            $('#activityDueDate').val('');
                             loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
                         } else {
                             Swal.fire({ icon: 'error', title: 'Error', text: resp.error || 'No se pudo agregar la actividad' });
@@ -1415,9 +1512,7 @@
                     const $row = $(this);
                     const studentId = $row.data('stu-id');
                     
-                    // Solo incluir estudiantes que tengan al menos una nota
                     const notasEstudiante = [];
-                    let tieneNotas = false;
 
                     // Recorrer cada celda de nota
                     $row.find('.score-cell').each(function() {
@@ -1426,37 +1521,34 @@
                         const actividad = $cell.data('act');
                         const nota = $cell.text().trim();
 
-                        if (nota) {
-                            tieneNotas = true;
-                            notasEstudiante.push({
-                                Tipo: tipo,
-                                Actividad: actividad,
-                                Nota: nota.toString()
-                            });
-                        }
+                        notasEstudiante.push({
+                            Tipo: tipo,
+                            Actividad: actividad,
+                            Nota: nota ? nota.toString() : ""
+                        });
                     });
 
-                    if (tieneNotas) {
-                        notasParaGuardar.push({
-                            StudentId: studentId.toString(),
-                            TeacherId: teacherId.toString(),
-                            SubjectId: subjectId.toString(),
-                            GroupId: groupId.toString(),
-                            GradeLevelId: gradeLevelId.toString(),
-                            Trimester: trimester,
-                            Notas: notasEstudiante
-                        });
-                    }
+                    // Siempre incluir todos los estudiantes aunque todas las celdas estén vacías
+                    notasParaGuardar.push({
+                        StudentId: studentId.toString(),
+                        TeacherId: teacherId.toString(),
+                        SubjectId: subjectId.toString(),
+                        GroupId: groupId.toString(),
+                        GradeLevelId: gradeLevelId.toString(),
+                        Trimester: trimester,
+                        Notas: notasEstudiante
+                    });
                 });
 
-                if (notasParaGuardar.length === 0) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Sin datos',
-                        text: 'No hay notas para guardar.'
-                    });
-                    return;
-                }
+                // Ya no bloqueamos el guardado si todas las celdas están vacías
+                // if (notasParaGuardar.length === 0) {
+                //     Swal.fire({
+                //         icon: 'warning',
+                //         title: 'Sin datos',
+                //         text: 'No hay notas para guardar.'
+                //     });
+                //     return;
+                // }
 
                 console.log('Datos a enviar:', notasParaGuardar);
 
@@ -2521,7 +2613,119 @@
         });
     </script>
 
-  
+    <script>
+        // ... existing code ...
+        // Filtro para promedios finales
+        $('#selGroupResumen').on('change', function() {
+            loadPromediosFinalesResumen();
+        });
+
+        function loadPromediosFinalesResumen() {
+            const combo = $('#selGroupResumen').val();
+            console.log("Combo seleccionado:", combo);
+            if (!combo) return;
+            const [subjectId, groupId, gradeLevelId] = combo.split('|');
+            console.log("IDs enviados:", { subjectId, groupId, gradeLevelId });
+            const teacherId = '@Model.TeacherId';
+            $.ajax({
+                url: '/TeacherGradebook/GetPromediosFinales',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    teacherId: teacherId,
+                    subjectId: subjectId,
+                    groupId: groupId,
+                    gradeLevelId: gradeLevelId
+                }),
+                success: function(response) {
+                    console.log("Respuesta del backend:", response);
+                    const resumenBody = $('#resumenBody');
+                    resumenBody.empty();
+                    if (response.success && response.data && response.data.length > 0) {
+                        // Agrupar por estudiante usando propiedades con mayúscula
+                        const estudiantes = {};
+                        response.data.forEach(item => {
+                            if (!estudiantes[item.studentId]) {
+                                estudiantes[item.studentId] = {
+                                    nombre: item.studentFullName,
+                                    t1: null,
+                                    t2: null,
+                                    t3: null,
+                                    estado: 'Sin calificar',
+                                    promedioFinal: null
+                                };
+                            }
+                            if (item.trimester === '1T') estudiantes[item.studentId].t1 = item.notaFinal;
+                            if (item.trimester === '2T') estudiantes[item.studentId].t2 = item.notaFinal;
+                            if (item.trimester === '3T') estudiantes[item.studentId].t3 = item.notaFinal;
+                        });
+                        // Calcular promedio final y estado
+                        Object.values(estudiantes).forEach(est => {
+                            const notas = [est.t1, est.t2, est.t3].filter(x => typeof x === 'number' && !isNaN(x));
+                            est.promedioFinal = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
+                            est.estado = est.promedioFinal !== null ? (est.promedioFinal >= 3.0 ? 'Aprobado' : 'Reprobado') : 'Sin calificar';
+                        });
+                        // Renderizar filas
+                        Object.values(estudiantes).forEach(est => {
+                            // Si el nombre es vacío, null o undefined, mostrar "(Sin nombre)"
+                            let nombre = est.nombre;
+                            if (!nombre || nombre.trim() === "" || nombre === "undefined") nombre = "(Sin nombre)";
+                            resumenBody.append(`
+                                <tr>
+                                    <td>${nombre}</td>
+                                    <td>${typeof est.t1 === 'number' && !isNaN(est.t1) ? est.t1.toFixed(1) : '0.0'}</td>
+                                    <td>${typeof est.t2 === 'number' && !isNaN(est.t2) ? est.t2.toFixed(1) : '0.0'}</td>
+                                    <td>${typeof est.t3 === 'number' && !isNaN(est.t3) ? est.t3.toFixed(1) : '0.0'}</td>
+                                    <td><strong>${typeof est.promedioFinal === 'number' && !isNaN(est.promedioFinal) ? est.promedioFinal.toFixed(1) : '0.0'}</strong></td>
+                                    <td class="${est.estado === 'Aprobado' ? 'text-success' : 'text-danger'} fw-semibold">${est.estado}</td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        resumenBody.append('<tr><td colspan="6" class="text-center text-muted">No hay datos para mostrar.</td></tr>');
+                    }
+                },
+                error: function() {
+                    $('#resumenBody').html('<tr><td colspan="6" class="text-center text-danger">Error al cargar los promedios finales.</td></tr>');
+                }
+            });
+        }
+        // Cargar al inicio
+        $('#resumen-tab').on('click', function() {
+            loadPromediosFinalesResumen();
+        });
+        // ... existing code ...
+    </script>
+
+    <script>
+        // ... existing code ...
+        function loadGradeBook(groupId, trimester) {
+            $.get(`/TeacherGradebook/GradeBookJson?groupId=${groupId}&trimester=${trimester}`, function(data) {
+                // Agrupa las actividades por tipo
+                activities.tarea = [];
+                activities.parcial = [];
+                activities.examen = [];
+                if (data.activities && Array.isArray(data.activities)) {
+                    data.activities.forEach(a => {
+                        const tipo = (a.type || '').toLowerCase();
+                        if (activities[tipo]) activities[tipo].push(a);
+                    });
+                }
+                refreshTable();
+            });
+        }
+
+        // Llama a loadGradeBook cuando cambian grupo o trimestre
+        $('#selGroup, #selTrimester').on('change', function() {
+            const combo = $('#selGroup').val();
+            const trimester = $('#selTrimester').val();
+            if (combo && trimester) {
+                const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                loadGradeBook(groupId, trimester);
+            }
+        });
+        // ... existing code ...
+    </script>
 }
 
 

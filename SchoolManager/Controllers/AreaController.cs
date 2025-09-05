@@ -80,6 +80,10 @@ public class AreaController : Controller
             await _areaService.DeleteAsync(request.Id);
             return Json(new { success = true, message = "Área eliminada exitosamente." });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Json(new { success = false, message = ex.Message });
+        }
         catch (Exception ex)
         {
             return Json(new { success = false, message = "Error al eliminar el área: " + ex.Message });

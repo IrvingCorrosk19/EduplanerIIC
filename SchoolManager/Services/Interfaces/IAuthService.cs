@@ -8,5 +8,6 @@ namespace SchoolManager.Services.Interfaces
         Task LogoutAsync();
         Task<bool> IsAuthenticatedAsync();
         Task<User?> GetCurrentUserAsync();
+        bool IsPasswordHashed(string passwordHash);
     }
 } 

@@ -28,8 +28,26 @@ namespace SchoolManager.Services.Implementations
                 return (false, "Usuario o contraseña incorrecta", null);
             }
 
-            // Verificar la contraseña usando BCrypt
-            bool passwordValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+            bool passwordValid = false;
+
+            // Verificar si la contraseña está hasheada
+            if (IsPasswordHashed(user.PasswordHash))
+            {
+                // La contraseña está hasheada, usar BCrypt.Verify
+                passwordValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+            }
+            else
+            {
+                // La contraseña no está hasheada, comparar directamente
+                passwordValid = password == user.PasswordHash;
+                
+                // Si la contraseña es correcta, hashearla y actualizarla
+                if (passwordValid)
+                {
+                    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+                    await _userService.UpdateAsync(user);
+                }
+            }
 
             if (!passwordValid)
             {
@@ -42,7 +60,7 @@ namespace SchoolManager.Services.Implementations
             }
 
             // Actualizar último login
-            user.LastLogin = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+            user.LastLogin = DateTime.UtcNow;
             await _userService.UpdateAsync(user);
 
             var claims = new List<Claim>
@@ -87,7 +105,19 @@ namespace SchoolManager.Services.Implementations
             if (userIdClaim == null)
                 return null;
 
-            return await _userService.GetByIdAsync(Guid.Parse(userIdClaim.Value));
+            return await _userService.GetByIdWithRelationsAsync(Guid.Parse(userIdClaim.Value));
+        }
+
+        public bool IsPasswordHashed(string passwordHash)
+        {
+            // Verificar si la contraseña está hasheada con BCrypt
+            // Los hashes de BCrypt comienzan con $2a$, $2b$, $2x$, $2y$ o $2$
+            return !string.IsNullOrEmpty(passwordHash) && 
+                   (passwordHash.StartsWith("$2a$") || 
+                    passwordHash.StartsWith("$2b$") || 
+                    passwordHash.StartsWith("$2x$") || 
+                    passwordHash.StartsWith("$2y$") || 
+                    passwordHash.StartsWith("$2$"));
         }
     }
 } 

@@ -1,13 +1,16 @@
 ﻿using SchoolManager.Models;
 using Microsoft.EntityFrameworkCore;
+using SchoolManager.Services.Interfaces;
 
 public class SubjectService : ISubjectService
 {
     private readonly SchoolDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public SubjectService(SchoolDbContext context)
+    public SubjectService(SchoolDbContext context, ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
 
@@ -46,8 +49,11 @@ public class SubjectService : ISubjectService
         return subject;
     }
 
-    public async Task<List<Subject>> GetAllAsync() =>
-        await _context.Subjects.ToListAsync();
+    public async Task<List<Subject>> GetAllAsync()
+    {    
+
+        return await _context.Subjects.ToListAsync();
+    }
 
     public async Task<Subject?> GetByIdAsync(Guid id) =>
         await _context.Subjects.FindAsync(id);
@@ -70,6 +76,10 @@ public class SubjectService : ISubjectService
 
     public async Task DeleteAsync(Guid id)
     {
+        // Validar si la materia está en uso en alguna asignación de materia
+        bool enUso = await _context.SubjectAssignments.AnyAsync(sa => sa.SubjectId == id);
+        if (enUso)
+            throw new InvalidOperationException("No se puede borrar la materia porque está siendo utilizada en el catálogo de materias. Elimina o reasigna esas asignaciones primero.");
         try
         {
             var subject = await _context.Subjects.FindAsync(id);
@@ -81,8 +91,6 @@ public class SubjectService : ISubjectService
         }
         catch (Exception ex)
         {
-            // Puedes registrar el error si tienes un sistema de logging, por ejemplo:
-            // _logger.LogError(ex, "Error al eliminar la materia con ID: {id}", id);
             throw new Exception("Error al eliminar la materia.", ex);
         }
     }

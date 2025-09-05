@@ -5,16 +5,19 @@ using SchoolManager.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace SchoolManager.Infrastructure.Services
 {
     public class AreaService : IAreaService
     {
         private readonly SchoolDbContext _context;
+        private readonly ICurrentUserService _currentUserService;
 
-        public AreaService(SchoolDbContext context)
+        public AreaService(SchoolDbContext context, ICurrentUserService currentUserService)
         {
             _context = context;
+            _currentUserService = currentUserService;
         }
 
         public async Task<Area> GetOrCreateAsync(string name)
@@ -30,7 +33,7 @@ namespace SchoolManager.Infrastructure.Services
                 {
                     Id = Guid.NewGuid(),
                     Name = name,
-                    CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
+                    CreatedAt = DateTime.UtcNow
                 };
 
                 _context.Areas.Add(area);
@@ -42,6 +45,7 @@ namespace SchoolManager.Infrastructure.Services
 
         public async Task<List<Area>> GetAllAsync()
         {
+  
             return await _context.Areas.ToListAsync();
         }
 
@@ -56,7 +60,7 @@ namespace SchoolManager.Infrastructure.Services
                 throw new ArgumentException("El nombre del área es obligatorio.");
 
             area.Id = Guid.NewGuid();
-            area.CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+            area.CreatedAt = DateTime.UtcNow;
             area.Name = area.Name.Trim();
             area.Description = area.Description?.Trim();
 
@@ -85,12 +89,24 @@ namespace SchoolManager.Infrastructure.Services
 
         public async Task DeleteAsync(Guid id)
         {
-            var area = await _context.Areas.FindAsync(id);
-            if (area != null)
+            // Validar si el área está en uso en alguna asignación de materia
+            bool enUso = await _context.SubjectAssignments.AnyAsync(sa => sa.AreaId == id);
+            if (enUso)
+                throw new InvalidOperationException("No se puede borrar el área porque está siendo utilizada en el catálogo de materias. Elimina o reasigna esas asignaciones primero.");
+            try
             {
-                _context.Areas.Remove(area);
-                await _context.SaveChangesAsync();
+                var area = await _context.Areas.FindAsync(id);
+                if (area != null)
+                {
+                    _context.Areas.Remove(area);
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException($"Error al eliminar el área con ID {id}: {ex.Message}", ex);
             }
         }
+
     }
 }

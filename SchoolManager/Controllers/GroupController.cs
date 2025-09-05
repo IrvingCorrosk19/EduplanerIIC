@@ -91,6 +91,10 @@ public class GroupController : Controller
             await _groupService.DeleteAsync(group.Id);
             return Json(new { success = true });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Json(new { success = false, message = ex.Message });
+        }
         catch (Exception ex)
         {
             return Json(new { success = false, message = $"Error al eliminar el grupo: {ex.Message}" });

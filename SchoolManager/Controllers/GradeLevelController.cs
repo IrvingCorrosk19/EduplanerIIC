@@ -39,7 +39,7 @@ public class GradeLevelController : Controller
             }
 
             data.Id = Guid.NewGuid();
-            data.CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+            data.CreatedAt = DateTime.UtcNow;
             var created = await _gradeLevelService.CreateAsync(data);
 
             return Json(new
@@ -99,6 +99,10 @@ public class GradeLevelController : Controller
             }
 
             return Json(new { success = true, message = "Grado eliminado exitosamente." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Json(new { success = false, message = ex.Message });
         }
         catch (Exception ex)
         {
