@@ -3,15 +3,16 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copiar archivos de proyecto y restaurar dependencias
-COPY ["SchoolManager/SchoolManager.csproj", "SchoolManager.sln", "./"]
-COPY ["SchoolManager/libman.json", "./"]
+COPY ["SchoolManager.sln", "./"]
+COPY ["SchoolManager/SchoolManager.csproj", "SchoolManager/"]
+COPY ["SchoolManager/libman.json", "SchoolManager/"]
 RUN dotnet restore
 
 # Copiar el resto del código fuente
-COPY SchoolManager/ .
+COPY SchoolManager/ SchoolManager/
 
 # Publicar la aplicación
-RUN dotnet publish "SchoolManager.csproj" -c Release -o /app/publish --no-restore
+RUN dotnet publish "SchoolManager/SchoolManager.csproj" -c Release -o /app/publish --no-restore
 
 # Construir la imagen final de runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
