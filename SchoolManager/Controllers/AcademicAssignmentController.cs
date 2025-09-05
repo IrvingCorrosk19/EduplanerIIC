@@ -7,6 +7,7 @@ using SchoolManager.ViewModels;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using BCrypt.Net;
 
 public class AcademicAssignmentController : Controller
 {
@@ -50,14 +51,13 @@ public class AcademicAssignmentController : Controller
 
     // Carga masiva desde archivo Excel
     [HttpPost]
-    [HttpPost]
     public async Task<IActionResult> SaveAssignmentsFromExcel([FromBody] List<AssignmentInputModel> asignaciones)
     {
         if (asignaciones == null || !asignaciones.Any())
             return BadRequest(new { message = "No se recibió información válida." });
 
         var asignacionesInsertadas = 0;
-        var profesoresNoEncontrados = new List<string>();
+        var profesoresCreados = new List<string>();
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
 
@@ -71,7 +71,11 @@ public class AcademicAssignmentController : Controller
             var materia = string.IsNullOrWhiteSpace(asignacion.Materia) ? "N/A" : asignacion.Materia.Trim().ToUpper();
             var grado = string.IsNullOrWhiteSpace(asignacion.Grado) ? "N/A" : asignacion.Grado.Trim().ToUpper();
             var grupo = string.IsNullOrWhiteSpace(asignacion.Grupo) ? "N/A" : asignacion.Grupo.Trim().ToUpper();
-            var correoDocente = asignacion.Docente?.Trim().ToLower();
+            
+            // Usar EmailDocente si está disponible, sino usar Docente (compatibilidad)
+            var correoDocente = !string.IsNullOrWhiteSpace(asignacion.EmailDocente) 
+                ? asignacion.EmailDocente.Trim().ToLower() 
+                : asignacion.Docente?.Trim().ToLower();
 
             var specialty = await _specialtyService.GetOrCreateAsync(especialidad);
             var areaEntity = await _areaService.GetOrCreateAsync(area);
@@ -108,7 +112,59 @@ public class AcademicAssignmentController : Controller
                 }
                 else
                 {
-                    profesoresNoEncontrados.Add(correoDocente);
+                    // Verificar nuevamente que no existe antes de crear (doble validación)
+                    var docenteVerificado = await _userService.GetByEmailAsync(correoDocente);
+                    if (docenteVerificado == null)
+                    {
+                        // Usar datos del Excel o valores por defecto
+                        var nombreProfesor = !string.IsNullOrWhiteSpace(asignacion.Nombre) 
+                            ? asignacion.Nombre.Trim() 
+                            : "Profesor";
+                        var apellidoProfesor = !string.IsNullOrWhiteSpace(asignacion.Apellido) 
+                            ? asignacion.Apellido.Trim() 
+                            : "Nuevo";
+                        var documentoProfesor = !string.IsNullOrWhiteSpace(asignacion.DocumentoId) 
+                            ? asignacion.DocumentoId.Trim() 
+                            : null;
+                        
+                        // Parsear fecha de nacimiento con valor por defecto
+                        DateTime fechaNacimiento = DateTime.UtcNow.AddYears(-25); // Fecha por defecto: 25 años atrás
+                        if (!string.IsNullOrWhiteSpace(asignacion.FechaNacimiento))
+                        {
+                            if (DateTime.TryParse(asignacion.FechaNacimiento, out DateTime fecha))
+                            {
+                                fechaNacimiento = fecha;
+                            }
+                        }
+
+                        // Crear nuevo profesor automáticamente
+                        var nuevoProfesor = new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Email = correoDocente,
+                            Name = nombreProfesor,
+                            LastName = apellidoProfesor,
+                            DocumentId = documentoProfesor,
+                            DateOfBirth = fechaNacimiento,
+                            PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
+                            Role = "teacher", // Usar minúscula para coincidir con la restricción CHECK
+                            SchoolId = user.SchoolId,
+                            Status = "active",
+                            CreatedAt = DateTime.UtcNow,
+                            TwoFactorEnabled = false
+                        };
+
+                        await _userService.CreateAsync(nuevoProfesor, new List<Guid>(), new List<Guid>());
+                        profesoresCreados.Add(correoDocente);
+                        
+                        // Asignar el profesor recién creado
+                        await _academicAssignmentService.AssignTeacherAsync(nuevoProfesor.Id, subjectAssignmentId.Value);
+                    }
+                    else
+                    {
+                        // Si ya existe, asignarlo
+                        await _academicAssignmentService.AssignTeacherAsync(docenteVerificado.Id, subjectAssignmentId.Value);
+                    }
                 }
             }
         }
@@ -118,7 +174,8 @@ public class AcademicAssignmentController : Controller
             message = asignacionesInsertadas > 0
                 ? $"Se insertaron {asignacionesInsertadas} nuevas asignaciones."
                 : "No se insertaron nuevas asignaciones. Todas ya existían.",
-            profesoresSinAsignar = profesoresNoEncontrados,
+            profesoresCreados = profesoresCreados,
+            profesoresCreadosCount = profesoresCreados.Count,
             success = true
         });
     }

@@ -1,0 +1,15 @@
+$backupFile = "C:\Users\CONSULTORIA\Desktop\SchoolManagement.sql"
+
+if (Test-Path $backupFile) {
+    $env:PGPASSWORD = "s5zPGRTcqiDhbNfiVsJcRj28TPtanwNX"
+    & "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
+      --host=dpg-d2tfpcbuibrs73eos9vg-a.oregon-postgres.render.com `
+      --port=5432 `
+      --username=admin `
+      --dbname=schoolmanagement_5uke `
+      --file=$backupFile `
+      --echo-all
+    Write-Host "`n✅ La base de datos 'schoolmanagement_5uke' fue actualizada correctamente con el archivo: $backupFile`n"
+} else {
+    Write-Host "`n❌ ERROR: No se encontró el archivo SQL en la ruta: $backupFile`n"
+}

@@ -23,7 +23,11 @@
 <table id="excelTable" class="table table-bordered table-striped">
     <thead>
         <tr>
-            <th>Docente</th>
+            <th>Email Docente</th>
+            <th>Nombre</th>
+            <th>Apellido</th>
+            <th>Documento ID</th>
+            <th>Fecha Nacimiento</th>
             <th>Especialidad</th>
             <th>Área</th>
             <th>Materia</th>
@@ -79,7 +83,7 @@
                     const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
                     // Validación de encabezados exactos
-                    const headersEsperados = ["DOCENTE", "ESPECIALIDAD", "AREA", "MATERIA", "GRADO", "GRUPO"];
+                    const headersEsperados = ["EMAIL DOCENTE", "NOMBRE", "APELLIDO", "DOCUMENTO ID", "FECHA NACIMIENTO", "ESPECIALIDAD", "AREA", "MATERIA", "GRADO", "GRUPO"];
                     const headersObtenidos = json[0]?.map(h => h?.toString().trim().toUpperCase());
                     const headersValidados = headersEsperados.every((expected, i) =>
                         headersObtenidos[i] === expected
@@ -106,12 +110,16 @@
                         const camposFaltantes = [];
                         
                         // Validar cada campo
-                        if (!row[0] || row[0].toString().trim() === "") camposFaltantes.push("Docente");
-                        if (!row[1] || row[1].toString().trim() === "") camposFaltantes.push("Especialidad");
-                        if (!row[2] || row[2].toString().trim() === "") camposFaltantes.push("Área");
-                        if (!row[3] || row[3].toString().trim() === "") camposFaltantes.push("Materia");
-                        if (!row[4] || row[4].toString().trim() === "") camposFaltantes.push("Grado");
-                        if (!row[5] || row[5].toString().trim() === "") camposFaltantes.push("Grupo");
+                        if (!row[0] || row[0].toString().trim() === "") camposFaltantes.push("Email Docente");
+                        if (!row[1] || row[1].toString().trim() === "") camposFaltantes.push("Nombre");
+                        if (!row[2] || row[2].toString().trim() === "") camposFaltantes.push("Apellido");
+                        if (!row[3] || row[3].toString().trim() === "") camposFaltantes.push("Documento ID");
+                        if (!row[4] || row[4].toString().trim() === "") camposFaltantes.push("Fecha Nacimiento");
+                        if (!row[5] || row[5].toString().trim() === "") camposFaltantes.push("Especialidad");
+                        if (!row[6] || row[6].toString().trim() === "") camposFaltantes.push("Área");
+                        if (!row[7] || row[7].toString().trim() === "") camposFaltantes.push("Materia");
+                        if (!row[8] || row[8].toString().trim() === "") camposFaltantes.push("Grado");
+                        if (!row[9] || row[9].toString().trim() === "") camposFaltantes.push("Grupo");
 
                         const isValid = camposFaltantes.length === 0;
                         if (!isValid) {
@@ -128,6 +136,10 @@
                                 <td>${row[3] ?? ""}</td>
                                 <td>${row[4] ?? ""}</td>
                                 <td>${row[5] ?? ""}</td>
+                                <td>${row[6] ?? ""}</td>
+                                <td>${row[7] ?? ""}</td>
+                                <td>${row[8] ?? ""}</td>
+                                <td>${row[9] ?? ""}</td>
                             </tr>
                         `;
                         const $row = $(rowHtml);
@@ -181,15 +193,23 @@
                 $('#excelTable tbody tr').each(function () {
                     rowNumber++;
                     const $row = $(this);
-                    const docente = $row.find('td').eq(0).text().trim();
-                    const especialidad = $row.find('td').eq(1).text().trim();
-                    const area = $row.find('td').eq(2).text().trim();
-                    const materia = $row.find('td').eq(3).text().trim();
-                    const grado = $row.find('td').eq(4).text().trim();
-                    const grupo = $row.find('td').eq(5).text().trim();
+                    const emailDocente = $row.find('td').eq(0).text().trim();
+                    const nombre = $row.find('td').eq(1).text().trim();
+                    const apellido = $row.find('td').eq(2).text().trim();
+                    const documentoId = $row.find('td').eq(3).text().trim();
+                    const fechaNacimiento = $row.find('td').eq(4).text().trim();
+                    const especialidad = $row.find('td').eq(5).text().trim();
+                    const area = $row.find('td').eq(6).text().trim();
+                    const materia = $row.find('td').eq(7).text().trim();
+                    const grado = $row.find('td').eq(8).text().trim();
+                    const grupo = $row.find('td').eq(9).text().trim();
 
                     const camposFaltantes = [];
-                    if (!docente) camposFaltantes.push("Docente");
+                    if (!emailDocente) camposFaltantes.push("Email Docente");
+                    if (!nombre) camposFaltantes.push("Nombre");
+                    if (!apellido) camposFaltantes.push("Apellido");
+                    if (!documentoId) camposFaltantes.push("Documento ID");
+                    if (!fechaNacimiento) camposFaltantes.push("Fecha Nacimiento");
                     if (!especialidad) camposFaltantes.push("Especialidad");
                     if (!area) camposFaltantes.push("Área");
                     if (!materia) camposFaltantes.push("Materia");
@@ -201,7 +221,18 @@
                         filasConErrores.add(rowNumber);
                         marcarFilaConError($row);
                     } else {
-                        asignaciones.push({ docente, especialidad, area, materia, grado, grupo });
+                        asignaciones.push({ 
+                            emailDocente, 
+                            nombre, 
+                            apellido, 
+                            documentoId, 
+                            fechaNacimiento, 
+                            especialidad, 
+                            area, 
+                            materia, 
+                            grado, 
+                            grupo 
+                        });
                     }
                 });
 

@@ -62,9 +62,10 @@ public partial class SchoolDbContext : DbContext
         // Configurar interceptor global para DateTime
         optionsBuilder.AddInterceptors(new DateTimeInterceptor());
         
-        // La cadena de conexión se configura en Program.cs usando appsettings.json
-        // No es necesario configurarla aquí si ya está configurada en Program.cs
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseNpgsql("Host=dpg-d2tfpcbuibrs73eos9vg-a;Database=schoolmanagement_5uke;Username=admin;Password=s5zPGRTcqiDhbNfiVsJcRj28TPtanwNX;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
     }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
