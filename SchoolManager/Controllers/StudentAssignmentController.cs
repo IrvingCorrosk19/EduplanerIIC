@@ -314,13 +314,20 @@ namespace SchoolManager.Controllers
                         {
                             Id = Guid.NewGuid(),
                             Email = item.Estudiante,
-                            Name = item.Estudiante.Split('@')[0], // Usar la parte antes del @ como nombre
-                            LastName = "",
+                            Name = !string.IsNullOrEmpty(item.Nombre) ? item.Nombre : item.Estudiante.Split('@')[0],
+                            LastName = !string.IsNullOrEmpty(item.Apellido) ? item.Apellido : "Estudiante",
+                            DocumentId = !string.IsNullOrEmpty(item.DocumentoId) ? item.DocumentoId : $"EST-{Guid.NewGuid().ToString("N")[..8]}",
+                            DateOfBirth = !string.IsNullOrEmpty(item.FechaNacimiento) && DateTime.TryParse(item.FechaNacimiento, out var fechaNac) 
+                                ? fechaNac 
+                                : DateTime.UtcNow.AddYears(-18), // Fecha por defecto (18 años atrás)
                             Role = "estudiante",
                             Status = "active",
                             CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
                             SchoolId = await GetCurrentUserSchoolId(),
-                            PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456") // Contraseña temporal por defecto hasheada
+                            PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), // Contraseña temporal por defecto hasheada
+                            TwoFactorEnabled = false,
+                            LastLogin = null
                         };
                         
                         await _userService.CreateAsync(newStudent, new List<Guid>(), new List<Guid>());

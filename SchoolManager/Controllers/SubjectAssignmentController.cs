@@ -185,10 +185,28 @@ namespace SchoolManager.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] SubjectAssignmentCreateDto model)
         {
+            // Validaciones básicas del modelo
             if (!ModelState.IsValid)
             {
-                return Json(new { success = false, message = "Los datos no son válidos." });
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                return Json(new { success = false, message = "Los datos no son válidos.", errors = errors });
             }
+
+            // Validaciones de campos requeridos
+            if (model.SpecialtyId == Guid.Empty)
+                return Json(new { success = false, message = "La especialidad es requerida." });
+            
+            if (model.AreaId == Guid.Empty)
+                return Json(new { success = false, message = "El área es requerida." });
+            
+            if (model.SubjectId == Guid.Empty)
+                return Json(new { success = false, message = "La materia es requerida." });
+            
+            if (model.GradeLevelId == Guid.Empty)
+                return Json(new { success = false, message = "El grado es requerido." });
+            
+            if (model.GroupId == Guid.Empty)
+                return Json(new { success = false, message = "El grupo es requerido." });
 
             try
             {
@@ -204,6 +222,27 @@ namespace SchoolManager.Controllers
                 {
                     return Json(new { success = false, message = "Usuario no tiene escuela asignada." });
                 }
+
+                // Validar que los IDs existan en la base de datos
+                var specialtyExists = await _context.Specialties.AnyAsync(s => s.Id == model.SpecialtyId);
+                if (!specialtyExists)
+                    return Json(new { success = false, message = "La especialidad seleccionada no existe." });
+
+                var areaExists = await _context.Areas.AnyAsync(a => a.Id == model.AreaId);
+                if (!areaExists)
+                    return Json(new { success = false, message = "El área seleccionada no existe." });
+
+                var subjectExists = await _context.Subjects.AnyAsync(s => s.Id == model.SubjectId);
+                if (!subjectExists)
+                    return Json(new { success = false, message = "La materia seleccionada no existe." });
+
+                var gradeLevelExists = await _context.GradeLevels.AnyAsync(g => g.Id == model.GradeLevelId);
+                if (!gradeLevelExists)
+                    return Json(new { success = false, message = "El grado seleccionado no existe." });
+
+                var groupExists = await _context.Groups.AnyAsync(g => g.Id == model.GroupId);
+                if (!groupExists)
+                    return Json(new { success = false, message = "El grupo seleccionado no existe." });
 
                 // Obtener los nombres de los elementos para mensajes más descriptivos
                 var specialty = await _context.Specialties.FindAsync(model.SpecialtyId);
@@ -327,10 +366,31 @@ namespace SchoolManager.Controllers
         [HttpPost]
         public async Task<IActionResult> Edit([FromBody] EditSubjectAssignmentViewModel model)
         {
+            // Validaciones básicas del modelo
             if (!ModelState.IsValid)
             {
-                return Json(new { success = false, message = "Los datos no son válidos." });
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                return Json(new { success = false, message = "Los datos no son válidos.", errors = errors });
             }
+
+            // Validaciones de campos requeridos
+            if (model.Id == Guid.Empty)
+                return Json(new { success = false, message = "El ID de la asignación es requerido." });
+            
+            if (model.SpecialtyId == Guid.Empty)
+                return Json(new { success = false, message = "La especialidad es requerida." });
+            
+            if (model.AreaId == Guid.Empty)
+                return Json(new { success = false, message = "El área es requerida." });
+            
+            if (model.SubjectId == Guid.Empty)
+                return Json(new { success = false, message = "La materia es requerida." });
+            
+            if (model.GradeLevelId == Guid.Empty)
+                return Json(new { success = false, message = "El grado es requerido." });
+            
+            if (model.GroupId == Guid.Empty)
+                return Json(new { success = false, message = "El grupo es requerido." });
 
             try
             {
@@ -341,6 +401,27 @@ namespace SchoolManager.Controllers
                 {
                     return Json(new { success = false, message = "La asignación no existe." });
                 }
+
+                // Validar que los IDs existan en la base de datos
+                var specialtyExists = await _context.Specialties.AnyAsync(s => s.Id == model.SpecialtyId);
+                if (!specialtyExists)
+                    return Json(new { success = false, message = "La especialidad seleccionada no existe." });
+
+                var areaExists = await _context.Areas.AnyAsync(a => a.Id == model.AreaId);
+                if (!areaExists)
+                    return Json(new { success = false, message = "El área seleccionada no existe." });
+
+                var subjectExists = await _context.Subjects.AnyAsync(s => s.Id == model.SubjectId);
+                if (!subjectExists)
+                    return Json(new { success = false, message = "La materia seleccionada no existe." });
+
+                var gradeLevelExists = await _context.GradeLevels.AnyAsync(g => g.Id == model.GradeLevelId);
+                if (!gradeLevelExists)
+                    return Json(new { success = false, message = "El grado seleccionado no existe." });
+
+                var groupExists = await _context.Groups.AnyAsync(g => g.Id == model.GroupId);
+                if (!groupExists)
+                    return Json(new { success = false, message = "El grupo seleccionado no existe." });
 
                 // Obtener los nombres de los elementos para mensajes más descriptivos
                 var specialty = await _context.Specialties.FindAsync(model.SpecialtyId);
@@ -458,11 +539,39 @@ namespace SchoolManager.Controllers
         [HttpGet]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var subjectAssignment = await _context.SubjectAssignments.FindAsync(id);
-            if (subjectAssignment != null)
+            // Validar que el ID no esté vacío
+            if (id == Guid.Empty)
             {
+                TempData["ErrorMessage"] = "ID de asignación inválido.";
+                return RedirectToAction("Index");
+            }
+
+            try
+            {
+                var subjectAssignment = await _context.SubjectAssignments.FindAsync(id);
+                if (subjectAssignment == null)
+                {
+                    TempData["ErrorMessage"] = "No se encontró la asignación especificada.";
+                    return RedirectToAction("Index");
+                }
+
+                // Verificar si hay dependencias (estudiantes asignados, calificaciones, etc.)
+                var hasStudentAssignments = await _context.StudentAssignments
+                    .AnyAsync(sa => sa.GradeId == subjectAssignment.GradeLevelId && sa.GroupId == subjectAssignment.GroupId);
+                
+                if (hasStudentAssignments)
+                {
+                    TempData["ErrorMessage"] = "No se puede eliminar la asignación porque tiene estudiantes asignados.";
+                    return RedirectToAction("Index");
+                }
+
                 _context.SubjectAssignments.Remove(subjectAssignment);
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Asignación eliminada correctamente.";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al eliminar la asignación: {ex.Message}";
             }
 
             return RedirectToAction("Index");
@@ -471,30 +580,135 @@ namespace SchoolManager.Controllers
         [HttpPost]
         public async Task<IActionResult> DeleteAssignment([FromBody] Guid id)
         {
-            var subjectAssignment = await _context.SubjectAssignments.FindAsync(id);
-            if (subjectAssignment == null)
-                return Json(new { success = false, message = "No se encontró la asignación." });
+            // Validar que el ID no esté vacío
+            if (id == Guid.Empty)
+                return Json(new { success = false, message = "ID de asignación inválido." });
 
-            _context.SubjectAssignments.Remove(subjectAssignment);
-            await _context.SaveChangesAsync();
-            return Json(new { success = true, message = "Asignación eliminada correctamente." });
+            try
+            {
+                var subjectAssignment = await _context.SubjectAssignments.FindAsync(id);
+                if (subjectAssignment == null)
+                    return Json(new { success = false, message = "No se encontró la asignación." });
+
+                // Verificar si hay dependencias (estudiantes asignados, calificaciones, etc.)
+                var hasStudentAssignments = await _context.StudentAssignments
+                    .AnyAsync(sa => sa.GradeId == subjectAssignment.GradeLevelId && sa.GroupId == subjectAssignment.GroupId);
+                
+                if (hasStudentAssignments)
+                {
+                    return Json(new { success = false, message = "No se puede eliminar la asignación porque tiene estudiantes asignados." });
+                }
+
+                _context.SubjectAssignments.Remove(subjectAssignment);
+                await _context.SaveChangesAsync();
+                return Json(new { success = true, message = "Asignación eliminada correctamente." });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error al eliminar la asignación: {ex.Message}" });
+            }
         }
 
         // Método para carga masiva
         [HttpPost]
         public async Task<IActionResult> SaveAssignments([FromBody] List<StudentAssignmentInputModel> asignaciones)
         {
+            // Validaciones básicas
             if (asignaciones == null || asignaciones.Count == 0)
                 return BadRequest(new { success = false, message = "No se recibieron asignaciones." });
 
+            if (asignaciones.Count > 1000)
+                return BadRequest(new { success = false, message = "No se pueden procesar más de 1000 asignaciones a la vez." });
+
             int insertadas = 0;
             int duplicadas = 0;
+            int erroresValidacion = 0;
             var errores = new List<string>();
 
             foreach (var item in asignaciones)
             {
                 try
                 {
+                    // Validaciones de campos requeridos
+                    if (string.IsNullOrWhiteSpace(item.Estudiante))
+                    {
+                        errores.Add($"Email del estudiante es requerido en la fila {asignaciones.IndexOf(item) + 1}");
+                        erroresValidacion++;
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(item.Grado))
+                    {
+                        errores.Add($"Grado es requerido para {item.Estudiante}");
+                        erroresValidacion++;
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(item.Grupo))
+                    {
+                        errores.Add($"Grupo es requerido para {item.Estudiante}");
+                        erroresValidacion++;
+                        continue;
+                    }
+
+                    // Validar formato de email
+                    if (!IsValidEmail(item.Estudiante))
+                    {
+                        errores.Add($"Email inválido: {item.Estudiante}");
+                        erroresValidacion++;
+                        continue;
+                    }
+
+                    // Validar campos adicionales si están presentes
+                    if (!string.IsNullOrWhiteSpace(item.Nombre) && item.Nombre.Length > 100)
+                    {
+                        errores.Add($"Nombre muy largo para {item.Estudiante} (máximo 100 caracteres)");
+                        erroresValidacion++;
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(item.Apellido) && item.Apellido.Length > 100)
+                    {
+                        errores.Add($"Apellido muy largo para {item.Estudiante} (máximo 100 caracteres)");
+                        erroresValidacion++;
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(item.DocumentoId) && item.DocumentoId.Length > 20)
+                    {
+                        errores.Add($"Documento ID muy largo para {item.Estudiante} (máximo 20 caracteres)");
+                        erroresValidacion++;
+                        continue;
+                    }
+
+                    // Validar fecha de nacimiento si está presente
+                    if (!string.IsNullOrWhiteSpace(item.FechaNacimiento))
+                    {
+                        if (!DateTime.TryParseExact(item.FechaNacimiento, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime fechaNac))
+                        {
+                            errores.Add($"Fecha de nacimiento inválida para {item.Estudiante}. Use formato DD/MM/YYYY");
+                            erroresValidacion++;
+                            continue;
+                        }
+
+                        // Validar que la fecha no sea futura
+                        if (fechaNac > DateTime.Now)
+                        {
+                            errores.Add($"Fecha de nacimiento no puede ser futura para {item.Estudiante}");
+                            erroresValidacion++;
+                            continue;
+                        }
+
+                        // Validar que la edad sea razonable (entre 5 y 25 años)
+                        var edad = DateTime.Now.Year - fechaNac.Year;
+                        if (edad < 5 || edad > 25)
+                        {
+                            errores.Add($"Edad no válida para {item.Estudiante} ({edad} años). Debe estar entre 5 y 25 años");
+                            erroresValidacion++;
+                            continue;
+                        }
+                    }
+
                     var student = await _userService.GetByEmailAsync(item.Estudiante);
                     var grade = await _gradeLevelService.GetByNameAsync(item.Grado);
                     var group = await _groupService.GetByNameAndGradeAsync(item.Grupo);
@@ -535,8 +749,9 @@ namespace SchoolManager.Controllers
                 success = true,
                 insertadas,
                 duplicadas,
+                erroresValidacion,
                 errores,
-                message = "Carga masiva completada."
+                message = $"Carga masiva completada. Insertadas: {insertadas}, Duplicadas: {duplicadas}, Errores de validación: {erroresValidacion}"
             });
         }
 
@@ -589,42 +804,70 @@ namespace SchoolManager.Controllers
         [HttpGet]
         public async Task<IActionResult> ChangeStatus(Guid id)
         {
-            var item = await _context.SubjectAssignments.FindAsync(id);
-            if (item == null)
+            // Validar que el ID no esté vacío
+            if (id == Guid.Empty)
             {
-                return NotFound();
+                TempData["ErrorMessage"] = "ID de asignación inválido.";
+                return RedirectToAction("Index");
             }
 
-            // Cambiar el estado (asegurándose de que sea un valor válido)
-            if (item.Status == "Active")
-            {
-                item.Status = "Inactive";
-            }
-            else if (item.Status == "Inactive")
-            {
-                item.Status = "Active";
-            }
-            else
-            {
-                // Si el estado no es válido, retornar un error o manejarlo de alguna manera
-                return BadRequest("Estado no válido.");
-            }
-
-            // Guardar los cambios en la base de datos
             try
             {
+                var item = await _context.SubjectAssignments.FindAsync(id);
+                if (item == null)
+                {
+                    TempData["ErrorMessage"] = "No se encontró la asignación especificada.";
+                    return RedirectToAction("Index");
+                }
+
+                // Cambiar el estado (asegurándose de que sea un valor válido)
+                if (item.Status == "Active")
+                {
+                    item.Status = "Inactive";
+                }
+                else if (item.Status == "Inactive")
+                {
+                    item.Status = "Active";
+                }
+                else
+                {
+                    // Si el estado no es válido, establecer un estado por defecto
+                    item.Status = "Active";
+                }
+
+                // Guardar los cambios en la base de datos
                 _context.Update(item);
                 await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = $"Estado de la asignación cambiado a {item.Status}.";
             }
             catch (DbUpdateException ex)
             {
                 // Manejar el error de la base de datos (si lo hay)
                 var innerException = ex.InnerException?.Message;
-                return BadRequest($"Error al actualizar el estado: {innerException}");
+                TempData["ErrorMessage"] = $"Error al actualizar el estado: {innerException}";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error inesperado: {ex.Message}";
             }
 
             // Redirigir de vuelta a la vista
             return RedirectToAction(nameof(Index));
+        }
+
+        // Método auxiliar para validar formato de email
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
     }

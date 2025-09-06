@@ -18,6 +18,32 @@
 
 <h3>Cargar y previsualizar archivo Excel</h3>
 
+<!-- Leyenda del formato Excel -->
+<div class="alert alert-info mb-3">
+    <h5><i class="icon fas fa-info"></i> Formato del archivo Excel</h5>
+    <p>El archivo Excel debe tener las siguientes columnas en este orden:</p>
+    <div class="row">
+        <div class="col-md-6">
+            <ul class="mb-0">
+                <li><strong>Email Docente:</strong> Correo electrónico del profesor</li>
+                <li><strong>Nombre:</strong> Nombre del profesor</li>
+                <li><strong>Apellido:</strong> Apellido del profesor</li>
+                <li><strong>Documento ID:</strong> Número de documento de identidad</li>
+                <li><strong>Fecha Nacimiento:</strong> Fecha de nacimiento (formato: DD/MM/YYYY)</li>
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <ul class="mb-0">
+                <li><strong>Especialidad:</strong> Especialidad académica</li>
+                <li><strong>Área:</strong> Área de conocimiento</li>
+                <li><strong>Materia:</strong> Nombre de la materia</li>
+                <li><strong>Grado:</strong> Nombre del grado</li>
+                <li><strong>Grupo:</strong> Nombre del grupo</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
 <input type="file" id="excelFile" class="form-control mb-3" accept=".xlsx,.xls" />
 
 <table id="excelTable" class="table table-bordered table-striped">
