@@ -20,6 +20,7 @@ public class AcademicAssignmentController : Controller
     private readonly IAreaService _areaService;
     private readonly ISpecialtyService _specialtyService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IDateTimeHomologationService _dateTimeHomologationService;
 
     public AcademicAssignmentController(
         ITeacherAssignmentService teacherAssignmentService,
@@ -30,7 +31,8 @@ public class AcademicAssignmentController : Controller
         IAcademicAssignmentService academicAssignmentService,
         IAreaService areaService,
         ISpecialtyService specialtyService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IDateTimeHomologationService dateTimeHomologationService)
     {
         _teacherAssignmentService = teacherAssignmentService;
         _userService = userService;
@@ -41,6 +43,7 @@ public class AcademicAssignmentController : Controller
         _areaService = areaService;
         _specialtyService = specialtyService;
         _currentUserService = currentUserService;
+        _dateTimeHomologationService = dateTimeHomologationService;
     }
 
 
@@ -127,34 +130,11 @@ public class AcademicAssignmentController : Controller
                             ? asignacion.DocumentoId.Trim() 
                             : null;
                         
-                        // Parsear fecha de nacimiento con valor por defecto
-                        DateTime fechaNacimiento = DateTime.UtcNow.AddYears(-25); // Fecha por defecto: 25 años atrás
-                        if (!string.IsNullOrWhiteSpace(asignacion.FechaNacimiento))
-                        {
-                            // Intentar parsear como fecha normal primero
-                            if (DateTime.TryParse(asignacion.FechaNacimiento, out DateTime fecha))
-                            {
-                                fechaNacimiento = fecha;
-                            }
-                            else
-                            {
-                                // Intentar parsear como número de Excel
-                                if (double.TryParse(asignacion.FechaNacimiento, out double excelDate))
-                                {
-                                    // Convertir número de Excel a fecha
-                                    // Excel cuenta días desde 1900-01-01, pero tiene un bug: considera 1900 como año bisiesto
-                                    try
-                                    {
-                                        fechaNacimiento = new DateTime(1900, 1, 1).AddDays(excelDate - 2);
-                                    }
-                                    catch
-                                    {
-                                        // Si falla la conversión, mantener la fecha por defecto
-                                        fechaNacimiento = DateTime.UtcNow.AddYears(-25);
-                                    }
-                                }
-                            }
-                        }
+                        // Homologar fecha de nacimiento usando el servicio especializado
+                        DateTime fechaNacimiento = _dateTimeHomologationService.HomologateDateOfBirth(
+                            asignacion.FechaNacimiento, 
+                            "AcademicAssignment"
+                        );
 
                         // Crear nuevo profesor automáticamente
                         var nuevoProfesor = new User
