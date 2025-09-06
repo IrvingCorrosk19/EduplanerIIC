@@ -205,7 +205,7 @@
                                     </span>
                                 </td>
                                 <td class="text-start grade-group-cell">
-                                    @if (est.GradeGroupPairs != null && est.GradeGroupPairs.Any())
+                                    @if (est.GradeGroupPairs != null && est.GradeGroupPairs.Count > 0)
                                     {
                                         foreach (var pair in est.GradeGroupPairs)
                                         {
