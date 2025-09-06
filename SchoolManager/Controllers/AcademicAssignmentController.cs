@@ -131,9 +131,28 @@ public class AcademicAssignmentController : Controller
                         DateTime fechaNacimiento = DateTime.UtcNow.AddYears(-25); // Fecha por defecto: 25 años atrás
                         if (!string.IsNullOrWhiteSpace(asignacion.FechaNacimiento))
                         {
+                            // Intentar parsear como fecha normal primero
                             if (DateTime.TryParse(asignacion.FechaNacimiento, out DateTime fecha))
                             {
                                 fechaNacimiento = fecha;
+                            }
+                            else
+                            {
+                                // Intentar parsear como número de Excel
+                                if (double.TryParse(asignacion.FechaNacimiento, out double excelDate))
+                                {
+                                    // Convertir número de Excel a fecha
+                                    // Excel cuenta días desde 1900-01-01, pero tiene un bug: considera 1900 como año bisiesto
+                                    try
+                                    {
+                                        fechaNacimiento = new DateTime(1900, 1, 1).AddDays(excelDate - 2);
+                                    }
+                                    catch
+                                    {
+                                        // Si falla la conversión, mantener la fecha por defecto
+                                        fechaNacimiento = DateTime.UtcNow.AddYears(-25);
+                                    }
+                                }
                             }
                         }
 

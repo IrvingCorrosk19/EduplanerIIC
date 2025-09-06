@@ -317,9 +317,7 @@ namespace SchoolManager.Controllers
                             Name = !string.IsNullOrEmpty(item.Nombre) ? item.Nombre : item.Estudiante.Split('@')[0],
                             LastName = !string.IsNullOrEmpty(item.Apellido) ? item.Apellido : "Estudiante",
                             DocumentId = !string.IsNullOrEmpty(item.DocumentoId) ? item.DocumentoId : $"EST-{Guid.NewGuid().ToString("N")[..8]}",
-                            DateOfBirth = !string.IsNullOrEmpty(item.FechaNacimiento) && DateTime.TryParse(item.FechaNacimiento, out var fechaNac) 
-                                ? fechaNac 
-                                : DateTime.UtcNow.AddYears(-18), // Fecha por defecto (18 años atrás)
+                            DateOfBirth = ParseFechaNacimiento(item.FechaNacimiento),
                             Role = "estudiante",
                             Status = "active",
                             CreatedAt = DateTime.UtcNow,
@@ -387,6 +385,40 @@ namespace SchoolManager.Controllers
                 errores,
                 message = "Carga masiva completada."
             });
+        }
+
+        private DateTime ParseFechaNacimiento(string fechaNacimiento)
+        {
+            // Fecha por defecto (18 años atrás)
+            DateTime fechaPorDefecto = DateTime.UtcNow.AddYears(-18);
+            
+            if (string.IsNullOrEmpty(fechaNacimiento))
+                return fechaPorDefecto;
+
+            // Intentar parsear como fecha normal primero
+            if (DateTime.TryParse(fechaNacimiento, out DateTime fecha))
+            {
+                return fecha;
+            }
+
+            // Intentar parsear como número de Excel
+            if (double.TryParse(fechaNacimiento, out double excelDate))
+            {
+                try
+                {
+                    // Convertir número de Excel a fecha
+                    // Excel cuenta días desde 1900-01-01, pero tiene un bug: considera 1900 como año bisiesto
+                    return new DateTime(1900, 1, 1).AddDays(excelDate - 2);
+                }
+                catch
+                {
+                    // Si falla la conversión, mantener la fecha por defecto
+                    return fechaPorDefecto;
+                }
+            }
+
+            // Si no se puede parsear, devolver fecha por defecto
+            return fechaPorDefecto;
         }
 
     }

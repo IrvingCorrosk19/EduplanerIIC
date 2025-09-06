@@ -32,7 +32,7 @@
                         <li><strong>Nombre:</strong> Nombre del profesor</li>
                         <li><strong>Apellido:</strong> Apellido del profesor</li>
                         <li><strong>Documento ID:</strong> Número de documento de identidad</li>
-                        <li><strong>Fecha Nacimiento:</strong> Fecha de nacimiento (formato: DD/MM/YYYY)</li>
+                        <li><strong>Fecha Nacimiento:</strong> Fecha de nacimiento (formato: DD/MM/YYYY o número de Excel)</li>
                     </ul>
                 </div>
                 <div class="col-md-6">
@@ -160,23 +160,41 @@
                         if (!row[8] || row[8].toString().trim() === "") camposFaltantes.push("Grado");
                         if (!row[9] || row[9].toString().trim() === "") camposFaltantes.push("Grupo");
 
-                        // Validar formato de fecha DD/MM/YYYY
+                        // Validar formato de fecha DD/MM/YYYY o número de Excel
                         if (row[4] && row[4].toString().trim() !== "") {
                             const fechaStr = row[4].toString().trim();
+                            let fechaValida = false;
+                            
+                            // Verificar si es formato DD/MM/YYYY
                             const fechaRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
                             const match = fechaStr.match(fechaRegex);
                             
-                            if (!match) {
-                                camposFaltantes.push("Fecha Nacimiento (formato DD/MM/YYYY)");
-                            } else {
+                            if (match) {
                                 const dia = parseInt(match[1]);
                                 const mes = parseInt(match[2]);
                                 const año = parseInt(match[3]);
                                 
                                 // Validar rangos
-                                if (dia < 1 || dia > 31 || mes < 1 || mes > 12 || año < 1900 || año > new Date().getFullYear()) {
-                                    camposFaltantes.push("Fecha Nacimiento (fecha inválida)");
+                                if (dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12 && año >= 1900 && año <= new Date().getFullYear()) {
+                                    fechaValida = true;
                                 }
+                            } else {
+                                // Verificar si es un número de Excel (fecha serial)
+                                const numeroFecha = parseFloat(fechaStr);
+                                if (!isNaN(numeroFecha) && numeroFecha > 0) {
+                                    // Convertir número de Excel a fecha
+                                    // Excel cuenta días desde 1900-01-01, pero tiene un bug: considera 1900 como año bisiesto
+                                    const fechaExcel = new Date(1900, 0, numeroFecha - 2);
+                                    
+                                    // Verificar si la fecha es válida y está en un rango razonable
+                                    if (fechaExcel.getFullYear() >= 1900 && fechaExcel.getFullYear() <= new Date().getFullYear()) {
+                                        fechaValida = true;
+                                    }
+                                }
+                            }
+                            
+                            if (!fechaValida) {
+                                camposFaltantes.push("Fecha Nacimiento (formato inválido)");
                             }
                         }
 
@@ -187,13 +205,37 @@
                             erroresDetallados.push(`Fila ${rowNumber}: Faltan los campos: ${camposFaltantes.join(", ")}`);
                         }
 
+                        // Convertir fecha de Excel a formato legible si es necesario
+                        let fechaDisplay = row[4] ?? "";
+                        if (fechaDisplay && fechaDisplay.toString().trim() !== "") {
+                            const fechaStr = fechaDisplay.toString().trim();
+                            const fechaRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+                            
+                            // Si no es formato DD/MM/YYYY, intentar convertir desde número de Excel
+                            if (!fechaStr.match(fechaRegex)) {
+                                const numeroFecha = parseFloat(fechaStr);
+                                if (!isNaN(numeroFecha) && numeroFecha > 0) {
+                                    try {
+                                        const fechaExcel = new Date(1900, 0, numeroFecha - 2);
+                                        const dia = fechaExcel.getDate().toString().padStart(2, '0');
+                                        const mes = (fechaExcel.getMonth() + 1).toString().padStart(2, '0');
+                                        const año = fechaExcel.getFullYear();
+                                        fechaDisplay = `${dia}/${mes}/${año}`;
+                                    } catch (e) {
+                                        // Si falla la conversión, mantener el valor original
+                                        fechaDisplay = fechaStr;
+                                    }
+                                }
+                            }
+                        }
+
                         const rowHtml = `
                             <tr data-row="${rowNumber}">
                                 <td>${row[0] ?? ""}</td>
                                 <td>${row[1] ?? ""}</td>
                                 <td>${row[2] ?? ""}</td>
                                 <td>${row[3] ?? ""}</td>
-                                <td>${row[4] ?? ""}</td>
+                                <td>${fechaDisplay}</td>
                                 <td>${row[5] ?? ""}</td>
                                 <td>${row[6] ?? ""}</td>
                                 <td>${row[7] ?? ""}</td>
@@ -275,22 +317,40 @@
                     if (!grado) camposFaltantes.push("Grado");
                     if (!grupo) camposFaltantes.push("Grupo");
 
-                    // Validar formato de fecha DD/MM/YYYY
+                    // Validar formato de fecha DD/MM/YYYY o número de Excel
                     if (fechaNacimiento && fechaNacimiento.trim() !== "") {
-                        const fechaRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-                        const match = fechaNacimiento.trim().match(fechaRegex);
+                        const fechaStr = fechaNacimiento.trim();
+                        let fechaValida = false;
                         
-                        if (!match) {
-                            camposFaltantes.push("Fecha Nacimiento (formato DD/MM/YYYY)");
-                        } else {
+                        // Verificar si es formato DD/MM/YYYY
+                        const fechaRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+                        const match = fechaStr.match(fechaRegex);
+                        
+                        if (match) {
                             const dia = parseInt(match[1]);
                             const mes = parseInt(match[2]);
                             const año = parseInt(match[3]);
                             
                             // Validar rangos
-                            if (dia < 1 || dia > 31 || mes < 1 || mes > 12 || año < 1900 || año > new Date().getFullYear()) {
-                                camposFaltantes.push("Fecha Nacimiento (fecha inválida)");
+                            if (dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12 && año >= 1900 && año <= new Date().getFullYear()) {
+                                fechaValida = true;
                             }
+                        } else {
+                            // Verificar si es un número de Excel (fecha serial)
+                            const numeroFecha = parseFloat(fechaStr);
+                            if (!isNaN(numeroFecha) && numeroFecha > 0) {
+                                // Convertir número de Excel a fecha
+                                const fechaExcel = new Date(1900, 0, numeroFecha - 2);
+                                
+                                // Verificar si la fecha es válida y está en un rango razonable
+                                if (fechaExcel.getFullYear() >= 1900 && fechaExcel.getFullYear() <= new Date().getFullYear()) {
+                                    fechaValida = true;
+                                }
+                            }
+                        }
+                        
+                        if (!fechaValida) {
+                            camposFaltantes.push("Fecha Nacimiento (formato inválido)");
                         }
                     }
 
