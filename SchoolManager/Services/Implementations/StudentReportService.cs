@@ -54,6 +54,7 @@ namespace SchoolManager.Services.Implementations
                       activity => activity.Id,
                       (score, activity) => new
                       {
+                          ActivityId = activity.Id,
                           activity.GradeLevelId,
                           activity.GroupId,
                           activity.SubjectId,
@@ -64,6 +65,8 @@ namespace SchoolManager.Services.Implementations
                           score.CreatedAt
                       })
                 .Where(a => a.Trimester == selectedTrimester)
+                .GroupBy(a => new { a.ActivityId, a.SubjectId, a.TeacherId, a.Name })
+                .Select(g => g.OrderByDescending(x => x.CreatedAt).First())
                 .ToListAsync();
 
             if (studentScores == null || !studentScores.Any())
@@ -102,18 +105,32 @@ namespace SchoolManager.Services.Implementations
 
             var name = $"{studentData.Name} {studentData.LastName}";
 
+            // Obtener datos adicionales en una sola consulta para evitar duplicaciones
+            var subjectIds = studentScores.Select(s => s.SubjectId).Distinct().ToList();
+            var teacherIds = studentScores.Select(s => s.TeacherId).Distinct().ToList();
+            var activityIds = studentScores.Select(s => s.ActivityId).Distinct().ToList();
+
+            var subjects = await _context.Subjects
+                .Where(s => subjectIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name);
+
+            var teachers = await _context.Users
+                .Where(u => teacherIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => $"{u.Name ?? "Nombre Desconocido"} {u.LastName ?? "Apellido Desconocido"}");
+
+            var activities = await _context.Activities
+                .Where(a => activityIds.Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id, a => new { a.Type, a.PdfUrl });
+
             var grades = studentScores.Select(a => new GradeDto
             {
-                Subject = _context.Subjects.FirstOrDefault(s => s.Id == a.SubjectId)?.Name ?? "Desconocida",
-                Teacher = _context.Users
-                    .Where(u => u.Id == a.TeacherId)
-                    .Select(u => $"{u.Name ?? "Nombre Desconocido"} {u.LastName ?? "Apellido Desconocido"}")
-                    .FirstOrDefault() ?? "Desconocido",
+                Subject = a.SubjectId.HasValue ? subjects.GetValueOrDefault(a.SubjectId.Value, "Desconocida") : "Desconocida",
+                Teacher = a.TeacherId.HasValue ? teachers.GetValueOrDefault(a.TeacherId.Value, "Desconocido") : "Desconocido",
                 ActivityName = a.Name,
-                Type = _context.Activities.FirstOrDefault(act => act.Name == a.Name && act.TeacherId == a.TeacherId && act.GroupId == a.GroupId && act.SubjectId == a.SubjectId && act.Trimester == a.Trimester)?.Type ?? "SinTipo",
+                Type = activities.GetValueOrDefault(a.ActivityId)?.Type ?? "SinTipo",
                 Value = a.Score,
                 CreatedAt = a.CreatedAt.ToUniversalTime(),
-                FileUrl = _context.Activities.FirstOrDefault(act => act.Name == a.Name && act.TeacherId == a.TeacherId && act.GroupId == a.GroupId && act.SubjectId == a.SubjectId && act.Trimester == a.Trimester)?.PdfUrl,
+                FileUrl = activities.GetValueOrDefault(a.ActivityId)?.PdfUrl,
                 Trimester = a.Trimester
             }).ToList();
 
@@ -247,9 +264,12 @@ namespace SchoolManager.Services.Implementations
                           activity.CreatedAt,
                           activity.Subject,
                           activity.Teacher,
-                          Score = score.Score
+                          Score = score.Score,
+                          ScoreCreatedAt = score.CreatedAt
                       })
                 .Where(a => a.Trimester.Trim().ToLower() == trimester.Trim().ToLower())
+                .GroupBy(a => new { a.Id, a.SubjectId, a.TeacherId, a.Name })
+                .Select(g => g.OrderByDescending(x => x.ScoreCreatedAt).First())
                 .ToListAsync();
 
             if (studentScores == null || !studentScores.Any())

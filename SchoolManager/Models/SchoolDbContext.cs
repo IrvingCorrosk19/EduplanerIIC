@@ -31,6 +31,8 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<DisciplineReport> DisciplineReports { get; set; }
 
+        public virtual DbSet<EmailConfiguration> EmailConfigurations { get; set; }
+
     public virtual DbSet<GradeLevel> GradeLevels { get; set; }
 
     public virtual DbSet<Group> Groups { get; set; }
@@ -987,6 +989,79 @@ public partial class SchoolDbContext : DbContext
                         j.IndexerProperty<Guid>("UserId").HasColumnName("user_id");
                         j.IndexerProperty<Guid>("SubjectId").HasColumnName("subject_id");
                     });
+        });
+
+        // Configuración de EmailConfiguration
+        modelBuilder.Entity<EmailConfiguration>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("email_configurations_pkey");
+            entity.ToTable("email_configurations");
+            
+            entity.HasIndex(e => e.SchoolId, "idx_email_configurations_school_id");
+            
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("gen_random_uuid()")
+                .HasColumnName("id");
+            
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+            
+            entity.Property(e => e.SmtpServer)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("smtp_server");
+            
+            entity.Property(e => e.SmtpPort)
+                .HasDefaultValue(587)
+                .HasColumnName("smtp_port");
+            
+            entity.Property(e => e.SmtpUsername)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("smtp_username");
+            
+            entity.Property(e => e.SmtpPassword)
+                .IsRequired()
+                .HasColumnName("smtp_password");
+            
+            entity.Property(e => e.SmtpUseSsl)
+                .HasDefaultValue(true)
+                .HasColumnName("smtp_use_ssl");
+            
+            entity.Property(e => e.SmtpUseTls)
+                .HasDefaultValue(true)
+                .HasColumnName("smtp_use_tls");
+            
+            entity.Property(e => e.FromEmail)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("from_email");
+            
+            entity.Property(e => e.FromName)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("from_name");
+            
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+            
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+            
+            // Configurar la relación con School
+            entity.HasOne(e => e.School)
+                .WithMany()
+                .HasForeignKey(e => e.SchoolId)
+                .HasConstraintName("email_configurations_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         OnModelCreatingPartial(modelBuilder);

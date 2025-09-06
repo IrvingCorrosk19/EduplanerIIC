@@ -190,6 +190,8 @@
                         <tr>
                             <th>#</th>
                             <th>Nombre</th>
+                            <th>Apellido</th>
+                            <th>Identificación</th>
                             <th>Correo</th>
                             <th>Estado</th>
                             <th>Detalles</th>
@@ -202,7 +204,9 @@
                             var t = Model.TeachersWithAssignments[i];
                             <tr>
                                 <td>@(i + 1)</td>
-                                <td class="text-start">@t.FullName</td>
+                                <td class="text-start">@t.FirstName</td>
+                                <td class="text-start">@t.LastName</td>
+                                <td class="text-start">@t.DocumentId</td>
                                 <td class="text-start">@t.Email</td>
                                 <td>
                                     <span class="badge @(t.IsActive ? "bg-success text-success bg-opacity-25" : "bg-danger text-danger bg-opacity-25") fw-bold px-3 py-2">

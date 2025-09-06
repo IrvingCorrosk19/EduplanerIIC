@@ -184,6 +184,8 @@
                         <tr>
                             <th>#</th>
                             <th>Nombre</th>
+                            <th>Apellido</th>
+                            <th>Identificación</th>
                             <th>Correo</th>
                             <th>Estado</th>
                             <th>Grado/Grupo</th>
@@ -196,7 +198,9 @@
                             var est = Model[i];
                             <tr data-student-id="@est.StudentId">
                                 <td>@(i + 1)</td>
-                                <td class="text-start">@est.FullName</td>
+                                <td class="text-start">@est.FirstName</td>
+                                <td class="text-start">@est.LastName</td>
+                                <td class="text-start">@est.DocumentId</td>
                                 <td class="text-start">@est.Email</td>
                                 <td>
                                     <span class="badge @(est.IsActive ? "bg-success text-success bg-opacity-25" : "bg-danger text-danger bg-opacity-25") fw-bold px-3 py-2">

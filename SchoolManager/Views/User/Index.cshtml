@@ -248,6 +248,13 @@
     .btn-delete:hover {
         background-color: #dc2626;
     }
+    .btn-send-password {
+        background-color: #10b981;
+        border: none;
+    }
+    .btn-send-password:hover {
+        background-color: #059669;
+    }
     .role-text {
         font-weight: 600;
         font-size: 0.875rem;
@@ -288,6 +295,7 @@
         </div>
         <div class="card-body">
             <form id="userForm" novalidate>
+                @Html.AntiForgeryToken()
                 <input type="hidden" name="UserId" id="UserId" />
                 <div class="row">
                     <div class="col-md-6">
@@ -433,6 +441,13 @@
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     }
+                                    <button type="button" class="btn btn-action btn-send-password" 
+                                            data-id="@user.Id" 
+                                            data-name="@user.Name" 
+                                            data-email="@user.Email" 
+                                            title="Enviar contraseña por email">
+                                        <i class="fas fa-envelope"></i>
+                                    </button>
                                 </div>
                                 </td>
                             </tr>
@@ -614,6 +629,61 @@
                         .fail(function (xhr) {
                             const message = xhr.responseJSON?.message || xhr.responseText || 'Error inesperado';
                             Swal.fire('Error', message, 'error');
+                        });
+                    }
+                });
+            });
+
+            // Funcionalidad para enviar contraseña por email
+            $(document).on('click', '.btn-send-password', function() {
+                const userId = $(this).data('id');
+                const userName = $(this).data('name');
+                const userEmail = $(this).data('email');
+                const btn = $(this);
+
+                Swal.fire({
+                    title: `¿Enviar contraseña a "${userName}"?`,
+                    text: `Se enviará un email con la contraseña a: ${userEmail}`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#10b981',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Sí, enviar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Mostrar loading
+                        btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+                        
+                        $.ajax({
+                            url: `/User/SendPasswordEmail/${userId}`,
+                            type: 'POST',
+                            headers: {
+                                'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                            }
+                        })
+                        .done(function (response) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Email enviado!',
+                                text: response.message || 'La contraseña se ha enviado exitosamente al usuario.',
+                                confirmButtonColor: '#10b981',
+                                confirmButtonText: '¡Perfecto!'
+                            });
+                        })
+                        .fail(function (xhr) {
+                            const message = xhr.responseJSON?.message || xhr.responseText || 'Error al enviar el email';
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: message,
+                                confirmButtonColor: '#ef4444',
+                                confirmButtonText: 'Entendido'
+                            });
+                        })
+                        .always(function() {
+                            // Restaurar botón
+                            btn.html('<i class="fas fa-envelope"></i>').prop('disabled', false);
                         });
                     }
                 });

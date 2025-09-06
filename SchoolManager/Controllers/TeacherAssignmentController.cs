@@ -166,6 +166,9 @@ public class TeacherAssignmentController : Controller
             {
                 TeacherId = teacher.Id,
                 FullName = teacher.Name,
+                FirstName = teacher.Name,
+                LastName = teacher.LastName ?? "",
+                DocumentId = teacher.DocumentId ?? "",
                 Email = teacher.Email,
                 Role = teacher.Role,
                 IsActive = string.Equals(teacher.Status, "active", StringComparison.OrdinalIgnoreCase),

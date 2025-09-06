@@ -163,6 +163,9 @@ namespace SchoolManager.Controllers
                 {
                     StudentId = student.Id,
                     FullName = student.Name,
+                    FirstName = student.Name,
+                    LastName = student.LastName ?? "",
+                    DocumentId = student.DocumentId ?? "",
                     Email = student.Email,
                     IsActive = string.Equals(student.Status, "active", StringComparison.OrdinalIgnoreCase),
                     GradeGroupPairs = gradeGroupPairs
