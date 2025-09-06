@@ -950,7 +950,14 @@
             console.log("Datos de studentAnnualScores al cargar:", studentAnnualScores);
 
             function truncateToOneDecimal(value) {
-                return Math.floor(value * 10) / 10;
+                if (value === null || value === undefined || value === '') {
+                    return 0;
+                }
+                const numValue = parseFloat(value);
+                if (isNaN(numValue)) {
+                    return 0;
+                }
+                return Math.floor(numValue * 10) / 10;
             }
 
             function validateScore(score) {
@@ -961,6 +968,12 @@
             function updateResumenTable() {
                 const resumenBody = $('#resumenBody');
                 resumenBody.empty();
+                
+                if (!students || students.length === 0) {
+                    resumenBody.append('<tr><td colspan="6" class="text-center text-muted">No hay estudiantes cargados</td></tr>');
+                    return;
+                }
+                
                 // Evitar duplicados por id
                 const uniqueStudents = [];
                 const seen = new Set();
@@ -970,6 +983,12 @@
                         seen.add(s.id);
                     }
                 });
+                
+                if (uniqueStudents.length === 0) {
+                    resumenBody.append('<tr><td colspan="6" class="text-center text-muted">No hay estudiantes válidos</td></tr>');
+                    return;
+                }
+                
                 uniqueStudents.forEach(s => {
                     const nombre = s.fullName || '(Sin nombre)';
                     const trimesterData = studentAnnualScores[s.id] || {};
@@ -1022,8 +1041,10 @@
 
                 const activeTypes = ['tarea', 'parcial', 'examen'];
 
+                let hasActivities = false;
                 activeTypes.forEach(type => {
                     if (activities[type] && activities[type].length > 0) {
+                        hasActivities = true;
                         activities[type].forEach(a => {
                             console.log('Actividad en ciclo:', a);
                             // Botón de descarga
@@ -1051,27 +1072,40 @@
                         hdrRow.append(`<th class='text-primary'>Prom. ${type.charAt(0).toUpperCase() + type.slice(1)}</th>`);
                     }
                 });
+                
+                if (!hasActivities) {
+                    hdrRow.append('<th class="text-muted">No hay actividades</th>');
+                }
                 hdrRow.append("<th class='text-dark'>Nota Final</th>");
 
                 const body = $('#bodyRows');
                 body.empty();
 
-                students.forEach(s => {
-                    let row = `<tr data-stu-id="${s.id}"><td>${s.fullName}</td>`;
+                if (students && students.length > 0) {
+                    students.forEach(s => {
+                        let row = `<tr data-stu-id="${s.id}"><td>${s.fullName}</td>`;
 
-                    activeTypes.forEach(type => {
-                        if (activities[type] && activities[type].length > 0) {
-                        activities[type].forEach(a => {
-                            const savedScore = scores[s.id]?.[type]?.[a.name] || '';
-                            row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.name}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
-                        });
-                        row += `<td class='text-primary avg-${type}'></td>`;
+                        if (hasActivities) {
+                            activeTypes.forEach(type => {
+                                if (activities[type] && activities[type].length > 0) {
+                                    activities[type].forEach(a => {
+                                        const savedScore = scores[s.id]?.[type]?.[a.name] || '';
+                                        row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.name}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
+                                    });
+                                    row += `<td class='text-primary avg-${type}'></td>`;
+                                }
+                            });
+                            row += `<td class='text-dark fw-bold final-grade'></td>`;
+                        } else {
+                            row += `<td class="text-muted">No hay actividades</td>`;
                         }
-                    });
 
-                    row += `<td class='text-dark fw-bold final-grade'></td></tr>`;
-                    body.append(row);
-                });
+                        row += `</tr>`;
+                        body.append(row);
+                    });
+                } else {
+                    body.append('<tr><td colspan="100%" class="text-center text-muted">No hay estudiantes cargados</td></tr>');
+                }
 
                 function procesarCeldaNota($cell) {
                     let value = $cell.text().trim();
@@ -1243,6 +1277,9 @@
                 $('#bodyRows tr').each(function () {
                     const row = $(this);
                     const studentId = row.data('stu-id');
+                    
+                    if (!studentId) return; // Skip if no student ID
+                    
                     const activeTypes = ['tarea', 'parcial', 'examen'].filter(type => activities[type] && activities[type].length > 0);
                     const typeAvgs = {};
 
@@ -1281,18 +1318,28 @@
                 $('#hdrRow').html('<th colspan="100%">Cargando estudiantes...</th>');
                 $('#bodyRows').html('<tr><td colspan="100%" class="text-center">Cargando estudiantes...</td></tr>');
 
-                $.get(`/TeacherGradebook/StudentsByGroupAndGrade?groupId=${groupId}&gradeId=${gradeLevelId}`, data => {
-                    students.length = 0;
-                    const ids = new Set();
-                    data.forEach(s => {
-                        if (s.studentId && !ids.has(s.studentId)) {
-                            students.push({ id: s.studentId, fullName: s.fullName });
-                            ids.add(s.studentId);
+                $.get(`/TeacherGradebook/StudentsByGroupAndGrade?groupId=${groupId}&gradeId=${gradeLevelId}`)
+                    .done(data => {
+                        console.log('Estudiantes recibidos:', data);
+                        students.length = 0;
+                        const ids = new Set();
+                        if (data && Array.isArray(data)) {
+                            data.forEach(s => {
+                                if (s.studentId && !ids.has(s.studentId)) {
+                                    students.push({ id: s.studentId, fullName: s.fullName });
+                                    ids.add(s.studentId);
+                                }
+                            });
                         }
+                        scores = {};
+                        console.log('Estudiantes cargados:', students);
+                        if (callback) callback();
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Error al cargar estudiantes:', error);
+                        $('#hdrRow').html('<th colspan="100%">Error al cargar estudiantes</th>');
+                        $('#bodyRows').html('<tr><td colspan="100%" class="text-center text-danger">Error al cargar los estudiantes</td></tr>');
                     });
-                    scores = {};
-                    if (callback) callback();
-                });
             }
 
             function loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester) {
@@ -1311,25 +1358,55 @@
                         trimester
                     }),
                     success: data => {
+                        console.log('Datos recibidos del servidor:', data);
+                        
                         // Reiniciar las actividades y scores al cambiar de trimestre
                         activities.tarea = [];
                         activities.parcial = [];
                         activities.examen = [];
                         scores = {};
 
-                        data.forEach(d => {
-                            if (!scores[d.studentId]) scores[d.studentId] = {};
-                            d.notas.forEach(nota => {
-                                const tipo = nota.tipo.toLowerCase();
-                                if (!activities[tipo]) activities[tipo] = [];
-                                if (!activities[tipo].some(a => a.name === nota.actividad)) {
-                                    activities[tipo].push({ name: nota.actividad, pdfUrl: nota.pdfUrl, id: nota.id, dueDate: nota.dueDate });
+                        if (data && Array.isArray(data)) {
+                            data.forEach(d => {
+                                if (!scores[d.studentId]) scores[d.studentId] = {};
+                                if (d.notas && Array.isArray(d.notas)) {
+                                    d.notas.forEach(nota => {
+                                        const tipo = nota.tipo.toLowerCase();
+                                        if (!activities[tipo]) activities[tipo] = [];
+                                        if (!activities[tipo].some(a => a.name === nota.actividad)) {
+                                            activities[tipo].push({ 
+                                                name: nota.actividad, 
+                                                pdfUrl: nota.pdfUrl, 
+                                                id: nota.id, 
+                                                dueDate: nota.dueDate 
+                                            });
+                                        }
+                                        if (!scores[d.studentId][tipo]) scores[d.studentId][tipo] = {};
+                                        scores[d.studentId][tipo][nota.actividad] = nota.nota ? truncateToOneDecimal(nota.nota) : '';
+                                    });
                                 }
-                                if (!scores[d.studentId][tipo]) scores[d.studentId][tipo] = {};
-                                scores[d.studentId][tipo][nota.actividad] = truncateToOneDecimal(nota.nota);
                             });
-                        });
+                        } else {
+                            console.log('No hay datos de notas o el formato es incorrecto');
+                        }
+                        
+                        console.log('Activities después de procesar:', activities);
+                        
+                        // Verificar si hay actividades
+                        const totalActivities = (activities.tarea?.length || 0) + (activities.parcial?.length || 0) + (activities.examen?.length || 0);
+                        console.log('Total de actividades:', totalActivities);
+                        
+                        if (totalActivities === 0) {
+                            console.log('No hay actividades para mostrar');
+                        }
+                        
                         refreshTable();
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error al cargar notas:', error);
+                        console.error('Detalles del error:', xhr.responseText);
+                        $('#hdrRow').html('<th colspan="100%">Error al cargar datos</th>');
+                        $('#bodyRows').html('<tr><td colspan="100%" class="text-center text-danger">Error al cargar las notas: ' + error + '</td></tr>');
                     }
                 });
             }
@@ -1479,13 +1556,19 @@
                     }
                 });
 
-                const combo = $('#selGroup').val();
+            // Cargar datos iniciales si hay valores seleccionados
+            const combo = $('#selGroup').val();
             const trimester = $('#selTrimester').val();
+            console.log('Valores iniciales:', { combo, trimester });
+            
             if (combo && trimester) {
                 const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                console.log('IDs extraídos:', { subjectId, groupId, gradeLevelId });
                 loadStudents(groupId, gradeLevelId, () => {
                     loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
                 });
+            } else {
+                console.log('No hay valores seleccionados para carga inicial');
             }
 
             function guardarNotas() {
@@ -1586,6 +1669,23 @@
             // Llamar a la función cuando se cambie de grupo o se haga clic en la pestaña
             $('#selGroup').on('change', loadPromediosFinales);
             $('#resumen-tab').on('click', loadPromediosFinales);
+
+            // Función para cargar el libro de calificaciones
+            function loadGradeBook(groupId, trimester) {
+                $.get(`/TeacherGradebook/GradeBookJson?groupId=${groupId}&trimester=${trimester}`, function(data) {
+                    // Agrupa las actividades por tipo
+                    activities.tarea = [];
+                    activities.parcial = [];
+                    activities.examen = [];
+                    if (data.activities && Array.isArray(data.activities)) {
+                        data.activities.forEach(a => {
+                            const tipo = (a.type || '').toLowerCase();
+                            if (activities[tipo]) activities[tipo].push(a);
+                        });
+                    }
+                    refreshTable();
+                });
+            }
         });
     </script>
 
@@ -2697,35 +2797,6 @@
         // ... existing code ...
     </script>
 
-    <script>
-        // ... existing code ...
-        function loadGradeBook(groupId, trimester) {
-            $.get(`/TeacherGradebook/GradeBookJson?groupId=${groupId}&trimester=${trimester}`, function(data) {
-                // Agrupa las actividades por tipo
-                activities.tarea = [];
-                activities.parcial = [];
-                activities.examen = [];
-                if (data.activities && Array.isArray(data.activities)) {
-                    data.activities.forEach(a => {
-                        const tipo = (a.type || '').toLowerCase();
-                        if (activities[tipo]) activities[tipo].push(a);
-                    });
-                }
-                refreshTable();
-            });
-        }
-
-        // Llama a loadGradeBook cuando cambian grupo o trimestre
-        $('#selGroup, #selTrimester').on('change', function() {
-            const combo = $('#selGroup').val();
-            const trimester = $('#selTrimester').val();
-            if (combo && trimester) {
-                const [subjectId, groupId, gradeLevelId] = combo.split('|');
-                loadGradeBook(groupId, trimester);
-            }
-        });
-        // ... existing code ...
-    </script>
 }
 
 
