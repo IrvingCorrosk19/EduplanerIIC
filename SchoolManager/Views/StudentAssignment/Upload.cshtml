@@ -19,17 +19,29 @@
 <h3>Cargar y previsualizar archivo Excel</h3>
 
 <div class="alert alert-info mb-3">
-    <h5><i class="bi bi-info-circle me-2"></i>Formato del archivo Excel</h5>
-    <p class="mb-2">El archivo Excel debe tener las siguientes columnas en este orden:</p>
-    <ol class="mb-0">
-        <li><strong>Estudiante (Email):</strong> Correo electrónico del estudiante</li>
-        <li><strong>Nombre:</strong> Nombre del estudiante</li>
-        <li><strong>Apellido:</strong> Apellido del estudiante</li>
-        <li><strong>Documento ID:</strong> Número de documento de identidad</li>
-        <li><strong>Fecha Nacimiento:</strong> Fecha de nacimiento (formato: DD/MM/YYYY)</li>
-        <li><strong>Grado:</strong> Nombre del grado</li>
-        <li><strong>Grupo:</strong> Nombre del grupo</li>
-    </ol>
+    <div class="d-flex justify-content-between align-items-start">
+        <div class="flex-grow-1">
+            <h5><i class="bi bi-info-circle me-2"></i>Formato del archivo Excel</h5>
+            <p class="mb-2">El archivo Excel debe tener las siguientes columnas en este orden:</p>
+            <ol class="mb-0">
+                <li><strong>Estudiante (Email):</strong> Correo electrónico del estudiante</li>
+                <li><strong>Nombre:</strong> Nombre del estudiante</li>
+                <li><strong>Apellido:</strong> Apellido del estudiante</li>
+                <li><strong>Documento ID:</strong> Número de documento de identidad</li>
+                <li><strong>Fecha Nacimiento:</strong> Fecha de nacimiento (formato: DD/MM/YYYY)</li>
+                <li><strong>Grado:</strong> Nombre del grado</li>
+                <li><strong>Grupo:</strong> Nombre del grupo</li>
+            </ol>
+        </div>
+        <div class="ms-3">
+            <a href="@Url.Action("DownloadTemplate", "File", new { fileName = "asignaciones_estudiantes_grado_grupo.xlsx" })" 
+               class="btn btn-success btn-sm" 
+               download="asignaciones_estudiantes_grado_grupo.xlsx">
+                <i class="bi bi-download me-1"></i>
+                Descargar Formato
+            </a>
+        </div>
+    </div>
 </div>
 
 <input type="file" id="excelFile" class="form-control mb-3" accept=".xlsx,.xls" />
@@ -129,6 +141,26 @@
                         if (!row[5] || row[5].toString().trim() === "") camposFaltantes.push("Grado");
                         if (!row[6] || row[6].toString().trim() === "") camposFaltantes.push("Grupo");
 
+                        // Validar formato de fecha DD/MM/YYYY
+                        if (row[4] && row[4].toString().trim() !== "") {
+                            const fechaStr = row[4].toString().trim();
+                            const fechaRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+                            const match = fechaStr.match(fechaRegex);
+                            
+                            if (!match) {
+                                camposFaltantes.push("Fecha Nacimiento (formato DD/MM/YYYY)");
+                            } else {
+                                const dia = parseInt(match[1]);
+                                const mes = parseInt(match[2]);
+                                const año = parseInt(match[3]);
+                                
+                                // Validar rangos
+                                if (dia < 1 || dia > 31 || mes < 1 || mes > 12 || año < 1900 || año > new Date().getFullYear()) {
+                                    camposFaltantes.push("Fecha Nacimiento (fecha inválida)");
+                                }
+                            }
+                        }
+
                         const isValid = camposFaltantes.length === 0;
                         if (!isValid) {
                             filasInvalidas++;
@@ -218,6 +250,25 @@
                     if (!fechaNacimiento) camposFaltantes.push("Fecha Nacimiento");
                     if (!grado) camposFaltantes.push("Grado");
                     if (!grupo) camposFaltantes.push("Grupo");
+
+                    // Validar formato de fecha DD/MM/YYYY
+                    if (fechaNacimiento && fechaNacimiento.trim() !== "") {
+                        const fechaRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+                        const match = fechaNacimiento.trim().match(fechaRegex);
+                        
+                        if (!match) {
+                            camposFaltantes.push("Fecha Nacimiento (formato DD/MM/YYYY)");
+                        } else {
+                            const dia = parseInt(match[1]);
+                            const mes = parseInt(match[2]);
+                            const año = parseInt(match[3]);
+                            
+                            // Validar rangos
+                            if (dia < 1 || dia > 31 || mes < 1 || mes > 12 || año < 1900 || año > new Date().getFullYear()) {
+                                camposFaltantes.push("Fecha Nacimiento (fecha inválida)");
+                            }
+                        }
+                    }
 
                     if (camposFaltantes.length > 0) {
                         errores.push(`Fila ${rowNumber}: Faltan los campos: ${camposFaltantes.join(", ")}`);

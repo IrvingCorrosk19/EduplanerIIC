@@ -21,9 +21,12 @@
                             <span asp-validation-for="Email" class="text-danger"></span>
                         </div>
                         
-                        <div class="form-floating mb-3">
-                            <input asp-for="Password" class="form-control" placeholder="Password" autocomplete="current-password" />
+                        <div class="form-floating mb-3 position-relative">
+                            <input asp-for="Password" class="form-control" placeholder="Password" autocomplete="current-password" id="passwordInput" />
                             <label asp-for="Password">Contraseña</label>
+                            <button type="button" class="btn btn-outline-secondary position-absolute top-50 end-0 translate-middle-y me-3" id="togglePassword" style="border: none; background: none; z-index: 10;">
+                                <i class="fas fa-eye" id="toggleIcon"></i>
+                            </button>
                             <span asp-validation-for="Password" class="text-danger"></span>
                         </div>
                         
@@ -46,6 +49,22 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     
     <script>
+        // Funcionalidad para mostrar/ocultar contraseña
+        document.getElementById('togglePassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('passwordInput');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        });
+
         // Mostrar mensajes de error
         @if (TempData["Error"] != null)
         {

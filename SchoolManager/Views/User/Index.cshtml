@@ -317,9 +317,20 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-group">
+                        <div class="form-group position-relative">
                             <label>Contraseña</label>
-                            <input type="password" class="form-control" name="PasswordHash" placeholder="********" autocomplete="new-password">
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="PasswordHash" placeholder="********" autocomplete="new-password" id="userPasswordInput">
+                                <button type="button" class="btn btn-outline-secondary" id="toggleUserPassword" style="border: 1px solid #ced4da;">
+                                    <i class="fas fa-eye" id="toggleUserIcon"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="generatePassword" title="Generar contraseña temporal">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                            </div>
+                            <small class="form-text text-muted" id="passwordInfo" style="display: none;">
+                                <i class="fas fa-info-circle"></i> Contraseña generada temporalmente
+                            </small>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -440,6 +451,66 @@
 
     <script>
         $(document).ready(function () {
+            // Funcionalidad para mostrar/ocultar contraseña en formulario de usuarios
+            $('#toggleUserPassword').on('click', function() {
+                const passwordInput = $('#userPasswordInput');
+                const toggleIcon = $('#toggleUserIcon');
+                
+                if (passwordInput.attr('type') === 'password') {
+                    passwordInput.attr('type', 'text');
+                    toggleIcon.removeClass('fa-eye').addClass('fa-eye-slash');
+                } else {
+                    passwordInput.attr('type', 'password');
+                    toggleIcon.removeClass('fa-eye-slash').addClass('fa-eye');
+                }
+            });
+
+            // Funcionalidad para generar contraseña temporal
+            $('#generatePassword').on('click', function() {
+                const generatedPassword = generateTemporaryPassword();
+                $('#userPasswordInput').val(generatedPassword).attr('type', 'text');
+                $('#toggleUserIcon').removeClass('fa-eye').addClass('fa-eye-slash');
+                $('#passwordInfo').show();
+                
+                // Mostrar la contraseña generada en un SweetAlert
+                Swal.fire({
+                    title: 'Contraseña Generada',
+                    html: `
+                        <div class="text-center">
+                            <p><strong>Contraseña temporal generada:</strong></p>
+                            <div class="alert alert-info">
+                                <code style="font-size: 1.2rem; font-weight: bold;">${generatedPassword}</code>
+                            </div>
+                            <p class="text-muted">Esta contraseña se ha copiado al campo de contraseña.</p>
+                        </div>
+                    `,
+                    icon: 'success',
+                    confirmButtonText: 'Entendido',
+                    allowOutsideClick: false
+                });
+            });
+
+            // Función para generar contraseña temporal
+            function generateTemporaryPassword() {
+                const length = 12;
+                const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@@" + String.fromCharCode(35) + "$%^&*";
+                let password = "";
+                
+                // Asegurar al menos un carácter de cada tipo
+                password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)]; // Mayúscula
+                password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)]; // Minúscula
+                password += "0123456789"[Math.floor(Math.random() * 10)]; // Número
+                password += "!@@" + String.fromCharCode(35) + "$%^&*"[Math.floor(Math.random() * 8)]; // Especial
+                
+                // Completar con caracteres aleatorios
+                for (let i = password.length; i < length; i++) {
+                    password += charset.charAt(Math.floor(Math.random() * charset.length));
+                }
+                
+                // Mezclar la contraseña
+                return password.split('').sort(() => Math.random() - 0.5).join('');
+            }
+
             // Inicializar DataTables en la tabla de usuarios con Responsive
             var usersTable = $('#users-table').DataTable({
                 "pageLength": 25,
@@ -499,10 +570,18 @@
                     $('[name="LastName"]').val(user.lastName);
                     $('[name="Email"]').val(user.email);
                     $('[name="DocumentId"]').val(user.documentId);
-                    $('[name="PasswordHash"]').val(user.passwordHash);
+                    
+                    // Mostrar información sobre contraseñas hasheadas
+                    $('[name="PasswordHash"]').val('').attr('placeholder', 'Dejar vacío para mantener la contraseña actual');
+                    $('#passwordInfo').html('<i class="fas fa-shield-alt text-warning"></i> Las contraseñas están protegidas con hash. Use el botón <i class="fas fa-key"></i> para generar una nueva.').show();
+                    
                     $('[name="Role"]').val(user.role);
                     $('[name="Status"]').val(user.status);
                     $('[name="DateOfBirth"]').val(user.dateOfBirth ? user.dateOfBirth.split('T')[0] : '');
+
+                    // Cambiar el tipo de input a password cuando se edita
+                    $('#userPasswordInput').attr('type', 'password');
+                    $('#toggleUserIcon').removeClass('fa-eye-slash').addClass('fa-eye');
 
                     $('#btnUpdateUser').prop('disabled', false);
                     $('#btnCreateUser').prop('disabled', true);
@@ -612,13 +691,14 @@
 
             $('#btnUpdateUser').on('click', function () {
                 const form = $('#userForm');
+                const passwordValue = form.find('[name="PasswordHash"]').val().trim();
                 const user = {
                     Id: $('#UserId').val(),
                     Name: form.find('[name="Name"]').val().trim(),
                     LastName: form.find('[name="LastName"]').val().trim(),
                     Email: form.find('[name="Email"]').val().trim(),
                     DocumentId: form.find('[name="DocumentId"]').val().trim(),
-                    PasswordHash: form.find('[name="PasswordHash"]').val(),
+                    PasswordHash: passwordValue || null, // Solo enviar si hay valor
                     Role: form.find('[name="Role"]').val(),
                     Status: form.find('[name="Status"]').val(),
                     DateOfBirth:  form.find('[name="DateOfBirth"]').val()
@@ -678,6 +758,11 @@
                 const form = $('#userForm');
                 form[0].reset();
                 $('#UserId').val('');
+                // Restaurar el placeholder original y tipo de input
+                $('[name="PasswordHash"]').attr('placeholder', '********');
+                $('#userPasswordInput').attr('type', 'password');
+                $('#toggleUserIcon').removeClass('fa-eye-slash').addClass('fa-eye');
+                $('#passwordInfo').hide(); // Ocultar mensaje informativo
                 $('#btnUpdateUser').prop('disabled', true);
                 $('#btnCreateUser').prop('disabled', false);
                 form.find('input, select').removeClass('is-invalid');
@@ -708,7 +793,7 @@
         {
             "admin" => "Administrador",
             "superadmin" => "Super Administrador",
-            "teacher" => "Profesor",
+            "teacher" => "Docente",
             "student" => "Estudiante",
             "estudiante" => "Estudiante",
             "parent" => "Padre/Madre",

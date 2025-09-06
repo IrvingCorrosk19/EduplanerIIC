@@ -65,4 +65,33 @@ public class FileController : Controller
             return NotFound();
         }
     }
+
+    [HttpGet]
+    public IActionResult DownloadTemplate(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName))
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "descargables", fileName);
+            
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound();
+            }
+
+            var fileBytes = System.IO.File.ReadAllBytes(filePath);
+            var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error descargando plantilla: {fileName}", fileName);
+            return NotFound();
+        }
+    }
 } 
