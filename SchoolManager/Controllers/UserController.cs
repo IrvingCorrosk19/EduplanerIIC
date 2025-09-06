@@ -101,6 +101,7 @@ public class UserController : Controller
         return hasNumber && hasUpperChar && hasLowerChar && hasSpecialChar && hasMinLength;
     }
 
+
     public async Task<IActionResult> Index()
     {
         ViewBag.Roles = Enum.GetValues(typeof(UserRole))
@@ -108,7 +109,6 @@ public class UserController : Controller
       .Where(r => r != UserRole.Superadmin && r != UserRole.Admin && r != UserRole.Student)
       .Select(r => r.ToString())
       .ToList();
-
 
         var users = await _userService.GetAllAsync();
         return View(users);
