@@ -75,9 +75,11 @@
     .bg-blue-soft { background: #e8f0fe; }
     .bg-green-soft { background: #e6f9ed; }
     .bg-red-soft { background: #fdeaea; }
+    .bg-warning-soft { background: #fef3c7; }
     .text-blue { color: #2563eb !important; }
     .text-green { color: #22c55e !important; }
     .text-red { color: #ef4444 !important; }
+    .text-warning { color: #f59e0b !important; }
     .stat-title { font-size: 1.05rem; font-weight: 500; margin-bottom: 0.2rem; }
     .stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
     .stat-percent { font-size: 1rem; font-weight: 500; margin-top: 0.1rem; }
@@ -89,6 +91,7 @@
     .stat-card.stat-blue { background: #f4f8ff; }
     .stat-card.stat-green { background: #f4fff8; }
     .stat-card.stat-red { background: #fff6f6; }
+    .stat-card.stat-warning { background: #fffbeb; }
     .stat-card .stat-title { letter-spacing: 0.01em; }
     .stat-card .stat-value { letter-spacing: 0.01em; }
     .stat-card .stat-percent { letter-spacing: 0.01em; }
@@ -205,6 +208,18 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-4">
+            <div class="stat-card stat-warning d-flex align-items-center p-3 h-100">
+                <div class="icon-circle bg-warning-soft me-3">
+                    <i class="fa fa-question-circle fa-2x text-warning"></i>
+                </div>
+                <div>
+                    <div class="stat-title text-warning">Sin Evaluar</div>
+                    <div class="stat-value text-warning">@Model.TotalSinEvaluar</div>
+                    <div class="stat-percent @GetPercentClass(Model.PorcentajeSinEvaluar, false)">@Model.PorcentajeSinEvaluar.ToString("F1")%</div>
+                </div>
+            </div>
+        </div>
     </div>
     <!-- Desempeño por materia (NUEVO FORMATO) -->
     <div class="mb-4">
@@ -215,7 +230,7 @@
             <div class="card-body">
                 <!-- Buscador -->
                 <div class="mb-3">
-                    <input type="text" id="buscador-desempeno-materia" class="form-control" placeholder="Buscar materia...">
+                    <input type="text" id="buscador-desempeno-materia" class="form-control" placeholder="Buscar materia..." autocomplete="off">
                 </div>
                 <!-- Cards de materias -->
                 <div id="desempeno-materias-cards"></div>
@@ -235,7 +250,7 @@
             <div class="card-body">
                 <!-- Buscador -->
                 <div class="mb-3">
-                    <input type="text" id="buscador-profesores" class="form-control" placeholder="Buscar profesor o materia...">
+                    <input type="text" id="buscador-profesores" class="form-control" placeholder="Buscar profesor o materia..." autocomplete="off">
                 </div>
                 <!-- Tabla de profesores -->
                 <div class="table-responsive">
@@ -292,10 +307,14 @@
                                 <div class="text-danger" style="font-size: 2rem; font-weight: 700;">@Model.TotalReprobados</div>
                                 <div class="text-danger" style="font-size: 1rem;">Reprobados</div>
                             </div>
+                            <div class="flex-fill text-center p-2" style="background: #fef3c7; border-radius: 0.5rem;">
+                                <div class="text-warning" style="font-size: 2rem; font-weight: 700;">@Model.TotalSinEvaluar</div>
+                                <div class="text-warning" style="font-size: 1rem;">Sin Evaluar</div>
+                            </div>
                         </div>
                         <div class="text-center fw-bold">
-                            Total: @(@Model.TotalAprobados + @Model.TotalReprobados)
-                            <span class="text-muted" style="font-size: 0.95em;">(Aprobados + Reprobados = Total)</span>
+                            Total: @Model.TotalEstudiantes
+                            <span class="text-muted" style="font-size: 0.95em;">(Aprobados + Reprobados + Sin Evaluar = Total)</span>
                         </div>
                     </div>
                     <div>

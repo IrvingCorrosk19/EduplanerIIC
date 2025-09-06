@@ -17,6 +17,13 @@ namespace SchoolManager.Services.Implementations
                 },
                 new MenuItem 
                 { 
+                    Title = "Cambiar Contraseña", 
+                    Icon = "fas fa-key",
+                    Url = "/ChangePassword/Index",
+                    RequiredRoles = new[] { "admin", "teacher", "student", "director", "superadmin", "estudiante" }
+                },
+                new MenuItem 
+                { 
                     Title = "Estudiantes", 
                     Icon = "fas fa-user-graduate",
                     Url = "/Student/Index",

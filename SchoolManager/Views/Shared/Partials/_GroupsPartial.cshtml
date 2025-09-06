@@ -8,7 +8,7 @@
     </div>
     <div class="card-body">
         <div class="search-bar">
-            <input type="text" id="searchGroups" placeholder="Buscar grupo por nombre o descripción...">
+            <input type="text" id="searchGroups" placeholder="Buscar grupo por nombre o descripción..." autocomplete="off">
         </div>
         <div class="table-responsive">
             <table id="groupTable" class="table table-hover table-bordered align-middle">
@@ -25,7 +25,7 @@
                         <tr data-id="@group.Id">
                             <td class="align-middle text-center">
                                 <span class="group-name-text">@group.Name</span>
-                                <input type="text" class="form-control d-none group-name-input" value="@group.Name" />
+                                <input type="text" class="form-control d-none group-name-input" value="@group.Name" autocomplete="off" />
                             </td>
                             <td class="align-middle text-center">
                                 <span class="group-description-text">@group.Description</span>
@@ -52,10 +52,10 @@
             <h6 class="mb-3">Agregar Nuevo Grupo</h6>
             <div class="row">
                 <div class="col-md-5">
-                    <input type="text" id="newGroupName" class="form-control mb-2" placeholder="Nombre del grupo" />
+                    <input type="text" id="newGroupName" class="form-control mb-2" placeholder="Nombre del grupo" autocomplete="off" />
                 </div>
                 <div class="col-md-5">
-                    <input type="text" id="newGroupDescription" class="form-control mb-2" placeholder="Descripción (opcional)" />
+                    <input type="text" id="newGroupDescription" class="form-control mb-2" placeholder="Descripción (opcional)" autocomplete="off" />
                 </div>
                 <div class="col-md-2">
                     <button class="btn btn-primary w-100" onclick="createGroup()">

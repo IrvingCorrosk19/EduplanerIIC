@@ -377,6 +377,85 @@ public async Task<User?> AuthenticateAsync(string email, string password)
             .FirstOrDefaultAsync(u => u.Email.ToLower().Trim() == email.ToLower().Trim());
     }
 
+    public async Task<(bool success, string message)> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    {
+        Console.WriteLine($"[UserService.ChangePasswordAsync] Iniciando para userId: {userId}");
+        Console.WriteLine($"[UserService.ChangePasswordAsync] currentPassword length: {currentPassword?.Length ?? 0}");
+        Console.WriteLine($"[UserService.ChangePasswordAsync] newPassword length: {newPassword?.Length ?? 0}");
+        
+        try
+        {
+            var user = await _context.Users.FindAsync(userId);
+            Console.WriteLine($"[UserService.ChangePasswordAsync] Usuario encontrado: {(user != null ? $"ID={user.Id}, Email={user.Email}" : "NULL")}");
+            
+            if (user == null)
+            {
+                Console.WriteLine($"[UserService.ChangePasswordAsync] ERROR: Usuario no encontrado");
+                return (false, "Usuario no encontrado");
+            }
+
+            Console.WriteLine($"[UserService.ChangePasswordAsync] PasswordHash actual: {user.PasswordHash?.Substring(0, Math.Min(20, user.PasswordHash?.Length ?? 0))}...");
+            Console.WriteLine($"[UserService.ChangePasswordAsync] IsPasswordHashed: {IsPasswordHashed(user.PasswordHash)}");
+
+            // Verificar contraseña actual
+            bool currentPasswordValid = false;
+            if (IsPasswordHashed(user.PasswordHash))
+            {
+                Console.WriteLine($"[UserService.ChangePasswordAsync] Verificando contraseña hasheada con BCrypt");
+                currentPasswordValid = BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash);
+            }
+            else
+            {
+                Console.WriteLine($"[UserService.ChangePasswordAsync] Verificando contraseña en texto plano");
+                currentPasswordValid = currentPassword == user.PasswordHash;
+            }
+
+            Console.WriteLine($"[UserService.ChangePasswordAsync] Contraseña actual válida: {currentPasswordValid}");
+
+            if (!currentPasswordValid)
+            {
+                Console.WriteLine($"[UserService.ChangePasswordAsync] ERROR: Contraseña actual incorrecta");
+                return (false, "La contraseña actual que ingresaste no es correcta. Por favor, verifica e intenta nuevamente.");
+            }
+
+            // Validar nueva contraseña
+            if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+            {
+                Console.WriteLine($"[UserService.ChangePasswordAsync] ERROR: Nueva contraseña inválida (length: {newPassword?.Length ?? 0})");
+                return (false, "La nueva contraseña debe tener al menos 8 caracteres");
+            }
+
+            // Verificar que la nueva contraseña sea diferente a la actual
+            if (currentPassword == newPassword)
+            {
+                Console.WriteLine($"[UserService.ChangePasswordAsync] ERROR: Nueva contraseña igual a la actual");
+                return (false, "La nueva contraseña debe ser diferente a la actual");
+            }
+
+            Console.WriteLine($"[UserService.ChangePasswordAsync] Hasheando nueva contraseña...");
+            // Hashear y actualizar contraseña
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            Console.WriteLine($"[UserService.ChangePasswordAsync] Guardando cambios en la base de datos...");
+            await _context.SaveChangesAsync();
+            Console.WriteLine($"[UserService.ChangePasswordAsync] SUCCESS: Contraseña actualizada exitosamente");
+            return (true, "Contraseña actualizada exitosamente");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[UserService.ChangePasswordAsync] EXCEPCIÓN: {ex.Message}");
+            Console.WriteLine($"[UserService.ChangePasswordAsync] StackTrace: {ex.StackTrace}");
+            return (false, $"Error inesperado al cambiar la contraseña: {ex.Message}");
+        }
+    }
+
+    private bool IsPasswordHashed(string passwordHash)
+    {
+        // BCrypt hashes start with $2a$, $2b$, or $2y$
+        return passwordHash.StartsWith("$2") && passwordHash.Length > 20;
+    }
+
     }
 
 }

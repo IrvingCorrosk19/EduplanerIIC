@@ -48,6 +48,7 @@ namespace SchoolManager.Services.Implementations
             model.TotalEstudiantes = soloEstudiantes.Count;
             int totalAprobados = 0;
             int totalReprobados = 0;
+            int totalSinEvaluar = 0;
 
             var reportesPorEstudiante = new Dictionary<Guid, SchoolManager.Dtos.StudentReportDto>();
             foreach (var estudiante in soloEstudiantes)
@@ -74,17 +75,21 @@ namespace SchoolManager.Services.Implementations
                 }
                 else
                 {
-                    totalReprobados++;
+                    // CORRECCIÓN: Estudiantes sin notas van a "Sin Evaluar", NO a reprobados
+                    totalSinEvaluar++;
                 }
             }
 
             double porcentajeAprobados = model.TotalEstudiantes > 0 ? (totalAprobados * 100.0 / model.TotalEstudiantes) : 0;
             double porcentajeReprobados = model.TotalEstudiantes > 0 ? (totalReprobados * 100.0 / model.TotalEstudiantes) : 0;
+            double porcentajeSinEvaluar = model.TotalEstudiantes > 0 ? (totalSinEvaluar * 100.0 / model.TotalEstudiantes) : 0;
 
             model.TotalAprobados = totalAprobados;
             model.TotalReprobados = totalReprobados;
+            model.TotalSinEvaluar = totalSinEvaluar;
             model.PorcentajeAprobados = porcentajeAprobados;
             model.PorcentajeReprobados = porcentajeReprobados;
+            model.PorcentajeSinEvaluar = porcentajeSinEvaluar;
 
             var materias = await _subjectService.GetAllAsync();
             var materiasDesempeno = new List<MateriaDesempenoViewModel>();
@@ -517,8 +522,9 @@ namespace SchoolManager.Services.Implementations
                     TotalEstudiantes = g.Count(),
                     TotalAprobados = g.Count(u => u.StudentActivityScores.Any() && 
                         u.StudentActivityScores.Average(s => (double)s.Score) >= 3.0),
-                    TotalReprobados = g.Count(u => !u.StudentActivityScores.Any() || 
-                        u.StudentActivityScores.Average(s => (double)s.Score) < 3.0)
+                    TotalReprobados = g.Count(u => u.StudentActivityScores.Any() && 
+                        u.StudentActivityScores.Average(s => (double)s.Score) < 3.0),
+                    TotalSinEvaluar = g.Count(u => !u.StudentActivityScores.Any())
                 })
                 .FirstOrDefaultAsync();
 
@@ -527,12 +533,14 @@ namespace SchoolManager.Services.Implementations
                 model.TotalEstudiantes = totals.TotalEstudiantes;
                 model.TotalAprobados = totals.TotalAprobados;
                 model.TotalReprobados = totals.TotalReprobados;
+                model.TotalSinEvaluar = totals.TotalSinEvaluar;
             }
             else
             {
                 model.TotalEstudiantes = 0;
                 model.TotalAprobados = 0;
                 model.TotalReprobados = 0;
+                model.TotalSinEvaluar = 0;
             }
 
             // Calcular porcentajes
@@ -541,6 +549,9 @@ namespace SchoolManager.Services.Implementations
                 : 0;
             model.PorcentajeReprobados = model.TotalEstudiantes > 0 
                 ? (model.TotalReprobados * 100.0 / model.TotalEstudiantes) 
+                : 0;
+            model.PorcentajeSinEvaluar = model.TotalEstudiantes > 0 
+                ? (model.TotalSinEvaluar * 100.0 / model.TotalEstudiantes) 
                 : 0;
 
             // Calcular tasa de aprobación general

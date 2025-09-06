@@ -8,7 +8,7 @@
     </div>
     <div class="card-body">
         <div class="search-bar">
-            <input type="text" id="searchAreas" placeholder="Buscar área por nombre o descripción...">
+            <input type="text" id="searchAreas" placeholder="Buscar área por nombre o descripción..." autocomplete="off">
         </div>
         <div class="table-responsive">
             <table id="areaTable" class="table table-hover table-bordered align-middle">
@@ -25,7 +25,7 @@
                         <tr data-id="@area.Id">
                             <td class="align-middle text-center">
                                 <span class="area-name-text">@area.Name</span>
-                                <input type="text" class="form-control d-none area-name-input" value="@area.Name" />
+                                <input type="text" class="form-control d-none area-name-input" value="@area.Name" autocomplete="off" />
                             </td>
                             <td class="align-middle text-center">
                                 <span class="area-description-text">@area.Description</span>
@@ -52,10 +52,10 @@
             <h6 class="mb-3">Agregar Nueva Área</h6>
             <div class="row">
                 <div class="col-md-5">
-                    <input type="text" id="newAreaName" class="form-control mb-2" placeholder="Nombre del área" />
+                    <input type="text" id="newAreaName" class="form-control mb-2" placeholder="Nombre del área" autocomplete="off" />
                 </div>
                 <div class="col-md-5">
-                    <input type="text" id="newAreaDescription" class="form-control mb-2" placeholder="Descripción (opcional)" />
+                    <input type="text" id="newAreaDescription" class="form-control mb-2" placeholder="Descripción (opcional)" autocomplete="off" />
                 </div>
                 <div class="col-md-2">
                     <button class="btn btn-primary w-100" onclick="createArea()">

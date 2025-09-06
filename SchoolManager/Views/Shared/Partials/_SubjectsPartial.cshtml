@@ -8,7 +8,7 @@
     </div>
     <div class="card-body">
         <div class="search-bar">
-            <input type="text" id="searchSubjects" placeholder="Buscar materia por nombre o descripción...">
+            <input type="text" id="searchSubjects" placeholder="Buscar materia por nombre o descripción..." autocomplete="off">
         </div>
         <div class="table-responsive">
             <table id="subjectTable" class="table table-hover table-bordered align-middle">
@@ -25,7 +25,7 @@
                         <tr data-id="@subject.Id">
                             <td class="align-middle text-center">
                                 <span class="subject-name-text">@subject.Name</span>
-                                <input type="text" class="form-control d-none subject-name-input" value="@subject.Name" />
+                                <input type="text" class="form-control d-none subject-name-input" value="@subject.Name" autocomplete="off" />
                             </td>
                             <td class="align-middle text-center">
                                 <span class="subject-description-text">@subject.Description</span>
@@ -52,10 +52,10 @@
             <h6 class="mb-3">Agregar Nueva Materia</h6>
             <div class="row">
                 <div class="col-md-5">
-                    <input type="text" id="newSubjectName" class="form-control mb-2" placeholder="Nombre de la materia" />
+                    <input type="text" id="newSubjectName" class="form-control mb-2" placeholder="Nombre de la materia" autocomplete="off" />
                 </div>
                 <div class="col-md-5">
-                    <input type="text" id="newSubjectDescription" class="form-control mb-2" placeholder="Descripción (opcional)" />
+                    <input type="text" id="newSubjectDescription" class="form-control mb-2" placeholder="Descripción (opcional)" autocomplete="off" />
                 </div>
                 <div class="col-md-2">
                     <button class="btn btn-primary w-100" onclick="createSubject()">

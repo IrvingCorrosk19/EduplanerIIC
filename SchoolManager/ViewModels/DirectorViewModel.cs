@@ -9,8 +9,10 @@ namespace SchoolManager.ViewModels
         public int TotalEstudiantes { get; set; }
         public int TotalAprobados { get; set; }
         public int TotalReprobados { get; set; }
+        public int TotalSinEvaluar { get; set; }
         public double PorcentajeAprobados { get; set; }
         public double PorcentajeReprobados { get; set; }
+        public double PorcentajeSinEvaluar { get; set; }
 
         // Desempeño por materia
         public List<MateriaDesempenoViewModel> MateriasDesempeno { get; set; }

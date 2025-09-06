@@ -75,6 +75,12 @@
                                 <p>Dashboard</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "ChangePassword")" class="nav-link">
+                                <i class="nav-icon fas fa-key"></i>
+                                <p>Cambiar Contraseña</p>
+                            </a>
+                        </li>
                         @if (userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item">
                                 <a href="@Url.Action("Index", "StudentReport")" class="nav-link">

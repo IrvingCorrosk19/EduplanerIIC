@@ -8,7 +8,7 @@
     </div>
     <div class="card-body">
         <div class="search-bar">
-            <input type="text" id="searchSpecialties" placeholder="Buscar especialidad por nombre o descripción...">
+            <input type="text" id="searchSpecialties" placeholder="Buscar especialidad por nombre o descripción..." autocomplete="off">
         </div>
         <div class="table-responsive">
             <table id="specialtyTable" class="table table-hover table-bordered align-middle">
@@ -25,7 +25,7 @@
                         <tr data-id="@specialty.Id">
                             <td class="align-middle text-center">
                                 <span class="specialty-name-text">@specialty.Name</span>
-                                <input type="text" class="form-control d-none specialty-name-input" value="@specialty.Name" />
+                                <input type="text" class="form-control d-none specialty-name-input" value="@specialty.Name" autocomplete="off" />
                             </td>
                             <td class="align-middle text-center">
                                 <span class="specialty-description-text">@specialty.Description</span>
@@ -52,10 +52,10 @@
             <h6 class="mb-3">Agregar Nueva Especialidad</h6>
             <div class="row">
                 <div class="col-md-5">
-                    <input type="text" id="newSpecialtyName" class="form-control mb-2" placeholder="Nombre de la especialidad" />
+                    <input type="text" id="newSpecialtyName" class="form-control mb-2" placeholder="Nombre de la especialidad" autocomplete="off" />
                 </div>
                 <div class="col-md-5">
-                    <input type="text" id="newSpecialtyDescription" class="form-control mb-2" placeholder="Descripción (opcional)" />
+                    <input type="text" id="newSpecialtyDescription" class="form-control mb-2" placeholder="Descripción (opcional)" autocomplete="off" />
                 </div>
                 <div class="col-md-2">
                     <button class="btn btn-primary w-100" onclick="createSpecialty()">

@@ -63,8 +63,8 @@ public partial class SchoolDbContext : DbContext
         optionsBuilder.AddInterceptors(new DateTimeInterceptor());
         
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseNpgsql("Host=dpg-d2tfpcbuibrs73eos9vg-a;Database=schoolmanagement_5uke;Username=admin;Password=s5zPGRTcqiDhbNfiVsJcRj28TPtanwNX;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
-         // => optionsBuilder.UseNpgsql("Host=localhost;Database=SchoolManagement;Username=postgres;Password=Panama2020$");
+       => optionsBuilder.UseNpgsql("Host=dpg-d2tfpcbuibrs73eos9vg-a;Database=schoolmanagement_5uke;Username=admin;Password=s5zPGRTcqiDhbNfiVsJcRj28TPtanwNX;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
+       //   => optionsBuilder.UseNpgsql("Host=localhost;Database=SchoolManagement;Username=postgres;Password=Panama2020$");
 
     }
 

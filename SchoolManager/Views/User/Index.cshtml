@@ -293,33 +293,33 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Nombre</label>
-                            <input type="text" class="form-control" name="Name" placeholder="Nombre" required>
+                            <input type="text" class="form-control" name="Name" placeholder="Nombre" required autocomplete="off">
                             <div class="invalid-feedback">Nombre obligatorio.</div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Apellidos</label>
-                            <input type="text" class="form-control" name="LastName" placeholder="Apellidos">
+                            <input type="text" class="form-control" name="LastName" placeholder="Apellidos" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Correo Electrónico</label>
-                            <input type="email" class="form-control" name="Email" placeholder="correo@ejemplo.com" required>
+                            <input type="email" class="form-control" name="Email" placeholder="correo@ejemplo.com" required autocomplete="off">
                             <div class="invalid-feedback">Correo obligatorio.</div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Documento de Identidad</label>
-                            <input type="text" class="form-control" name="DocumentId" placeholder="Ej. 8-123-4567">
+                            <input type="text" class="form-control" name="DocumentId" placeholder="Ej. 8-123-4567" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Contraseña</label>
-                            <input type="password" class="form-control" name="PasswordHash" placeholder="********">
+                            <input type="password" class="form-control" name="PasswordHash" placeholder="********" autocomplete="new-password">
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -335,7 +335,7 @@
                             <select class="form-control" name="Role" id="roleSelect">
                                 @foreach (var role in ViewBag.Roles)
                                 {
-                                    <option value="@role">@role</option>
+                                    <option value="@role">@GetRoleDisplayName(role)</option>
                                 }
                             </select>
                         </div>
@@ -389,7 +389,7 @@
                             <td>@user.DocumentId</td>
                             <td>
                                 <span class="role-text @GetRoleClass(user.Role?.ToLower())">
-                                    @user.Role
+                                    @GetRoleDisplayName(user.Role)
                                 </span>
                             </td>
                             <td>
@@ -694,9 +694,26 @@
             "admin" => "role-admin",
             "teacher" => "role-teacher",
             "student" => "role-student",
+            "estudiante" => "role-student",
             "parent" => "role-parent",
             "director" => "role-director",
+            "superadmin" => "role-admin",
             _ => ""
+        };
+    }
+
+    private string GetRoleDisplayName(string role)
+    {
+        return role?.ToLower() switch
+        {
+            "admin" => "Administrador",
+            "superadmin" => "Super Administrador",
+            "teacher" => "Profesor",
+            "student" => "Estudiante",
+            "estudiante" => "Estudiante",
+            "parent" => "Padre/Madre",
+            "director" => "Director",
+            _ => role ?? "Sin rol"
         };
     }
 }
