@@ -308,8 +308,13 @@
     <div class="row">
         <div class="col-12">
             <div class="card card-outline card-primary mb-4">
-                <div class="card-header">
-                    <i class="bi bi-exclamation-triangle me-2"></i> Reportes de Disciplina
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-exclamation-triangle me-2"></i> Reportes de Disciplina
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" id="exportDisciplinePdf" title="Exportar expediente de disciplina en PDF">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF
+                    </button>
                 </div>
                 <div class="card-body">
                     <table class="table table-hover table-bordered align-middle" id="discipline-table">
@@ -496,6 +501,65 @@
                 });
             });
         });
+
+        // Exportar expediente de disciplina en PDF
+        $('#exportDisciplinePdf').on('click', function() {
+            const studentId = '@Model.StudentId';
+            const studentName = '@Model.StudentName';
+            const grade = '@Model.Grade';
+            
+            // Verificar si hay reportes de disciplina
+            const disciplineRows = $('#discipline-table tbody tr');
+            if (disciplineRows.length === 0 || disciplineRows.text().includes('No hay reportes')) {
+                Swal.fire({
+                    title: 'Sin Reportes',
+                    text: 'No hay reportes de disciplina para exportar.',
+                    icon: 'info',
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#2563eb'
+                });
+                return;
+            }
+            
+            // Mostrar loading
+            Swal.fire({
+                title: 'Generando PDF...',
+                text: 'Por favor espere mientras se genera el expediente de disciplina.',
+                icon: 'info',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Llamar al endpoint de exportación
+            window.location.href = `/StudentReport/ExportDisciplinePdf?studentId=${studentId}&studentName=${encodeURIComponent(studentName)}&grade=${encodeURIComponent(grade)}`;
+            
+            // Cerrar el loading después de un tiempo
+            setTimeout(() => {
+                Swal.close();
+            }, 2000);
+        });
+
+        // Mostrar SweetAlert si no hay calificaciones
+        @if (TempData["ShowNoGradesAlert"] != null)
+        {
+            <text>
+            $(document).ready(function() {
+                Swal.fire({
+                    title: 'Sin Calificaciones',
+                    text: 'El estudiante no tiene calificaciones registradas. No se mostrarán datos en el reporte.',
+                    icon: 'info',
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#2563eb',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                });
+            });
+            </text>
+        }
     </script>
 }
 

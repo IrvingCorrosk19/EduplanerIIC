@@ -7,9 +7,6 @@ namespace SchoolManager.Services.Interfaces
     {
         Task<StudentReportDto> GetReportByStudentIdAsync(Guid studentId);
         Task<StudentReportDto> GetReportByStudentIdAndTrimesterAsync(Guid studentId, string trimester);
-
-
-
-
+        Task<List<DisciplineReportDto>> GetDisciplineReportsByStudentIdAsync(Guid studentId);
     }
 }
