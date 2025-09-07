@@ -2,26 +2,69 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Dtos;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 
 namespace SchoolManager.Controllers
 {
+    [Authorize(Roles = "superadmin,admin")]
     public class EmailConfigurationController : Controller
     {
         private readonly IEmailConfigurationService _emailConfigurationService;
-        private readonly ISchoolService _schoolService;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly ILogger<EmailConfigurationController> _logger;
 
         public EmailConfigurationController(
             IEmailConfigurationService emailConfigurationService,
-            ISchoolService schoolService)
+            ICurrentUserService currentUserService,
+            ILogger<EmailConfigurationController> logger)
         {
             _emailConfigurationService = emailConfigurationService;
-            _schoolService = schoolService;
+            _currentUserService = currentUserService;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Index()
         {
-            var configurations = await _emailConfigurationService.GetAllAsync();
-            return View(configurations);
+            try
+            {
+                _logger.LogInformation("Iniciando método Index de EmailConfigurationController");
+                
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                _logger.LogInformation("Usuario actual obtenido: {UserId}, Email: {Email}, SchoolId: {SchoolId}", 
+                    currentUser?.Id, currentUser?.Email, currentUser?.SchoolId);
+                
+                if (currentUser?.SchoolId == null)
+                {
+                    _logger.LogWarning("No se pudo obtener la información de la escuela del usuario actual");
+                    TempData["ErrorMessage"] = "No se pudo obtener la información de la escuela del usuario actual.";
+                    return View(new List<EmailConfigurationDto>());
+                }
+
+                _logger.LogInformation("Buscando configuración de email para SchoolId: {SchoolId}", currentUser.SchoolId.Value);
+                var emailConfig = await _emailConfigurationService.GetBySchoolIdAsync(currentUser.SchoolId.Value);
+                
+                if (emailConfig != null)
+                {
+                    _logger.LogInformation("Configuración de email encontrada: {ConfigId}, SMTP Server: {SmtpServer}", 
+                        emailConfig.Id, emailConfig.SmtpServer);
+                }
+                else
+                {
+                    _logger.LogInformation("No se encontró configuración de email para SchoolId: {SchoolId}", currentUser.SchoolId.Value);
+                }
+
+                var emailConfigs = emailConfig != null ? new List<EmailConfigurationDto> { emailConfig } : new List<EmailConfigurationDto>();
+                _logger.LogInformation("Retornando vista con {Count} configuraciones de email", emailConfigs.Count);
+                
+                return View(emailConfigs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en método Index de EmailConfigurationController");
+                TempData["ErrorMessage"] = "Ocurrió un error al cargar las configuraciones de email.";
+                return View(new List<EmailConfigurationDto>());
+            }
         }
 
         public async Task<IActionResult> Details(Guid id)
@@ -37,63 +80,71 @@ namespace SchoolManager.Controllers
 
         public async Task<IActionResult> Create()
         {
-            var schools = await _schoolService.GetAllAsync();
-            var viewModel = new EmailConfigurationCreateViewModel
+            try
             {
-                Schools = schools.Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
+                _logger.LogInformation("Iniciando método Create (GET) de EmailConfigurationController");
+                
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                _logger.LogInformation("Usuario actual obtenido: {UserId}, Email: {Email}, SchoolId: {SchoolId}", 
+                    currentUser?.Id, currentUser?.Email, currentUser?.SchoolId);
+                
+                if (currentUser?.SchoolId == null)
                 {
-                    Value = s.Id.ToString(),
-                    Text = s.Name
-                }).ToList()
-            };
+                    _logger.LogWarning("No se pudo obtener la información de la escuela del usuario actual");
+                    TempData["ErrorMessage"] = "No se pudo obtener la información de la escuela del usuario actual.";
+                    return RedirectToAction(nameof(Index));
+                }
 
-            return View(viewModel);
+                // Verificar si ya existe una configuración para esta escuela
+                _logger.LogInformation("Verificando si ya existe configuración para SchoolId: {SchoolId}", currentUser.SchoolId.Value);
+                var existingConfig = await _emailConfigurationService.GetBySchoolIdAsync(currentUser.SchoolId.Value);
+                
+                if (existingConfig != null)
+                {
+                    _logger.LogInformation("Ya existe configuración de email: {ConfigId}, redirigiendo a Edit", existingConfig.Id);
+                    TempData["WarningMessage"] = "Ya existe una configuración de correo para esta escuela. Edítala si deseas cambiarla.";
+                    return RedirectToAction(nameof(Edit), new { id = existingConfig.Id });
+                }
+
+                _logger.LogInformation("No existe configuración previa, mostrando formulario de creación");
+                return View(new EmailConfigurationCreateDto { SchoolId = currentUser.SchoolId.Value });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en método Create (GET) de EmailConfigurationController");
+                TempData["ErrorMessage"] = "Ocurrió un error al cargar el formulario de creación.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(EmailConfigurationCreateViewModel model)
+        public async Task<IActionResult> Create(EmailConfigurationCreateDto model)
         {
-            if (!ModelState.IsValid)
-            {
-                var schools = await _schoolService.GetAllAsync();
-                model.Schools = schools.Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
-                {
-                    Value = s.Id.ToString(),
-                    Text = s.Name
-                }).ToList();
-                return View(model);
-            }
-
             try
             {
-                var createDto = new EmailConfigurationCreateDto
+                _logger.LogInformation("Iniciando método Create (POST) de EmailConfigurationController");
+                _logger.LogInformation("Datos recibidos - SchoolId: {SchoolId}, SmtpServer: {SmtpServer}, SmtpPort: {SmtpPort}, FromEmail: {FromEmail}", 
+                    model.SchoolId, model.SmtpServer, model.SmtpPort, model.FromEmail);
+                
+                if (!ModelState.IsValid)
                 {
-                    SchoolId = model.SchoolId,
-                    SmtpServer = model.SmtpServer,
-                    SmtpPort = model.SmtpPort,
-                    SmtpUsername = model.SmtpUsername,
-                    SmtpPassword = model.SmtpPassword,
-                    SmtpUseSsl = model.SmtpUseSsl,
-                    SmtpUseTls = model.SmtpUseTls,
-                    FromEmail = model.FromEmail,
-                    FromName = model.FromName,
-                    IsActive = model.IsActive
-                };
+                    _logger.LogWarning("ModelState no es válido. Errores: {Errors}", 
+                        string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                    return View(model);
+                }
 
-                await _emailConfigurationService.CreateAsync(createDto);
+                _logger.LogInformation("Creando configuración de email para SchoolId: {SchoolId}", model.SchoolId);
+                var createdConfig = await _emailConfigurationService.CreateAsync(model);
+                _logger.LogInformation("Configuración de email creada exitosamente con ID: {ConfigId}", createdConfig.Id);
+                
                 TempData["SuccessMessage"] = "Configuración de email creada exitosamente.";
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error al crear configuración de email para SchoolId: {SchoolId}", model.SchoolId);
                 ModelState.AddModelError("", $"Error al crear la configuración: {ex.Message}");
-                var schools = await _schoolService.GetAllAsync();
-                model.Schools = schools.Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
-                {
-                    Value = s.Id.ToString(),
-                    Text = s.Name
-                }).ToList();
                 return View(model);
             }
         }
@@ -106,11 +157,9 @@ namespace SchoolManager.Controllers
                 return NotFound();
             }
 
-            var schools = await _schoolService.GetAllAsync();
-            var viewModel = new EmailConfigurationEditViewModel
+            var updateDto = new EmailConfigurationUpdateDto
             {
                 Id = configuration.Id,
-                SchoolId = configuration.SchoolId,
                 SmtpServer = configuration.SmtpServer,
                 SmtpPort = configuration.SmtpPort,
                 SmtpUsername = configuration.SmtpUsername,
@@ -119,64 +168,35 @@ namespace SchoolManager.Controllers
                 SmtpUseTls = configuration.SmtpUseTls,
                 FromEmail = configuration.FromEmail,
                 FromName = configuration.FromName,
-                IsActive = configuration.IsActive,
-                Schools = schools.Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
-                {
-                    Value = s.Id.ToString(),
-                    Text = s.Name,
-                    Selected = s.Id == configuration.SchoolId
-                }).ToList()
+                IsActive = configuration.IsActive
             };
 
-            return View(viewModel);
+            return View(updateDto);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(EmailConfigurationEditViewModel model)
+        public async Task<IActionResult> Edit(Guid id, EmailConfigurationUpdateDto model)
         {
+            if (id != model.Id)
+            {
+                return NotFound();
+            }
+
             if (!ModelState.IsValid)
             {
-                var schools = await _schoolService.GetAllAsync();
-                model.Schools = schools.Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
-                {
-                    Value = s.Id.ToString(),
-                    Text = s.Name,
-                    Selected = s.Id == model.SchoolId
-                }).ToList();
                 return View(model);
             }
 
             try
             {
-                var updateDto = new EmailConfigurationUpdateDto
-                {
-                    Id = model.Id,
-                    SmtpServer = model.SmtpServer,
-                    SmtpPort = model.SmtpPort,
-                    SmtpUsername = model.SmtpUsername,
-                    SmtpPassword = model.SmtpPassword,
-                    SmtpUseSsl = model.SmtpUseSsl,
-                    SmtpUseTls = model.SmtpUseTls,
-                    FromEmail = model.FromEmail,
-                    FromName = model.FromName,
-                    IsActive = model.IsActive
-                };
-
-                await _emailConfigurationService.UpdateAsync(updateDto);
+                await _emailConfigurationService.UpdateAsync(model);
                 TempData["SuccessMessage"] = "Configuración de email actualizada exitosamente.";
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
                 ModelState.AddModelError("", $"Error al actualizar la configuración: {ex.Message}");
-                var schools = await _schoolService.GetAllAsync();
-                model.Schools = schools.Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
-                {
-                    Value = s.Id.ToString(),
-                    Text = s.Name,
-                    Selected = s.Id == model.SchoolId
-                }).ToList();
                 return View(model);
             }
         }
@@ -210,11 +230,14 @@ namespace SchoolManager.Controllers
         {
             try
             {
+                _logger.LogInformation("Iniciando prueba de conexión para configuración ID: {ConfigId}", id);
                 var result = await _emailConfigurationService.TestConnectionAsync(id);
+                _logger.LogInformation("Resultado de prueba de conexión para ID {ConfigId}: {Result}", id, result);
                 return Json(new { success = result, message = result ? "Conexión exitosa" : "Error en la conexión" });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error al probar conexión para configuración ID: {ConfigId}", id);
                 return Json(new { success = false, message = $"Error: {ex.Message}" });
             }
         }

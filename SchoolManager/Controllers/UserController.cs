@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using BCrypt.Net;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Dtos;
+using Microsoft.Extensions.Logging;
 
 [Authorize(Roles = "admin")]
 public class UserController : Controller
@@ -18,6 +19,7 @@ public class UserController : Controller
     private readonly IMapper _mapper;
     private readonly IEmailConfigurationService _emailConfigurationService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<UserController> _logger;
 
     public UserController(
         IUserService userService,
@@ -25,7 +27,8 @@ public class UserController : Controller
         IGroupService groupService,
         IMapper mapper,
         IEmailConfigurationService emailConfigurationService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<UserController> logger)
     {
         _userService = userService;
         _subjectService = subjectService;
@@ -33,6 +36,7 @@ public class UserController : Controller
         _mapper = mapper;
         _emailConfigurationService = emailConfigurationService;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -231,47 +235,66 @@ public class UserController : Controller
     {
         try
         {
+            _logger.LogInformation("Iniciando envío de email de contraseña para usuario ID: {UserId}", id);
+            
             // Obtener el usuario
             var user = await _userService.GetByIdAsync(id);
             if (user == null)
             {
+                _logger.LogWarning("Usuario no encontrado con ID: {UserId}", id);
                 return NotFound(new { message = "Usuario no encontrado" });
             }
+
+            _logger.LogInformation("Usuario encontrado: {UserName} {UserLastName}, Email: {UserEmail}", 
+                user.Name, user.LastName, user.Email);
 
             // Obtener la configuración de email de la escuela
             var currentUser = await _currentUserService.GetCurrentUserAsync();
             if (currentUser?.SchoolId == null)
             {
+                _logger.LogError("No se pudo obtener la información de la escuela para el usuario actual");
                 return BadRequest(new { message = "No se pudo obtener la información de la escuela" });
             }
+
+            _logger.LogInformation("SchoolId del usuario actual: {SchoolId}", currentUser.SchoolId.Value);
 
             var emailConfig = await _emailConfigurationService.GetBySchoolIdAsync(currentUser.SchoolId.Value);
             if (emailConfig == null)
             {
+                _logger.LogError("No hay configuración de email para SchoolId: {SchoolId}", currentUser.SchoolId.Value);
                 return BadRequest(new { message = "No hay configuración de email para esta escuela. Configure el servidor SMTP primero." });
             }
 
+            _logger.LogInformation("Configuración de email encontrada: SMTP={SmtpServer}, Puerto={SmtpPort}, Usuario={SmtpUsername}", 
+                emailConfig.SmtpServer, emailConfig.SmtpPort, emailConfig.SmtpUsername);
+
             // Generar una nueva contraseña temporal
             var newPassword = GenerateTemporaryPassword();
+            _logger.LogInformation("Contraseña temporal generada para usuario: {UserEmail}", user.Email);
             
             // Actualizar la contraseña del usuario
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             await _userService.UpdateAsync(user);
+            _logger.LogInformation("Contraseña actualizada en la base de datos para usuario: {UserEmail}", user.Email);
 
             // Enviar el email
+            _logger.LogInformation("Iniciando envío de email de bienvenida a: {UserEmail}", user.Email);
             var emailSent = await SendWelcomeEmailAsync(user, newPassword, emailConfig);
             
             if (emailSent)
             {
+                _logger.LogInformation("Email enviado exitosamente a: {UserEmail}", user.Email);
                 return Ok(new { message = $"Contraseña enviada exitosamente a {user.Email}" });
             }
             else
             {
+                _logger.LogError("Error al enviar email a: {UserEmail}", user.Email);
                 return BadRequest(new { message = "Error al enviar el email. Verifique la configuración SMTP." });
             }
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Error inesperado al enviar email de contraseña para usuario ID: {UserId}", id);
             return BadRequest(new { message = $"Error: {ex.Message}" });
         }
     }
@@ -309,14 +332,39 @@ public class UserController : Controller
     {
         try
         {
+            _logger.LogInformation("Iniciando configuración SMTP para envío de email");
+            _logger.LogInformation("Configuración SMTP: Servidor={SmtpServer}, Puerto={SmtpPort}, Usuario={SmtpUsername}, SSL={SmtpUseSsl}, TLS={SmtpUseTls}", 
+                emailConfig.SmtpServer, emailConfig.SmtpPort, emailConfig.SmtpUsername, emailConfig.SmtpUseSsl, emailConfig.SmtpUseTls);
+            
+            // Limpiar credenciales de espacios ocultos
+            var cleanUsername = emailConfig.SmtpUsername?.Trim() ?? string.Empty;
+            var cleanPassword = emailConfig.SmtpPassword?.Trim() ?? string.Empty;
+            
+            _logger.LogInformation("Credenciales limpias - Usuario: '{Username}' (longitud: {UserLength}), Contraseña: '{Password}' (longitud: {PassLength})", 
+                cleanUsername, cleanUsername.Length, 
+                string.IsNullOrEmpty(cleanPassword) ? "[VACÍA]" : "[OCULTA]", cleanPassword.Length);
+            
             using var client = new System.Net.Mail.SmtpClient(emailConfig.SmtpServer, emailConfig.SmtpPort);
-            client.EnableSsl = emailConfig.SmtpUseSsl;
-            client.UseDefaultCredentials = false;
-            client.Credentials = new System.Net.NetworkCredential(emailConfig.SmtpUsername, emailConfig.SmtpPassword);
+            
+            // Para Gmail con puerto 587, necesitamos SSL habilitado para STARTTLS
+            // Si es Gmail y puerto 587, forzar SSL a true
+            bool enableSsl = emailConfig.SmtpUseSsl;
+            if (emailConfig.SmtpServer.ToLower().Contains("gmail") && emailConfig.SmtpPort == 587)
+            {
+                enableSsl = true;
+                _logger.LogInformation("Detectado Gmail con puerto 587, forzando SSL a true para STARTTLS");
+            }
+            
+            client.EnableSsl = enableSsl;
+            client.UseDefaultCredentials = false; // CRÍTICO: debe ser false para Gmail
+            client.Credentials = new System.Net.NetworkCredential(cleanUsername, cleanPassword);
             client.DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network;
+            
+            _logger.LogInformation("Cliente SMTP configurado: SSL={EnableSsl}, UseDefaultCredentials={UseDefaultCredentials}, Credentials configuradas", 
+                client.EnableSsl, client.UseDefaultCredentials);
 
             var message = new System.Net.Mail.MailMessage();
-            message.From = new System.Net.Mail.MailAddress(emailConfig.FromEmail, emailConfig.FromName);
+            message.From = new System.Net.Mail.MailAddress(cleanUsername, emailConfig.FromName); // Usar el usuario limpio como From
             message.To.Add(user.Email);
             message.Subject = "¡Bienvenido a Eduplaner!";
             message.IsBodyHtml = true;
@@ -349,11 +397,15 @@ public class UserController : Controller
                 </body>
                 </html>";
 
+            _logger.LogInformation("Enviando mensaje de bienvenida desde {FromEmail} a {ToEmail}", cleanUsername, user.Email);
             await client.SendMailAsync(message);
+            _logger.LogInformation("Mensaje enviado exitosamente a: {UserEmail}", user.Email);
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error en envío de email de bienvenida a {UserEmail}: {ErrorMessage}", user.Email, ex.Message);
+            _logger.LogError("Detalles del error: {ExceptionType} - {StackTrace}", ex.GetType().Name, ex.StackTrace);
             return false;
         }
     }

@@ -1,4 +1,4 @@
-@model SchoolManager.ViewModels.EmailConfigurationCreateViewModel
+@model SchoolManager.Dtos.EmailConfigurationCreateDto
 @{
     ViewData["Title"] = "Crear Configuración de Email";
     Layout = "_AdminLayout";
@@ -18,13 +18,7 @@
                     <form asp-action="Create" method="post">
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label asp-for="SchoolId" class="form-label"></label>
-                                    <select asp-for="SchoolId" asp-items="Model.Schools" class="form-select">
-                                        <option value="">Seleccionar escuela...</option>
-                                    </select>
-                                    <span asp-validation-for="SchoolId" class="text-danger"></span>
-                                </div>
+                                <input type="hidden" asp-for="SchoolId" />
 
                                 <div class="mb-3">
                                     <label asp-for="SmtpServer" class="form-label"></label>
