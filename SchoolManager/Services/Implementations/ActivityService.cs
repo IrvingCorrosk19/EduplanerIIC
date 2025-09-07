@@ -66,11 +66,11 @@ namespace SchoolManager.Services
                 GradeLevelId = dto.GradeLevelId,
                 SchoolId = currentUserSchool.Id,  // ← Agregar SchoolId del usuario logueado
                 CreatedAt = DateTime.UtcNow,
-                                  DueDate = dto.DueDate?.ToUniversalTime()
+                                  DueDate = dto.DueDate.ToUniversalTime()
             };
 
                 Console.WriteLine($"[ActivityService] Actividad creada con ID: {activity.Id}");
-                Console.WriteLine($"[ActivityService] DueDate: {activity.DueDate} (UTC: {activity.DueDate?.ToUniversalTime()})");
+                Console.WriteLine($"[ActivityService] DueDate: {activity.DueDate}");
 
             if (dto.Pdf != null)
             {
@@ -110,6 +110,88 @@ namespace SchoolManager.Services
             }
         }
 
+        public async Task<ActivityDto> UpdateAsync(ActivityUpdateDto dto)
+        {
+            try
+            {
+                Console.WriteLine($"[ActivityService] Iniciando actualización de actividad: {dto.ActivityId}");
+                
+                // Buscar la actividad existente
+                var activity = await _context.Activities.FindAsync(dto.ActivityId);
+                if (activity == null)
+                {
+                    throw new InvalidOperationException($"No se encontró la actividad con ID: {dto.ActivityId}");
+                }
+
+                // Validar trimestre activo
+                await _trimesterService.ValidateTrimesterActiveAsync(dto.TrimesterCode);
+                Console.WriteLine($"[ActivityService] Trimestre validado: {dto.TrimesterCode}");
+
+                // Obtener la escuela del usuario logueado
+                var currentUserSchool = await _currentUserService.GetCurrentUserSchoolAsync();
+                if (currentUserSchool == null)
+                {
+                    throw new InvalidOperationException("No se pudo determinar la escuela del usuario actual.");
+                }
+
+                // Buscar el trimestre por código y escuela
+                var trimestre = await _context.Trimesters
+                    .FirstOrDefaultAsync(t => t.Name == dto.TrimesterCode && t.SchoolId == currentUserSchool.Id);
+                
+                if (trimestre == null)
+                {
+                    throw new InvalidOperationException($"No se encontró el trimestre '{dto.TrimesterCode}' para la escuela actual.");
+                }
+
+                // Actualizar los campos
+                activity.Name = dto.Name;
+                activity.Type = dto.Type;
+                activity.Trimester = dto.TrimesterCode;
+                activity.TrimesterId = trimestre.Id;
+                activity.TeacherId = dto.TeacherId;
+                activity.SubjectId = dto.SubjectId;
+                activity.GroupId = dto.GroupId;
+                activity.GradeLevelId = dto.GradeLevelId;
+                activity.DueDate = dto.DueDate.ToUniversalTime();
+
+                // Manejar archivo PDF si se proporciona uno nuevo
+                if (dto.Pdf != null)
+                {
+                    var path = $"activities/{activity.Id}/{dto.Pdf.FileName}";
+                    await using var stream = dto.Pdf.OpenReadStream();
+                    activity.PdfUrl = await _fileStorage.SaveAsync(path, stream);
+                    Console.WriteLine($"[ActivityService] PDF actualizado en: {activity.PdfUrl}");
+                }
+
+                _context.Activities.Update(activity);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"[ActivityService] Actividad actualizada exitosamente en la base de datos");
+
+                var subject = await _context.Subjects.FindAsync(dto.SubjectId);
+                var group = await _context.Groups.FindAsync(dto.GroupId);
+
+                var result = new ActivityDto
+                {
+                    Id = activity.Id,
+                    Name = activity.Name,
+                    Type = activity.Type,
+                    Date = DateTime.UtcNow,
+                    TrimesterCode = activity.Trimester,
+                    SubjectName = subject?.Name ?? string.Empty,
+                    GroupDisplayName = group != null ? $"{group.Grade} – {group.Name}" : string.Empty,
+                    PdfUrl = activity.PdfUrl
+                };
+
+                Console.WriteLine($"[ActivityService] Actividad actualizada exitosamente: {result.Name}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ActivityService] ERROR al actualizar actividad: {ex.Message}");
+                Console.WriteLine($"[ActivityService] Stack trace: {ex.StackTrace}");
+                throw; // Re-lanzar la excepción para que el controlador la maneje
+            }
+        }
 
         public async Task<IEnumerable<ActivityHeaderDto>> GetByTeacherGroupTrimesterAsync(
             Guid teacherId, Guid groupId, string trimesterCode)

@@ -435,15 +435,16 @@
                 </div>
             </div>
 
-            <!-- FORMULARIO: AGREGAR ACTIVIDAD -->
+            <!-- FORMULARIO: AGREGAR/EDITAR ACTIVIDAD -->
             <div class="card">
                 <div class="card-header d-flex align-items-center gap-2">
-                    <i class="bi bi-plus-circle text-success fs-4"></i>
-                    <h5 class="mb-0">Agregar Nueva Actividad</h5>
+                    <i class="bi bi-plus-circle text-success fs-4" id="formIcon"></i>
+                    <h5 class="mb-0" id="formTitle">Agregar Nueva Actividad</h5>
                 </div>
                 <div class="card-body">
                     <form id="formNew" class="row g-3 align-items-end" enctype="multipart/form-data">
                         @Html.AntiForgeryToken()
+                        <input type="hidden" id="activityId" name="ActivityId" value="" />
                         <div class="col-md-3">
                             <label class="form-label">Nombre de la Actividad</label>
                             <input id="activityName" name="Name" class="form-control" placeholder="Ej. Tarea 2, Examen Final" required />
@@ -458,8 +459,8 @@
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label">Fecha de Entrega</label>
-                            <input type="date" id="activityDueDate" name="DueDate" class="form-control" />
+                            <label class="form-label">Fecha de Entrega <span class="text-danger">*</span></label>
+                            <input type="date" id="activityDueDate" name="DueDate" class="form-control" required />
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Archivo (opcional)</label>
@@ -467,7 +468,7 @@
                         </div>
                         <div class="col-md-2">
                             <button type="submit" id="btnAddActivity" class="btn btn-primary w-100">
-                                <i class="bi bi-plus-circle me-2"></i> Agregar
+                                <i class="bi bi-plus-circle me-2" id="btnIcon"></i> <span id="btnText">Agregar</span>
                             </button>
                         </div>
                     </form>
@@ -494,9 +495,28 @@
                         </button>
                     </div>
                 </div>
-                    <div class="table-responsive">
-                        <table id="gradebook" class="table table-hover mb-0">
-                            <thead>
+                
+                <!-- Búsqueda de estudiantes -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" id="searchStudent" class="form-control" placeholder="Buscar estudiante por nombre...">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Escriba el nombre del estudiante para filtrar la tabla
+                        </div>
+                    </div>
+                </div>
+                
+                    <div class="table-responsive" style="max-height: 500px; max-width: 100%; overflow-y: auto; overflow-x: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+                        <table id="gradebook" class="table table-hover mb-0" style="min-width: 800px;">
+                            <thead class="sticky-top" style="background-color: #f8f9fa; z-index: 10;">
                                 <tr id="hdrRow">
                                     <th style="text-align: left;">Estudiante</th>
                                 </tr>
@@ -949,6 +969,34 @@
 
             console.log("Datos de studentAnnualScores al cargar:", studentAnnualScores);
 
+            // Función para resetear el formulario
+            function resetForm() {
+                $('#activityId').val('');
+                $('#activityName').val('');
+                $('#activityType').val('');
+                $('#activityDueDate').val('');
+                $('#activityFile').val('');
+                
+                // Resetear UI a modo agregar
+                $('#formIcon').removeClass('bi-pencil text-warning').addClass('bi-plus-circle text-success');
+                $('#formTitle').text('Agregar Nueva Actividad');
+                $('#btnIcon').removeClass('bi-check-circle').addClass('bi-plus-circle');
+                $('#btnText').text('Agregar');
+            }
+
+            // Función de búsqueda de estudiantes
+            $('#searchStudent').on('keyup', function() {
+                const searchTerm = $(this).val().toLowerCase();
+                $('#bodyRows tr').each(function() {
+                    const studentName = $(this).find('td:first-child').text().toLowerCase();
+                    if (studentName.includes(searchTerm)) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            });
+
             function truncateToOneDecimal(value) {
                 if (value === null || value === undefined || value === '') {
                     return 0;
@@ -1051,6 +1099,8 @@
                             const downloadButton = a.pdfUrl 
                                 ? `<a href='${a.pdfUrl}' target='_blank' class='btn btn-sm btn-outline-primary mb-1' title='Descargar archivo'><i class='bi bi-download'></i></a>` 
                                 : '';
+                            // Botón de editar
+                            const editButton = a.id ? `<button class='btn btn-sm btn-outline-warning mb-1 btn-edit-activity' data-activity-id='${a.id}' data-activity-name='${a.name}' data-activity-type='${type}' data-activity-due-date='${a.dueDate || ''}' title='Editar actividad'><i class='bi bi-pencil'></i></button>` : '';
                             // Botón de eliminar
                             const deleteButton = a.id ? `<button class='btn btn-sm btn-outline-danger mb-1 btn-delete-activity' data-activity-id='${a.id}' title='Eliminar actividad'><i class='bi bi-trash'></i></button>` : '';
                             // Fecha de entrega bonita
@@ -1058,7 +1108,7 @@
                             hdrRow.append(
                               `<th>
                                 <div class='d-flex flex-column align-items-center'>
-                                  ${downloadButton}${deleteButton}
+                                  ${downloadButton}${editButton}${deleteButton}
                                   <span>
                                     ${a.name}
                                     <br/>
@@ -1224,6 +1274,80 @@
 
                 calcAverages();
 
+                // Evento para editar actividad
+                $('.btn-edit-activity').off('click').on('click', function() {
+                    const activityId = $(this).data('activity-id');
+                    const activityName = $(this).data('activity-name');
+                    const activityType = $(this).data('activity-type');
+                    const activityDueDate = $(this).data('activity-due-date');
+                    
+                    console.log('Editando actividad:', {
+                        activityId,
+                        activityName,
+                        activityType,
+                        activityDueDate
+                    });
+                    
+                    // Verificar opciones del dropdown
+                    console.log('Opciones del dropdown:', $('#activityType option').map(function() {
+                        return $(this).val();
+                    }).get());
+                    
+                    // Cambiar a modo edición
+                    $('#activityId').val(activityId);
+                    $('#activityName').val(activityName);
+                    
+                    // Seleccionar el tipo de actividad
+                    $('#activityType').val(activityType);
+                    
+                    // Verificar si se seleccionó correctamente
+                    const selectedValue = $('#activityType').val();
+                    console.log('Valor seleccionado en dropdown:', selectedValue);
+                    console.log('Valor esperado:', activityType);
+                    
+                    if (selectedValue !== activityType) {
+                        console.warn('⚠️ El valor no coincidió, intentando seleccionar por texto...');
+                        // Intentar seleccionar por texto si el valor no coincide
+                        $('#activityType option').each(function() {
+                            if ($(this).text().toLowerCase() === activityType.toLowerCase()) {
+                                $(this).prop('selected', true);
+                                console.log('✅ Seleccionado por texto:', $(this).text());
+                            }
+                        });
+                    }
+                    
+                    // Formatear la fecha para el input date
+                    if (activityDueDate) {
+                        // Si viene como string de fecha, convertirla al formato YYYY-MM-DD
+                        let formattedDate = activityDueDate;
+                        if (typeof activityDueDate === 'string' && activityDueDate.includes('T')) {
+                            // Si viene como ISO string, extraer solo la fecha
+                            formattedDate = activityDueDate.split('T')[0];
+                        } else if (typeof activityDueDate === 'string' && activityDueDate.includes('/')) {
+                            // Si viene como DD/MM/YYYY, convertir a YYYY-MM-DD
+                            const parts = activityDueDate.split('/');
+                            if (parts.length === 3) {
+                                formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            }
+                        }
+                        $('#activityDueDate').val(formattedDate);
+                        console.log('Fecha formateada:', formattedDate);
+                    } else {
+                        $('#activityDueDate').val('');
+                    }
+                    
+                    // Cambiar UI a modo edición
+                    $('#formIcon').removeClass('bi-plus-circle text-success').addClass('bi-pencil text-warning');
+                    $('#formTitle').text('Editar Actividad');
+                    $('#btnIcon').removeClass('bi-plus-circle').addClass('bi-check-circle');
+                    $('#btnText').text('Actualizar');
+                    
+                    // Scroll al formulario
+                    $('html, body').animate({
+                        scrollTop: $('#formNew').offset().top - 100
+                    }, 500);
+                });
+
                 // Evento para eliminar actividad
                 $('.btn-delete-activity').off('click').on('click', function() {
                     const activityId = $(this).data('activity-id');
@@ -1253,11 +1377,19 @@
                                             title: 'Eliminado',
                                             text: 'La actividad ha sido eliminada.'
                                         });
-                                        // Recargar actividades
+                                        // Limpiar formulario y recargar actividades
+                                        resetForm(); // Limpiar el formulario de actividades
+                                        
                                         const combo = $('#selGroup').val();
                                         const trimester = $('#selTrimester').val();
                                         if (combo && trimester) {
                                             const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                                            
+                                            // Limpiar la tabla antes de recargar
+                                            $('#gradebook thead tr').not(':first').remove();
+                                            $('#bodyRows').empty();
+                                            
+                                            // Recargar actividades
                                             loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
                                         }
                                     } else {
@@ -1483,7 +1615,16 @@
                 const name = $('#activityName').val();
                 const type = $('#activityType').val();
                 const file = $('#activityFile')[0].files[0];
+                const activityId = $('#activityId').val();
+                const isEdit = activityId && activityId !== '';
+                
                 if (!name || !type) return;
+
+                const dueDate = $('#activityDueDate').val();
+                if (!dueDate) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'La fecha de entrega es obligatoria' });
+                    return;
+                }
 
                 const combo = $('#selGroup').val();
                 const trimester = $('#selTrimester').val();
@@ -1501,38 +1642,42 @@
                 }
                 formData.append('TrimesterCode', trimester);
                 formData.append('Date', new Date().toISOString());
-                const dueDate = $('#activityDueDate').val();
-                if (dueDate) {
-                    formData.append('DueDate', dueDate);
-                }
+                formData.append('DueDate', dueDate); // Ya validamos que existe arriba
                 formData.append('TeacherId', '@Model.TeacherId');
                 formData.append('SubjectId', subjectId);
                 formData.append('GroupId', groupId);
                 formData.append('GradeLevelId', gradeLevelId);
                 formData.append('__RequestVerificationToken', $('input[name="__RequestVerificationToken"]').val());
+                
+                // Si es edición, agregar el ID
+                if (isEdit) {
+                    formData.append('ActivityId', activityId);
+                }
+
+                const url = isEdit ? '/TeacherGradebook/UpdateActivity' : '/TeacherGradebook/CreateActivity';
+                const successMessage = isEdit ? 'Actividad actualizada' : 'Actividad agregada';
+                const successText = isEdit ? 'La actividad se ha actualizado correctamente' : 'La actividad se ha agregado correctamente';
 
                 $.ajax({
-                    url: '/TeacherGradebook/CreateActivity',
+                    url: url,
                     method: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
                     success: function(resp) {
                         if (resp.success) {
-                            Swal.fire({ icon: 'success', title: 'Actividad agregada', text: 'La actividad se ha agregado correctamente' });
-                            $('#activityName').val('');
-                            $('#activityFile').val('');
-                            $('#activityDueDate').val('');
+                            Swal.fire({ icon: 'success', title: successMessage, text: successText });
+                            resetForm();
                             loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
                         } else {
-                            Swal.fire({ icon: 'error', title: 'Error', text: resp.error || 'No se pudo agregar la actividad' });
+                            Swal.fire({ icon: 'error', title: 'Error', text: resp.error || `No se pudo ${isEdit ? 'actualizar' : 'agregar'} la actividad` });
                         }
                     },
                     error: function(xhr) {
                         Swal.fire({ 
                             icon: 'error', 
                             title: 'Error', 
-                            text: xhr.responseJSON?.error || 'No se pudo agregar la actividad' 
+                            text: xhr.responseJSON?.error || `No se pudo ${isEdit ? 'actualizar' : 'agregar'} la actividad` 
                         });
                     }
                 });

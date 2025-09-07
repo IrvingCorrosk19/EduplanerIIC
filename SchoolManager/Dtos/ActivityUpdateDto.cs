@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 
 namespace SchoolManager.Dtos
 {
-    public class ActivityCreateDto
+    public class ActivityUpdateDto
     {
+        public Guid ActivityId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;   // 'tarea' | 'parcial' | 'examen'
         public string TrimesterCode { get; set; } = string.Empty;   // '1T', '2T', '3T'

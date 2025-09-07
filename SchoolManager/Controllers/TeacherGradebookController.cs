@@ -305,7 +305,52 @@ namespace SchoolManager.Controllers
         {
             try
             {
+                // Convertir la fecha de string a DateTime si viene del formulario
+                if (dto.DueDate == default(DateTime))
+                {
+                    var dueDateStr = Request.Form["DueDate"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(dueDateStr) && DateTime.TryParse(dueDateStr, out DateTime dueDate))
+                    {
+                        dto.DueDate = dueDate;
+                    }
+                    else
+                    {
+                        return Json(new { success = false, error = "La fecha de entrega es obligatoria y debe ser válida" });
+                    }
+                }
+
                 var result = await _activitySvc.CreateAsync(dto);
+                return Json(new { success = true, data = result });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        // POST: /TeacherGradebook/UpdateActivity
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(52428800)]
+        public async Task<JsonResult> UpdateActivity([FromForm] ActivityUpdateDto dto)
+        {
+            try
+            {
+                // Convertir la fecha de string a DateTime si viene del formulario
+                if (dto.DueDate == default(DateTime))
+                {
+                    var dueDateStr = Request.Form["DueDate"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(dueDateStr) && DateTime.TryParse(dueDateStr, out DateTime dueDate))
+                    {
+                        dto.DueDate = dueDate;
+                    }
+                    else
+                    {
+                        return Json(new { success = false, error = "La fecha de entrega es obligatoria y debe ser válida" });
+                    }
+                }
+
+                var result = await _activitySvc.UpdateAsync(dto);
                 return Json(new { success = true, data = result });
             }
             catch (Exception ex)

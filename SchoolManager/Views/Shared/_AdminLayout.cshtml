@@ -4,6 +4,21 @@
     var userName = User.Identity?.Name ?? "Usuario";
     var userRole = (await CurrentUserService.GetCurrentUserRoleAsync())?.ToLower() ?? "";
     var userSchool = await CurrentUserService.GetCurrentUserSchoolAsync();
+    var currentUser = await CurrentUserService.GetCurrentUserAsync();
+    var fullName = currentUser != null ? $"{currentUser.Name} {currentUser.LastName}" : userName;
+    
+    // Traducir rol a español para mostrar según la base de datos
+    var rolEnEspanol = userRole switch
+    {
+        "superadmin" => "Super Administrador",
+        "admin" => "Administrador", 
+        "director" => "Director",
+        "teacher" => "Docente",
+        "parent" => "Padre/Madre",
+        "student" => "Estudiante",
+        "estudiante" => "Estudiante",
+        _ => userRole
+    };
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -37,7 +52,10 @@
             </ul>
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item">
-                    <span class="nav-link"><i class="fas fa-user"></i> @userName</span>
+                    <span class="nav-link">
+                        <i class="fas fa-user"></i> @fullName
+                        <span class="badge badge-success ml-2">@rolEnEspanol</span>
+                    </span>
                 </li>
                 <li class="nav-item">
                     <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">

@@ -12,6 +12,7 @@ namespace SchoolManager.Interfaces
     {
         /* Operaciones para el Portal del Docente */
         Task<ActivityDto> CreateAsync(ActivityCreateDto dto);
+        Task<ActivityDto> UpdateAsync(ActivityUpdateDto dto);
         Task<IEnumerable<ActivityHeaderDto>> GetByTeacherGroupTrimesterAsync(
             Guid teacherId, Guid groupId, string trimesterCode);
         Task UploadPdfAsync(Guid activityId, string fileName, Stream content);
