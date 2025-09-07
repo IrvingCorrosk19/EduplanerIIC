@@ -253,7 +253,7 @@ namespace SchoolManager.Controllers
             var teacherInfo = new TeacherAssignmentDisplayDto
             {
                 TeacherId = teacher.Id,
-                FullName = teacher.Name,
+                FullName = $"{teacher.Name} {teacher.LastName}",  // Nombre + Apellido concatenados
                 Email = teacher.Email,
                 Role = teacher.Role,
                 IsActive = string.Equals(teacher.Status, "active", StringComparison.OrdinalIgnoreCase),

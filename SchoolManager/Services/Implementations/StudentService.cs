@@ -67,7 +67,7 @@ namespace SchoolManager.Services
                                 select new StudentBasicDto
                                 {
                                     StudentId = student.Id,
-                                    FullName = student.Name,
+                                    FullName = $"{student.Name} {student.LastName}",  // Nombre + Apellido concatenados
                                     GradeName = grade.Name,
                                     GroupName = grupo.Name
                                 }).ToListAsync();
@@ -90,7 +90,7 @@ namespace SchoolManager.Services
                                 select new StudentBasicDto
                                 {
                                     StudentId = student.Id,
-                                    FullName = student.Name,
+                                    FullName = $"{student.Name} {student.LastName}",  // Nombre + Apellido concatenados
                                     GradeName = grade.Name,
                                     GroupName = grupo.Name
                                 }).ToListAsync();
