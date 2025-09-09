@@ -36,30 +36,64 @@ public class UserService : IUserService
 
     public async Task UpdateAsync(User user, List<Guid> subjectIds, List<Guid> groupIds)
     {
-        // Actualizar Subjects
-        user.Subjects.Clear();
-        if (subjectIds.Any())
+        try
         {
-            var subjects = await _context.Subjects.Where(s => subjectIds.Contains(s.Id)).ToListAsync();
-            foreach (var subject in subjects)
-            {
-                user.Subjects.Add(subject);
-            }
-        }
+            Console.WriteLine($"=== USER SERVICE UPDATE ===");
+            Console.WriteLine($"Usuario ID: {user.Id}");
+            Console.WriteLine($"Nombre: {user.Name}");
+            Console.WriteLine($"Email: {user.Email}");
+            Console.WriteLine($"Celular Principal: {user.CellphonePrimary}");
+            Console.WriteLine($"Celular Secundario: {user.CellphoneSecondary}");
+            Console.WriteLine($"Subjects Count: {subjectIds?.Count ?? 0}");
+            Console.WriteLine($"Groups Count: {groupIds?.Count ?? 0}");
 
-        // Actualizar Groups
-        user.Groups.Clear();
-        if (groupIds.Any())
+            // Actualizar Subjects
+            Console.WriteLine("Limpiando subjects existentes...");
+            user.Subjects.Clear();
+            if (subjectIds.Any())
+            {
+                Console.WriteLine($"Buscando {subjectIds.Count} subjects...");
+                var subjects = await _context.Subjects.Where(s => subjectIds.Contains(s.Id)).ToListAsync();
+                Console.WriteLine($"Subjects encontrados: {subjects.Count}");
+                foreach (var subject in subjects)
+                {
+                    user.Subjects.Add(subject);
+                }
+            }
+
+            // Actualizar Groups
+            Console.WriteLine("Limpiando groups existentes...");
+            user.Groups.Clear();
+            if (groupIds.Any())
+            {
+                Console.WriteLine($"Buscando {groupIds.Count} groups...");
+                var groups = await _context.Groups.Where(g => groupIds.Contains(g.Id)).ToListAsync();
+                Console.WriteLine($"Groups encontrados: {groups.Count}");
+                foreach (var group in groups)
+                {
+                    user.Groups.Add(group);
+                }
+            }
+
+            Console.WriteLine("Actualizando usuario en contexto...");
+            _context.Users.Update(user);
+            
+            Console.WriteLine("Guardando cambios en base de datos...");
+            await _context.SaveChangesAsync();
+            
+            Console.WriteLine("Usuario actualizado exitosamente en UserService");
+        }
+        catch (Exception ex)
         {
-            var groups = await _context.Groups.Where(g => groupIds.Contains(g.Id)).ToListAsync();
-            foreach (var group in groups)
+            Console.WriteLine($"=== ERROR EN USER SERVICE UPDATE ===");
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            if (ex.InnerException != null)
             {
-                user.Groups.Add(group);
+                Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
             }
+            throw;
         }
-
-        _context.Users.Update(user);
-        await _context.SaveChangesAsync();
     }
     public async Task UpdateAsync(User user, List<Guid> subjectIds, List<Guid> groupIds, List<Guid> gradeLevelIds)
     {
@@ -143,12 +177,45 @@ public class UserService : IUserService
     }
     public async Task<User?> GetByIdWithRelationsAsync(Guid id)
     {
-        return await _context.Users
-            .Include(u => u.Subjects)
-            .Include(u => u.Groups)
-            .Include(u => u.Grades)
-            .Include(u => u.School)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        try
+        {
+            Console.WriteLine($"=== GET BY ID WITH RELATIONS ===");
+            Console.WriteLine($"Buscando usuario con ID: {id}");
+            
+            var user = await _context.Users
+                .Include(u => u.Subjects)
+                .Include(u => u.Groups)
+                .Include(u => u.Grades)
+                .Include(u => u.School)
+                .FirstOrDefaultAsync(u => u.Id == id);
+                
+            if (user != null)
+            {
+                Console.WriteLine($"Usuario encontrado: {user.Name} {user.LastName}");
+                Console.WriteLine($"Email: {user.Email}");
+                Console.WriteLine($"Celular Principal: {user.CellphonePrimary}");
+                Console.WriteLine($"Celular Secundario: {user.CellphoneSecondary}");
+                Console.WriteLine($"Subjects: {user.Subjects?.Count ?? 0}");
+                Console.WriteLine($"Groups: {user.Groups?.Count ?? 0}");
+            }
+            else
+            {
+                Console.WriteLine("Usuario no encontrado");
+            }
+            
+            return user;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"=== ERROR EN GET BY ID WITH RELATIONS ===");
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+            }
+            throw;
+        }
     }
 
         public async Task<List<User>> GetAllAsync()

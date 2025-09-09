@@ -181,6 +181,14 @@
                                         <p>Configuración de Email</p>
                                     </a>
                                 </li>
+                                @if (userRole == "admin") {
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "CounselorAssignment")" class="nav-link">
+                                        <i class="fas fa-user-tie nav-icon"></i>
+                                        <p>Asignaciones de Consejeros</p>
+                                    </a>
+                                </li>
+                                }
                             </ul>
                         </li>
                         }

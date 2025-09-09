@@ -344,8 +344,22 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Fecha de Nacimiento</label>
-                            <input type="date" class="form-control" name="DateOfBirth" required>
+                            <input type="date" class="form-control" name="DateOfBirth">
                             <div class="invalid-feedback">La fecha de nacimiento es obligatoria.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Celular Principal</label>
+                            <input type="tel" class="form-control" name="CellphonePrimary" placeholder="+507 1234 5678" autocomplete="off" maxlength="13">
+                            <div class="invalid-feedback">Formato de celular inválido.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Celular Secundario</label>
+                            <input type="tel" class="form-control" name="CellphoneSecondary" placeholder="+507 1234 5678" autocomplete="off" maxlength="13">
+                            <div class="invalid-feedback">Formato de celular inválido.</div>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -392,6 +406,8 @@
                             <th>Correo</th>
                             <th>Fecha de nacimiento</th>
                             <th>Documento</th>
+                            <th>Celular Principal</th>
+                            <th>Celular Secundario</th>
                             <th>Rol</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -406,6 +422,8 @@
                             <td>@user.Email</td>
                             <td>@(user.DateOfBirth?.ToString("dd/MM/yyyy"))</td>
                             <td>@user.DocumentId</td>
+                            <td>@(user.CellphonePrimary ?? "-")</td>
+                            <td>@(user.CellphoneSecondary ?? "-")</td>
                             <td>
                                 <span class="role-text @GetRoleClass(user.Role?.ToLower())">
                                     @GetRoleDisplayName(user.Role)
@@ -593,6 +611,8 @@
                     $('[name="Role"]').val(user.role);
                     $('[name="Status"]').val(user.status);
                     $('[name="DateOfBirth"]').val(user.dateOfBirth ? user.dateOfBirth.split('T')[0] : '');
+                    $('[name="CellphonePrimary"]').val(user.cellphonePrimary || '');
+                    $('[name="CellphoneSecondary"]').val(user.cellphoneSecondary || '');
 
                     // Cambiar el tipo de input a password cuando se edita
                     $('#userPasswordInput').attr('type', 'password');
@@ -706,8 +726,18 @@
                     PasswordHash: form.find('[name="PasswordHash"]').val(),
                     Role: form.find('[name="Role"]').val(),
                     Status: form.find('[name="Status"]').val(),
-                    DateOfBirth:  form.find('[name="DateOfBirth"]').val()
+                    DateOfBirth: form.find('[name="DateOfBirth"]').val() || null,
+                    CellphonePrimary: form.find('[name="CellphonePrimary"]').val() || null,
+                    CellphoneSecondary: form.find('[name="CellphoneSecondary"]').val() || null
                 };
+                
+                // LOGS PARA DEBUGGING DE CELULARES - CREATE
+                console.log('=== FRONTEND - CREATE USER - CAPTURA DE CELULARES ===');
+                console.log('CellphonePrimary input value:', form.find('[name="CellphonePrimary"]').val());
+                console.log('CellphoneSecondary input value:', form.find('[name="CellphoneSecondary"]').val());
+                console.log('CellphonePrimary en objeto user:', user.CellphonePrimary);
+                console.log('CellphoneSecondary en objeto user:', user.CellphoneSecondary);
+                console.log('Objeto user completo:', user);
 
                 showValidationErrors(user);
                 if (!user.Name || !user.Email) return;
@@ -771,8 +801,18 @@
                     PasswordHash: passwordValue || null, // Solo enviar si hay valor
                     Role: form.find('[name="Role"]').val(),
                     Status: form.find('[name="Status"]').val(),
-                    DateOfBirth:  form.find('[name="DateOfBirth"]').val()
+                    DateOfBirth: form.find('[name="DateOfBirth"]').val() || null,
+                    CellphonePrimary: form.find('[name="CellphonePrimary"]').val() || null,
+                    CellphoneSecondary: form.find('[name="CellphoneSecondary"]').val() || null
                 };
+                
+                // LOGS PARA DEBUGGING DE CELULARES - UPDATE
+                console.log('=== FRONTEND - UPDATE USER - CAPTURA DE CELULARES ===');
+                console.log('CellphonePrimary input value:', form.find('[name="CellphonePrimary"]').val());
+                console.log('CellphoneSecondary input value:', form.find('[name="CellphoneSecondary"]').val());
+                console.log('CellphonePrimary en objeto user:', user.CellphonePrimary);
+                console.log('CellphoneSecondary en objeto user:', user.CellphoneSecondary);
+                console.log('Objeto user completo:', user);
 
                 showValidationErrors(user);
                 if (!user.Name || !user.Email) return;
@@ -833,11 +873,72 @@
                 $('#userPasswordInput').attr('type', 'password');
                 $('#toggleUserIcon').removeClass('fa-eye-slash').addClass('fa-eye');
                 $('#passwordInfo').hide(); // Ocultar mensaje informativo
+                // Limpiar campos de celular
+                $('[name="CellphonePrimary"]').val('');
+                $('[name="CellphoneSecondary"]').val('');
                 $('#btnUpdateUser').prop('disabled', true);
                 $('#btnCreateUser').prop('disabled', false);
                 form.find('input, select').removeClass('is-invalid');
             }
         });
+        
+        // Formatear números de celular con código de Panamá
+        function formatPhoneNumbers() {
+            $('input[name="CellphonePrimary"], input[name="CellphoneSecondary"]').on('input', function() {
+                let value = $(this).val().replace(/\D/g, ''); // Solo números
+                
+                // Si no empieza con 507, agregarlo automáticamente
+                if (value.length > 0 && !value.startsWith('507')) {
+                    value = '507' + value;
+                }
+                
+                // Limitar a 11 dígitos (507 + 8 dígitos)
+                if (value.length > 11) {
+                    value = value.substring(0, 11);
+                }
+                
+                // Formatear: +507 XXXX XXXX
+                if (value.length >= 3) {
+                    let formatted = '+' + value.substring(0, 3);
+                    if (value.length > 3) {
+                        formatted += ' ' + value.substring(3, 7);
+                    }
+                    if (value.length > 7) {
+                        formatted += ' ' + value.substring(7);
+                    }
+                    $(this).val(formatted);
+                } else if (value.length > 0) {
+                    $(this).val('+' + value);
+                }
+            });
+            
+            // Manejar el evento de pegar
+            $('input[name="CellphonePrimary"], input[name="CellphoneSecondary"]').on('paste', function(e) {
+                setTimeout(() => {
+                    let value = $(this).val().replace(/\D/g, '');
+                    if (value.length > 0 && !value.startsWith('507')) {
+                        value = '507' + value;
+                    }
+                    if (value.length > 11) {
+                        value = value.substring(0, 11);
+                    }
+                    
+                    if (value.length >= 3) {
+                        let formatted = '+' + value.substring(0, 3);
+                        if (value.length > 3) {
+                            formatted += ' ' + value.substring(3, 7);
+                        }
+                        if (value.length > 7) {
+                            formatted += ' ' + value.substring(7);
+                        }
+                        $(this).val(formatted);
+                    }
+                }, 10);
+            });
+        }
+        
+        // Inicializar formateo de teléfonos
+        formatPhoneNumbers();
     </script>
 }
 

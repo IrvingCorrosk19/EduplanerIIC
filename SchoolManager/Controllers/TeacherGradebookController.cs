@@ -25,6 +25,8 @@ namespace SchoolManager.Controllers
         private readonly IUserService _userService;
         private readonly IStudentService _studentService;
         private readonly IAttendanceService _attendanceService;
+        private readonly ICounselorAssignmentService _counselorAssignmentService;
+        private readonly ISubjectAssignmentService _subjectAssignmentService;
 
 
         public TeacherGradebookController(
@@ -35,7 +37,9 @@ namespace SchoolManager.Controllers
             IStudentActivityScoreService scoreSvc,
             IUserService userService,
             IStudentService studentService,
-            IAttendanceService attendanceService)
+            IAttendanceService attendanceService,
+            ICounselorAssignmentService counselorAssignmentService,
+            ISubjectAssignmentService subjectAssignmentService)
             
         {
             _studentService = studentService;   
@@ -46,6 +50,8 @@ namespace SchoolManager.Controllers
             _scoreSvc = scoreSvc;
             _userService = userService;
             _attendanceService = attendanceService;
+            _counselorAssignmentService = counselorAssignmentService;
+            _subjectAssignmentService = subjectAssignmentService;
             
         }
 
@@ -189,6 +195,53 @@ namespace SchoolManager.Controllers
                 students = await _studentService.GetByGroupAndGradeAsync(groupId, gradeId);
             }
             return Json(students);
+        }
+
+        [HttpGet]
+        public async Task<JsonResult> GetCounselorGroups()
+        {
+            try
+            {
+                var teacherId = GetTeacherId();
+                var groups = await _counselorAssignmentService.GetCounselorGroupsAsync(teacherId);
+                return Json(groups);
+            }
+            catch (Exception ex)
+            {
+                return Json(new { error = ex.Message });
+            }
+        }
+
+        [HttpGet]
+        public async Task<JsonResult> GetCounselorGroupStudents(Guid groupId, Guid gradeId, string trimester)
+        {
+            try
+            {
+                var teacherId = GetTeacherId();
+                
+                // Obtener estudiantes del grupo
+                var students = await _studentService.GetByGroupAndGradeAsync(groupId, gradeId);
+                
+                // Por ahora, solo devolver información básica de los estudiantes
+                // TODO: Implementar lógica de calificaciones cuando esté disponible
+                var result = students.Select(student => {
+                    return new {
+                        studentId = student.StudentId,
+                        fullName = student.FullName,
+                        trimester1 = 0.0,
+                        trimester2 = 0.0,
+                        trimester3 = 0.0,
+                        finalAverage = 0.0,
+                        status = "Sin calificar"
+                    };
+                }).ToList();
+                
+                return Json(result);
+            }
+            catch (Exception ex)
+            {
+                return Json(new { error = ex.Message });
+            }
         }
         private Guid GetTeacherId()
         {
@@ -434,6 +487,233 @@ namespace SchoolManager.Controllers
             catch (Exception ex)
             {
                 return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> GetCounselorGroupAverages([FromBody] GetNotesDto request)
+        {
+            try
+            {
+                Console.WriteLine("=== INICIANDO GetCounselorGroupAverages ===");
+                Console.WriteLine($"Request recibido: {request != null}");
+                
+                if (request == null)
+                {
+                    Console.WriteLine("ERROR: Request es null");
+                    return BadRequest(new { success = false, error = "Request es null" });
+                }
+                
+                Console.WriteLine($"GroupId: {request.GroupId}");
+                Console.WriteLine($"GradeLevelId: {request.GradeLevelId}");
+                Console.WriteLine($"Trimester: {request.Trimester}");
+                
+                if (request.GroupId == Guid.Empty || string.IsNullOrEmpty(request.Trimester))
+                {
+                    Console.WriteLine("ERROR: Datos incompletos para la consulta");
+                    return BadRequest(new { success = false, error = "Datos incompletos para la consulta" });
+                }
+
+                var teacherId = GetTeacherId();
+                Console.WriteLine($"TeacherId obtenido: {teacherId}");
+                
+                // Obtener grupos de consejería del docente
+                Console.WriteLine("Obteniendo grupos de consejería...");
+                var counselorGroups = await _counselorAssignmentService.GetCounselorGroupsAsync(teacherId);
+                Console.WriteLine($"Grupos de consejería encontrados: {counselorGroups?.Count() ?? 0}");
+                
+                // Si GradeLevelId está vacío, intentar obtenerlo del grupo de consejería
+                if (request.GradeLevelId == Guid.Empty)
+                {
+                    Console.WriteLine("GradeLevelId está vacío, intentando obtenerlo del grupo de consejería...");
+                    var matchingGroup = counselorGroups.FirstOrDefault(g => g.GroupId == request.GroupId);
+                    
+                    if (matchingGroup != null && matchingGroup.GradeId.HasValue && matchingGroup.GradeId.Value != Guid.Empty)
+                    {
+                        request.GradeLevelId = matchingGroup.GradeId.Value;
+                        Console.WriteLine($"GradeLevelId obtenido del grupo de consejería: {request.GradeLevelId}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("No se pudo obtener GradeLevelId del grupo de consejería");
+                    }
+                }
+                
+                // Verificar que el docente sea consejero del grupo
+                Console.WriteLine("Verificando permisos de consejería...");
+                
+                var isCounselor = counselorGroups.Any(g => g.GroupId == request.GroupId && 
+                    (request.GradeLevelId == Guid.Empty || g.GradeId == request.GradeLevelId));
+                Console.WriteLine($"Es consejero del grupo: {isCounselor}");
+                
+                if (!isCounselor)
+                {
+                    Console.WriteLine("ERROR: No tiene permisos como consejero");
+                    return BadRequest(new { success = false, error = "No tienes permisos para acceder a este grupo como consejero" });
+                }
+
+                // Obtener estudiantes del grupo
+                Console.WriteLine("Obteniendo estudiantes del grupo...");
+                IEnumerable<StudentBasicDto> students;
+                if (request.GradeLevelId != Guid.Empty)
+                {
+                    students = await _studentService.GetByGroupAndGradeAsync(request.GroupId, request.GradeLevelId);
+                }
+                else
+                {
+                    // Si no hay GradeLevelId, obtener todos los estudiantes del grupo
+                    // Esto podría requerir un método diferente en el servicio
+                    students = await _studentService.GetByGroupAndGradeAsync(request.GroupId, Guid.Empty);
+                }
+                Console.WriteLine($"Estudiantes encontrados: {students?.Count() ?? 0}");
+                
+                if (!students.Any())
+                {
+                    Console.WriteLine("No se encontraron estudiantes en el grupo");
+                    return Ok(new { 
+                        success = true, 
+                        data = new { 
+                            students = new List<object>(), 
+                            subjects = new List<object>(),
+                            generalAverage = 0.0,
+                            approvalPercentage = 0.0
+                        } 
+                    });
+                }
+
+                // Obtener todas las materias asignadas al grupo
+                Console.WriteLine("Obteniendo materias asignadas al grupo...");
+                IEnumerable<object> subjectAssignments;
+                if (request.GradeLevelId != Guid.Empty)
+                {
+                    subjectAssignments = await _subjectAssignmentService.GetByGroupAndGradeAsync(request.GroupId, request.GradeLevelId);
+                }
+                else
+                {
+                    // Si no hay GradeLevelId, obtener todas las materias del grupo
+                    // Esto podría requerir un método diferente en el servicio
+                    subjectAssignments = await _subjectAssignmentService.GetByGroupAndGradeAsync(request.GroupId, Guid.Empty);
+                }
+                Console.WriteLine($"Materias encontradas: {subjectAssignments?.Count() ?? 0}");
+                
+                var subjects = subjectAssignments.Select(sa => {
+                    // Usar reflexión para acceder a las propiedades dinámicamente
+                    var subjectId = sa.GetType().GetProperty("SubjectId")?.GetValue(sa);
+                    var subject = sa.GetType().GetProperty("Subject")?.GetValue(sa);
+                    var subjectName = subject?.GetType().GetProperty("Name")?.GetValue(subject);
+                    
+                    return new { 
+                        id = subjectId, 
+                        name = subjectName ?? "Sin nombre" 
+                    };
+                }).ToList();
+                
+                Console.WriteLine($"Materias procesadas: {subjects.Count}");
+
+                var result = new List<object>();
+                var allAverages = new List<double>();
+                var approvedCount = 0;
+
+                Console.WriteLine("Procesando estudiantes...");
+                foreach (var student in students)
+                {
+                    Console.WriteLine($"Procesando estudiante: {student.FullName} (ID: {student.StudentId})");
+                    var studentAverages = new Dictionary<Guid, double>();
+                    var studentTotalScore = 0.0;
+                    var studentValidScores = 0;
+
+                    foreach (var subject in subjects)
+                    {
+                        Console.WriteLine($"  Procesando materia: {subject.name} (ID: {subject.id})");
+                        
+                        // Obtener promedio del estudiante en esta materia para el trimestre
+                        var notesRequest = new GetNotesDto
+                        {
+                            SubjectId = (Guid)subject.id,
+                            GroupId = request.GroupId,
+                            GradeLevelId = request.GradeLevelId,
+                            TeacherId = teacherId,
+                            Trimester = request.Trimester
+                        };
+
+                        var notas = await _scoreSvc.GetNotasPorFiltroAsync(notesRequest);
+                        Console.WriteLine($"    Notas encontradas: {notas?.Count() ?? 0}");
+                        
+                        var studentNotes = notas.FirstOrDefault(n => n.StudentId == student.StudentId.ToString());
+                        Console.WriteLine($"    Notas del estudiante: {studentNotes != null}");
+                        
+                        double average = 0.0;
+                        if (studentNotes?.Notas != null && studentNotes.Notas.Any())
+                        {
+                            Console.WriteLine($"    Notas del estudiante en la materia: {studentNotes.Notas.Count}");
+                            
+                            var validNotes = studentNotes.Notas
+                                .Where(n => !string.IsNullOrEmpty(n.Nota) && decimal.TryParse(n.Nota, out _))
+                                .Select(n => (double)decimal.Parse(n.Nota))
+                                .ToList();
+
+                            Console.WriteLine($"    Notas válidas: {validNotes.Count}");
+
+                            if (validNotes.Any())
+                            {
+                                average = validNotes.Average();
+                                studentTotalScore += average;
+                                studentValidScores++;
+                                Console.WriteLine($"    Promedio calculado: {average:F2}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"    No hay notas para el estudiante en esta materia");
+                        }
+
+                        studentAverages[(Guid)subject.id] = average;
+                    }
+
+                    var studentGeneralAverage = studentValidScores > 0 ? studentTotalScore / studentValidScores : 0.0;
+                    Console.WriteLine($"  Promedio general del estudiante: {studentGeneralAverage:F2}");
+                    
+                    if (studentGeneralAverage > 0)
+                    {
+                        allAverages.Add(studentGeneralAverage);
+                        if (studentGeneralAverage >= 3.0)
+                        {
+                            approvedCount++;
+                        }
+                    }
+
+                    result.Add(new
+                    {
+                        studentId = student.StudentId,
+                        fullName = student.FullName,
+                        averages = studentAverages
+                    });
+                }
+
+                var generalAverage = allAverages.Any() ? allAverages.Average() : 0.0;
+                var approvalPercentage = allAverages.Any() ? (approvedCount * 100.0 / allAverages.Count) : 0.0;
+
+                Console.WriteLine($"Promedio general del grupo: {generalAverage:F2}");
+                Console.WriteLine($"Porcentaje de aprobación: {approvalPercentage:F2}%");
+                Console.WriteLine("=== FINALIZANDO GetCounselorGroupAverages ===");
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        students = result,
+                        subjects = subjects,
+                        generalAverage = generalAverage,
+                        approvalPercentage = approvalPercentage
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR en GetCounselorGroupAverages: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                return StatusCode(500, new { success = false, error = ex.Message });
             }
         }
     }

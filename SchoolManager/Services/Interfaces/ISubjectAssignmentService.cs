@@ -17,6 +17,7 @@ namespace SchoolManager.Services.Interfaces
 
         Task<IEnumerable<Group>> GetGroupsByGradeLevelAsync(Guid subjectId, Guid specialtyId, Guid areaId, Guid gradeLevelId);
 
+        Task<IEnumerable<SubjectAssignment>> GetByGroupAndGradeAsync(Guid groupId, Guid gradeLevelId);
 
     }
 }

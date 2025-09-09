@@ -33,6 +33,10 @@ public partial class User
 
     public DateTime? UpdatedAt { get; set; }
 
+    public string? CellphonePrimary { get; set; }
+
+    public string? CellphoneSecondary { get; set; }
+
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
     public virtual ICollection<Attendance> AttendanceStudents { get; set; } = new List<Attendance>();

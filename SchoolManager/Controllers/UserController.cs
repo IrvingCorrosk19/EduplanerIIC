@@ -75,7 +75,9 @@ public class UserController : Controller
             Status = model.Status,
             CreatedAt = DateTime.UtcNow,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash ?? "123456"),
-            DateOfBirth = model.DateOfBirth.ToUniversalTime(),
+            DateOfBirth = model.DateOfBirth?.ToUniversalTime(),
+            CellphonePrimary = model.CellphonePrimary,
+            CellphoneSecondary = model.CellphoneSecondary,
         };
 
         await _userService.CreateAsync(user, model.Subjects, model.Groups);
@@ -194,6 +196,8 @@ public class UserController : Controller
             Role = char.ToUpper(user.Role[0]) + user.Role.Substring(1).ToLower(),
             user.Status,
             user.DateOfBirth,
+            user.CellphonePrimary,
+            user.CellphoneSecondary,
             Subjects = user.Subjects.Select(s => s.Id),
             Groups = user.Groups.Select(g => g.Id)
         };
@@ -204,30 +208,77 @@ public class UserController : Controller
     [HttpPost]
     public async Task<IActionResult> UpdateJson([FromBody] CreateUserViewModel model)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        var existingUser = await _userService.GetByIdWithRelationsAsync(model.Id);
-        if (existingUser == null)
-            return NotFound(new { message = "Usuario no encontrado" });
-
-        existingUser.Name = model.Name;
-        existingUser.LastName = model.LastName;
-        existingUser.Email = model.Email;
-        existingUser.DocumentId = model.DocumentId;
-        existingUser.Role = model.Role.ToLower();
-        existingUser.Status = model.Status;
-        existingUser.DateOfBirth = model.DateOfBirth.ToUniversalTime();
-
-        if (!string.IsNullOrEmpty(model.PasswordHash))
+        try
         {
-            // Hash de la contraseña antes de guardarla
-            existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash);
+            Console.WriteLine($"=== INICIO ACTUALIZACIÓN USUARIO ===");
+            Console.WriteLine($"Usuario ID: {model.Id}");
+            Console.WriteLine($"Nombre: {model.Name}");
+            Console.WriteLine($"Email: {model.Email}");
+            Console.WriteLine($"Celular Principal: {model.CellphonePrimary}");
+            Console.WriteLine($"Celular Secundario: {model.CellphoneSecondary}");
+            
+            _logger.LogInformation("Iniciando actualización de usuario {UserId}", model.Id);
+
+            if (!ModelState.IsValid)
+            {
+                Console.WriteLine($"ModelState inválido: {string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))}");
+                _logger.LogWarning("ModelState inválido para usuario {UserId}", model.Id);
+                return BadRequest(ModelState);
+            }
+
+            Console.WriteLine("Buscando usuario existente...");
+            var existingUser = await _userService.GetByIdWithRelationsAsync(model.Id);
+            if (existingUser == null)
+            {
+                Console.WriteLine("Usuario no encontrado en la base de datos");
+                _logger.LogWarning("Usuario {UserId} no encontrado", model.Id);
+                return NotFound(new { message = "Usuario no encontrado" });
+            }
+
+            Console.WriteLine($"Usuario encontrado: {existingUser.Name} {existingUser.LastName}");
+            Console.WriteLine("Actualizando campos del usuario...");
+
+            existingUser.Name = model.Name;
+            existingUser.LastName = model.LastName;
+            existingUser.Email = model.Email;
+            existingUser.DocumentId = model.DocumentId;
+            existingUser.Role = model.Role.ToLower();
+            existingUser.Status = model.Status;
+            existingUser.DateOfBirth = model.DateOfBirth?.ToUniversalTime();
+            existingUser.CellphonePrimary = model.CellphonePrimary;
+            existingUser.CellphoneSecondary = model.CellphoneSecondary;
+
+            Console.WriteLine("Campos actualizados, guardando cambios...");
+            _logger.LogInformation("Campos actualizados para usuario {UserId}", model.Id);
+
+            if (!string.IsNullOrEmpty(model.PasswordHash))
+            {
+                Console.WriteLine("Actualizando contraseña...");
+                // Hash de la contraseña antes de guardarla
+                existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash);
+                _logger.LogInformation("Contraseña actualizada para usuario {UserId}", model.Id);
+            }
+
+            Console.WriteLine("Llamando al servicio para guardar cambios...");
+            await _userService.UpdateAsync(existingUser, model.Subjects, model.Groups);
+
+            Console.WriteLine("Usuario actualizado exitosamente");
+            _logger.LogInformation("Usuario {UserId} actualizado exitosamente", model.Id);
+            return Ok(new { message = "Usuario actualizado correctamente" });
         }
-
-        await _userService.UpdateAsync(existingUser, model.Subjects, model.Groups);
-
-        return Ok(new { message = "Usuario actualizado correctamente" });
+        catch (Exception ex)
+        {
+            Console.WriteLine($"=== ERROR EN ACTUALIZACIÓN ===");
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+            }
+            
+            _logger.LogError(ex, "Error al actualizar usuario {UserId}", model.Id);
+            return StatusCode(500, new { message = "Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo." });
+        }
     }
 
     [HttpPost]

@@ -98,6 +98,21 @@ namespace SchoolManager.Services
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<SubjectAssignment>> GetByGroupAndGradeAsync(Guid groupId, Guid gradeLevelId)
+        {
+            var usercurrent = await _currentUserService.GetCurrentUserAsync();
+
+            return await _context.SubjectAssignments
+                .Where(sa => sa.GroupId == groupId && 
+                           sa.GradeLevelId == gradeLevelId && 
+                           sa.SchoolId == usercurrent.SchoolId)
+                .Include(sa => sa.Subject)
+                .Include(sa => sa.GradeLevel)
+                .Include(sa => sa.Group)
+                .Include(sa => sa.Area)
+                .Include(sa => sa.Specialty)
+                .ToListAsync();
+        }
 
     }
 }

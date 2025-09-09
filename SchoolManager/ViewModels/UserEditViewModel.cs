@@ -26,4 +26,12 @@ public class UserEditViewModel
     [Required(ErrorMessage = "El estado es requerido")]
     [Display(Name = "Estado")]
     public string Status { get; set; } = string.Empty;
+
+    [Phone(ErrorMessage = "El formato del celular principal no es válido")]
+    [Display(Name = "Celular Principal")]
+    public string? CellphonePrimary { get; set; }
+
+    [Phone(ErrorMessage = "El formato del celular secundario no es válido")]
+    [Display(Name = "Celular Secundario")]
+    public string? CellphoneSecondary { get; set; }
 } 

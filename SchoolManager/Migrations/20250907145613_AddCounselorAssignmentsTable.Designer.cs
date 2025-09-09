@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SchoolManager.Models;
@@ -11,9 +12,11 @@ using SchoolManager.Models;
 namespace SchoolManager.Migrations
 {
     [DbContext(typeof(SchoolDbContext))]
-    partial class SchoolDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250907145613_AddCounselorAssignmentsTable")]
+    partial class AddCounselorAssignmentsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -458,9 +461,13 @@ namespace SchoolManager.Migrations
                     b.HasKey("Id")
                         .HasName("counselor_assignments_pkey");
 
-                    b.HasIndex(new[] { "SchoolId", "GradeId", "GroupId" }, "counselor_assignments_school_grade_group_key")
+                    b.HasIndex(new[] { "SchoolId", "GradeId" }, "counselor_assignments_school_grade_key")
                         .IsUnique()
-                        .HasFilter("grade_id IS NOT NULL AND group_id IS NOT NULL");
+                        .HasFilter("grade_id IS NOT NULL");
+
+                    b.HasIndex(new[] { "SchoolId", "GroupId" }, "counselor_assignments_school_group_key")
+                        .IsUnique()
+                        .HasFilter("group_id IS NOT NULL");
 
                     b.HasIndex(new[] { "SchoolId", "UserId" }, "counselor_assignments_school_user_key")
                         .IsUnique();

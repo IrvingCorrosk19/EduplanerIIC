@@ -332,6 +332,70 @@
         padding-left: 2.5rem;
     }
 
+    /* Estilos para tabla de consejería */
+    #tablaPromediosConsejeria {
+        font-size: 0.9em;
+    }
+
+    #tablaPromediosConsejeria th {
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6 !important;
+        font-weight: 600;
+        text-align: center;
+        vertical-align: middle;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    #tablaPromediosConsejeria th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 11;
+        background-color: #f8f9fa !important;
+    }
+
+    #tablaPromediosConsejeria td {
+        border: 1px solid #dee2e6 !important;
+        text-align: center;
+        vertical-align: middle;
+        padding: 0.5rem;
+    }
+
+    #tablaPromediosConsejeria td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background-color: white;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    #tablaPromediosConsejeria tr:hover td:first-child {
+        background-color: #f8f9fa;
+    }
+
+    #tablaPromediosConsejeria tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .counselor-average-cell {
+        min-width: 80px;
+        font-weight: 500;
+    }
+
+    .counselor-average-cell.text-success {
+        background-color: rgba(34, 197, 94, 0.1);
+    }
+
+    .counselor-average-cell.text-danger {
+        background-color: rgba(239, 68, 68, 0.1);
+    }
+
+    .counselor-average-cell.text-muted {
+        background-color: rgba(107, 114, 128, 0.1);
+    }
+
    
         .portal-header {
             padding: 1.5rem;
@@ -398,6 +462,11 @@
         <li class="nav-item" role="presentation">
             <button class="nav-link d-flex align-items-center gap-2" id="disciplina-tab" data-bs-toggle="tab" data-bs-target="#disciplinaTab" type="button" role="tab">
                 <i class="bi bi-exclamation-diamond"></i> Disciplina
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link d-flex align-items-center gap-2" id="consejeria-tab" data-bs-toggle="tab" data-bs-target="#consejeriaTab" type="button" role="tab">
+                <i class="bi bi-people-fill"></i> Consejería
             </button>
         </li>
     </ul>
@@ -946,6 +1015,94 @@
                                         <span class="badge bg-danger bg-opacity-50 text-dark">Escalado</span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: CONSEJERÍA -->
+        <div class="tab-pane fade" id="consejeriaTab" role="tabpanel" aria-labelledby="consejeria-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-people-fill me-2"></i>Mis Grupos de Consejería</h5>
+                    <div class="text-white-50">Resumen académico de los grupos asignados como consejero</div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Seleccionar Grupo</label>
+                            <select id="selGrupoConsejeria" class="form-select">
+                                <option value="">-- Seleccionar grupo --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Trimestre</label>
+                            <select id="selTrimesterConsejeria" class="form-select">
+                                @foreach (var t in Model.Trimesters)
+                                {
+                                    <option value="@t.Name">@t.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Promedios por Materia -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Promedios por Materia</h5>
+                    <div class="text-white-50">Estudiantes vs Materias - Promedios del trimestre seleccionado</div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto; overflow-x: auto;">
+                        <table class="table table-bordered table-hover" id="tablaPromediosConsejeria">
+                            <thead class="sticky-top" style="background-color: #f8f9fa; z-index: 10;">
+                                <tr id="headerMateriasConsejeria">
+                                    <th style="min-width: 200px; position: sticky; left: 0; background-color: #f8f9fa; z-index: 11;">Estudiante</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyPromediosConsejeria">
+                                <tr>
+                                    <td colspan="100%" class="text-center text-muted">Selecciona un grupo y trimestre para ver los promedios</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen Estadístico -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Resumen Estadístico</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="estadisticasConsejeria">
+                        <div class="col-md-3">
+                            <div class="statistics-card">
+                                <h6 class="card-title">Total Estudiantes</h6>
+                                <div class="display-4 text-primary" id="totalEstudiantes">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="statistics-card">
+                                <h6 class="card-title">Total Materias</h6>
+                                <div class="display-4 text-info" id="totalMaterias">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="statistics-card">
+                                <h6 class="card-title">Promedio General</h6>
+                                <div class="display-4 text-success" id="promedioGeneral">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="statistics-card">
+                                <h6 class="card-title">% Aprobados</h6>
+                                <div class="display-4 text-warning" id="porcentajeAprobados">-</div>
                             </div>
                         </div>
                     </div>
@@ -2939,6 +3096,165 @@
         $('#resumen-tab').on('click', function() {
             loadPromediosFinalesResumen();
         });
+
+        // ===== FUNCIONALIDAD DE CONSEJERÍA =====
+        
+        // Cargar grupos de consejería
+        function loadCounselorGroups() {
+            $.ajax({
+                url: '@Url.Action("GetCounselorGroups", "TeacherGradebook")',
+                method: 'GET',
+                success: function(groups) {
+                    const select = $('#selGrupoConsejeria');
+                    select.empty().append('<option value="">-- Seleccionar grupo --</option>');
+                    
+                    if (groups && groups.length > 0) {
+                        groups.forEach(function(group) {
+                            select.append(`<option value="${group.gradeId}|${group.groupId}" data-grade-id="${group.gradeId}" data-group-id="${group.groupId}">${group.displayName}</option>`);
+                        });
+                    } else {
+                        select.append('<option value="" disabled>No tienes grupos asignados como consejero</option>');
+                    }
+                },
+                error: function() {
+                    $('#selGrupoConsejeria').html('<option value="" disabled>Error al cargar grupos</option>');
+                }
+            });
+        }
+
+        // Cargar promedios por materia para el grupo de consejería
+        function loadCounselorGroupAverages() {
+            const selectedGroup = $('#selGrupoConsejeria').val();
+            const trimester = $('#selTrimesterConsejeria').val();
+            
+            if (!selectedGroup || !trimester) {
+                $('#bodyPromediosConsejeria').html('<tr><td colspan="100%" class="text-center text-muted">Selecciona un grupo y trimestre para ver los promedios</td></tr>');
+                updateCounselorStatistics(0, 0, 0, 0);
+                return;
+            }
+
+            const [gradeId, groupId] = selectedGroup.split('|');
+            
+            // Mostrar indicador de carga
+            $('#bodyPromediosConsejeria').html('<tr><td colspan="100%" class="text-center">Cargando promedios...</td></tr>');
+            
+            $.ajax({
+                url: '/TeacherGradebook/GetCounselorGroupAverages',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    groupId: groupId,
+                    gradeId: gradeId,
+                    trimester: trimester
+                }),
+                success: function(response) {
+                    if (response.success && response.data) {
+                        renderCounselorAveragesTable(response.data);
+                        updateCounselorStatistics(
+                            response.data.students.length,
+                            response.data.subjects.length,
+                            response.data.generalAverage,
+                            response.data.approvalPercentage
+                        );
+                    } else {
+                        $('#bodyPromediosConsejeria').html('<tr><td colspan="100%" class="text-center text-muted">No hay datos disponibles</td></tr>');
+                        updateCounselorStatistics(0, 0, 0, 0);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error al cargar promedios:', error);
+                    $('#bodyPromediosConsejeria').html('<tr><td colspan="100%" class="text-center text-danger">Error al cargar los promedios</td></tr>');
+                    updateCounselorStatistics(0, 0, 0, 0);
+                }
+            });
+        }
+
+        // Renderizar la tabla de promedios
+        function renderCounselorAveragesTable(data) {
+            const headerRow = $('#headerMateriasConsejeria');
+            const bodyContainer = $('#bodyPromediosConsejeria');
+            
+            // Limpiar contenido anterior
+            headerRow.empty();
+            bodyContainer.empty();
+            
+            // Crear encabezado con materias
+            headerRow.append('<th style="min-width: 200px; position: sticky; left: 0; background-color: #f8f9fa; z-index: 11;">Estudiante</th>');
+            
+            if (data.subjects && data.subjects.length > 0) {
+                data.subjects.forEach(function(subject) {
+                    headerRow.append(`
+                        <th style="min-width: 120px; text-align: center; writing-mode: horizontal-tb; white-space: nowrap; transform: none;">
+                            <div style="padding: 8px; font-size: 0.9em; font-weight: 600;">
+                                ${subject.name}
+                            </div>
+                        </th>
+                    `);
+                });
+                
+                // Agregar columna de promedio general
+                headerRow.append('<th style="min-width: 100px; text-align: center; background-color: #e3f2fd;">Promedio</th>');
+            } else {
+                headerRow.append('<th class="text-center">No hay materias</th>');
+            }
+            
+            // Crear filas de estudiantes
+            if (data.students && data.students.length > 0) {
+                data.students.forEach(function(student) {
+                    let row = `<tr>
+                        <td style="position: sticky; left: 0; background-color: white; z-index: 1; font-weight: 600;">
+                            ${student.fullName}
+                        </td>`;
+                    
+                    let totalScore = 0;
+                    let validScores = 0;
+                    
+                    // Agregar celdas de promedios por materia
+                    data.subjects.forEach(function(subject) {
+                        const average = student.averages[subject.id] || 0;
+                        const displayAverage = average > 0 ? average.toFixed(1) : '-';
+                        const cellClass = average >= 3.0 ? 'text-success' : (average > 0 ? 'text-danger' : 'text-muted');
+                        
+                        row += `<td class="text-center ${cellClass} counselor-average-cell">${displayAverage}</td>`;
+                        
+                        if (average > 0) {
+                            totalScore += average;
+                            validScores++;
+                        }
+                    });
+                    
+                    // Calcular y mostrar promedio general del estudiante
+                    const generalAverage = validScores > 0 ? (totalScore / validScores) : 0;
+                    const generalDisplay = generalAverage > 0 ? generalAverage.toFixed(1) : '-';
+                    const generalClass = generalAverage >= 3.0 ? 'text-success' : (generalAverage > 0 ? 'text-danger' : 'text-muted');
+                    
+                    row += `<td class="text-center ${generalClass} fw-bold" style="background-color: #f8f9fa;">${generalDisplay}</td>`;
+                    row += '</tr>';
+                    
+                    bodyContainer.append(row);
+                });
+            } else {
+                bodyContainer.append('<tr><td colspan="100%" class="text-center text-muted">No hay estudiantes en este grupo</td></tr>');
+            }
+        }
+
+        // Actualizar estadísticas de consejería
+        function updateCounselorStatistics(totalStudents, totalSubjects, generalAverage, approvalPercentage) {
+            $('#totalEstudiantes').text(totalStudents);
+            $('#totalMaterias').text(totalSubjects);
+            $('#promedioGeneral').text(generalAverage > 0 ? generalAverage.toFixed(1) : '-');
+            $('#porcentajeAprobados').text(approvalPercentage > 0 ? approvalPercentage.toFixed(1) + '%' : '-');
+        }
+
+        // Event listeners para consejería
+        $('#consejeria-tab').on('click', function() {
+            loadCounselorGroups();
+        });
+
+        $('#selGrupoConsejeria, #selTrimesterConsejeria').on('change', function() {
+            loadCounselorGroupAverages();
+        });
+
         // ... existing code ...
     </script>
 

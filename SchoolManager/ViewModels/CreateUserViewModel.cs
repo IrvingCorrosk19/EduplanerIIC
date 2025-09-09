@@ -17,13 +17,10 @@ namespace SchoolManager.ViewModels
         [EmailAddress(ErrorMessage = "Debe ser un correo válido.")]
         public string Email { get; set; } = null!;
 
+        [Required(ErrorMessage = "Identificación es obligatoria.")]
         public string? DocumentId { get; set; }
 
-        [Required(ErrorMessage = "Identificación es obligatoria.")]
-
-        public DateTime DateOfBirth { get; set; }
-
-        [Required(ErrorMessage = "La fecha de nacimiento es obligatoria.")]
+        public DateTime? DateOfBirth { get; set; }
 
         public string? PasswordHash { get; set; }
 
@@ -32,6 +29,14 @@ namespace SchoolManager.ViewModels
 
         [Required(ErrorMessage = "El estado es obligatorio.")]
         public string Status { get; set; } = null!;
+
+        [Phone(ErrorMessage = "El formato del celular principal no es válido.")]
+        [Display(Name = "Celular Principal")]
+        public string? CellphonePrimary { get; set; }
+
+        [Phone(ErrorMessage = "El formato del celular secundario no es válido.")]
+        [Display(Name = "Celular Secundario")]
+        public string? CellphoneSecondary { get; set; }
 
         public List<Guid> Subjects { get; set; } = new();
         public List<Guid> Groups { get; set; } = new();

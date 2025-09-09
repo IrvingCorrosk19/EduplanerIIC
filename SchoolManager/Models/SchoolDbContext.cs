@@ -33,6 +33,8 @@ public partial class SchoolDbContext : DbContext
 
         public virtual DbSet<EmailConfiguration> EmailConfigurations { get; set; }
 
+    public virtual DbSet<CounselorAssignment> CounselorAssignments { get; set; }
+
     public virtual DbSet<GradeLevel> GradeLevels { get; set; }
 
     public virtual DbSet<Group> Groups { get; set; }
@@ -66,8 +68,8 @@ public partial class SchoolDbContext : DbContext
         
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
 
-      => optionsBuilder.UseNpgsql("Host=dpg-d2tfpcbuibrs73eos9vg-a;Database=schoolmanagement_5uke;Username=admin;Password=s5zPGRTcqiDhbNfiVsJcRj28TPtanwNX;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
-// => optionsBuilder.UseNpgsql("Host=localhost;Database=SchoolManagement;Username=postgres;Password=Panama2020$");
+    => optionsBuilder.UseNpgsql("Host=dpg-d301usgdl3ps739n4v5g-a.oregon-postgres.render.com;Database=schoolmanagement_4d5w;Username=admin;Password=HwSVkpGB2Wi0y7WkNQokRIRjz8uwIiw7;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
+//=> optionsBuilder.UseNpgsql("Host=localhost;Database=SchoolManagement;Username=postgres;Password=Panama2020$");
 
 
     }
@@ -924,6 +926,15 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.TwoFactorEnabled)
                 .HasDefaultValue(false)
                 .HasColumnName("two_factor_enabled");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("UpdatedAt");
+            entity.Property(e => e.CellphonePrimary)
+                .HasMaxLength(20)
+                .HasColumnName("cellphone_primary");
+            entity.Property(e => e.CellphoneSecondary)
+                .HasMaxLength(20)
+                .HasColumnName("cellphone_secondary");
 
             entity.HasOne(d => d.SchoolNavigation).WithMany(p => p.Users)
                 .HasForeignKey(d => d.SchoolId)
@@ -1062,6 +1073,87 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(e => e.SchoolId)
                 .HasConstraintName("email_configurations_school_id_fkey")
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CounselorAssignment>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("counselor_assignments_pkey");
+            entity.ToTable("counselor_assignments");
+            
+            // Indexes
+            entity.HasIndex(e => e.SchoolId, "idx_counselor_assignments_school");
+            entity.HasIndex(e => e.UserId, "idx_counselor_assignments_user");
+            entity.HasIndex(e => e.GradeId, "idx_counselor_assignments_grade");
+            entity.HasIndex(e => e.GroupId, "idx_counselor_assignments_group");
+            
+            // Unique constraints
+            entity.HasIndex(e => new { e.SchoolId, e.UserId }, "counselor_assignments_school_user_key")
+                .IsUnique();
+            
+            // Unique constraint for specific grade-group combination
+            entity.HasIndex(e => new { e.SchoolId, e.GradeId, e.GroupId }, "counselor_assignments_school_grade_group_key")
+                .IsUnique()
+                .HasFilter("grade_id IS NOT NULL AND group_id IS NOT NULL");
+            
+            // Properties
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+            
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id");
+            
+            entity.Property(e => e.GradeId)
+                .HasColumnName("grade_id");
+            
+            entity.Property(e => e.GroupId)
+                .HasColumnName("group_id");
+            
+            entity.Property(e => e.IsCounselor)
+                .HasDefaultValue(true)
+                .HasColumnName("is_counselor");
+            
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+            
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+            
+            // Foreign Keys
+            entity.HasOne(e => e.School)
+                .WithMany()
+                .HasForeignKey(e => e.SchoolId)
+                .HasConstraintName("counselor_assignments_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .HasConstraintName("counselor_assignments_user_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(e => e.GradeLevel)
+                .WithMany()
+                .HasForeignKey(e => e.GradeId)
+                .HasConstraintName("counselor_assignments_grade_id_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+            
+            entity.HasOne(e => e.Group)
+                .WithMany()
+                .HasForeignKey(e => e.GroupId)
+                .HasConstraintName("counselor_assignments_group_id_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         OnModelCreatingPartial(modelBuilder);
