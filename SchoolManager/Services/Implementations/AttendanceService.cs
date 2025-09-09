@@ -93,10 +93,11 @@ public class AttendanceService : IAttendanceService
         decimal porcTardanzas = total > 0 ? Math.Round((decimal)totalTardanzas * 100 / total, 1) : 0;
 
         var porEstudiante = asistencias
-            .GroupBy(a => a.Student?.Name)
+            .GroupBy(a => new { Name = a.Student?.Name, DocumentId = a.Student?.DocumentId })
             .Select(g => new EstadisticaEstudianteDto
             {
-                Estudiante = g.Key ?? "-",
+                Estudiante = g.Key.Name ?? "-",
+                DocumentId = g.Key.DocumentId ?? "",
                 Presentes = g.Count(a => a.Status == "present"),
                 Ausentes = g.Count(a => a.Status == "absent"),
                 Tardanzas = g.Count(a => a.Status == "late"),
@@ -157,6 +158,7 @@ public class AttendanceService : IAttendanceService
 
         var resultado = lista.Select(a => new {
             estudiante = a.Student?.Name,
+            documentId = a.Student?.DocumentId,
             fecha = a.Date.ToString("yyyy-MM-dd"),
             estado = a.Status,
             grupo = a.Group?.Name,

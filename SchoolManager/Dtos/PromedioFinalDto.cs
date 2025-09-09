@@ -6,6 +6,7 @@ namespace SchoolManager.Dtos
     {
         public string StudentId { get; set; }
         public string StudentFullName { get; set; }
+        public string DocumentId { get; set; }
         public string Trimester { get; set; }
         public decimal? PromedioTareas { get; set; }
         public decimal? PromedioParciales { get; set; }

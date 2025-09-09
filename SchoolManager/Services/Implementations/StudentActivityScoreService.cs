@@ -205,7 +205,7 @@ namespace SchoolManager.Services
 
         public async Task<List<StudentNotaDto>> GetNotasPorFiltroAsync(GetNotesDto notes)
         {
-            // Obtener las notas existentes
+            // Obtener las notas existentes con información del estudiante
             var notas = await _context.StudentActivityScores
                 .Include(sa => sa.Activity)
                 .Include(sa => sa.Student)
@@ -217,24 +217,41 @@ namespace SchoolManager.Services
                     sa.Activity.Trimester == notes.Trimester)
                 .ToListAsync();
 
+            // Obtener información de los estudiantes
+            var studentIds = notas.Select(n => n.StudentId).Distinct().ToList();
+            var estudiantes = await _context.Users
+                .Where(u => studentIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.Name, u.LastName, u.DocumentId })
+                .ToListAsync();
+
             // Agrupar las notas por estudiante
             var resultado = notas
                 .GroupBy(n => n.StudentId)
-                .Select(g => new StudentNotaDto
-                {
-                    StudentId = g.Key.ToString(),
-                    TeacherId = notes.TeacherId.ToString(),
-                    SubjectId = notes.SubjectId.ToString(),
-                    GroupId = notes.GroupId.ToString(),
-                    GradeLevelId = notes.GradeLevelId.ToString(),
-                    Trimester = notes.Trimester,
-                    Notas = g.Select(n => new NotaDetalleDto
+                .Select(g => {
+                    var estudiante = estudiantes.FirstOrDefault(e => e.Id == g.Key);
+                    var nombre = estudiante != null ? 
+                        $"{(estudiante.Name ?? "").Trim()} {(estudiante.LastName ?? "").Trim()}".Trim() : 
+                        "(Sin nombre)";
+                    if (string.IsNullOrWhiteSpace(nombre)) nombre = "(Sin nombre)";
+                    
+                    return new StudentNotaDto
                     {
-                        Tipo = n.Activity.Type,
-                        Actividad = n.Activity.Name,
-                        Nota = n.Score.HasValue ? n.Score.Value.ToString("0.00") : "",
-                        DueDate = n.Activity.DueDate
-                    }).ToList()
+                        StudentId = g.Key.ToString(),
+                        StudentFullName = nombre,
+                        DocumentId = estudiante?.DocumentId ?? "",
+                        TeacherId = notes.TeacherId.ToString(),
+                        SubjectId = notes.SubjectId.ToString(),
+                        GroupId = notes.GroupId.ToString(),
+                        GradeLevelId = notes.GradeLevelId.ToString(),
+                        Trimester = notes.Trimester,
+                        Notas = g.Select(n => new NotaDetalleDto
+                        {
+                            Tipo = n.Activity.Type,
+                            Actividad = n.Activity.Name,
+                            Nota = n.Score.HasValue ? n.Score.Value.ToString("0.00") : "",
+                            DueDate = n.Activity.DueDate
+                        }).ToList()
+                    };
                 })
                 .ToList();
 
@@ -249,7 +266,7 @@ namespace SchoolManager.Services
                 .Join(_context.Users,
                     sa => sa.StudentId,
                     u => u.Id,
-                    (sa, u) => new { u.Id, u.Name, u.LastName })
+                    (sa, u) => new { u.Id, u.Name, u.LastName, u.DocumentId })
                 .ToListAsync();
 
             // 2. Obtener todas las notas del grupo, materia, grado y docente
@@ -298,6 +315,7 @@ namespace SchoolManager.Services
                     {
                         StudentId = student.Id.ToString(),
                         StudentFullName = nombre,
+                        DocumentId = student.DocumentId ?? "",
                         Trimester = trimestre,
                         PromedioTareas = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "tarea" && x.Score.HasValue)
                             .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "tarea" && x.Score.HasValue).Average(x => x.Score.Value) : null,

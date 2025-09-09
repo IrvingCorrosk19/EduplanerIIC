@@ -137,6 +137,7 @@ public class DisciplineReportController : Controller
             
             var result = reports.Select(r => new {
                 estudiante = r.Student != null ? $"{r.Student.Name} {r.Student.LastName}" : null,
+                documentId = r.Student?.DocumentId,
                 fecha = r.Date.ToString("dd/MM/yyyy"),
                 tipo = r.ReportType,
                 status = r.Status,

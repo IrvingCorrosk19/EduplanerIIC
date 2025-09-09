@@ -69,7 +69,8 @@ namespace SchoolManager.Services
                                     StudentId = student.Id,
                                     FullName = $"{student.Name} {student.LastName}",  // Nombre + Apellido concatenados
                                     GradeName = grade.Name,
-                                    GroupName = grupo.Name
+                                    GroupName = grupo.Name,
+                                    DocumentId = student.DocumentId ?? ""
                                 }).ToListAsync();
 
             return result;
@@ -92,7 +93,8 @@ namespace SchoolManager.Services
                                     StudentId = student.Id,
                                     FullName = $"{student.Name} {student.LastName}",  // Nombre + Apellido concatenados
                                     GradeName = grade.Name,
-                                    GroupName = grupo.Name
+                                    GroupName = grupo.Name,
+                                    DocumentId = student.DocumentId ?? ""
                                 }).ToListAsync();
 
             return result;

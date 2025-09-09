@@ -4,6 +4,8 @@
     public class StudentNotaDto
     {
         public string StudentId { get; set; }
+        public string StudentFullName { get; set; }
+        public string DocumentId { get; set; }
 
         public string GroupId { get; set; }  
         public string GradeLevelId { get; set; } 

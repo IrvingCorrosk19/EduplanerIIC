@@ -686,6 +686,7 @@ namespace SchoolManager.Controllers
                     {
                         studentId = student.StudentId,
                         fullName = student.FullName,
+                        documentId = student.DocumentId ?? "",
                         averages = studentAverages
                     });
                 }

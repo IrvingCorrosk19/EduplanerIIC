@@ -17,6 +17,7 @@ namespace SchoolManager.Dtos
     public class EstadisticaEstudianteDto
     {
         public string Estudiante { get; set; }
+        public string DocumentId { get; set; }
         public int Presentes { get; set; }
         public int Ausentes { get; set; }
         public int Tardanzas { get; set; }

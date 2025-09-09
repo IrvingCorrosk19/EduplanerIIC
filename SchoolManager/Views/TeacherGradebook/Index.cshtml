@@ -1196,6 +1196,7 @@
                 
                 uniqueStudents.forEach(s => {
                     const nombre = s.fullName || '(Sin nombre)';
+                    const documentId = s.documentId || 'Sin cédula';
                     const trimesterData = studentAnnualScores[s.id] || {};
                     const t1 = trimesterData['1T'] || 0;
                     const t2 = trimesterData['2T'] || 0;
@@ -1209,7 +1210,10 @@
                     }
                     const row = `
                         <tr>
-                            <td>${nombre}</td>
+                            <td>
+                                <div>${nombre}</div>
+                                <small class="text-muted">${documentId}</small>
+                            </td>
                             <td>${t1.toFixed(1)}</td>
                             <td>${t2.toFixed(1)}</td>
                             <td>${t3.toFixed(1)}</td>
@@ -1290,7 +1294,7 @@
 
                 if (students && students.length > 0) {
                     students.forEach(s => {
-                        let row = `<tr data-stu-id="${s.id}"><td>${s.fullName}</td>`;
+                        let row = `<tr data-stu-id="${s.id}"><td><div>${s.fullName}</div><small class="text-muted">${s.documentId || 'Sin cédula'}</small></td>`;
 
                         if (hasActivities) {
                             activeTypes.forEach(type => {
@@ -1615,7 +1619,7 @@
                         if (data && Array.isArray(data)) {
                             data.forEach(s => {
                                 if (s.studentId && !ids.has(s.studentId)) {
-                                    students.push({ id: s.studentId, fullName: s.fullName });
+                                    students.push({ id: s.studentId, fullName: s.fullName, documentId: s.documentId });
                                     ids.add(s.studentId);
                                 }
                             });
@@ -1726,6 +1730,7 @@
                                 if (!map[item.studentId]) {
                                     map[item.studentId] = {
                                         studentFullName: item.studentFullName && item.studentFullName.trim() ? item.studentFullName : '(Sin nombre)',
+                                        documentId: item.documentId || 'Sin cédula',
                                         trimestres: { '1T': 0, '2T': 0, '3T': 0 },
                                         notas: [],
                                     };
@@ -1735,6 +1740,7 @@
                             });
                             Object.values(map).forEach(est => {
                                 const nombre = est.studentFullName && est.studentFullName.trim() ? est.studentFullName : '(Sin nombre)';
+                                const documentId = est.documentId || 'Sin cédula';
                                 const t1 = est.trimestres['1T'] || 0;
                                 const t2 = est.trimestres['2T'] || 0;
                                 const t3 = est.trimestres['3T'] || 0;
@@ -1746,7 +1752,10 @@
                                 }
                                 const row = `
                                     <tr>
-                                        <td>${nombre}</td>
+                                        <td>
+                                            <div>${nombre}</div>
+                                            <small class="text-muted">${documentId}</small>
+                                        </td>
                                         <td>${t1.toFixed(1)}</td>
                                         <td>${t2.toFixed(1)}</td>
                                         <td>${t3.toFixed(1)}</td>
@@ -2395,7 +2404,16 @@
                             else if (a.estado === 'absent') badge = '<span class="badge bg-danger">Ausente</span>';
                             else if (a.estado === 'late') badge = '<span class="badge bg-warning text-dark">Tardanza</span>';
                             else badge = a.estado;
-                            html += `<tr><td>${a.estudiante || '-'}<\/td><td>${a.fecha}<\/td><td>${badge}<\/td><td>${a.grupo || '-'}<\/td><td>${a.grado || '-'}<\/td><\/tr>`;
+                            html += `<tr>
+                                <td>
+                                    <div>${a.estudiante || '-'}</div>
+                                    <small class="text-muted">${a.documentId || 'Sin cédula'}</small>
+                                </td>
+                                <td>${a.fecha}</td>
+                                <td>${badge}</td>
+                                <td>${a.grupo || '-'}</td>
+                                <td>${a.grado || '-'}</td>
+                            </tr>`;
                         });
                         html += '<\/tbody><\/table><\/div>';
                         $('#resultadosHistorial').html(html);
@@ -2475,7 +2493,16 @@
                         // Tabla por estudiante
                         let html = '';
                         data.porEstudiante.forEach(e => {
-                            html += `<tr><td>${e.estudiante}</td><td>${e.presentes}</td><td>${e.ausentes}</td><td>${e.tardanzas}</td><td>${e.porcentajeAsistencia}%</td></tr>`;
+                            html += `<tr>
+                                <td>
+                                    <div>${e.estudiante}</div>
+                                    <small class="text-muted">${e.documentId || 'Sin cédula'}</small>
+                                </td>
+                                <td>${e.presentes}</td>
+                                <td>${e.ausentes}</td>
+                                <td>${e.tardanzas}</td>
+                                <td>${e.porcentajeAsistencia}%</td>
+                            </tr>`;
                         });
                         $('#tablaEstadisticasEstudiantes tbody').html(html);
                     },
@@ -2615,7 +2642,7 @@
                 }
                 const container = $('<div class="list-group"></div>');
                 response.forEach(student => {
-                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${student.fullName}</div><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
+                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${student.fullName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
                     container.append(item);
                 });
                 listaEstudiantes.append(container);
@@ -2675,6 +2702,7 @@
                                     <i class="bi bi-person-circle me-2"></i>
                                     <div>
                                         <div class="fw-semibold">${student.fullName}</div>
+                                        <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                         <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                     </div>
                                 </div>
@@ -2860,7 +2888,10 @@
                             }
 
                             html += `<tr>
-                                <td>${r.estudiante || 'Sin nombre'}</td>
+                                <td>
+                                    <div>${r.estudiante || 'Sin nombre'}</div>
+                                    <small class="text-muted">${r.documentId || 'Sin cédula'}</small>
+                                </td>
                                 <td>${r.fecha || 'Sin fecha'}</td>
                                 <td>${r.hora || ''}</td>
                                 <td>${tipoBadge}</td>
@@ -2993,6 +3024,7 @@
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
                                             <div class="fw-semibold">${student.fullName}</div>
+                                            <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                         </div>
                                     </div>
@@ -3050,6 +3082,7 @@
                             if (!estudiantes[item.studentId]) {
                                 estudiantes[item.studentId] = {
                                     nombre: item.studentFullName,
+                                    documentId: item.documentId || 'Sin cédula',
                                     t1: null,
                                     t2: null,
                                     t3: null,
@@ -3072,9 +3105,13 @@
                             // Si el nombre es vacío, null o undefined, mostrar "(Sin nombre)"
                             let nombre = est.nombre;
                             if (!nombre || nombre.trim() === "" || nombre === "undefined") nombre = "(Sin nombre)";
+                            const documentId = est.documentId || 'Sin cédula';
                             resumenBody.append(`
                                 <tr>
-                                    <td>${nombre}</td>
+                                    <td>
+                                        <div>${nombre}</div>
+                                        <small class="text-muted">${documentId}</small>
+                                    </td>
                                     <td>${typeof est.t1 === 'number' && !isNaN(est.t1) ? est.t1.toFixed(1) : '0.0'}</td>
                                     <td>${typeof est.t2 === 'number' && !isNaN(est.t2) ? est.t2.toFixed(1) : '0.0'}</td>
                                     <td>${typeof est.t3 === 'number' && !isNaN(est.t3) ? est.t3.toFixed(1) : '0.0'}</td>
@@ -3203,7 +3240,8 @@
                 data.students.forEach(function(student) {
                     let row = `<tr>
                         <td style="position: sticky; left: 0; background-color: white; z-index: 1; font-weight: 600;">
-                            ${student.fullName}
+                            <div>${student.fullName}</div>
+                            <small class="text-muted">${student.documentId || 'Sin cédula'}</small>
                         </td>`;
                     
                     let totalScore = 0;
