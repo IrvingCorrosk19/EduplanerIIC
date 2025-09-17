@@ -29,6 +29,8 @@ public partial class Group
 
     public virtual ICollection<DisciplineReport> DisciplineReports { get; set; } = new List<DisciplineReport>();
 
+    public virtual ICollection<OrientationReport> OrientationReports { get; set; } = new List<OrientationReport>();
+
     public virtual School? School { get; set; }
 
     public virtual ICollection<StudentAssignment> StudentAssignments { get; set; } = new List<StudentAssignment>();

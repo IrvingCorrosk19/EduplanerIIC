@@ -122,6 +122,14 @@
                             </a>
                         </li>
                         }
+                        @if (currentUser?.Disciplina == true) {
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "OrientationReport")" class="nav-link">
+                                <i class="nav-icon fas fa-compass"></i>
+                                <p>Portal Orientación</p>
+                            </a>
+                        </li>
+                        }
                         }
                         @if (userRole == "director") {
                         <li class="nav-item">

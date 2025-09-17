@@ -33,6 +33,8 @@ public partial class Subject
 
     public virtual ICollection<DisciplineReport> DisciplineReports { get; set; } = new List<DisciplineReport>();
 
+    public virtual ICollection<OrientationReport> OrientationReports { get; set; } = new List<OrientationReport>();
+
     public virtual School? School { get; set; }
 
     public virtual ICollection<SubjectAssignment> SubjectAssignments { get; set; } = new List<SubjectAssignment>();

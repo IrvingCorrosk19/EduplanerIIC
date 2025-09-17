@@ -61,6 +61,10 @@ public partial class User
 
     public virtual ICollection<DisciplineReport> DisciplineReportTeachers { get; set; } = new List<DisciplineReport>();
 
+    public virtual ICollection<OrientationReport> OrientationReportStudents { get; set; } = new List<OrientationReport>();
+
+    public virtual ICollection<OrientationReport> OrientationReportTeachers { get; set; } = new List<OrientationReport>();
+
     public virtual School? School { get; set; }
 
     public virtual School? SchoolNavigation { get; set; }

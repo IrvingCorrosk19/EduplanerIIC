@@ -59,6 +59,7 @@ builder.Services.AddSingleton<IFileStorage, LocalFileStorage>(); // o tu propio 
 
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IDisciplineReportService, DisciplineReportService>();
+builder.Services.AddScoped<IOrientationReportService, OrientationReportService>();
 builder.Services.AddScoped<ISecuritySettingService, SecuritySettingService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
