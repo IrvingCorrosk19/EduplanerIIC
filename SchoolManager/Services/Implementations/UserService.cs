@@ -47,36 +47,51 @@ public class UserService : IUserService
             Console.WriteLine($"Subjects Count: {subjectIds?.Count ?? 0}");
             Console.WriteLine($"Groups Count: {groupIds?.Count ?? 0}");
 
-            // Actualizar Subjects
-            Console.WriteLine("Limpiando subjects existentes...");
-            user.Subjects.Clear();
-            if (subjectIds.Any())
-            {
-                Console.WriteLine($"Buscando {subjectIds.Count} subjects...");
-                var subjects = await _context.Subjects.Where(s => subjectIds.Contains(s.Id)).ToListAsync();
-                Console.WriteLine($"Subjects encontrados: {subjects.Count}");
-                foreach (var subject in subjects)
-                {
-                    user.Subjects.Add(subject);
-                }
-            }
-
-            // Actualizar Groups
-            Console.WriteLine("Limpiando groups existentes...");
-            user.Groups.Clear();
-            if (groupIds.Any())
-            {
-                Console.WriteLine($"Buscando {groupIds.Count} groups...");
-                var groups = await _context.Groups.Where(g => groupIds.Contains(g.Id)).ToListAsync();
-                Console.WriteLine($"Groups encontrados: {groups.Count}");
-                foreach (var group in groups)
-                {
-                    user.Groups.Add(group);
-                }
-            }
-
             Console.WriteLine("Actualizando usuario en contexto...");
-            _context.Users.Update(user);
+            
+            // En lugar de usar Update() que puede causar problemas con claves únicas,
+            // vamos a actualizar solo los campos específicos
+            var existingUser = await _context.Users.FindAsync(user.Id);
+            if (existingUser != null)
+            {
+                existingUser.Name = user.Name;
+                existingUser.LastName = user.LastName;
+                existingUser.Email = user.Email;
+                existingUser.DocumentId = user.DocumentId;
+                existingUser.Role = user.Role;
+                existingUser.Status = user.Status;
+                existingUser.DateOfBirth = user.DateOfBirth;
+                existingUser.CellphonePrimary = user.CellphonePrimary;
+                existingUser.CellphoneSecondary = user.CellphoneSecondary;
+                existingUser.Disciplina = user.Disciplina;
+                existingUser.Inclusion = user.Inclusion;
+                existingUser.Orientacion = user.Orientacion;
+                existingUser.Inclusivo = user.Inclusivo;
+                existingUser.PasswordHash = user.PasswordHash;
+                existingUser.UpdatedAt = DateTime.UtcNow;
+                
+                // Actualizar Subjects
+                existingUser.Subjects.Clear();
+                if (subjectIds.Any())
+                {
+                    var subjects = await _context.Subjects.Where(s => subjectIds.Contains(s.Id)).ToListAsync();
+                    foreach (var subject in subjects)
+                    {
+                        existingUser.Subjects.Add(subject);
+                    }
+                }
+
+                // Actualizar Groups
+                existingUser.Groups.Clear();
+                if (groupIds.Any())
+                {
+                    var groups = await _context.Groups.Where(g => groupIds.Contains(g.Id)).ToListAsync();
+                    foreach (var group in groups)
+                    {
+                        existingUser.Groups.Add(group);
+                    }
+                }
+            }
             
             Console.WriteLine("Guardando cambios en base de datos...");
             await _context.SaveChangesAsync();

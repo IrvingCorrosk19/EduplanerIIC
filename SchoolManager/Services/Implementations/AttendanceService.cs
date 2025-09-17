@@ -1,14 +1,19 @@
 ﻿using SchoolManager.Models;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Dtos;
+using SchoolManager.Services.Interfaces;
 
+namespace SchoolManager.Services.Implementations
+{
 public class AttendanceService : IAttendanceService
 {
     private readonly SchoolDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AttendanceService(SchoolDbContext context)
+    public AttendanceService(SchoolDbContext context, ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     public async Task<List<Attendance>> GetAllAsync() =>
@@ -19,12 +24,19 @@ public class AttendanceService : IAttendanceService
 
     public async Task CreateAsync(Attendance attendance)
     {
+        // Configurar campos de auditoría y SchoolId
+        await AuditHelper.SetAuditFieldsForCreateAsync(attendance, _currentUserService);
+        await AuditHelper.SetSchoolIdAsync(attendance, _currentUserService);
+        
         _context.Attendances.Add(attendance);
         await _context.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(Attendance attendance)
     {
+        // Configurar campos de auditoría para actualización
+        await AuditHelper.SetAuditFieldsForUpdateAsync(attendance, _currentUserService);
+        
         _context.Attendances.Update(attendance);
         await _context.SaveChangesAsync();
     }
@@ -87,10 +99,14 @@ public class AttendanceService : IAttendanceService
         var totalPresentes = asistencias.Count(a => a.Status == "present");
         var totalAusentes = asistencias.Count(a => a.Status == "absent");
         var totalTardanzas = asistencias.Count(a => a.Status == "late");
+        var totalFugas = asistencias.Count(a => a.Status == "fuga");
+        var totalExcusas = asistencias.Count(a => a.Status == "excusa");
 
         decimal porcAsistencia = total > 0 ? Math.Round((decimal)totalPresentes * 100 / total, 1) : 0;
         decimal porcAusencias = total > 0 ? Math.Round((decimal)totalAusentes * 100 / total, 1) : 0;
         decimal porcTardanzas = total > 0 ? Math.Round((decimal)totalTardanzas * 100 / total, 1) : 0;
+        decimal porcFugas = total > 0 ? Math.Round((decimal)totalFugas * 100 / total, 1) : 0;
+        decimal porcExcusas = total > 0 ? Math.Round((decimal)totalExcusas * 100 / total, 1) : 0;
 
         var porEstudiante = asistencias
             .GroupBy(a => new { Name = a.Student?.Name, DocumentId = a.Student?.DocumentId })
@@ -112,9 +128,13 @@ public class AttendanceService : IAttendanceService
             TotalPresentes = totalPresentes,
             TotalAusentes = totalAusentes,
             TotalTardanzas = totalTardanzas,
+            TotalFugas = totalFugas,
+            TotalExcusas = totalExcusas,
             PorcentajeAsistencia = porcAsistencia,
             PorcentajeAusencias = porcAusencias,
             PorcentajeTardanzas = porcTardanzas,
+            PorcentajeFugas = porcFugas,
+            PorcentajeExcusas = porcExcusas,
             PorEstudiante = porEstudiante
         };
     }
@@ -142,6 +162,21 @@ public class AttendanceService : IAttendanceService
         await _context.SaveChangesAsync();
     }
 
+    public async Task<List<AttendanceResponseDto>> GetAttendancesByDateAsync(Guid groupId, Guid gradeId, DateOnly date)
+    {
+        return await _context.Attendances
+            .Where(a => a.GroupId == groupId && a.GradeId == gradeId && a.Date == date)
+            .Include(a => a.Student)
+            .Select(a => new AttendanceResponseDto
+            {
+                StudentId = a.StudentId ?? Guid.Empty,
+                StudentName = a.Student != null ? $"{a.Student.Name} {a.Student.LastName}" : "",
+                Status = a.Status,
+                Date = a.Date
+            })
+            .ToListAsync();
+    }
+
     public async Task<List<object>> GetHistorialAsistenciaAsync(HistorialAsistenciaFiltroDto filtro)
     {
         if (filtro == null || filtro.GroupId == Guid.Empty || filtro.GradeId == Guid.Empty)
@@ -167,4 +202,5 @@ public class AttendanceService : IAttendanceService
 
         return resultado;
     }
+}
 }

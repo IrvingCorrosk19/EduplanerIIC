@@ -38,6 +38,18 @@ namespace SchoolManager.ViewModels
         [Display(Name = "Celular Secundario")]
         public string? CellphoneSecondary { get; set; }
 
+        [Display(Name = "Disciplina")]
+        public bool? Disciplina { get; set; }
+
+        [Display(Name = "Inclusión")]
+        public string? Inclusion { get; set; }
+
+        [Display(Name = "Orientación")]
+        public bool? Orientacion { get; set; }
+
+        [Display(Name = "Inclusivo")]
+        public bool? Inclusivo { get; set; }
+
         public List<Guid> Subjects { get; set; } = new();
         public List<Guid> Groups { get; set; } = new();
     }

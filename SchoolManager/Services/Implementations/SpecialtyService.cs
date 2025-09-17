@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SchoolManager.Application.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using System;
@@ -7,7 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 
-namespace SchoolManager.Infrastructure.Services
+namespace SchoolManager.Services.Implementations
 {
     public class SpecialtyService : ISpecialtyService
     {
@@ -36,9 +35,13 @@ namespace SchoolManager.Infrastructure.Services
                     specialty = new Specialty
                     {
                         Id = Guid.NewGuid(),
-                        Name = name,
-                        CreatedAt = DateTime.UtcNow
+                        Name = name
                     };
+                    
+                    // Configurar campos de auditoría y SchoolId
+                    await AuditHelper.SetAuditFieldsForCreateAsync(specialty, _currentUserService);
+                    await AuditHelper.SetSchoolIdAsync(specialty, _currentUserService);
+                    
                     _context.Specialties.Add(specialty);
                     await _context.SaveChangesAsync();
                 }
@@ -71,9 +74,12 @@ namespace SchoolManager.Infrastructure.Services
                 throw new ArgumentException("La especialidad no es válida.");
 
             specialty.Id = Guid.NewGuid();
-            specialty.CreatedAt = DateTime.UtcNow;
             specialty.Name = specialty.Name.Trim();
             specialty.Description = specialty.Description?.Trim();
+
+            // Configurar campos de auditoría y SchoolId
+            await AuditHelper.SetAuditFieldsForCreateAsync(specialty, _currentUserService);
+            await AuditHelper.SetSchoolIdAsync(specialty, _currentUserService);
 
             _context.Specialties.Add(specialty);
             await _context.SaveChangesAsync();
@@ -92,6 +98,9 @@ namespace SchoolManager.Infrastructure.Services
 
             existing.Name = specialty.Name.Trim();
             existing.Description = specialty.Description?.Trim();
+
+            // Configurar campos de auditoría para actualización
+            await AuditHelper.SetAuditFieldsForUpdateAsync(existing, _currentUserService);
 
             await _context.SaveChangesAsync();
 

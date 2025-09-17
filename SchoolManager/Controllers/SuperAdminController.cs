@@ -272,4 +272,65 @@ public class SuperAdminController : Controller
             return Json(new { success = false, message = ex.Message });
         }
     }
+
+    // Método temporal para crear el superadmin inicial
+    [HttpGet]
+    public async Task<IActionResult> CreateInitialSuperAdmin()
+    {
+        try
+        {
+            // Verificar si ya existe un superadmin
+            var existingSuperAdmin = await _superAdminService.GetAllAdminsAsync();
+            if (existingSuperAdmin.Any(u => u.Role == "superadmin"))
+            {
+                return Json(new { 
+                    success = false, 
+                    message = "Ya existe un superadmin en el sistema" 
+                });
+            }
+
+            // Crear el superadmin
+            var superAdmin = new User
+            {
+                Id = Guid.NewGuid(),
+                Name = "Super",
+                LastName = "Administrador",
+                Email = "superadmin@schoolmanager.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+                Role = "superadmin",
+                Status = "active",
+                SchoolId = null, // Sin SchoolId para superadmin
+                DocumentId = "8-000-0000",
+                DateOfBirth = new DateTime(1990, 1, 1),
+                CellphonePrimary = "+507 0000 0000",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            // Usar el contexto directamente para insertar
+            using var context = new SchoolDbContext();
+            context.Users.Add(superAdmin);
+            await context.SaveChangesAsync();
+
+            return Json(new { 
+                success = true, 
+                message = "Superadmin creado exitosamente",
+                user = new {
+                    id = superAdmin.Id,
+                    name = superAdmin.Name,
+                    lastName = superAdmin.LastName,
+                    email = superAdmin.Email,
+                    role = superAdmin.Role
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 [CreateInitialSuperAdmin] Error: {ex.Message}");
+            return Json(new { 
+                success = false, 
+                message = "Error al crear superadmin: " + ex.Message 
+            });
+        }
+    }
 } 

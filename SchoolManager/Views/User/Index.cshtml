@@ -362,6 +362,26 @@
                             <div class="invalid-feedback">Formato de celular inválido.</div>
                         </div>
                     </div>
+                </div>
+                
+                <!-- Campo Inclusión para estudiantes - Solo visible para rol student -->
+                <div class="row mb-3" id="inclusionSection">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="inclusionSelect">
+                                <i class="fas fa-heart me-1"></i>Inclusión
+                            </label>
+                            <select class="form-control" name="Inclusion" id="inclusionSelect">
+                                <option value="">Seleccionar...</option>
+                                <option value="si">Sí</option>
+                                <option value="no">No</option>
+                            </select>
+                            <small class="form-text text-muted">Indica si el estudiante tiene alguna discapacidad</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
                     <div class="col-md-3">
                         <div class="form-group">
                             <label>Rol</label>
@@ -383,12 +403,59 @@
                         </div>
                     </div>
                 </div>
-                <button type="button" id="btnCreateUser" class="btn btn-primary">
-                    <i class="fas fa-user-plus"></i> Crear Usuario
-                </button>
-                <button type="button" id="btnUpdateUser" class="btn btn-warning" disabled>
-                    <i class="fas fa-save"></i> Actualizar Usuario
-                </button>
+                
+                <!-- Campo Inclusivo para estudiantes - Solo visible para rol student -->
+ @*                <div class="row mb-3" id="inclusivoSection" style="display: none;">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="inclusivoSelect">
+                                <i class="fas fa-users me-1"></i>Inclusivo
+                            </label>
+                            <select class="form-control" name="Inclusivo" id="inclusivoSelect">
+                                <option value="">Seleccionar...</option>
+                                <option value="true">Sí</option>
+                                <option value="false">No</option>
+                            </select>
+                            <small class="form-text text-muted">Indica si el estudiante tiene necesidades especiales</small>
+                        </div>
+                    </div>
+                </div> *@
+                
+                <!-- Nueva sección para especializaciones - Solo visible para rol Teacher -->
+                <div class="row mb-4" id="specializationsSection" style="display: none;">
+                    <div class="col-12">
+                        <h5 class="mb-3"><i class="fas fa-graduation-cap me-2"></i>Especializaciones Docentes</h5>
+                        <p class="text-muted mb-3">Selecciona las especialidades del docente:</p>
+                        <div class="d-flex flex-wrap gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="Disciplina" id="disciplinaCheck" value="true">
+                                <label class="form-check-label" for="disciplinaCheck">
+                                    <i class="fas fa-balance-scale me-1"></i>Disciplina
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="Orientacion" id="orientacionCheck" value="true">
+                                <label class="form-check-label" for="orientacionCheck">
+                                    <i class="fas fa-compass me-1"></i>Orientación
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="Inclusion" id="inclusionCheck" value="true">
+                                <label class="form-check-label" for="inclusionCheck">
+                                    <i class="fas fa-heart me-1"></i>Inclusión
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="button" id="btnCreateUser" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Crear Usuario
+                    </button>
+                    <button type="button" id="btnUpdateUser" class="btn btn-warning" disabled>
+                        <i class="fas fa-save"></i> Actualizar Usuario
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -410,6 +477,10 @@
                             <th>Celular Secundario</th>
                             <th>Rol</th>
                             <th>Estado</th>
+                            <th class="specialization-column">Disciplina</th>
+                            <th>Inclusivo</th>
+                            <th class="specialization-column">Orientación</th>
+                            <th class="specialization-column">Inclusión</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -439,6 +510,50 @@
                                         <span class="badge bg-danger">Inactivo</span>
                                     }
                                 </td>
+                            <td class="specialization-column">
+                                @if (user.Disciplina == true)
+                                {
+                                    <span class="badge bg-primary"><i class="fas fa-balance-scale me-1"></i>Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No</span>
+                                }
+                            </td>
+                            <td class="specialization-column">
+                                @if (user.Orientacion == true)
+                                {
+                                    <span class="badge bg-info"><i class="fas fa-compass me-1"></i>Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No</span>
+                                }
+                            </td>
+                            <td class="specialization-column">
+                                @if (user.Inclusion == "si")
+                                {
+                                    <span class="badge bg-success"><i class="fas fa-heart me-1"></i>Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.Inclusivo == true)
+                                {
+                                    <span class="badge bg-warning"><i class="fas fa-users me-1"></i>Sí</span>
+                                }
+                                else if (user.Inclusivo == false)
+                                {
+                                    <span class="badge bg-danger"><i class="fas fa-times me-1"></i>No</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary"><i class="fas fa-minus me-1"></i>Sin definir</span>
+                                }
+                            </td>
                             <td>
                                 <div class="action-buttons">
                                     @if (user.Role?.ToLower() != "admin")
@@ -484,6 +599,68 @@
 
     <script>
         $(document).ready(function () {
+            // Funcionalidad para mostrar/ocultar especializaciones según el rol
+            $('#roleSelect').on('change', function() {
+                const selectedRole = $(this).val().toLowerCase();
+                const specializationsSection = $('#specializationsSection');
+                const inclusivoSection = $('#inclusivoSection');
+                const inclusionSection = $('#inclusionSection');
+                
+                
+                if (selectedRole === 'teacher') {
+                    specializationsSection.show();
+                    inclusivoSection.hide();
+                    inclusionSection.hide();
+                    // Limpiar campos cuando se ocultan
+                    $('#inclusivoSelect').val('');
+                    $('#inclusionSelect').val('');
+                } else if (selectedRole === 'student' || selectedRole === 'estudiante') {
+                    specializationsSection.hide();
+                    inclusivoSection.show();
+                    inclusionSection.show();
+                    
+                    // Forzar la visibilidad con CSS
+                    inclusionSection.css('display', 'block');
+                    
+                    
+                    // Limpiar checkboxes de especializaciones cuando se oculta la sección
+                    $('#disciplinaCheck').prop('checked', false);
+                    $('#orientacionCheck').prop('checked', false);
+                    $('#inclusionCheck').prop('checked', false);
+                } else {
+                    specializationsSection.hide();
+                    inclusivoSection.hide();
+                    inclusionSection.hide();
+                    // Limpiar todos los campos cuando se ocultan las secciones
+                    $('#disciplinaCheck').prop('checked', false);
+                    $('#orientacionCheck').prop('checked', false);
+                    $('#inclusionCheck').prop('checked', false);
+                    $('#inclusivoSelect').val('');
+                    $('#inclusionSelect').val('');
+                }
+            });
+
+            // Verificar el rol inicial al cargar la página
+            const initialRole = $('#roleSelect').val().toLowerCase();
+            
+            if (initialRole === 'teacher') {
+                $('#specializationsSection').show();
+                $('#inclusivoSection').hide();
+                $('#inclusionSection').hide();
+            } else if (initialRole === 'student' || initialRole === 'estudiante') {
+                $('#specializationsSection').hide();
+                $('#inclusivoSection').show();
+                $('#inclusionSection').show();
+                
+                // Forzar la visibilidad con CSS
+                $('#inclusionSection').css('display', 'block');
+                
+            } else {
+                $('#specializationsSection').hide();
+                $('#inclusivoSection').hide();
+                $('#inclusionSection').hide();
+            }
+
             // Funcionalidad para mostrar/ocultar contraseña en formulario de usuarios
             $('#toggleUserPassword').on('click', function() {
                 const passwordInput = $('#userPasswordInput');
@@ -544,6 +721,12 @@
                 return password.split('').sort(() => Math.random() - 0.5).join('');
             }
 
+            // Función para mostrar/ocultar columnas de especialización
+            function toggleSpecializationColumns() {
+                // Las columnas de especialización siempre se muestran ahora
+                $('.specialization-column').show();
+            }
+
             // Inicializar DataTables en la tabla de usuarios con Responsive
             var usersTable = $('#users-table').DataTable({
                 "pageLength": 25,
@@ -593,16 +776,22 @@
                 usersTable.search(this.value).draw();
             });
 
+            // Mostrar/ocultar columnas de especialización después de inicializar DataTables
+            toggleSpecializationColumns();
+
             // Usar delegación de eventos para los botones de editar y eliminar
             $(document).on('click', '.btn-edit-user', function() {
                 const userId = $(this).data('id');
 
                 $.get(`/User/GetUserJson?id=${userId}`, function (user) {
+                    
+                    // Llenar campos básicos
                     $('#UserId').val(user.id);
                     $('[name="Name"]').val(user.name);
                     $('[name="LastName"]').val(user.lastName);
                     $('[name="Email"]').val(user.email);
                     $('[name="DocumentId"]').val(user.documentId);
+                    
                     
                     // Mostrar información sobre contraseñas hasheadas
                     $('[name="PasswordHash"]').val('').attr('placeholder', 'Dejar vacío para mantener la contraseña actual');
@@ -613,6 +802,69 @@
                     $('[name="DateOfBirth"]').val(user.dateOfBirth ? user.dateOfBirth.split('T')[0] : '');
                     $('[name="CellphonePrimary"]').val(user.cellphonePrimary || '');
                     $('[name="CellphoneSecondary"]').val(user.cellphoneSecondary || '');
+                    
+                    
+                    // Manejar checkboxes de especializaciones
+                    $('#disciplinaCheck').prop('checked', user.disciplina === true);
+                    $('#orientacionCheck').prop('checked', user.orientacion === true);
+                    $('#inclusionCheck').prop('checked', user.inclusion === "si");
+                    
+                    
+                    // Manejar campo Inclusivo para estudiantes
+                    const inclusivoValue = user.inclusivo === true ? 'true' : user.inclusivo === false ? 'false' : '';
+                    $('#inclusivoSelect').val(inclusivoValue);
+                    
+                    // Manejar campo Inclusión para estudiantes
+                    const userRoleForMapping = user.role ? user.role.toLowerCase() : '';
+                    const inclusionValue = (userRoleForMapping === 'student' || userRoleForMapping === 'estudiante') ? 
+                        (user.inclusivo === true ? 'si' : user.inclusivo === false ? 'no' : '') : 
+                        (user.inclusion || '');
+                    $('#inclusionSelect').val(inclusionValue);
+
+                    
+                    // Mostrar/ocultar secciones según el rol
+                    const userRole = user.role.toLowerCase().trim();
+                    
+                    if (userRole === 'teacher') {
+                        $('#specializationsSection').show();
+                        $('#inclusivoSection').hide();
+                        $('#inclusionSection').hide();
+                    } else if (userRole === 'student' || userRole === 'estudiante') {
+                        
+                        $('#specializationsSection').hide();
+                        $('#inclusivoSection').show();
+                        $('#inclusionSection').show();
+                        
+                        // Forzar la visibilidad con CSS
+                        $('#inclusionSection').css('display', 'block');
+                        
+                    } else {
+                        $('#specializationsSection').hide();
+                        $('#inclusivoSection').hide();
+                        $('#inclusionSection').hide();
+                    }
+
+                    // Configurar visibilidad de secciones según el rol del usuario
+                    // Normalizar el rol para comparación (convertir a minúscula)
+                    const normalizedRole = user.role ? user.role.toLowerCase() : '';
+                    
+                    if (normalizedRole === 'teacher') {
+                        $('#specializationsSection').show();
+                        $('#inclusivoSection').hide();
+                        $('#inclusionSection').hide();
+                    } else if (normalizedRole === 'student' || normalizedRole === 'estudiante') {
+                        $('#specializationsSection').hide();
+                        $('#inclusivoSection').show();
+                        $('#inclusionSection').show();
+                        
+                        // Forzar la visibilidad con CSS
+                        $('#inclusionSection').css('display', 'block');
+                        
+                    } else {
+                        $('#specializationsSection').hide();
+                        $('#inclusivoSection').hide();
+                        $('#inclusionSection').hide();
+                    }
 
                     // Cambiar el tipo de input a password cuando se edita
                     $('#userPasswordInput').attr('type', 'password');
@@ -620,6 +872,9 @@
 
                     $('#btnUpdateUser').prop('disabled', false);
                     $('#btnCreateUser').prop('disabled', true);
+                    
+                })
+                .fail(function(xhr, status, error) {
                 });
             });
 
@@ -718,6 +973,7 @@
 
             $('#btnCreateUser').on('click', function () {
                 const form = $('#userForm');
+                const selectedRole = form.find('[name="Role"]').val().toLowerCase();
                 const user = {
                     Name: form.find('[name="Name"]').val().trim(),
                     LastName: form.find('[name="LastName"]').val().trim(),
@@ -728,7 +984,11 @@
                     Status: form.find('[name="Status"]').val(),
                     DateOfBirth: form.find('[name="DateOfBirth"]').val() || null,
                     CellphonePrimary: form.find('[name="CellphonePrimary"]').val() || null,
-                    CellphoneSecondary: form.find('[name="CellphoneSecondary"]').val() || null
+                    CellphoneSecondary: form.find('[name="CellphoneSecondary"]').val() || null,
+                    Disciplina: selectedRole === 'teacher' ? $('#disciplinaCheck').is(':checked') : false,
+                    Inclusion: selectedRole === 'teacher' ? ($('#inclusionCheck').is(':checked') ? 'si' : 'no') : null,
+                    Orientacion: selectedRole === 'teacher' ? $('#orientacionCheck').is(':checked') : false,
+                    Inclusivo: (selectedRole === 'student' || selectedRole === 'estudiante') ? ($('#inclusionSelect').val() === 'si' ? true : $('#inclusionSelect').val() === 'no' ? false : null) : ($('#inclusivoSelect').val() === 'true' ? true : $('#inclusivoSelect').val() === 'false' ? false : null)
                 };
                 
                 // LOGS PARA DEBUGGING DE CELULARES - CREATE
@@ -737,6 +997,19 @@
                 console.log('CellphoneSecondary input value:', form.find('[name="CellphoneSecondary"]').val());
                 console.log('CellphonePrimary en objeto user:', user.CellphonePrimary);
                 console.log('CellphoneSecondary en objeto user:', user.CellphoneSecondary);
+                
+                // LOGS PARA DEBUGGING DE ESPECIALIZACIONES - CREATE
+                console.log('=== FRONTEND - CREATE USER - ESPECIALIZACIONES ===');
+                console.log('selectedRole:', selectedRole);
+                console.log('disciplinaCheck checked:', $('#disciplinaCheck').is(':checked'));
+                console.log('orientacionCheck checked:', $('#orientacionCheck').is(':checked'));
+                console.log('inclusionCheck checked:', $('#inclusionCheck').is(':checked'));
+                console.log('inclusivoSelect value:', $('#inclusivoSelect').val());
+                console.log('inclusionSelect value:', $('#inclusionSelect').val());
+                console.log('Disciplina en objeto user:', user.Disciplina);
+                console.log('Inclusion en objeto user:', user.Inclusion);
+                console.log('Orientacion en objeto user:', user.Orientacion);
+                console.log('Inclusivo en objeto user:', user.Inclusivo);
                 console.log('Objeto user completo:', user);
 
                 showValidationErrors(user);
@@ -757,25 +1030,37 @@
                         confirmButtonText: '¡Excelente!'
                     }).then(() => {
                         resetUserForm();
+                        toggleSpecializationColumns(); // Actualizar columnas antes de recargar
                         location.reload();
                     });
                 })
                 .fail(function (xhr) {
                     let message = 'Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.';
                     
+                    console.log('❌ ERROR EN CREACIÓN - Status:', xhr.status);
+                    console.log('❌ ERROR EN CREACIÓN - Response:', xhr.responseText);
+                    console.log('❌ ERROR EN CREACIÓN - ResponseJSON:', xhr.responseJSON);
+                    
                     if (xhr.responseJSON?.message) {
                         message = xhr.responseJSON.message;
+                        console.log('✅ Usando mensaje del servidor:', message);
                     } else if (xhr.responseText) {
-                        // Verificar si el error contiene información sobre DNI duplicado
+                        console.log('📄 Analizando responseText:', xhr.responseText);
+                        
+                        // Solo aplicar lógica específica si NO es un mensaje del servidor
                         if (xhr.responseText.toLowerCase().includes('document') || 
                             xhr.responseText.toLowerCase().includes('dni') || 
                             xhr.responseText.toLowerCase().includes('cedula') ||
                             xhr.responseText.toLowerCase().includes('duplicate') ||
                             xhr.responseText.toLowerCase().includes('ya existe')) {
                             message = '⚠️ El número de documento (DNI) ya está registrado en el sistema. Por favor, verifica que el documento sea único o contacta al administrador si necesitas ayuda.';
-                        } else if (xhr.responseText.toLowerCase().includes('email') || 
-                                   xhr.responseText.toLowerCase().includes('correo')) {
+                        } else if (xhr.responseText.toLowerCase().includes('email') && 
+                                   xhr.responseText.toLowerCase().includes('registrado') &&
+                                   xhr.responseText.toLowerCase().includes('sistema')) {
                             message = '📧 El correo electrónico ya está registrado en el sistema. Por favor, utiliza un correo diferente.';
+                        } else {
+                            // Si no es un error específico conocido, usar el texto completo
+                            message = xhr.responseText;
                         }
                     }
                     
@@ -792,6 +1077,7 @@
             $('#btnUpdateUser').on('click', function () {
                 const form = $('#userForm');
                 const passwordValue = form.find('[name="PasswordHash"]').val().trim();
+                const selectedRole = form.find('[name="Role"]').val().toLowerCase();
                 const user = {
                     Id: $('#UserId').val(),
                     Name: form.find('[name="Name"]').val().trim(),
@@ -803,7 +1089,11 @@
                     Status: form.find('[name="Status"]').val(),
                     DateOfBirth: form.find('[name="DateOfBirth"]').val() || null,
                     CellphonePrimary: form.find('[name="CellphonePrimary"]').val() || null,
-                    CellphoneSecondary: form.find('[name="CellphoneSecondary"]').val() || null
+                    CellphoneSecondary: form.find('[name="CellphoneSecondary"]').val() || null,
+                    Disciplina: selectedRole === 'teacher' ? $('#disciplinaCheck').is(':checked') : false,
+                    Inclusion: selectedRole === 'teacher' ? ($('#inclusionCheck').is(':checked') ? 'si' : 'no') : null,
+                    Orientacion: selectedRole === 'teacher' ? $('#orientacionCheck').is(':checked') : false,
+                    Inclusivo: (selectedRole === 'student' || selectedRole === 'estudiante') ? ($('#inclusionSelect').val() === 'si' ? true : $('#inclusionSelect').val() === 'no' ? false : null) : ($('#inclusivoSelect').val() === 'true' ? true : $('#inclusivoSelect').val() === 'false' ? false : null)
                 };
                 
                 // LOGS PARA DEBUGGING DE CELULARES - UPDATE
@@ -812,6 +1102,19 @@
                 console.log('CellphoneSecondary input value:', form.find('[name="CellphoneSecondary"]').val());
                 console.log('CellphonePrimary en objeto user:', user.CellphonePrimary);
                 console.log('CellphoneSecondary en objeto user:', user.CellphoneSecondary);
+                
+                // LOGS PARA DEBUGGING DE ESPECIALIZACIONES - UPDATE
+                console.log('=== FRONTEND - UPDATE USER - ESPECIALIZACIONES ===');
+                console.log('selectedRole:', selectedRole);
+                console.log('disciplinaCheck checked:', $('#disciplinaCheck').is(':checked'));
+                console.log('orientacionCheck checked:', $('#orientacionCheck').is(':checked'));
+                console.log('inclusionCheck checked:', $('#inclusionCheck').is(':checked'));
+                console.log('inclusivoSelect value:', $('#inclusivoSelect').val());
+                console.log('inclusionSelect value:', $('#inclusionSelect').val());
+                console.log('Disciplina en objeto user:', user.Disciplina);
+                console.log('Inclusion en objeto user:', user.Inclusion);
+                console.log('Orientacion en objeto user:', user.Orientacion);
+                console.log('Inclusivo en objeto user:', user.Inclusivo);
                 console.log('Objeto user completo:', user);
 
                 showValidationErrors(user);
@@ -832,25 +1135,57 @@
                         confirmButtonText: '¡Perfecto!'
                     }).then(() => {
                         resetUserForm();
+                        toggleSpecializationColumns(); // Actualizar columnas antes de recargar
                         location.reload();
                     });
                 })
                 .fail(function (xhr) {
                     let message = 'Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.';
                     
+                    console.log('❌ ERROR EN ACTUALIZACIÓN - Status:', xhr.status);
+                    console.log('❌ ERROR EN ACTUALIZACIÓN - Response:', xhr.responseText);
+                    console.log('❌ ERROR EN ACTUALIZACIÓN - ResponseJSON:', xhr.responseJSON);
+                    
                     if (xhr.responseJSON?.message) {
                         message = xhr.responseJSON.message;
+                        console.log('✅ Usando mensaje del servidor:', message);
+                    } else if (xhr.responseJSON) {
+                        // Manejar errores de validación de ModelState
+                        console.log('📋 Analizando errores de validación:', xhr.responseJSON);
+                        
+                        if (xhr.responseJSON.Email && Array.isArray(xhr.responseJSON.Email)) {
+                            message = `📧 Error en el correo electrónico: ${xhr.responseJSON.Email.join(', ')}`;
+                        } else if (xhr.responseJSON.DocumentId && Array.isArray(xhr.responseJSON.DocumentId)) {
+                            message = `🆔 Error en el documento: ${xhr.responseJSON.DocumentId.join(', ')}`;
+                        } else if (xhr.responseJSON.Name && Array.isArray(xhr.responseJSON.Name)) {
+                            message = `👤 Error en el nombre: ${xhr.responseJSON.Name.join(', ')}`;
+                        } else {
+                            // Procesar otros errores de validación
+                            const errors = [];
+                            for (const [field, fieldErrors] of Object.entries(xhr.responseJSON)) {
+                                if (Array.isArray(fieldErrors)) {
+                                    errors.push(`${field}: ${fieldErrors.join(', ')}`);
+                                }
+                            }
+                            message = `⚠️ Errores de validación:\n${errors.join('\n')}`;
+                        }
                     } else if (xhr.responseText) {
-                        // Verificar si el error contiene información sobre DNI duplicado
+                        console.log('📄 Analizando responseText:', xhr.responseText);
+                        
+                        // Solo aplicar lógica específica si NO es un mensaje del servidor
                         if (xhr.responseText.toLowerCase().includes('document') || 
                             xhr.responseText.toLowerCase().includes('dni') || 
                             xhr.responseText.toLowerCase().includes('cedula') ||
                             xhr.responseText.toLowerCase().includes('duplicate') ||
                             xhr.responseText.toLowerCase().includes('ya existe')) {
                             message = '⚠️ El número de documento (DNI) ya está registrado en el sistema. Por favor, verifica que el documento sea único o contacta al administrador si necesitas ayuda.';
-                        } else if (xhr.responseText.toLowerCase().includes('email') || 
-                                   xhr.responseText.toLowerCase().includes('correo')) {
+                        } else if (xhr.responseText.toLowerCase().includes('email') && 
+                                   xhr.responseText.toLowerCase().includes('registrado') &&
+                                   xhr.responseText.toLowerCase().includes('sistema')) {
                             message = '📧 El correo electrónico ya está registrado en el sistema. Por favor, utiliza un correo diferente.';
+                        } else {
+                            // Si no es un error específico conocido, usar el texto completo
+                            message = xhr.responseText;
                         }
                     }
                     
@@ -876,6 +1211,22 @@
                 // Limpiar campos de celular
                 $('[name="CellphonePrimary"]').val('');
                 $('[name="CellphoneSecondary"]').val('');
+                
+                // Limpiar checkboxes de especializaciones
+                $('#disciplinaCheck').prop('checked', false);
+                $('#orientacionCheck').prop('checked', false);
+                
+                // Limpiar campo Inclusivo
+                $('#inclusivoSelect').val('');
+                
+                // Limpiar campo Inclusión
+                $('#inclusionSelect').val('');
+                
+                // Ocultar secciones al resetear
+                $('#specializationsSection').hide();
+                $('#inclusivoSection').hide();
+                $('#inclusionSection').hide();
+                
                 $('#btnUpdateUser').prop('disabled', true);
                 $('#btnCreateUser').prop('disabled', false);
                 form.find('input, select').removeClass('is-invalid');
@@ -939,6 +1290,31 @@
         
         // Inicializar formateo de teléfonos
         formatPhoneNumbers();
+        
+        
+        // Función para asegurar visibilidad de inclusionSection para estudiantes
+        window.ensureInclusionSectionVisible = function() {
+            const currentRole = $('#roleSelect').val().toLowerCase();
+            console.log('🔧 ASEGURANDO VISIBILIDAD - Rol actual:', currentRole);
+            
+            if (currentRole === 'student' || currentRole === 'estudiante') {
+                console.log('👨‍🎓 Forzando visibilidad para estudiante');
+                $('#inclusionSection').show();
+                $('#inclusionSection').css('display', 'block');
+                $('#inclusionSection').css('visibility', 'visible');
+                $('#inclusionSection').removeClass('d-none');
+                
+                console.log('✅ inclusionSection visible:', $('#inclusionSection').is(':visible'));
+                console.log('✅ inclusionSection display:', $('#inclusionSection').css('display'));
+                console.log('✅ inclusionSection visibility:', $('#inclusionSection').css('visibility'));
+                console.log('✅ inclusionSection classes:', $('#inclusionSection').attr('class'));
+            }
+        };
+        
+        // Llamar la función después de un pequeño delay para asegurar que el DOM esté listo
+        setTimeout(function() {
+            window.ensureInclusionSectionVisible();
+        }, 100);
     </script>
 }
 
@@ -972,4 +1348,5 @@
             _ => role ?? "Sin rol"
         };
     }
+}
 }

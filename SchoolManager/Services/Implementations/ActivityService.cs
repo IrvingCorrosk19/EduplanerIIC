@@ -3,6 +3,7 @@ using SchoolManager.Dtos;            // ⇦ DTOs con get/set
 using SchoolManager.Interfaces;      // ⇦ IActivityService, IFileStorage
 using SchoolManager.Models;          // ⇦ SchoolDbContext, Activity
 using SchoolManager.Services.Interfaces;
+using SchoolManager.Services.Implementations;
 
 namespace SchoolManager.Services
 {
@@ -65,9 +66,11 @@ namespace SchoolManager.Services
                 GroupId = dto.GroupId,
                 GradeLevelId = dto.GradeLevelId,
                 SchoolId = currentUserSchool.Id,  // ← Agregar SchoolId del usuario logueado
-                CreatedAt = DateTime.UtcNow,
-                                  DueDate = dto.DueDate.ToUniversalTime()
+                DueDate = dto.DueDate.ToUniversalTime()
             };
+
+            // Configurar campos de auditoría
+            await AuditHelper.SetAuditFieldsForCreateAsync(activity, _currentUserService);
 
                 Console.WriteLine($"[ActivityService] Actividad creada con ID: {activity.Id}");
                 Console.WriteLine($"[ActivityService] DueDate: {activity.DueDate}");
@@ -162,6 +165,9 @@ namespace SchoolManager.Services
                     activity.PdfUrl = await _fileStorage.SaveAsync(path, stream);
                     Console.WriteLine($"[ActivityService] PDF actualizado en: {activity.PdfUrl}");
                 }
+
+                // Configurar campos de auditoría para actualización
+                await AuditHelper.SetAuditFieldsForUpdateAsync(activity, _currentUserService);
 
                 _context.Activities.Update(activity);
                 await _context.SaveChangesAsync();
@@ -289,6 +295,9 @@ namespace SchoolManager.Services
 
             // Asegurar que el SchoolId se mantenga
             activity.SchoolId = currentUserSchool.Id;
+
+            // Configurar campos de auditoría para actualización
+            await AuditHelper.SetAuditFieldsForUpdateAsync(activity, _currentUserService);
 
             _context.Activities.Update(activity);
             await _context.SaveChangesAsync();

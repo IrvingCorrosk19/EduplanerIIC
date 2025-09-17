@@ -19,6 +19,12 @@ public partial class Subject
 
     public DateTime? CreatedAt { get; set; }
 
+    public Guid? CreatedBy { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+
     public Guid? AreaId { get; set; }
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
@@ -32,4 +38,8 @@ public partial class Subject
     public virtual ICollection<SubjectAssignment> SubjectAssignments { get; set; } = new List<SubjectAssignment>();
 
     public virtual ICollection<User> Users { get; set; } = new List<User>();
+
+    public virtual User? CreatedByUser { get; set; }
+
+    public virtual User? UpdatedByUser { get; set; }
 }

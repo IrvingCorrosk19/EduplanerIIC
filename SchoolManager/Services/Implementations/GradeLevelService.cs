@@ -32,9 +32,13 @@ public class GradeLevelService : IGradeLevelService
             grade = new GradeLevel
             {
                 Id = Guid.NewGuid(),
-                Name = name,
-                CreatedAt = DateTime.UtcNow
+                Name = name
             };
+            
+            // Configurar campos de auditoría y SchoolId
+            await AuditHelper.SetAuditFieldsForCreateAsync(grade, _currentUserService);
+            await AuditHelper.SetSchoolIdAsync(grade, _currentUserService);
+            
             _context.GradeLevels.Add(grade);
             await _context.SaveChangesAsync();
         }
@@ -56,6 +60,11 @@ public class GradeLevelService : IGradeLevelService
         try
         {
             gradeLevel.Id = Guid.NewGuid();
+            
+            // Configurar campos de auditoría y SchoolId
+            await AuditHelper.SetAuditFieldsForCreateAsync(gradeLevel, _currentUserService);
+            await AuditHelper.SetSchoolIdAsync(gradeLevel, _currentUserService);
+            
             _context.GradeLevels.Add(gradeLevel);
             await _context.SaveChangesAsync();
             return gradeLevel;
@@ -70,6 +79,9 @@ public class GradeLevelService : IGradeLevelService
     {
         try
         {
+            // Configurar campos de auditoría para actualización
+            await AuditHelper.SetAuditFieldsForUpdateAsync(gradeLevel, _currentUserService);
+            
             _context.GradeLevels.Update(gradeLevel);
             await _context.SaveChangesAsync();
             return gradeLevel;

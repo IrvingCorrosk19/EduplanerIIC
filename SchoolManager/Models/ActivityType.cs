@@ -25,9 +25,17 @@ public partial class ActivityType
 
     public DateTime CreatedAt { get; set; }
 
+    public Guid? CreatedBy { get; set; }
+
     public DateTime? UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
     public virtual School? School { get; set; }
+
+    public virtual User? CreatedByUser { get; set; }
+
+    public virtual User? UpdatedByUser { get; set; }
 }

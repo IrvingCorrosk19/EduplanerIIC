@@ -78,6 +78,10 @@ public class UserController : Controller
             DateOfBirth = model.DateOfBirth?.ToUniversalTime(),
             CellphonePrimary = model.CellphonePrimary,
             CellphoneSecondary = model.CellphoneSecondary,
+            Disciplina = model.Disciplina ?? false,
+            Inclusion = model.Inclusion,
+            Orientacion = model.Orientacion ?? false,
+            Inclusivo = model.Inclusivo ?? false,
         };
 
         await _userService.CreateAsync(user, model.Subjects, model.Groups);
@@ -180,6 +184,24 @@ public class UserController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        var user = await _userService.GetByIdAsync(id);
+        if (user == null) return NotFound();
+
+        var result = new
+        {
+            user.Id,
+            user.Name,
+            user.LastName,
+            user.Email,
+            user.DocumentId
+        };
+
+        return Json(result);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> GetUserJson(Guid id)
     {
         var user = await _userService.GetByIdWithRelationsAsync(id);
@@ -198,6 +220,10 @@ public class UserController : Controller
             user.DateOfBirth,
             user.CellphonePrimary,
             user.CellphoneSecondary,
+            user.Disciplina,
+            user.Inclusion,
+            user.Orientacion,
+            user.Inclusivo,
             Subjects = user.Subjects.Select(s => s.Id),
             Groups = user.Groups.Select(g => g.Id)
         };
@@ -216,6 +242,10 @@ public class UserController : Controller
             Console.WriteLine($"Email: {model.Email}");
             Console.WriteLine($"Celular Principal: {model.CellphonePrimary}");
             Console.WriteLine($"Celular Secundario: {model.CellphoneSecondary}");
+            Console.WriteLine($"Disciplina: {model.Disciplina}");
+            Console.WriteLine($"Inclusion: {model.Inclusion}");
+            Console.WriteLine($"Orientacion: {model.Orientacion}");
+            Console.WriteLine($"Inclusivo: {model.Inclusivo}");
             
             _logger.LogInformation("Iniciando actualización de usuario {UserId}", model.Id);
 
@@ -247,7 +277,16 @@ public class UserController : Controller
             existingUser.DateOfBirth = model.DateOfBirth?.ToUniversalTime();
             existingUser.CellphonePrimary = model.CellphonePrimary;
             existingUser.CellphoneSecondary = model.CellphoneSecondary;
+            existingUser.Disciplina = model.Disciplina ?? false;
+            existingUser.Inclusion = model.Inclusion;
+            existingUser.Orientacion = model.Orientacion ?? false;
+            existingUser.Inclusivo = model.Inclusivo ?? false;
 
+            Console.WriteLine("=== CAMPOS ASIGNADOS ===");
+            Console.WriteLine($"existingUser.Disciplina: {existingUser.Disciplina}");
+            Console.WriteLine($"existingUser.Inclusion: {existingUser.Inclusion}");
+            Console.WriteLine($"existingUser.Orientacion: {existingUser.Orientacion}");
+            Console.WriteLine($"existingUser.Inclusivo: {existingUser.Inclusivo}");
             Console.WriteLine("Campos actualizados, guardando cambios...");
             _logger.LogInformation("Campos actualizados para usuario {UserId}", model.Id);
 

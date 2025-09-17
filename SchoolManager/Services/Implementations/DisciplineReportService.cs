@@ -132,9 +132,11 @@ namespace SchoolManager.Services
             return reports.Select(r => new DisciplineReportDto
             {
                 Type = r.ReportType,
+                Category = r.Category,
                 Status = r.Status,
                 Description = r.Description,
                 Date = r.Date,
+                Documents = r.Documents,
                 Teacher = r.Teacher != null ? $"{r.Teacher.Name} {r.Teacher.LastName}" : null
             }).ToList();
         }

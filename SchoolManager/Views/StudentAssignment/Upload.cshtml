@@ -31,6 +31,7 @@
                 <li><strong>Fecha Nacimiento:</strong> Fecha de nacimiento (formato: DD/MM/YYYY o número de Excel)</li>
                 <li><strong>Grado:</strong> Nombre del grado</li>
                 <li><strong>Grupo:</strong> Nombre del grupo</li>
+                <li><strong>Inclusión:</strong> Indica si el estudiante tiene alguna discapacidad (si, no, o dejar vacío)</li>
             </ol>
         </div>
         <div class="ms-3">
@@ -56,6 +57,7 @@
             <th>Fecha Nacimiento</th>
             <th>Grado</th>
             <th>Grupo</th>
+            <th>Inclusión</th>
         </tr>
     </thead>
     <tbody></tbody>
@@ -106,7 +108,7 @@
                     const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
                     // Validación de encabezados exactos
-                    const headersEsperados = ["ESTUDIANTE (EMAIL)", "NOMBRE", "APELLIDO", "DOCUMENTO ID", "FECHA NACIMIENTO", "GRADO", "GRUPO"];
+                    const headersEsperados = ["ESTUDIANTE (EMAIL)", "NOMBRE", "APELLIDO", "DOCUMENTO ID", "FECHA NACIMIENTO", "GRADO", "GRUPO", "INCLUSIÓN"];
                     const headersObtenidos = json[0]?.map(h => h?.toString().trim().toUpperCase());
                     const headersValidados = headersEsperados.every((expected, i) =>
                         headersObtenidos[i] === expected
@@ -140,6 +142,7 @@
                         if (!row[4] || row[4].toString().trim() === "") camposFaltantes.push("Fecha Nacimiento");
                         if (!row[5] || row[5].toString().trim() === "") camposFaltantes.push("Grado");
                         if (!row[6] || row[6].toString().trim() === "") camposFaltantes.push("Grupo");
+                        // Inclusión es opcional, no se valida
 
                         // Validar formato de fecha DD/MM/YYYY o número de Excel
                         if (row[4] && row[4].toString().trim() !== "") {
@@ -210,8 +213,18 @@
                             }
                         }
 
+                        // Procesar campo Inclusión
+                        let inclusionDisplay = row[7] ?? "";
+                        if (inclusionDisplay && inclusionDisplay.toString().trim().toLowerCase() === "si") {
+                            inclusionDisplay = '<span class="badge bg-success"><i class="fas fa-heart me-1"></i>Sí</span>';
+                        } else if (inclusionDisplay && inclusionDisplay.toString().trim().toLowerCase() === "no") {
+                            inclusionDisplay = '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>No</span>';
+                        } else {
+                            inclusionDisplay = '<span class="badge bg-secondary"><i class="fas fa-minus me-1"></i>Sin definir</span>';
+                        }
+
                         const rowHtml = `
-                            <tr data-row="${rowNumber}">
+                            <tr data-row="${rowNumber}" data-inclusion="${row[7] ?? ""}">
                                 <td>${row[0] ?? ""}</td>
                                 <td>${row[1] ?? ""}</td>
                                 <td>${row[2] ?? ""}</td>
@@ -219,6 +232,7 @@
                                 <td>${fechaDisplay}</td>
                                 <td>${row[5] ?? ""}</td>
                                 <td>${row[6] ?? ""}</td>
+                                <td>${inclusionDisplay}</td>
                             </tr>
                         `;
                         const $row = $(rowHtml);
@@ -283,6 +297,8 @@
                     const fechaNacimiento = $row.find('td').eq(4).text().trim();
                     const grado = $row.find('td').eq(5).text().trim();
                     const grupo = $row.find('td').eq(6).text().trim();
+                    // Obtener el valor original de Inclusión desde los datos del Excel
+                    const inclusionValue = $row.data('inclusion') || '';
 
                     const camposFaltantes = [];
                     if (!estudiante) camposFaltantes.push("Estudiante (Email)");
@@ -342,7 +358,8 @@
                             documentoId, 
                             fechaNacimiento, 
                             grado, 
-                            grupo 
+                            grupo,
+                            inclusion: inclusionValue
                         });
                     }
                 });

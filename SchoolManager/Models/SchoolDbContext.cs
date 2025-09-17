@@ -65,10 +65,10 @@ public partial class SchoolDbContext : DbContext
     {
         // Configurar interceptor global para DateTime
         optionsBuilder.AddInterceptors(new DateTimeInterceptor());
-        
+
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
 
-    => optionsBuilder.UseNpgsql("Host=dpg-d301usgdl3ps739n4v5g-a.oregon-postgres.render.com;Database=schoolmanagement_4d5w;Username=admin;Password=HwSVkpGB2Wi0y7WkNQokRIRjz8uwIiw7;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
+       => optionsBuilder.UseNpgsql("Host=dpg-d34vvg33fgac73b1udm0-a;Database=schoolmanagement_v0f1;Username=admin;Password=xbBzzEVTEbWJPWm0r7w7YBVoDjZTXITr;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
 //=> optionsBuilder.UseNpgsql("Host=localhost;Database=SchoolManagement;Username=postgres;Password=Panama2020$");
 
 
@@ -152,6 +152,15 @@ public partial class SchoolDbContext : DbContext
                 .HasConstraintName("activities_teacher_id_fkey");
 
             entity.HasOne(d => d.TrimesterNavigation).WithMany(p => p.Activities).HasForeignKey(d => d.TrimesterId);
+
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<ActivityAttachment>(entity =>
@@ -191,9 +200,7 @@ public partial class SchoolDbContext : DbContext
 
             entity.ToTable("activity_types");
 
-            entity.HasIndex(e => e.SchoolId, "IX_activity_types_school_id");
-
-            entity.HasIndex(e => new { e.Name, e.SchoolId }, "activity_types_name_school_key").IsUnique();
+            entity.HasIndex(e => e.Name, "activity_types_name_key").IsUnique();
 
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("gen_random_uuid()")
@@ -221,15 +228,16 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(30)
                 .HasColumnName("name");
-            entity.Property(e => e.SchoolId).HasColumnName("school_id");
             entity.Property(e => e.UpdatedAt)
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("updated_at");
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
 
-            entity.HasOne(d => d.School).WithMany(p => p.ActivityTypes)
-                .HasForeignKey(d => d.SchoolId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("activity_types_school_id_fkey");
+            entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId);
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<Area>(entity =>
@@ -238,9 +246,7 @@ public partial class SchoolDbContext : DbContext
 
             entity.ToTable("area");
 
-            entity.HasIndex(e => e.SchoolId, "IX_area_school_id");
-
-            entity.HasIndex(e => new { e.Name, e.SchoolId }, "area_name_school_key").IsUnique();
+            entity.HasIndex(e => e.Name, "area_name_key").IsUnique();
 
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("gen_random_uuid()")
@@ -265,15 +271,9 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .HasColumnName("name");
-            entity.Property(e => e.SchoolId).HasColumnName("school_id");
             entity.Property(e => e.UpdatedAt)
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("updated_at");
-
-            entity.HasOne(d => d.School).WithMany(p => p.Areas)
-                .HasForeignKey(d => d.SchoolId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("area_school_id_fkey");
         });
 
         modelBuilder.Entity<Attendance>(entity =>
@@ -321,6 +321,17 @@ public partial class SchoolDbContext : DbContext
             entity.HasOne(d => d.Teacher).WithMany(p => p.AttendanceTeachers)
                 .HasForeignKey(d => d.TeacherId)
                 .HasConstraintName("attendance_teacher_id_fkey");
+
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId);
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<AuditLog>(entity =>
@@ -400,6 +411,8 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.ReportType)
                 .HasMaxLength(50)
                 .HasColumnName("report_type");
+            entity.Property(e => e.Category).HasColumnName("category");
+            entity.Property(e => e.Documents).HasColumnName("documents");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasColumnName("status");
@@ -429,6 +442,14 @@ public partial class SchoolDbContext : DbContext
             entity.HasOne(d => d.Teacher).WithMany(p => p.DisciplineReportTeachers)
                 .HasForeignKey(d => d.TeacherId)
                 .HasConstraintName("discipline_reports_teacher_id_fkey");
+
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+
+            entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId);
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<GradeLevel>(entity =>
@@ -450,6 +471,16 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .HasColumnName("name");
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId);
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<Group>(entity =>
@@ -480,6 +511,15 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.SchoolId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("groups_school_id_fkey");
+
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<School>(entity =>
@@ -515,7 +555,7 @@ public partial class SchoolDbContext : DbContext
 
             entity.HasOne(d => d.Admin).WithOne(p => p.School)
                 .HasForeignKey<School>(d => d.AdminId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<SecuritySetting>(entity =>
@@ -587,6 +627,16 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .HasColumnName("name");
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId);
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<Student>(entity =>
@@ -662,6 +712,17 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.StudentId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("student_activity_scores_student_id_fkey");
+
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId);
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<StudentAssignment>(entity =>
@@ -738,6 +799,15 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.SchoolId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("subjects_school_id_fkey");
+
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
         });
 
         modelBuilder.Entity<SubjectAssignment>(entity =>
@@ -928,18 +998,35 @@ public partial class SchoolDbContext : DbContext
                 .HasColumnName("two_factor_enabled");
             entity.Property(e => e.UpdatedAt)
                 .HasColumnType("timestamp with time zone")
-                .HasColumnName("UpdatedAt");
+                .HasColumnName("updated_at");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
             entity.Property(e => e.CellphonePrimary)
                 .HasMaxLength(20)
                 .HasColumnName("cellphone_primary");
             entity.Property(e => e.CellphoneSecondary)
                 .HasMaxLength(20)
                 .HasColumnName("cellphone_secondary");
+            entity.Property(e => e.Disciplina)
+                .HasDefaultValue(false)
+                .HasColumnName("disciplina");
+            entity.Property(e => e.Inclusion)
+                .HasMaxLength(10)
+                .HasColumnName("inclusion");
+            entity.Property(e => e.Orientacion)
+                .HasDefaultValue(false)
+                .HasColumnName("orientacion");
+            entity.Property(e => e.Inclusivo)
+                .HasDefaultValue(false)
+                .HasColumnName("inclusivo");
 
             entity.HasOne(d => d.SchoolNavigation).WithMany(p => p.Users)
                 .HasForeignKey(d => d.SchoolId)
-                .OnDelete(DeleteBehavior.Restrict)
+                .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("users_school_id_fkey");
+
+            entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
+            entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
 
             entity.HasMany(d => d.Grades).WithMany(p => p.Users)
                 .UsingEntity<Dictionary<string, object>>(

@@ -7,6 +7,7 @@ using SchoolManager.Dtos;
 using SchoolManager.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
+using SchoolManager.Services.Implementations;
 
 namespace SchoolManager.Services
 {
@@ -14,11 +15,13 @@ namespace SchoolManager.Services
     {
         private readonly SchoolDbContext _context;
         private readonly ITrimesterService _trimesterService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public StudentActivityScoreService(SchoolDbContext context, ITrimesterService trimesterService)
+        public StudentActivityScoreService(SchoolDbContext context, ITrimesterService trimesterService, ICurrentUserService currentUserService)
         {
             _context = context;
             _trimesterService = trimesterService;
+            _currentUserService = currentUserService;
         }
 
         /* ------------ 1. Guardar / actualizar notas ------------ */
@@ -35,18 +38,25 @@ namespace SchoolManager.Services
 
                 if (entity is null)
                 {
-                    _context.StudentActivityScores.Add(new StudentActivityScore
+                    var newScore = new StudentActivityScore
                     {
                         Id = Guid.NewGuid(),
                         StudentId = dto.StudentId,
                         ActivityId = dto.ActivityId,
-                        Score = dto.Score,
-                        CreatedAt = DateTime.UtcNow
-                    });
+                        Score = dto.Score
+                    };
+                    
+                    // Configurar campos de auditoría y SchoolId
+                    await AuditHelper.SetAuditFieldsForCreateAsync(newScore, _currentUserService);
+                    await AuditHelper.SetSchoolIdAsync(newScore, _currentUserService);
+                    
+                    _context.StudentActivityScores.Add(newScore);
                 }
                 else
                 {
                     entity.Score = dto.Score;
+                    // Configurar campos de auditoría para actualización
+                    await AuditHelper.SetAuditFieldsForUpdateAsync(entity, _currentUserService);
                 }
             }
             await _context.SaveChangesAsync();

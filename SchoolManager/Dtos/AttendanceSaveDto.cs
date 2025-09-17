@@ -9,6 +9,6 @@ namespace SchoolManager.Dtos
         public Guid GroupId { get; set; }
         public Guid GradeId { get; set; }
         public DateOnly Date { get; set; }
-        public string Status { get; set; } = string.Empty; // "Presente", "Ausente", "Tardanza"
+        public string Status { get; set; } = string.Empty; // "present", "absent", "late", "fuga", "excusa"
     }
 } 

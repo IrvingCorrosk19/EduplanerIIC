@@ -725,14 +725,14 @@ public class SuperAdminService : ISuperAdminService
             _context.Activities.RemoveRange(activities);
         }
 
-        // Eliminar tipos de actividades
+        // Eliminar tipos de actividades (solo los específicos de la escuela, no los globales)
         var activityTypes = await _context.ActivityTypes
-            .Where(at => at.SchoolId == school.Id)
+            .Where(at => !at.IsGlobal)
             .ToListAsync();
         
         if (activityTypes.Count > 0)
         {
-            Console.WriteLine($"🗑️ [SuperAdminService] Eliminando {activityTypes.Count} tipos de actividades");
+            Console.WriteLine($"🗑️ [SuperAdminService] Eliminando {activityTypes.Count} tipos de actividades específicos");
             _context.ActivityTypes.RemoveRange(activityTypes);
         }
 
@@ -780,14 +780,14 @@ public class SuperAdminService : ISuperAdminService
             _context.Subjects.RemoveRange(subjects);
         }
 
-        // Eliminar áreas
+        // Eliminar áreas (solo las específicas de la escuela, no las globales)
         var areas = await _context.Areas
-            .Where(a => a.SchoolId == school.Id)
+            .Where(a => !a.IsGlobal)
             .ToListAsync();
         
         if (areas.Count > 0)
         {
-            Console.WriteLine($"🗑️ [SuperAdminService] Eliminando {areas.Count} áreas");
+            Console.WriteLine($"🗑️ [SuperAdminService] Eliminando {areas.Count} áreas específicas");
             _context.Areas.RemoveRange(areas);
         }
 

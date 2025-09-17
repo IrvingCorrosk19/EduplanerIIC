@@ -25,6 +25,12 @@ public partial class Activity
 
     public DateTime? CreatedAt { get; set; }
 
+    public Guid? CreatedBy { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+
     public DateTime? DueDate { get; set; }
 
     public Guid? GradeLevelId { get; set; }
@@ -48,4 +54,8 @@ public partial class Activity
     public virtual User? Teacher { get; set; }
 
     public virtual Trimester? TrimesterNavigation { get; set; }
+
+    public virtual User? CreatedByUser { get; set; }
+
+    public virtual User? UpdatedByUser { get; set; }
 }

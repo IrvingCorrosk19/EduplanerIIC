@@ -203,6 +203,16 @@
         color: #b45309;
     }
 
+    .status-badge.fuga {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+
+    .status-badge.excusa {
+        background-color: #ede9fe;
+        color: #7c3aed;
+    }
+
     .action-btn {
         width: 38px;
         height: 38px;
@@ -234,6 +244,14 @@
 
     .action-btn.late {
         background-color: var(--warning-color);
+    }
+
+    .action-btn.fuga {
+        background-color: #dc2626;
+    }
+
+    .action-btn.excusa {
+        background-color: #7c3aed;
     }
 
     .action-btn.active {
@@ -572,13 +590,13 @@
                             <span class="input-group-text">
                                 <i class="bi bi-search"></i>
                             </span>
-                            <input type="text" id="searchStudent" class="form-control" placeholder="Buscar estudiante por nombre...">
+                            <input type="text" id="searchStudent" class="form-control" placeholder="Buscar estudiante por nombre o cédula...">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="text-muted">
                             <i class="bi bi-info-circle me-2"></i>
-                            Escriba el nombre del estudiante para filtrar la tabla
+                            Escriba el nombre o cédula del estudiante para filtrar la tabla
                         </div>
                     </div>
                 </div>
@@ -588,6 +606,7 @@
                             <thead class="sticky-top" style="background-color: #f8f9fa; z-index: 10;">
                                 <tr id="hdrRow">
                                     <th style="text-align: left;">Estudiante</th>
+                                    <th style="text-align: left;">Cédula</th>
                                 </tr>
                             </thead>
                             <tbody id="bodyRows"></tbody>
@@ -927,10 +946,15 @@
                                                 <div class="row g-2 mb-3">
                                                     <div class="col-md-6">
                                                         <label class="form-label">Tipo</label>
-                                                        <select class="form-select" id="tipoDisciplina" required>
-                                                            <option value="Comentario">Comentario</option>
-                                                            <option value="Citacion">Citacion</option>
-                                                        </select>
+                                                        <div class="position-relative">
+                                                            <select class="form-select" id="tipoDisciplina" required>
+                                                                <option value="Comentario">Comentario</option>
+                                                                <option value="Citacion">Citacion</option>
+                                                            </select>
+                                                            <span id="tipoDisciplinaIcon" class="position-absolute top-50 end-0 translate-middle-y me-2" style="display: none;">
+                                                                <i class="bi bi-check-circle-fill text-success"></i>
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">Estado</label>
@@ -945,10 +969,55 @@
                                                     <label class="form-label">Descripción</label>
                                                     <textarea class="form-control" id="descripcionDisciplina" rows="3" placeholder="Describa el comportamiento o incidente..." required></textarea>
                                                 </div>
+                                                <div class="mb-3" id="categoriaSeleccionadaContainer" style="display: none;">
+                                                    <label class="form-label">Categoría seleccionada:</label>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div id="categoriaSeleccionadaBadge"></div>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCambiarCategoria" title="Cambiar categoría">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <input type="hidden" id="categoriaDisciplinaSeleccionada" value="">
                                                 <div class="text-end">
                                                     <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
                                                 </div>
                                             </form>
+                                            
+                                            <!-- Modal para seleccionar categoría -->
+                                            <div class="modal fade" id="modalCategoriaDisciplina" tabindex="-1" aria-labelledby="modalCategoriaDisciplinaLabel" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="modalCategoriaDisciplinaLabel">Seleccionar Categoría</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div class="mb-3">
+                                                                <label class="form-label fw-semibold">Seleccione la categoría del reporte:</label>
+                                                                <div class="mt-3">
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="radio" name="categoriaDisciplina" id="categoriaComportamiento" value="Comportamiento">
+                                                                        <label class="form-check-label" for="categoriaComportamiento">
+                                                                            <i class="bi bi-person-exclamation me-2"></i>Comportamiento
+                                                                        </label>
+                                                                    </div>
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="radio" name="categoriaDisciplina" id="categoriaRendimiento" value="Rendimiento">
+                                                                        <label class="form-check-label" for="categoriaRendimiento">
+                                                                            <i class="bi bi-graph-up me-2"></i>Rendimiento
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="button" class="btn btn-primary" id="btnConfirmarCategoria">Confirmar</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             <div class="mt-4">
                                                 <div class="fw-semibold mb-2"><i class="bi bi-clock-history"></i> Historial del Estudiante</div>
                                                 <div id="historialEstudianteDisciplina" class="bg-light p-3 rounded">No hay registros para este estudiante</div>
@@ -1003,13 +1072,18 @@
                             <div class="bg-light p-3 rounded mt-3">
                                 <span class="fw-semibold text-primary">Leyenda:</span>
                                 <div class="row mt-2">
-                                    <div class="col-md-6">
-                                        <span class="fw-semibold">Tipos de Registro:</span>
+                                    <div class="col-md-4">
+                                        <span class="fw-semibold">Tipos de Registro:</span><br>
                                         <span class="badge bg-primary">Comentario</span>
                                         <span class="badge bg-danger">Citación</span>
                                     </div>
-                                    <div class="col-md-6">
-                                        <span class="fw-semibold">Estados:</span>
+                                    <div class="col-md-4">
+                                        <span class="fw-semibold">Categorías:</span><br>
+                                        <span class="badge bg-info"><i class="bi bi-person-exclamation me-1"></i>Comportamiento</span>
+                                        <span class="badge bg-success"><i class="bi bi-graph-up me-1"></i>Rendimiento</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <span class="fw-semibold">Estados:</span><br>
                                         <span class="badge bg-warning text-dark">Pendiente</span>
                                         <span class="badge bg-success">Resuelto</span>
                                         <span class="badge bg-danger bg-opacity-50 text-dark">Escalado</span>
@@ -1146,7 +1220,8 @@
                 const searchTerm = $(this).val().toLowerCase();
                 $('#bodyRows tr').each(function() {
                     const studentName = $(this).find('td:first-child').text().toLowerCase();
-                    if (studentName.includes(searchTerm)) {
+                    const documentId = $(this).find('td:nth-child(2)').text().toLowerCase();
+                    if (studentName.includes(searchTerm) || documentId.includes(searchTerm)) {
                         $(this).show();
                     } else {
                         $(this).hide();
@@ -1244,7 +1319,7 @@
                 saveCurrentScores();
 
                 const hdrRow = $('#hdrRow');
-                hdrRow.html('<th>Estudiante</th>');
+                hdrRow.html('<th>Estudiante</th><th>Cédula</th>');
 
                 console.log('Objeto activities:', activities);
 
@@ -1294,7 +1369,13 @@
 
                 if (students && students.length > 0) {
                     students.forEach(s => {
-                        let row = `<tr data-stu-id="${s.id}"><td><div>${s.fullName}</div><small class="text-muted">${s.documentId || 'Sin cédula'}</small></td>`;
+                        // Convertir formato de nombre de "Nombre Apellido" a "Apellido, Nombre"
+                        const nameParts = s.fullName.split(' ');
+                        const formattedName = nameParts.length > 1 
+                            ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
+                            : s.fullName;
+                        
+                        let row = `<tr data-stu-id="${s.id}"><td>${formattedName}</td><td>${s.documentId || 'Sin cédula'}</td>`;
 
                         if (hasActivities) {
                             activeTypes.forEach(type => {
@@ -2142,6 +2223,12 @@
                                         <button type="button" class="action-btn late" title="Tardanza" data-status="late">
                                             <i class="bi bi-exclamation"></i>
                                         </button>
+                                        <button type="button" class="action-btn fuga" title="Fuga" data-status="fuga">
+                                            <i class="bi bi-door-open"></i>
+                                        </button>
+                                        <button type="button" class="action-btn excusa" title="Excusa" data-status="excusa">
+                                            <i class="bi bi-file-text"></i>
+                                        </button>
                                     </td>
                                 </tr>`;
                             asistenciaBody.append(row);
@@ -2167,51 +2254,112 @@
                     return;
                 }
                 const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                const fecha = $('#fecha').val();
+                
                 $('#asistenciaBody').html('<tr><td colspan="4" class="text-center">Cargando estudiantes...</td></tr>');
-                $.ajax({
-                    url: '/TeacherGradebook/StudentsByGroupAndGrade',
-                    method: 'GET',
-                    data: { subjectId: subjectId, groupId: groupId, gradeId: gradeLevelId },
-                    success: function(response) {
-                        const asistenciaBody = $('#asistenciaBody');
-                        asistenciaBody.empty();
-                        if (!response || response.length === 0) {
-                            asistenciaBody.html('<tr><td colspan="4" class="text-center">No se encontraron estudiantes para este grupo</td></tr>');
-                            return;
-                        }
-                        response.forEach(student => {
-                            const row = `
-                                <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                    <td>${student.fullName}</td>
-                                    <td>${$('#filtroGradoAsistencia option:selected').text()}</td>
-                                    <td>
-                                        <span class="status-badge present">
-                                            <i class="bi bi-check-circle-fill"></i> Presente
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button type="button" class="action-btn present active" title="Presente" data-status="present">
-                                            <i class="bi bi-check"></i>
-                                        </button>
-                                        <button type="button" class="action-btn absent" title="Ausente" data-status="absent">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                        <button type="button" class="action-btn late" title="Tardanza" data-status="late">
-                                            <i class="bi bi-exclamation"></i>
-                                        </button>
-                                    </td>
-                                </tr>`;
-                            asistenciaBody.append(row);
+                
+                // Cargar estudiantes y asistencias en paralelo
+                Promise.all([
+                    $.ajax({
+                        url: '/TeacherGradebook/StudentsByGroupAndGrade',
+                        method: 'GET',
+                        data: { subjectId: subjectId, groupId: groupId, gradeId: gradeLevelId }
+                    }),
+                    fecha ? $.ajax({
+                        url: '/TeacherGradebook/GetAttendancesByDate',
+                        method: 'GET',
+                        data: { groupId: groupId, gradeId: gradeLevelId, date: fecha }
+                    }) : Promise.resolve([])
+                ]).then(([students, attendances]) => {
+                    const asistenciaBody = $('#asistenciaBody');
+                    asistenciaBody.empty();
+                    
+                    if (!students || students.length === 0) {
+                        asistenciaBody.html('<tr><td colspan="4" class="text-center">No se encontraron estudiantes para este grupo</td></tr>');
+                        return;
+                    }
+                    
+                    // Crear mapa de asistencias por studentId
+                    const attendanceMap = {};
+                    if (attendances && attendances.length > 0) {
+                        attendances.forEach(attendance => {
+                            attendanceMap[attendance.studentId] = attendance.status;
                         });
-                        activarEventListenersAsistencia();
-                    },
-                    error: function(xhr, status, error) {
-                        $('#asistenciaBody').html(`<tr><td colspan="4" class="text-center text-danger">Error al cargar estudiantes: ${error}</td></tr>`);
-                        }
+                    }
+                    
+                    students.forEach(student => {
+                        const currentStatus = attendanceMap[student.studentId] || 'present';
+                        const statusText = getStatusText(currentStatus);
+                        const statusIcon = getStatusIcon(currentStatus);
+                        
+                        const row = `
+                            <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
+                                <td>${student.fullName}</td>
+                                <td>${$('#filtroGradoAsistencia option:selected').text()}</td>
+                                <td>
+                                    <span class="status-badge ${currentStatus}">
+                                        ${statusIcon} ${statusText}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button type="button" class="action-btn present ${currentStatus === 'present' ? 'active' : ''}" title="Presente" data-status="present">
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                    <button type="button" class="action-btn absent ${currentStatus === 'absent' ? 'active' : ''}" title="Ausente" data-status="absent">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                    <button type="button" class="action-btn late ${currentStatus === 'late' ? 'active' : ''}" title="Tardanza" data-status="late">
+                                        <i class="bi bi-exclamation"></i>
+                                    </button>
+                                    <button type="button" class="action-btn fuga ${currentStatus === 'fuga' ? 'active' : ''}" title="Fuga" data-status="fuga">
+                                        <i class="bi bi-door-open"></i>
+                                    </button>
+                                    <button type="button" class="action-btn excusa ${currentStatus === 'excusa' ? 'active' : ''}" title="Excusa" data-status="excusa">
+                                        <i class="bi bi-file-text"></i>
+                                    </button>
+                                </td>
+                            </tr>`;
+                        asistenciaBody.append(row);
                     });
+                    activarEventListenersAsistencia();
+                }).catch(error => {
+                    console.error('Error al cargar datos:', error);
+                    $('#asistenciaBody').html(`<tr><td colspan="4" class="text-center text-danger">Error al cargar estudiantes: ${error}</td></tr>`);
+                });
+            }
+            
+            // Funciones auxiliares para obtener texto e icono del estado
+            function getStatusText(status) {
+                switch(status) {
+                    case 'present': return 'Presente';
+                    case 'absent': return 'Ausente';
+                    case 'late': return 'Tardanza';
+                    case 'fuga': return 'Fuga';
+                    case 'excusa': return 'Excusa';
+                    default: return 'Presente';
                 }
+            }
+            
+            function getStatusIcon(status) {
+                switch(status) {
+                    case 'present': return '<i class="bi bi-check-circle-fill"></i>';
+                    case 'absent': return '<i class="bi bi-x-circle-fill"></i>';
+                    case 'late': return '<i class="bi bi-exclamation-circle-fill"></i>';
+                    case 'fuga': return '<i class="bi bi-door-open-fill"></i>';
+                    case 'excusa': return '<i class="bi bi-file-text-fill"></i>';
+                    default: return '<i class="bi bi-check-circle-fill"></i>';
+                }
+            }
             // Evento para filtro de asistencia
             $('#filtroGradoAsistencia').off('change').on('change', cargarEstudiantesAsistenciaPorFiltro);
+            
+            // Evento para cambio de fecha
+            $('#fecha').off('change').on('change', function() {
+                if ($('#filtroGradoAsistencia').val()) {
+                    cargarEstudiantesAsistenciaPorFiltro();
+                }
+            });
+            
             // Cargar estudiantes al inicio si hay valor
             if ($('#filtroGradoAsistencia').val()) {
                 cargarEstudiantesAsistenciaPorFiltro();
@@ -2240,13 +2388,17 @@
                     $(this).addClass('active');
                     const statusBadge = statusCell.find('.status-badge');
                     const status = $(this).data('status');
-                    statusBadge.removeClass('present absent late').addClass(status);
+                    statusBadge.removeClass('present absent late fuga excusa').addClass(status);
                     if (status === 'present') {
                         statusBadge.html('<i class="bi bi-check-circle-fill"></i> Presente');
                     } else if (status === 'absent') {
                         statusBadge.html('<i class="bi bi-x-circle-fill"></i> Ausente');
                     } else if (status === 'late') {
                         statusBadge.html('<i class="bi bi-exclamation-circle-fill"></i> Tardanza');
+                    } else if (status === 'fuga') {
+                        statusBadge.html('<i class="bi bi-door-open-fill"></i> Fuga');
+                    } else if (status === 'excusa') {
+                        statusBadge.html('<i class="bi bi-file-text-fill"></i> Excusa');
                     }
                 });
             }
@@ -2573,6 +2725,16 @@
                         year: 'numeric'
                     }) : 'Fecha no válida';
 
+                    // Badge para categoría
+                    let categoriaBadge = '';
+                    if (registro.categoria === 'Comportamiento') {
+                        categoriaBadge = '<span class="badge bg-info me-2"><i class="bi bi-person-exclamation me-1"></i>Comportamiento</span>';
+                    } else if (registro.categoria === 'Rendimiento') {
+                        categoriaBadge = '<span class="badge bg-success me-2"><i class="bi bi-graph-up me-1"></i>Rendimiento</span>';
+                    } else {
+                        categoriaBadge = `<span class="badge bg-secondary me-2">${registro.categoria || 'Sin categoría'}</span>`;
+                    }
+
                     const item = `
                         <div class="list-group-item">
                             <div class="d-flex justify-content-between align-items-center">
@@ -2580,6 +2742,7 @@
                                     <span class="badge ${registro.type === 'Comentario' ? 'bg-primary' : 'bg-danger'} me-2">
                                         ${registro.type || 'Sin tipo'}
                                     </span>
+                                    ${categoriaBadge}
                                     <span class="badge ${
                                         registro.status === 'Pendiente' ? 'bg-warning text-dark' : 
                                         registro.status === 'Resuelto' ? 'bg-success' : 
@@ -2588,7 +2751,12 @@
                                         ${registro.status || 'Sin estado'}
                                     </span>
                                 </div>
-                                <small class="text-muted">${fechaFormateada} ${registro.time || ''}</small>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-outline-success" onclick="enviarCorreoDisciplinario('${registro.id}', '${studentId}')" title="Enviar correo al estudiante">
+                                        <i class="bi bi-envelope me-1"></i>Enviar Correo
+                                    </button>
+                                    <small class="text-muted">${fechaFormateada} ${registro.time || ''}</small>
+                                </div>
                             </div>
                             <p class="mb-1 mt-2">${registro.description || 'Sin descripción'}</p>
                             <small class="text-muted">Profesor: ${registro.teacher || 'No especificado'}</small>
@@ -2600,6 +2768,96 @@
             },
             error: function(xhr, status, error) {
                 $('#historialEstudianteDisciplina').html(`<div class="text-center text-danger">Error al cargar historial: ${error}</div>`);
+            }
+        });
+    };
+
+    // Función para enviar correo disciplinario
+    window.enviarCorreoDisciplinario = function(disciplineReportId, studentId) {
+        // Mostrar modal para mensaje personalizado
+        Swal.fire({
+            title: 'Enviar Correo al Estudiante',
+            html: `
+                <div class="mb-3">
+                    <label class="form-label">Mensaje adicional (opcional):</label>
+                    <textarea id="mensajePersonalizado" class="form-control" rows="3" placeholder="Escriba un mensaje adicional para el estudiante..."></textarea>
+                </div>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Se enviará un correo con los detalles del reporte disciplinario y documentos adjuntos.
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-envelope me-1"></i>Enviar Correo',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#6c757d',
+            preConfirm: () => {
+                const mensaje = document.getElementById('mensajePersonalizado').value;
+                return { mensaje: mensaje };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const mensaje = result.value.mensaje || '';
+                
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Enviando correo...',
+                    text: 'Por favor espere mientras se envía el correo',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: '/DisciplineReport/SendEmailToStudent',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        studentId: studentId,
+                        disciplineReportId: disciplineReportId,
+                        customMessage: mensaje
+                    }),
+                    success: function(response) {
+                        Swal.close();
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Correo enviado!',
+                                text: response.message,
+                                confirmButtonText: 'Aceptar'
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error al enviar correo',
+                                text: response.message,
+                                confirmButtonText: 'Aceptar'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        let errorMessage = 'Error al enviar el correo';
+                        try {
+                            const response = xhr.responseJSON;
+                            if (response && response.message) {
+                                errorMessage = response.message;
+                            }
+                        } catch (e) {
+                            console.error('Error al procesar respuesta:', e);
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error al enviar correo',
+                            text: errorMessage,
+                            confirmButtonText: 'Aceptar'
+                        });
+                    }
+                });
             }
         });
     };
@@ -2733,6 +2991,60 @@
                 }
             });
         });
+
+        // --- Modal de categoría para disciplina ---
+        $('#tipoDisciplina').on('change', function() {
+            const tipo = $(this).val();
+            if (tipo) {
+                // Ocultar selección anterior
+                $('#categoriaSeleccionadaContainer').hide();
+                $('#tipoDisciplinaIcon').hide();
+                
+                // Mostrar modal
+                $('#modalCategoriaDisciplina').modal('show');
+            }
+        });
+
+        $('#btnConfirmarCategoria').on('click', function() {
+            const categoriaSeleccionada = $('input[name="categoriaDisciplina"]:checked').val();
+            
+            if (!categoriaSeleccionada) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Selección requerida',
+                    text: 'Por favor seleccione una categoría'
+                });
+                return;
+            }
+            
+            // Guardar la categoría seleccionada
+            $('#categoriaDisciplinaSeleccionada').val(categoriaSeleccionada);
+            
+            // Mostrar badge de categoría seleccionada
+            let badgeHtml = '';
+            if (categoriaSeleccionada === 'Comportamiento') {
+                badgeHtml = '<span class="badge bg-info"><i class="bi bi-person-exclamation me-1"></i>Comportamiento</span>';
+            } else if (categoriaSeleccionada === 'Rendimiento') {
+                badgeHtml = '<span class="badge bg-success"><i class="bi bi-graph-up me-1"></i>Rendimiento</span>';
+            }
+            
+            $('#categoriaSeleccionadaBadge').html(badgeHtml);
+            $('#categoriaSeleccionadaContainer').show();
+            $('#tipoDisciplinaIcon').show();
+            
+            // Cerrar modal
+            $('#modalCategoriaDisciplina').modal('hide');
+        });
+
+        // Limpiar selección cuando se oculta el modal
+        $('#modalCategoriaDisciplina').on('hidden.bs.modal', function() {
+            $('input[name="categoriaDisciplina"]').prop('checked', false);
+        });
+
+        // Botón para cambiar categoría
+        $('#btnCambiarCategoria').on('click', function() {
+            $('#modalCategoriaDisciplina').modal('show');
+        });
     </script>
 
     <script>
@@ -2858,6 +3170,7 @@
                                         <th>Fecha</th>
                                         <th>Hora</th>
                                         <th>Tipo</th>
+                                        <th>Categoría</th>
                                         <th>Estado</th>
                                         <th>Descripción</th>
                                     </tr>
@@ -2873,6 +3186,16 @@
                                 tipoBadge = '<span class="badge bg-danger">Citación</span>';
                             } else {
                                 tipoBadge = `<span class="badge bg-secondary">${r.tipo || 'Sin tipo'}</span>`;
+                            }
+                            
+                            // Badge para categoría
+                            let categoriaBadge = '';
+                            if (r.categoria === 'Comportamiento') {
+                                categoriaBadge = '<span class="badge bg-info"><i class="bi bi-person-exclamation me-1"></i>Comportamiento</span>';
+                            } else if (r.categoria === 'Rendimiento') {
+                                categoriaBadge = '<span class="badge bg-success"><i class="bi bi-graph-up me-1"></i>Rendimiento</span>';
+                            } else {
+                                categoriaBadge = `<span class="badge bg-secondary">${r.categoria || 'Sin categoría'}</span>`;
                             }
                             
                             // Badge para estado
@@ -2895,6 +3218,7 @@
                                 <td>${r.fecha || 'Sin fecha'}</td>
                                 <td>${r.hora || ''}</td>
                                 <td>${tipoBadge}</td>
+                                <td>${categoriaBadge}</td>
                                 <td>${estadoBadge}</td>
                                 <td>${r.description || 'Sin descripción'}</td>
                             </tr>`;
@@ -2946,7 +3270,8 @@
                     Hora: $('#horaDisciplina').val(),
                     ReportType: $('#tipoDisciplina').val(),
                     Status: $('#estadoDisciplina').val(),
-                    Description: $('#descripcionDisciplina').val()
+                    Description: $('#descripcionDisciplina').val(),
+                    Category: $('#categoriaDisciplinaSeleccionada').val()
                 };
                 $.ajax({
                     url: '/DisciplineReport/Create',

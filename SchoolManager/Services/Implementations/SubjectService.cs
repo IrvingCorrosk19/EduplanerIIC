@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Services.Interfaces;
 
+namespace SchoolManager.Services.Implementations
+{
 public class SubjectService : ISubjectService
 {
     private readonly SchoolDbContext _context;
@@ -43,6 +45,11 @@ public class SubjectService : ISubjectService
                 Id = Guid.NewGuid(),
                 Name = name
             };
+            
+            // Configurar campos de auditoría y SchoolId
+            await AuditHelper.SetAuditFieldsForCreateAsync(subject, _currentUserService);
+            await AuditHelper.SetSchoolIdAsync(subject, _currentUserService);
+            
             _context.Subjects.Add(subject);
             await _context.SaveChangesAsync();
         }
@@ -60,6 +67,10 @@ public class SubjectService : ISubjectService
 
     public async Task<Subject> CreateAsync(Subject subject)
     {
+        // Configurar campos de auditoría y SchoolId
+        await AuditHelper.SetAuditFieldsForCreateAsync(subject, _currentUserService);
+        await AuditHelper.SetSchoolIdAsync(subject, _currentUserService);
+        
         // guardar en la base de datos
         _context.Subjects.Add(subject);
         await _context.SaveChangesAsync();
@@ -68,6 +79,9 @@ public class SubjectService : ISubjectService
 
     public async Task<Subject> UpdateAsync(Subject subject)
     {
+        // Configurar campos de auditoría para actualización
+        await AuditHelper.SetAuditFieldsForUpdateAsync(subject, _currentUserService);
+        
         _context.Subjects.Update(subject);
         await _context.SaveChangesAsync();
         return subject;
@@ -95,4 +109,5 @@ public class SubjectService : ISubjectService
         }
     }
 
+}
 }

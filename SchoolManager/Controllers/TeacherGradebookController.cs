@@ -490,6 +490,20 @@ namespace SchoolManager.Controllers
             }
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAttendancesByDate(Guid groupId, Guid gradeId, DateOnly date)
+        {
+            try
+            {
+                var attendances = await _attendanceService.GetAttendancesByDateAsync(groupId, gradeId, date);
+                return Ok(attendances);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> GetCounselorGroupAverages([FromBody] GetNotesDto request)
         {

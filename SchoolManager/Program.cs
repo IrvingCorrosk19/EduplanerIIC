@@ -74,6 +74,7 @@ builder.Services.AddScoped<IDirectorService, DirectorService>();
 builder.Services.AddScoped<ISuperAdminService, SuperAdminService>();
 builder.Services.AddScoped<IDateTimeHomologationService, DateTimeHomologationService>();
 builder.Services.AddScoped<IEmailConfigurationService, EmailConfigurationService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICounselorAssignmentService, CounselorAssignmentService>();
 
 // Agregar servicios de autenticación

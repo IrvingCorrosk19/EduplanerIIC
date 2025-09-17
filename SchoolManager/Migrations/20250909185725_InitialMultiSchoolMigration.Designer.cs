@@ -12,8 +12,8 @@ using SchoolManager.Models;
 namespace SchoolManager.Migrations
 {
     [DbContext(typeof(SchoolDbContext))]
-    [Migration("20250706184907_FixAllDateTimeTimezones")]
-    partial class FixAllDateTimeTimezones
+    [Migration("20250909185725_InitialMultiSchoolMigration")]
+    partial class InitialMultiSchoolMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -210,10 +210,6 @@ namespace SchoolManager.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("name");
 
-                    b.Property<Guid?>("SchoolId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("school_id");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -221,9 +217,7 @@ namespace SchoolManager.Migrations
                     b.HasKey("Id")
                         .HasName("activity_types_pkey");
 
-                    b.HasIndex(new[] { "SchoolId" }, "IX_activity_types_school_id");
-
-                    b.HasIndex(new[] { "Name", "SchoolId" }, "activity_types_name_school_key")
+                    b.HasIndex(new[] { "Name" }, "activity_types_name_key")
                         .IsUnique();
 
                     b.ToTable("activity_types", (string)null);
@@ -276,10 +270,6 @@ namespace SchoolManager.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
-                    b.Property<Guid?>("SchoolId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("school_id");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -287,9 +277,7 @@ namespace SchoolManager.Migrations
                     b.HasKey("Id")
                         .HasName("area_pkey");
 
-                    b.HasIndex(new[] { "SchoolId" }, "IX_area_school_id");
-
-                    b.HasIndex(new[] { "Name", "SchoolId" }, "area_name_school_key")
+                    b.HasIndex(new[] { "Name" }, "area_name_key")
                         .IsUnique();
 
                     b.ToTable("area", (string)null);
@@ -410,6 +398,75 @@ namespace SchoolManager.Migrations
                     b.ToTable("audit_logs", (string)null);
                 });
 
+            modelBuilder.Entity("SchoolManager.Models.CounselorAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid?>("GradeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("grade_id");
+
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsCounselor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_counselor");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("school_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("counselor_assignments_pkey");
+
+                    b.HasIndex(new[] { "SchoolId", "GradeId", "GroupId" }, "counselor_assignments_school_grade_group_key")
+                        .IsUnique()
+                        .HasFilter("grade_id IS NOT NULL AND group_id IS NOT NULL");
+
+                    b.HasIndex(new[] { "SchoolId", "UserId" }, "counselor_assignments_school_user_key")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "GradeId" }, "idx_counselor_assignments_grade");
+
+                    b.HasIndex(new[] { "GroupId" }, "idx_counselor_assignments_group");
+
+                    b.HasIndex(new[] { "SchoolId" }, "idx_counselor_assignments_school");
+
+                    b.HasIndex(new[] { "UserId" }, "idx_counselor_assignments_user");
+
+                    b.ToTable("counselor_assignments", (string)null);
+                });
+
             modelBuilder.Entity("SchoolManager.Models.DisciplineReport", b =>
                 {
                     b.Property<Guid>("Id")
@@ -482,6 +539,91 @@ namespace SchoolManager.Migrations
                     b.HasIndex(new[] { "TeacherId" }, "IX_discipline_reports_teacher_id");
 
                     b.ToTable("discipline_reports", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.EmailConfiguration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("FromEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("from_email");
+
+                    b.Property<string>("FromName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("from_name");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("school_id");
+
+                    b.Property<string>("SmtpPassword")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("smtp_password");
+
+                    b.Property<int>("SmtpPort")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(587)
+                        .HasColumnName("smtp_port");
+
+                    b.Property<string>("SmtpServer")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("smtp_server");
+
+                    b.Property<bool>("SmtpUseSsl")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("smtp_use_ssl");
+
+                    b.Property<bool>("SmtpUseTls")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("smtp_use_tls");
+
+                    b.Property<string>("SmtpUsername")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("smtp_username");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id")
+                        .HasName("email_configurations_pkey");
+
+                    b.HasIndex(new[] { "SchoolId" }, "idx_email_configurations_school_id");
+
+                    b.ToTable("email_configurations", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManager.Models.GradeLevel", b =>
@@ -1073,6 +1215,16 @@ namespace SchoolManager.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
 
+                    b.Property<string>("CellphonePrimary")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("cellphone_primary");
+
+                    b.Property<string>("CellphoneSecondary")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("cellphone_secondary");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1144,7 +1296,8 @@ namespace SchoolManager.Migrations
                         .HasColumnName("two_factor_enabled");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("UpdatedAt");
 
                     b.HasKey("Id")
                         .HasName("users_pkey");
@@ -1270,28 +1423,6 @@ namespace SchoolManager.Migrations
                     b.Navigation("Activity");
                 });
 
-            modelBuilder.Entity("SchoolManager.Models.ActivityType", b =>
-                {
-                    b.HasOne("SchoolManager.Models.School", "School")
-                        .WithMany("ActivityTypes")
-                        .HasForeignKey("SchoolId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("activity_types_school_id_fkey");
-
-                    b.Navigation("School");
-                });
-
-            modelBuilder.Entity("SchoolManager.Models.Area", b =>
-                {
-                    b.HasOne("SchoolManager.Models.School", "School")
-                        .WithMany("Areas")
-                        .HasForeignKey("SchoolId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("area_school_id_fkey");
-
-                    b.Navigation("School");
-                });
-
             modelBuilder.Entity("SchoolManager.Models.Attendance", b =>
                 {
                     b.HasOne("SchoolManager.Models.GradeLevel", "Grade")
@@ -1340,6 +1471,43 @@ namespace SchoolManager.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SchoolManager.Models.CounselorAssignment", b =>
+                {
+                    b.HasOne("SchoolManager.Models.GradeLevel", "GradeLevel")
+                        .WithMany()
+                        .HasForeignKey("GradeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("counselor_assignments_grade_id_fkey");
+
+                    b.HasOne("SchoolManager.Models.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("counselor_assignments_group_id_fkey");
+
+                    b.HasOne("SchoolManager.Models.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("counselor_assignments_school_id_fkey");
+
+                    b.HasOne("SchoolManager.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("counselor_assignments_user_id_fkey");
+
+                    b.Navigation("GradeLevel");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("School");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("SchoolManager.Models.DisciplineReport", b =>
                 {
                     b.HasOne("SchoolManager.Models.GradeLevel", "GradeLevel")
@@ -1376,6 +1544,18 @@ namespace SchoolManager.Migrations
                     b.Navigation("Subject");
 
                     b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.EmailConfiguration", b =>
+                {
+                    b.HasOne("SchoolManager.Models.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("email_configurations_school_id_fkey");
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("SchoolManager.Models.Group", b =>
@@ -1673,10 +1853,6 @@ namespace SchoolManager.Migrations
             modelBuilder.Entity("SchoolManager.Models.School", b =>
                 {
                     b.Navigation("Activities");
-
-                    b.Navigation("ActivityTypes");
-
-                    b.Navigation("Areas");
 
                     b.Navigation("AuditLogs");
 

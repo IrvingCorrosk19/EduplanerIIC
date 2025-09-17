@@ -334,7 +334,8 @@ namespace SchoolManager.Controllers
                             SchoolId = await GetCurrentUserSchoolId(),
                             PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), // Contraseña temporal por defecto hasheada
                             TwoFactorEnabled = false,
-                            LastLogin = null
+                            LastLogin = null,
+                            Inclusion = !string.IsNullOrEmpty(item.Inclusion) ? item.Inclusion.ToLower() : null
                         };
                         
                         await _userService.CreateAsync(newStudent, new List<Guid>(), new List<Guid>());

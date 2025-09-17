@@ -114,6 +114,14 @@
                                 <p>Portal Docente</p>
                             </a>
                         </li>
+                        @if (currentUser?.Disciplina == true) {
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "TeacherGradebookDuplicate")" class="nav-link">
+                                <i class="nav-icon fas fa-graduation-cap"></i>
+                                <p>Portal Disciplina</p>
+                            </a>
+                        </li>
+                        }
                         }
                         @if (userRole == "director") {
                         <li class="nav-item">

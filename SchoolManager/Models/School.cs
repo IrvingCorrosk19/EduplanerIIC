@@ -21,11 +21,7 @@ public partial class School
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
-    public virtual ICollection<ActivityType> ActivityTypes { get; set; } = new List<ActivityType>();
-
     public virtual User? Admin { get; set; }
-
-    public virtual ICollection<Area> Areas { get; set; } = new List<Area>();
 
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 

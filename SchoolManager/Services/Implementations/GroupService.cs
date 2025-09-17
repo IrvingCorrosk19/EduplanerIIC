@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Services.Interfaces;
 
+namespace SchoolManager.Services.Implementations
+{
 public class GroupService : IGroupService
 {
     private readonly SchoolDbContext _context;
@@ -18,23 +20,27 @@ public class GroupService : IGroupService
             .FirstOrDefaultAsync(g =>
                 g.Name.ToLower() == groupName.ToLower());
     }
-    public async Task<Group> GetOrCreateAsync(string name)
-    {
-        name = name.Trim().ToUpper();
-        var group = await _context.Groups.FirstOrDefaultAsync(g => g.Name.ToUpper() == name);
-        if (group == null)
+        public async Task<Group> GetOrCreateAsync(string name)
         {
-            group = new Group
+            name = name.Trim().ToUpper();
+            var group = await _context.Groups.FirstOrDefaultAsync(g => g.Name.ToUpper() == name);
+            if (group == null)
             {
-                Id = Guid.NewGuid(),
-                Name = name,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Groups.Add(group);
-            await _context.SaveChangesAsync();
+                group = new Group
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name
+                };
+                
+                // Configurar campos de auditoría y SchoolId
+                await AuditHelper.SetAuditFieldsForCreateAsync(group, _currentUserService);
+                await AuditHelper.SetSchoolIdAsync(group, _currentUserService);
+                
+                _context.Groups.Add(group);
+                await _context.SaveChangesAsync();
+            }
+            return group;
         }
-        return group;
-    }
 
     public async Task<List<Group>> GetAllAsync()
     {
@@ -50,7 +56,10 @@ public class GroupService : IGroupService
         try
         {
             group.Id = Guid.NewGuid();
-            group.CreatedAt = DateTime.UtcNow;
+            
+            // Configurar campos de auditoría y SchoolId
+            await AuditHelper.SetAuditFieldsForCreateAsync(group, _currentUserService);
+            await AuditHelper.SetSchoolIdAsync(group, _currentUserService);
 
             _context.Groups.Add(group);
             await _context.SaveChangesAsync();
@@ -66,6 +75,9 @@ public class GroupService : IGroupService
 
     public async Task UpdateAsync(Group group)
     {
+        // Configurar campos de auditoría para actualización
+        await AuditHelper.SetAuditFieldsForUpdateAsync(group, _currentUserService);
+        
         _context.Groups.Update(group);
         await _context.SaveChangesAsync();
     }
@@ -91,4 +103,5 @@ public class GroupService : IGroupService
         }
     }
 
+}
 }

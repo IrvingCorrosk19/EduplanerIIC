@@ -9,5 +9,6 @@
         public string FechaNacimiento { get; set; } = string.Empty; // Fecha de nacimiento
         public string Grado { get; set; } = string.Empty;      // Nombre del grado
         public string Grupo { get; set; } = string.Empty;      // Nombre del grupo
+        public string Inclusion { get; set; } = string.Empty;  // Inclusión (si, no, vacío)
     }
 }

@@ -9,6 +9,8 @@ namespace SchoolManager.Dtos
         public string ReportType { get; set; }
         public string Status { get; set; }
         public string Description { get; set; }
+        public string Category { get; set; }
+        public string? Documents { get; set; }
         public string SubjectId { get; set; }
         public string GroupId { get; set; }
         public string GradeLevelId { get; set; }

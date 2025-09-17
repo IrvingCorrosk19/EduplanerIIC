@@ -33,9 +33,21 @@ public partial class User
 
     public DateTime? UpdatedAt { get; set; }
 
+    public Guid? CreatedBy { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+
     public string? CellphonePrimary { get; set; }
 
     public string? CellphoneSecondary { get; set; }
+
+    public bool? Disciplina { get; set; }
+
+    public string? Inclusion { get; set; }
+
+    public bool? Orientacion { get; set; }
+
+    public bool? Inclusivo { get; set; }
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
@@ -66,4 +78,8 @@ public partial class User
     public virtual ICollection<Group> Groups { get; set; } = new List<Group>();
 
     public virtual ICollection<Subject> Subjects { get; set; } = new List<Subject>();
+
+    public virtual User? CreatedByUser { get; set; }
+
+    public virtual User? UpdatedByUser { get; set; }
 }
