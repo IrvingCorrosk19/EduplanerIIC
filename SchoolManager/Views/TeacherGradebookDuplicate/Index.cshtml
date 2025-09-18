@@ -3588,15 +3588,22 @@
 
             // ... existing code ...
             $('#formDisciplina').on('submit', function(e) {
+                console.log('🚀 === INICIANDO GUARDADO DE DISCIPLINA ===');
                 e.preventDefault(); // Prevenir submit tradicional
+                
+                console.log('👤 Verificando estudiante seleccionado...');
                 if (!window.estudianteSeleccionado) {
+                    console.log('❌ No hay estudiante seleccionado');
                     Swal.fire({ icon: 'error', title: 'Error', text: 'Debe seleccionar un estudiante' });
                     return;
                 }
+                console.log('✅ Estudiante seleccionado:', window.estudianteSeleccionado);
                 
-                // Validar que se haya seleccionado una categoría
+                console.log('🏷️ Verificando categoría seleccionada...');
                 const categoriaSeleccionada = $('#categoriaDisciplinaSeleccionada').val();
+                console.log('📋 Categoría seleccionada:', categoriaSeleccionada);
                 if (!categoriaSeleccionada) {
+                    console.log('❌ No hay categoría seleccionada');
                     Swal.fire({
                         icon: 'warning',
                         title: 'Categoría requerida',
@@ -3604,12 +3611,17 @@
                     });
                     return;
                 }
+                
+                console.log('📊 Obteniendo datos del combo...');
                 const combo = $('#filtroGradoDisciplina').val();
+                console.log('🎯 Valor del combo:', combo);
                 let subjectId = null, groupId = null, gradeLevelId = null;
                 if (combo) {
                     [subjectId, groupId, gradeLevelId] = combo.split('|');
+                    console.log('📚 IDs extraídos:', { subjectId, groupId, gradeLevelId });
                 }
-                // Crear FormData para incluir archivos
+                
+                console.log('📝 Recopilando datos del formulario...');
                 const formData = new FormData();
                 formData.append('StudentId', window.estudianteSeleccionado.id);
                 formData.append('TeacherId', '@Model.TeacherId');
@@ -3623,11 +3635,31 @@
                 formData.append('Description', $('#descripcionDisciplina').val());
                 formData.append('Category', $('#categoriaDisciplinaSeleccionada').val());
                 
+                console.log('📄 Datos del formulario:');
+                console.log('  - StudentId:', window.estudianteSeleccionado.id);
+                console.log('  - TeacherId:', '@Model.TeacherId');
+                console.log('  - SubjectId:', subjectId);
+                console.log('  - GroupId:', groupId);
+                console.log('  - GradeLevelId:', gradeLevelId);
+                console.log('  - Date:', $('#fechaDisciplina').val());
+                console.log('  - Hora:', $('#horaDisciplina').val());
+                console.log('  - ReportType:', $('#tipoDisciplina').val());
+                console.log('  - Status:', $('#estadoDisciplina').val());
+                console.log('  - Description:', $('#descripcionDisciplina').val());
+                console.log('  - Category:', $('#categoriaDisciplinaSeleccionada').val());
+                
                 // Agregar archivos si existen
+                console.log('📎 Procesando archivos...');
                 const archivos = document.getElementById('documentosDisciplina').files;
+                console.log('📁 Archivos encontrados:', archivos.length);
                 for (let i = 0; i < archivos.length; i++) {
+                    console.log(`📄 Archivo ${i + 1}:`, archivos[i].name, 'Tamaño:', archivos[i].size);
                     formData.append('Documents', archivos[i]);
                 }
+                
+                console.log('🌐 Enviando petición AJAX...');
+                console.log('🔗 URL:', '/DisciplineReport/CreateWithFiles');
+                console.log('📤 FormData completo:', formData);
                 
                 $.ajax({
                     url: '/DisciplineReport/CreateWithFiles',
@@ -3636,7 +3668,9 @@
                     contentType: false,
                     data: formData,
                     success: function(response) {
+                        console.log('✅ Respuesta exitosa recibida:', response);
                         if (response.success) {
+                            console.log('🎉 Guardado exitoso!');
                             Swal.fire({ icon: 'success', title: '¡Guardado!', text: response.message });
                             $('#formDisciplina')[0].reset();
                             window.cargarHistorialEstudiante(window.estudianteSeleccionado.id);
@@ -3644,10 +3678,21 @@
                             $('#disciplinaTab').addClass('show active');
                             $('#notasTab').removeClass('show active');
                         } else {
+                            console.log('❌ Error en respuesta:', response.error);
+                            console.log('📋 Detalles:', response.details);
                             Swal.fire({ icon: 'error', title: 'Error', text: response.error + (response.details ? '\n\nDetalles: ' + response.details : '') });
                         }
                     },
-                    error: function(xhr) {
+                    error: function(xhr, status, error) {
+                        console.log('❌ === ERROR EN PETICIÓN AJAX ===');
+                        console.log('📊 Status:', status);
+                        console.log('🚨 Error:', error);
+                        console.log('📄 XHR:', xhr);
+                        console.log('📋 Response Text:', xhr.responseText);
+                        console.log('📋 Response JSON:', xhr.responseJSON);
+                        console.log('📋 Status Code:', xhr.status);
+                        console.log('📋 Status Text:', xhr.statusText);
+                        
                         let errorMessage = 'No se pudo guardar el registro';
                         let errorDetails = '';
                         try {
@@ -3655,8 +3700,12 @@
                             if (response) {
                                 errorMessage = response.error || errorMessage;
                                 errorDetails = response.details || '';
+                                console.log('📝 Error procesado:', errorMessage);
+                                console.log('📝 Detalles procesados:', errorDetails);
                             }
-                        } catch (e) { console.error('Error al procesar la respuesta:', e); }
+                        } catch (e) { 
+                            console.error('❌ Error al procesar la respuesta:', e); 
+                        }
                         Swal.fire({ icon: 'error', title: 'Error', text: errorMessage + (errorDetails ? '\n\nDetalles: ' + errorDetails : '') });
                     }
                 });

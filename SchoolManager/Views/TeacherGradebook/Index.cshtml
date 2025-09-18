@@ -3260,24 +3260,35 @@
                 if (combo) {
                     [subjectId, groupId, gradeLevelId] = combo.split('|');
                 }
-                const data = {
-                    StudentId: window.estudianteSeleccionado.id,
-                    TeacherId: '@Model.TeacherId',
-                    SubjectId: subjectId,
-                    GroupId: groupId,
-                    GradeLevelId: gradeLevelId,
-                    Date: $('#fechaDisciplina').val(),
-                    Hora: $('#horaDisciplina').val(),
-                    ReportType: $('#tipoDisciplina').val(),
-                    Status: $('#estadoDisciplina').val(),
-                    Description: $('#descripcionDisciplina').val(),
-                    Category: $('#categoriaDisciplinaSeleccionada').val()
-                };
+                // Crear FormData para incluir archivos
+                const formData = new FormData();
+                formData.append('StudentId', window.estudianteSeleccionado.id);
+                formData.append('TeacherId', '@Model.TeacherId');
+                formData.append('SubjectId', subjectId);
+                formData.append('GroupId', groupId);
+                formData.append('GradeLevelId', gradeLevelId);
+                formData.append('Date', $('#fechaDisciplina').val());
+                formData.append('Hora', $('#horaDisciplina').val());
+                formData.append('ReportType', $('#tipoDisciplina').val());
+                formData.append('Status', $('#estadoDisciplina').val());
+                formData.append('Description', $('#descripcionDisciplina').val());
+                formData.append('Category', $('#categoriaDisciplinaSeleccionada').val());
+                
+                // Agregar archivos si existen
+                const documentosInput = document.getElementById('documentosDisciplina');
+                if (documentosInput) {
+                    const archivos = documentosInput.files;
+                    for (let i = 0; i < archivos.length; i++) {
+                        formData.append('Documents', archivos[i]);
+                    }
+                }
+                
                 $.ajax({
-                    url: '/DisciplineReport/Create',
+                    url: '/DisciplineReport/CreateWithFiles',
                     method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(data),
+                    processData: false,
+                    contentType: false,
+                    data: formData,
                     success: function(response) {
                         if (response.success) {
                             Swal.fire({ icon: 'success', title: '¡Guardado!', text: response.message });

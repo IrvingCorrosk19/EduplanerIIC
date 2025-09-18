@@ -37,7 +37,6 @@ public class DisciplineReportController : Controller
         return View(report);
     }
 
-    public IActionResult Create() => View();
 
     [HttpPost]
     public async Task<IActionResult> CreateWithFiles()
