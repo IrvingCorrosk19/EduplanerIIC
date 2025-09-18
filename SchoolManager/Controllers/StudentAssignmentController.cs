@@ -335,7 +335,7 @@ namespace SchoolManager.Controllers
                             PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), // Contraseña temporal por defecto hasheada
                             TwoFactorEnabled = false,
                             LastLogin = null,
-                            Inclusion = !string.IsNullOrEmpty(item.Inclusion) ? item.Inclusion.ToLower() : null
+                            Inclusivo = item.Inclusivo
                         };
                         
                         await _userService.CreateAsync(newStudent, new List<Guid>(), new List<Guid>());
@@ -343,6 +343,18 @@ namespace SchoolManager.Controllers
                         estudiantesCreados++;
                         
                         Console.WriteLine($"[SaveAssignments] Estudiante creado con ID: {student.Id}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[SaveAssignments] Estudiante encontrado, actualizando campo Inclusivo: {item.Estudiante}");
+                        
+                        // Actualizar el campo Inclusivo del estudiante existente
+                        student.Inclusivo = item.Inclusivo;
+                        student.UpdatedAt = DateTime.UtcNow;
+                        
+                        await _userService.UpdateAsync(student, new List<Guid>(), new List<Guid>());
+                        
+                        Console.WriteLine($"[SaveAssignments] Campo Inclusivo actualizado para estudiante: {student.Id}");
                     }
 
                     var grade = await _gradeLevelService.GetByNameAsync(item.Grado);

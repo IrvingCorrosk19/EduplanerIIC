@@ -301,8 +301,19 @@
                     const fechaNacimiento = $row.find('td').eq(4).text().trim();
                     const grado = $row.find('td').eq(5).text().trim();
                     const grupo = $row.find('td').eq(6).text().trim();
-                    // Obtener el valor original de Inclusión desde los datos del Excel
-                    const inclusionValue = $row.data('inclusion') || '';
+                    // Obtener el valor original de Inclusión desde los datos del Excel y normalizarlo
+                    const inclusionRaw = $row.data('inclusion') || '';
+                    let inclusionValue = null; // Por defecto null
+                    
+                    if (inclusionRaw && inclusionRaw.toString().trim() !== '') {
+                        const inclusionStr = inclusionRaw.toString().trim().toLowerCase();
+                        if (inclusionStr === 'si' || inclusionStr === 'sí' || inclusionStr === 'yes' || inclusionStr === 'true') {
+                            inclusionValue = true;
+                        } else if (inclusionStr === 'no' || inclusionStr === 'false') {
+                            inclusionValue = false;
+                        }
+                        // Si no coincide con ninguno, queda null
+                    }
 
                     const camposFaltantes = [];
                     if (!estudiante) camposFaltantes.push("Estudiante (Email)");
@@ -387,7 +398,7 @@
                             fechaNacimiento, 
                             grado, 
                             grupo,
-                            inclusion: inclusionValue
+                            inclusivo: inclusionValue  // Cambiado de 'inclusion' a 'inclusivo' para coincidir con la BD
                         });
                     }
                 });
