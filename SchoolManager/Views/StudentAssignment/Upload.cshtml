@@ -286,6 +286,10 @@
                 const asignaciones = [];
                 const errores = [];
                 let rowNumber = 1;
+                
+                // Arrays para validar duplicados
+                const emails = [];
+                const documentos = [];
 
                 $('#excelTable tbody tr').each(function () {
                     rowNumber++;
@@ -308,6 +312,30 @@
                     if (!fechaNacimiento) camposFaltantes.push("Fecha Nacimiento");
                     if (!grado) camposFaltantes.push("Grado");
                     if (!grupo) camposFaltantes.push("Grupo");
+                    
+                    // Validar formato de correo electrónico
+                    if (estudiante && estudiante.trim() !== "") {
+                        const emailRegex = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+                        if (!emailRegex.test(estudiante)) {
+                            camposFaltantes.push("Estudiante (Email con formato inválido)");
+                        } else {
+                            // Verificar correo duplicado
+                            if (emails.includes(estudiante.toLowerCase())) {
+                                camposFaltantes.push("Estudiante (Email duplicado)");
+                            } else {
+                                emails.push(estudiante.toLowerCase());
+                            }
+                        }
+                    }
+                    
+                    // Validar documento ID duplicado
+                    if (documentoId && documentoId.trim() !== "") {
+                        if (documentos.includes(documentoId.trim())) {
+                            camposFaltantes.push("Documento ID (duplicado)");
+                        } else {
+                            documentos.push(documentoId.trim());
+                        }
+                    }
 
                     // Validar formato de fecha DD/MM/YYYY o número de Excel
                     if (fechaNacimiento && fechaNacimiento.trim() !== "") {

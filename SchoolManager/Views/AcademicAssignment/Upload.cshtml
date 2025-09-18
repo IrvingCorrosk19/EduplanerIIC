@@ -290,6 +290,10 @@
                 const asignaciones = [];
                 const errores = [];
                 let rowNumber = 1;
+                
+                // Arrays para validar duplicados
+                const emails = [];
+                const documentos = [];
 
                 $('#excelTable tbody tr').each(function () {
                     rowNumber++;
@@ -316,6 +320,30 @@
                     if (!materia) camposFaltantes.push("Materia");
                     if (!grado) camposFaltantes.push("Grado");
                     if (!grupo) camposFaltantes.push("Grupo");
+                    
+                    // Validar formato de correo electrónico
+                    if (emailDocente && emailDocente.trim() !== "") {
+                        const emailRegex = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+                        if (!emailRegex.test(emailDocente)) {
+                            camposFaltantes.push("Email Docente (formato inválido)");
+                        } else {
+                            // Verificar correo duplicado
+                            if (emails.includes(emailDocente.toLowerCase())) {
+                                camposFaltantes.push("Email Docente (duplicado)");
+                            } else {
+                                emails.push(emailDocente.toLowerCase());
+                            }
+                        }
+                    }
+                    
+                    // Validar documento ID duplicado
+                    if (documentoId && documentoId.trim() !== "") {
+                        if (documentos.includes(documentoId.trim())) {
+                            camposFaltantes.push("Documento ID (duplicado)");
+                        } else {
+                            documentos.push(documentoId.trim());
+                        }
+                    }
 
                     // Validar formato de fecha DD/MM/YYYY o número de Excel
                     if (fechaNacimiento && fechaNacimiento.trim() !== "") {
