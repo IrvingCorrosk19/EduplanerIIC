@@ -291,9 +291,7 @@
                 const errores = [];
                 let rowNumber = 1;
                 
-                // Arrays para validar duplicados
-                const emails = [];
-                const documentos = [];
+                // Arrays para validar duplicados (eliminado - los profesores pueden tener documentos duplicados)
 
                 $('#excelTable tbody tr').each(function () {
                     rowNumber++;
@@ -326,24 +324,11 @@
                         const emailRegex = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
                         if (!emailRegex.test(emailDocente)) {
                             camposFaltantes.push("Email Docente (formato inválido)");
-                        } else {
-                            // Verificar correo duplicado
-                            if (emails.includes(emailDocente.toLowerCase())) {
-                                camposFaltantes.push("Email Docente (duplicado)");
-                            } else {
-                                emails.push(emailDocente.toLowerCase());
-                            }
                         }
+                        // NOTA: Los emails de profesores SÍ se pueden duplicar, no validamos duplicados
                     }
                     
-                    // Validar documento ID duplicado
-                    if (documentoId && documentoId.trim() !== "") {
-                        if (documentos.includes(documentoId.trim())) {
-                            camposFaltantes.push("Documento ID (duplicado)");
-                        } else {
-                            documentos.push(documentoId.trim());
-                        }
-                    }
+                    // NOTA: Los documentos ID de profesores SÍ se pueden duplicar, no validamos duplicados
 
                     // Validar formato de fecha DD/MM/YYYY o número de Excel
                     if (fechaNacimiento && fechaNacimiento.trim() !== "") {
