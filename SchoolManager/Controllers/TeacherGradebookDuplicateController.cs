@@ -608,27 +608,34 @@ namespace SchoolManager.Controllers
                     });
                 }
 
-                // Obtener solo las materias que enseña el profesor consejero en este grupo
-                Console.WriteLine("Obteniendo materias que enseña el profesor consejero...");
+                // Obtener todas las materias asignadas al grupo (para vista completa de consejería)
+                Console.WriteLine("Obteniendo todas las materias asignadas al grupo...");
+                IEnumerable<object> subjectAssignments;
+                if (request.GradeLevelId != Guid.Empty)
+                {
+                    subjectAssignments = await _subjectAssignmentService.GetByGroupAndGradeAsync(request.GroupId, request.GradeLevelId);
+                }
+                else
+                {
+                    // Si no hay GradeLevelId, obtener todas las materias del grupo
+                    subjectAssignments = await _subjectAssignmentService.GetByGroupAndGradeAsync(request.GroupId, Guid.Empty);
+                }
+                Console.WriteLine($"Materias encontradas en el grupo: {subjectAssignments?.Count() ?? 0}");
                 
-                // Obtener todas las asignaciones del profesor
-                var teacherAssignments = await _teacherAssignmentService.GetByTeacherIdAsync(teacherId);
-                Console.WriteLine($"Total de asignaciones del profesor: {teacherAssignments.Count}");
-                
-                // Filtrar por grupo y grado específico a través de SubjectAssignment
-                var filteredAssignments = teacherAssignments.Where(ta => 
-                    ta.SubjectAssignment.GroupId == request.GroupId && 
-                    (request.GradeLevelId == Guid.Empty || ta.SubjectAssignment.GradeLevelId == request.GradeLevelId)
-                ).ToList();
-                
-                Console.WriteLine($"Materias que enseña el profesor en este grupo: {filteredAssignments.Count}");
+                var subjects = subjectAssignments.Select(sa => {
+                    // Usar reflexión para acceder a las propiedades dinámicamente
+                    var subjectId = sa.GetType().GetProperty("SubjectId")?.GetValue(sa);
+                    var subject = sa.GetType().GetProperty("Subject")?.GetValue(sa);
+                    var subjectName = subject?.GetType().GetProperty("Name")?.GetValue(subject);
 
-                var subjects = filteredAssignments.Select(ta => new { 
-                    id = ta.SubjectAssignment?.SubjectId ?? Guid.Empty, 
-                    name = ta.SubjectAssignment?.Subject?.Name ?? "Sin nombre" 
+                    return new
+                    {
+                        id = subjectId,
+                        name = subjectName ?? "Sin nombre"
+                    };
                 }).ToList();
-
-                Console.WriteLine($"Materias procesadas: {subjects.Count()}");
+                
+                Console.WriteLine($"Materias procesadas: {subjects.Count}");
 
                 var result = new List<object>();
                 var allAverages = new List<double>();
