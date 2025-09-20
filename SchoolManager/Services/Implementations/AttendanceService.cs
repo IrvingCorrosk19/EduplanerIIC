@@ -81,19 +81,40 @@ public class AttendanceService : IAttendanceService
             .ToListAsync();
     }
 
-    public async Task<EstadisticasAsistenciaDto> GetEstadisticasAsync(Guid groupId, Guid gradeId, string trimestre, DateTime fechaInicio, DateTime fechaFin)
+    public async Task<EstadisticasAsistenciaDto> GetEstadisticasAsync(Guid groupId, Guid gradeId, string trimestre, string? fechaInicioStr, string? fechaFinStr)
     {
-        var fechaInicioOnly = DateOnly.FromDateTime(fechaInicio);
-        var fechaFinOnly = DateOnly.FromDateTime(fechaFin);
+        DateOnly? fechaInicioOnly = null;
+        DateOnly? fechaFinOnly = null;
+        
+        // Convertir fechas string a DateOnly de forma segura
+        if (!string.IsNullOrEmpty(fechaInicioStr) && DateTime.TryParse(fechaInicioStr, out DateTime fechaInicio))
+        {
+            fechaInicioOnly = DateOnly.FromDateTime(fechaInicio);
+        }
+        
+        if (!string.IsNullOrEmpty(fechaFinStr) && DateTime.TryParse(fechaFinStr, out DateTime fechaFin))
+        {
+            fechaFinOnly = DateOnly.FromDateTime(fechaFin);
+        }
 
-        var asistencias = await _context.Attendances
+        var query = _context.Attendances
             .Include(a => a.Student)
             .Where(a => a.GroupId == groupId
                 && a.GradeId == gradeId
-                && a.Status != null
-                && a.Date >= fechaInicioOnly
-                && a.Date <= fechaFinOnly)
-            .ToListAsync();
+                && a.Status != null);
+        
+        // Aplicar filtros de fecha solo si están presentes
+        if (fechaInicioOnly.HasValue)
+        {
+            query = query.Where(a => a.Date >= fechaInicioOnly.Value);
+        }
+        
+        if (fechaFinOnly.HasValue)
+        {
+            query = query.Where(a => a.Date <= fechaFinOnly.Value);
+        }
+        
+        var asistencias = await query.ToListAsync();
 
         var total = asistencias.Count;
         var totalPresentes = asistencias.Count(a => a.Status == "present");
@@ -144,22 +165,73 @@ public class AttendanceService : IAttendanceService
         if (attendances == null || attendances.Count == 0)
             throw new ArgumentException("No se recibieron asistencias.");
 
-        foreach (var dto in attendances)
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            var attendance = new Attendance
+            // Agrupar por fecha, grupo, grado y profesor para procesar en lotes
+            var groupedAttendances = attendances.GroupBy(a => new { 
+                a.Date, 
+                a.GroupId, 
+                a.GradeId, 
+                a.TeacherId 
+            });
+
+            foreach (var group in groupedAttendances)
             {
-                Id = Guid.NewGuid(),
-                StudentId = dto.StudentId,
-                TeacherId = dto.TeacherId,
-                GroupId = dto.GroupId,
-                GradeId = dto.GradeId,
-                Date = dto.Date,
-                Status = dto.Status,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Attendances.Add(attendance);
+                var key = group.Key;
+                
+                Console.WriteLine($"[ATTENDANCE-SERVICE] Procesando asistencias para fecha: {key.Date}, grupo: {key.GroupId}, grado: {key.GradeId}, profesor: {key.TeacherId}");
+                
+                // 1. ELIMINAR registros existentes para esa fecha, grupo, grado y profesor
+                var existingAttendances = await _context.Attendances
+                    .Where(a => a.Date == key.Date 
+                             && a.GroupId == key.GroupId 
+                             && a.GradeId == key.GradeId 
+                             && a.TeacherId == key.TeacherId)
+                    .ToListAsync();
+                
+                if (existingAttendances.Any())
+                {
+                    Console.WriteLine($"[ATTENDANCE-SERVICE] Eliminando {existingAttendances.Count} registros existentes");
+                    _context.Attendances.RemoveRange(existingAttendances);
+                }
+                
+                // 2. CREAR nuevos registros
+                foreach (var dto in group)
+                {
+                    var attendance = new Attendance
+                    {
+                        Id = Guid.NewGuid(),
+                        StudentId = dto.StudentId,
+                        TeacherId = dto.TeacherId,
+                        GroupId = dto.GroupId,
+                        GradeId = dto.GradeId,
+                        Date = dto.Date,
+                        Status = dto.Status,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    
+                    // Configurar campos de auditoría y SchoolId
+                    await AuditHelper.SetAuditFieldsForCreateAsync(attendance, _currentUserService);
+                    await AuditHelper.SetSchoolIdAsync(attendance, _currentUserService);
+                    
+                    _context.Attendances.Add(attendance);
+                }
+                
+                Console.WriteLine($"[ATTENDANCE-SERVICE] Creando {group.Count()} nuevos registros");
+            }
+            
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            
+            Console.WriteLine($"[ATTENDANCE-SERVICE] Asistencias guardadas exitosamente sin duplicados");
         }
-        await _context.SaveChangesAsync();
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine($"[ATTENDANCE-SERVICE] Error al guardar asistencias: {ex.Message}");
+            throw;
+        }
     }
 
     public async Task<List<AttendanceResponseDto>> GetAttendancesByDateAsync(Guid groupId, Guid gradeId, DateOnly date)
@@ -183,11 +255,26 @@ public class AttendanceService : IAttendanceService
             throw new ArgumentException("Faltan datos para la consulta.");
 
         var studentId = string.IsNullOrEmpty(filtro.StudentId) ? (Guid?)null : Guid.Parse(filtro.StudentId);
+        
+        // Convertir fechas string a DateOnly de forma segura
+        DateOnly? fechaInicio = null;
+        DateOnly? fechaFin = null;
+        
+        if (!string.IsNullOrEmpty(filtro.FechaInicio) && DateTime.TryParse(filtro.FechaInicio, out DateTime fechaInicioDateTime))
+        {
+            fechaInicio = DateOnly.FromDateTime(fechaInicioDateTime);
+        }
+        
+        if (!string.IsNullOrEmpty(filtro.FechaFin) && DateTime.TryParse(filtro.FechaFin, out DateTime fechaFinDateTime))
+        {
+            fechaFin = DateOnly.FromDateTime(fechaFinDateTime);
+        }
+        
         var lista = await GetHistorialAsync(
             filtro.GroupId,
             filtro.GradeId,
-            filtro.FechaInicio,
-            filtro.FechaFin,
+            fechaInicio,
+            fechaFin,
             studentId
         );
 

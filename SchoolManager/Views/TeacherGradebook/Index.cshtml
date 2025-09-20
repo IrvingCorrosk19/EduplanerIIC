@@ -541,7 +541,7 @@
                             <select id="activityType" name="Type" class="form-select">
                                 @foreach (var t in Model.Types)
                                 {
-                                    <option value="@t.Name">@t.Name</option>
+                                    <option value="@t.Name">@(!string.IsNullOrEmpty(t.DisplayName) ? t.DisplayName : t.Name)</option>
                                 }
                             </select>
                         </div>
@@ -803,24 +803,38 @@
                         <!-- TAB 3: ESTADÍSTICAS -->
                         <div class="tab-pane fade" id="estadisticas" role="tabpanel" aria-labelledby="estadisticas-tab">
                             <div class="row mb-4">
-                                <div class="col-md-4">
+                                <div class="col-md-4 col-lg-2">
                                     <div class="statistics-card">
                                         <h5 class="card-title">Asistencia General</h5>
                                         <div class="display-4 text-primary">-</div>
                                         <p class="text-muted">Promedio de asistencia</p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-4 col-lg-2">
                                     <div class="statistics-card">
                                         <h5 class="card-title">Ausencias</h5>
                                         <div class="display-4 text-danger">-</div>
                                         <p class="text-muted">Total del período actual</p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-4 col-lg-2">
                                     <div class="statistics-card">
                                         <h5 class="card-title">Tardanzas</h5>
                                         <div class="display-4 text-warning">-</div>
+                                        <p class="text-muted">Total del período actual</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-lg-2">
+                                    <div class="statistics-card">
+                                        <h5 class="card-title">Fugas</h5>
+                                        <div class="display-4 text-danger" style="opacity: 0.75;">-</div>
+                                        <p class="text-muted">Total del período actual</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-lg-2">
+                                    <div class="statistics-card">
+                                        <h5 class="card-title">Excusas</h5>
+                                        <div class="display-4 text-info">-</div>
                                         <p class="text-muted">Total del período actual</p>
                                     </div>
                                 </div>
@@ -828,7 +842,22 @@
 
                             <!-- Filtros internos de estadísticas -->
                             <div class="row mb-3">
-                                <div class="col-md-6">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Grado y Grupo</label>
+                                    <select id="filtroGrupoEstadisticas" class="form-select">
+                                        <option value="">-- Seleccionar grupo --</option>
+                                        @foreach (var subject in Model.Teacher.SubjectGroupDetails)
+                                        {
+                                            foreach (var group in subject.GroupGradePairs)
+                                            {
+                                                var value = $"{subject.SubjectId}|{group.GroupId}|{group.GradeLevelId}";
+                                                var text = $"{subject.SubjectName} - {group.GradeLevelName} {group.GroupName}";
+                                                <option value="@value">@text</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
                                     <label class="form-label fw-semibold">Trimestre</label>
                                     <select id="trimestreEstadisticas" class="form-select">
                                         @foreach (var t in Model.Trimesters)
@@ -837,8 +866,8 @@
                                         }
                                     </select>
                                 </div>
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button id="btnConsultarEstadisticas" class="btn btn-primary w-100">
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <button id="btnConsultarEstadisticas" class="btn btn-primary w-100" disabled>
                                         <i class="bi bi-bar-chart-line me-2"></i> Consultar estadísticas
                                     </button>
                                 </div>
@@ -857,6 +886,8 @@
                                                     <th>Asistencias</th>
                                                     <th>Ausencias</th>
                                                     <th>Tardanzas</th>
+                                                    <th>Fugas</th>
+                                                    <th>Excusas</th>
                                                     <th>% Asistencia</th>
                                                 </tr>
                                             </thead>
@@ -1191,6 +1222,25 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 @section Scripts {
     <script>
+        // Función helper global para formatear nombres como "Apellido, Nombre"
+        function formatName(fullName) {
+            if (!fullName) return '(Sin nombre)';
+            const nameParts = fullName.split(' ');
+            return nameParts.length > 1 
+                ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
+                : fullName;
+        }
+
+        // Función helper global para mapear tipos internos a nombres bonitos
+        function getActivityTypeDisplayName(internalType) {
+            const typeMap = {
+                'tarea': 'Notas de apreciación',
+                'parcial': 'Ejercicios Diarios',
+                'examen': 'Examen'
+            };
+            return typeMap[internalType] || internalType;
+        }
+
         $(document).ready(() => {
             const teacherId = '@Model.TeacherId';
             const students = [];
@@ -1245,6 +1295,8 @@
                 return Math.max(1.0, Math.min(5.0, score));
             }
 
+            // Ya no necesitamos esta función compleja - usamos refresh de página
+
             function updateResumenTable() {
                 const resumenBody = $('#resumenBody');
                 resumenBody.empty();
@@ -1270,7 +1322,7 @@
                 }
                 
                 uniqueStudents.forEach(s => {
-                    const nombre = s.fullName || '(Sin nombre)';
+                    const nombre = formatName(s.fullName);
                     const documentId = s.documentId || 'Sin cédula';
                     const trimesterData = studentAnnualScores[s.id] || {};
                     const t1 = trimesterData['1T'] || 0;
@@ -1348,14 +1400,14 @@
                                   <span>
                                     ${a.name}
                                     <br/>
-                                    <small>(${type})</small>
+                                    <small>(${getActivityTypeDisplayName(type)})</small>
                                     ${fechaEntrega ? `<br/><small class='text-muted' style='font-size:0.85em;'>(Entrega: ${fechaEntrega})</small>` : ''}
                                   </span>
                                 </div>
                               </th>`
                             );
                         });
-                        hdrRow.append(`<th class='text-primary'>Prom. ${type.charAt(0).toUpperCase() + type.slice(1)}</th>`);
+                        hdrRow.append(`<th class='text-primary'>Prom. ${getActivityTypeDisplayName(type)}</th>`);
                     }
                 });
                 
@@ -1369,11 +1421,7 @@
 
                 if (students && students.length > 0) {
                     students.forEach(s => {
-                        // Convertir formato de nombre de "Nombre Apellido" a "Apellido, Nombre"
-                        const nameParts = s.fullName.split(' ');
-                        const formattedName = nameParts.length > 1 
-                            ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
-                            : s.fullName;
+                        const formattedName = formatName(s.fullName);
                         
                         let row = `<tr data-stu-id="${s.id}"><td>${formattedName}</td><td>${s.documentId || 'Sin cédula'}</td>`;
 
@@ -1382,7 +1430,7 @@
                                 if (activities[type] && activities[type].length > 0) {
                                     activities[type].forEach(a => {
                                         const savedScore = scores[s.id]?.[type]?.[a.name] || '';
-                                        row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.name}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
+                                        row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.id}" data-act-name="${a.name}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
                                     });
                                     row += `<td class='text-primary avg-${type}'></td>`;
                                 }
@@ -1915,7 +1963,22 @@
                         if (resp.success) {
                             Swal.fire({ icon: 'success', title: successMessage, text: successText });
                             resetForm();
-                            loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
+                            
+                            if (isEdit) {
+                                // Si es edición, hacer refresh de la página manteniendo el trimestre
+                                const currentTrimester = $('#selTrimester').val();
+                                const currentGroup = $('#selGroup').val();
+                                
+                                // Guardar en sessionStorage para mantener la selección
+                                sessionStorage.setItem('selectedTrimester', currentTrimester);
+                                sessionStorage.setItem('selectedGroup', currentGroup);
+                                
+                                // Refresh de la página
+                                window.location.reload();
+                            } else {
+                                // Si es nueva actividad, recargar la tabla completa
+                                loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
+                            }
                         } else {
                             Swal.fire({ icon: 'error', title: 'Error', text: resp.error || `No se pudo ${isEdit ? 'actualizar' : 'agregar'} la actividad` });
                         }
@@ -2176,6 +2239,29 @@
         $(document).ready(function() {
             const teacherId = '@Model.TeacherId'; // Definir teacherId globalmente
             
+            // Restaurar selección después de refresh por edición de actividad
+            const savedTrimester = sessionStorage.getItem('selectedTrimester');
+            const savedGroup = sessionStorage.getItem('selectedGroup');
+            
+            if (savedTrimester && savedGroup) {
+                console.log('🔄 Restaurando selección después de edición:', { savedTrimester, savedGroup });
+                
+                // Restaurar trimestre
+                $('#selTrimester').val(savedTrimester);
+                
+                // Restaurar grupo
+                $('#selGroup').val(savedGroup);
+                
+                // Limpiar sessionStorage
+                sessionStorage.removeItem('selectedTrimester');
+                sessionStorage.removeItem('selectedGroup');
+                
+                // Cargar datos automáticamente
+                setTimeout(() => {
+                    $('#selGroup').trigger('change');
+                }, 100);
+            }
+            
             // Función para cargar estudiantes de asistencia
             function cargarEstudiantesAsistencia() {
                 const combo = $('#filtroGradoAsistencia').val();
@@ -2206,7 +2292,7 @@
                         response.forEach(student => {
                             const row = `
                                 <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                    <td>${student.fullName}</td>
+                                    <td>${formatName(student.fullName)}</td>
                                     <td>${grupoSeleccionado}</td>
                                     <td>
                                         <span class="status-badge present">
@@ -2294,7 +2380,7 @@
                         
                         const row = `
                             <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                <td>${student.fullName}</td>
+                                <td>${formatName(student.fullName)}</td>
                                 <td>${$('#filtroGradoAsistencia option:selected').text()}</td>
                                 <td>
                                     <span class="status-badge ${currentStatus}">
@@ -2555,7 +2641,9 @@
                             if (a.estado === 'present') badge = '<span class="badge bg-success">Presente</span>';
                             else if (a.estado === 'absent') badge = '<span class="badge bg-danger">Ausente</span>';
                             else if (a.estado === 'late') badge = '<span class="badge bg-warning text-dark">Tardanza</span>';
-                            else badge = a.estado;
+                            else if (a.estado === 'fuga') badge = '<span class="badge bg-danger bg-opacity-75">Fuga</span>';
+                            else if (a.estado === 'excusa') badge = '<span class="badge bg-info">Excusa</span>';
+                            else badge = `<span class="badge bg-secondary">${a.estado}</span>`;
                             html += `<tr>
                                 <td>
                                     <div>${a.estudiante || '-'}</div>
@@ -2595,7 +2683,7 @@
     <script>
         $(document).ready(() => {
             function consultarEstadisticas() {
-                const combo = $('#selGroup').val();
+                const combo = $('#filtroGrupoEstadisticas').val();
                 const trimestre = $('#trimestreEstadisticas').val();
                 let groupId = null;
                 let gradeId = null;
@@ -2604,20 +2692,21 @@
                     groupId = parts[1];
                     gradeId = parts[2];
                 }
-                if (!groupId || !gradeId || !trimestre) {
+                if (!combo || !groupId || !gradeId || !trimestre) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Debe seleccionar grupo, grado y trimestre.'
+                        text: 'Debe seleccionar grado, grupo y trimestre.'
                     });
                     return;
                 }
-                // Obtener fechas del option seleccionado y forzar formato ISO
+                // Obtener fechas del option seleccionado
                 const selected = $('#trimestreEstadisticas option:selected');
                 let fechaInicio = selected.data('inicio');
                 let fechaFin = selected.data('fin');
-                fechaInicio = fechaInicio ? fechaInicio + 'T00:00:00' : null;
-                fechaFin = fechaFin ? fechaFin + 'T23:59:59' : null;
+                // Enviar como strings simples para evitar problemas de zona horaria
+                fechaInicio = fechaInicio || null;
+                fechaFin = fechaFin || null;
                 // Mostrar en consola para depuración
                 console.log('Datos a enviar:', {
                     groupId: groupId,
@@ -2640,19 +2729,23 @@
                     success: function(data) {
                         // Tarjetas
                         $('.statistics-card .display-4.text-primary').text(data.porcentajeAsistencia + '%');
-                        $('.statistics-card .display-4.text-danger').text(data.porcentajeAusencias + '%');
+                        $('.statistics-card .display-4.text-danger').first().text(data.porcentajeAusencias + '%');
                         $('.statistics-card .display-4.text-warning').text(data.porcentajeTardanzas + '%');
+                        $('.statistics-card .display-4.text-danger[style*="opacity"]').text(data.porcentajeFugas ? data.porcentajeFugas + '%' : '0%');
+                        $('.statistics-card .display-4.text-info').text(data.porcentajeExcusas ? data.porcentajeExcusas + '%' : '0%');
                         // Tabla por estudiante
                         let html = '';
                         data.porEstudiante.forEach(e => {
                             html += `<tr>
                                 <td>
-                                    <div>${e.estudiante}</div>
+                                    <div>${formatName(e.estudiante)}</div>
                                     <small class="text-muted">${e.documentId || 'Sin cédula'}</small>
                                 </td>
-                                <td>${e.presentes}</td>
-                                <td>${e.ausentes}</td>
-                                <td>${e.tardanzas}</td>
+                                <td>${e.presentes || 0}</td>
+                                <td>${e.ausentes || 0}</td>
+                                <td>${e.tardanzas || 0}</td>
+                                <td>${e.fugas || 0}</td>
+                                <td>${e.excusas || 0}</td>
                                 <td>${e.porcentajeAsistencia}%</td>
                             </tr>`;
                         });
@@ -2668,13 +2761,26 @@
                 });
             }
 
+            // Validación del filtro de estadísticas
+            function validarFiltrosEstadisticas() {
+                const grupo = $('#filtroGrupoEstadisticas').val();
+                const trimestre = $('#trimestreEstadisticas').val();
+                
+                if (grupo && trimestre) {
+                    $('#btnConsultarEstadisticas').prop('disabled', false);
+                } else {
+                    $('#btnConsultarEstadisticas').prop('disabled', true);
+                }
+            }
+            
+            // Event listeners para los filtros de estadísticas
+            $('#filtroGrupoEstadisticas, #trimestreEstadisticas').on('change', validarFiltrosEstadisticas);
+            
             // Al hacer click en el botón
             $('#btnConsultarEstadisticas').on('click', consultarEstadisticas);
-            // También al cambiar de grupo o trimestre principal, recargar el select de trimestre
-            $('#selGroup').on('change', function() {
-                // Opcional: podrías resetear el select de trimestre si lo deseas
-                // $('#trimestreEstadisticas').val($('#trimestreEstadisticas option:first').val());
-            });
+            
+            // Validar estado inicial del botón
+            validarFiltrosEstadisticas();
         });
     </script>
 
@@ -2692,7 +2798,7 @@
                     data: { subjectId: subjectId, groupId: groupId, gradeId: gradeId },
                     success: function(students) {
                         students.forEach(function(s) {
-                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${s.fullName}</option>`);
+                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${formatName(s.fullName)}</option>`);
                         });
                     }
                 });
@@ -2900,7 +3006,8 @@
                 }
                 const container = $('<div class="list-group"></div>');
                 response.forEach(student => {
-                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${student.fullName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
+                    const formattedName = formatName(student.fullName);
+                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${formattedName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
                     container.append(item);
                 });
                 listaEstudiantes.append(container);
@@ -2959,7 +3066,7 @@
                                 <div class="d-flex align-items-center">
                                     <i class="bi bi-person-circle me-2"></i>
                                     <div>
-                                        <div class="fw-semibold">${student.fullName}</div>
+                                        <div class="fw-semibold">${formatName(student.fullName)}</div>
                                         <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                         <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                     </div>
@@ -3072,7 +3179,7 @@
                             const select = $('#estudianteHistorialDisciplina');
                             select.html('<option value="">Todos los estudiantes</option>');
                             response.forEach(student => {
-                                select.append(`<option value="${student.studentId}">${student.fullName}</option>`);
+                                select.append(`<option value="${student.studentId}">${formatName(student.fullName)}</option>`);
                             });
                         },
                         error: function(xhr, status, error) {
@@ -3359,7 +3466,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                         </div>
@@ -3416,8 +3523,9 @@
                         const estudiantes = {};
                         response.data.forEach(item => {
                             if (!estudiantes[item.studentId]) {
+                                console.log('Procesando estudiante:', item.studentFullName, '->', formatName(item.studentFullName));
                                 estudiantes[item.studentId] = {
-                                    nombre: item.studentFullName,
+                                    nombre: formatName(item.studentFullName),
                                     documentId: item.documentId || 'Sin cédula',
                                     t1: null,
                                     t2: null,
@@ -3576,7 +3684,7 @@
                 data.students.forEach(function(student) {
                     let row = `<tr>
                         <td style="position: sticky; left: 0; background-color: white; z-index: 1; font-weight: 600;">
-                            <div>${student.fullName}</div>
+                            <div>${formatName(student.fullName)}</div>
                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small>
                         </td>`;
                     

@@ -938,19 +938,24 @@
                                         <div class="card-header bg-success text-white fw-semibold">Seleccionar Estudiante</div>
                                         <div class="card-body">
                                             <div class="mb-3">
-                                                <label class="form-label">Materia, Grado y Grupo</label>
+                                                <label class="form-label">Grado y Grupo</label>
                                                 <div class="position-relative">
-                                                    <input type="text" id="filtroGradoDisciplinaInput" class="form-control" placeholder="Buscar Materia, Grado y Grupo..." autocomplete="off" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().SubjectName} - {Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelName} - {Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupName}" : "")">
-                                                    <input type="hidden" id="filtroGradoDisciplina" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().SubjectId}|{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupId}|{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelId}" : "")">
+                                                    <input type="text" id="filtroGradoDisciplinaInput" class="form-control" placeholder="Buscar Grado y Grupo..." autocomplete="off" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelName} - {Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupName}" : "")">
+                                                    <input type="hidden" id="filtroGradoDisciplina" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupId}|{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelId}" : "")">
                                                     <div id="disciplinaDropdown" class="dropdown-menu w-100" style="max-height: 300px; overflow-y: auto; display: none;">
-                                                        @foreach (var subject in Model.Teacher.SubjectGroupDetails)
+                                                        @{
+                                                            var uniqueGroups = Model.Teacher.SubjectGroupDetails
+                                                                .SelectMany(s => s.GroupGradePairs)
+                                                                .GroupBy(g => new { g.GroupId, g.GradeLevelId })
+                                                                .Select(g => g.First())
+                                                                .OrderBy(g => g.GradeLevelName)
+                                                                .ThenBy(g => g.GroupName);
+                                                        }
+                                                        @foreach (var group in uniqueGroups)
                                                         {
-                                                            foreach (var group in subject.GroupGradePairs)
-                                                            {
-                                                                var value = $"{subject.SubjectId}|{group.GroupId}|{group.GradeLevelId}";
-                                                                var text = $"{subject.SubjectName} - {group.GradeLevelName} - {group.GroupName}";
-                                                                <div class="dropdown-item disciplina-option" data-value="@value" style="cursor: pointer;">@text</div>
-                                                            }
+                                                            var value = $"{group.GroupId}|{group.GradeLevelId}";
+                                                            var text = $"{group.GradeLevelName} - {group.GroupName}";
+                                                            <div class="dropdown-item disciplina-option" data-value="@value" style="cursor: pointer;">@text</div>
                                                         }
                                                     </div>
                                                 </div>
@@ -1082,20 +1087,25 @@
                         <div class="tab-pane fade" id="historialDisciplinaTab" role="tabpanel" aria-labelledby="historial-tab">
                             <div class="row g-3 align-items-end mb-3">
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Materia, Grado y Grupo</label>
+                                    <label class="form-label fw-semibold">Grado y Grupo</label>
                                     <div class="position-relative">
-                                        <input type="text" id="filtroGrupoHistorialDisciplinaInput" class="form-control" placeholder="Buscar Materia, Grado y Grupo..." autocomplete="off">
+                                        <input type="text" id="filtroGrupoHistorialDisciplinaInput" class="form-control" placeholder="Buscar Grado y Grupo..." autocomplete="off">
                                         <input type="hidden" id="filtroGrupoHistorialDisciplina" value="">
                                         <div id="historialDisciplinaDropdown" class="dropdown-menu w-100" style="max-height: 300px; overflow-y: auto; display: none;">
                                             <div class="dropdown-item historial-disciplina-option" data-value="" style="cursor: pointer;">Todos</div>
-                                            @foreach (var subject in Model.Teacher.SubjectGroupDetails)
+                                            @{
+                                                var uniqueGroupsHistorial = Model.Teacher.SubjectGroupDetails
+                                                    .SelectMany(s => s.GroupGradePairs)
+                                                    .GroupBy(g => new { g.GroupId, g.GradeLevelId })
+                                                    .Select(g => g.First())
+                                                    .OrderBy(g => g.GradeLevelName)
+                                                    .ThenBy(g => g.GroupName);
+                                            }
+                                            @foreach (var group in uniqueGroupsHistorial)
                                             {
-                                                foreach (var group in subject.GroupGradePairs)
-                                                {
-                                                    var value = $"{subject.SubjectId}|{group.GroupId}|{group.GradeLevelId}";
-                                                    var text = $"{subject.SubjectName} - {group.GradeLevelName} - {group.GroupName}";
-                                                    <div class="dropdown-item historial-disciplina-option" data-value="@value" style="cursor: pointer;">@text</div>
-                                                }
+                                                var value = $"{group.GroupId}|{group.GradeLevelId}";
+                                                var text = $"{group.GradeLevelName} - {group.GroupName}";
+                                                <div class="dropdown-item historial-disciplina-option" data-value="@value" style="cursor: pointer;">@text</div>
                                             }
                                         </div>
                                     </div>
@@ -1246,6 +1256,15 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 @section Scripts {
     <script>
+        // Función helper global para formatear nombres como "Apellido, Nombre"
+        function formatName(fullName) {
+            if (!fullName) return '(Sin nombre)';
+            const nameParts = fullName.split(' ');
+            return nameParts.length > 1 
+                ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
+                : fullName;
+        }
+
         $(document).ready(() => {
             const teacherId = '@Model.TeacherId';
             const students = [];
@@ -1325,7 +1344,7 @@
                 }
                 
                 uniqueStudents.forEach(s => {
-                    const nombre = s.fullName || '(Sin nombre)';
+                    const nombre = formatName(s.fullName);
                     const documentId = s.documentId || 'Sin cédula';
                     const trimesterData = studentAnnualScores[s.id] || {};
                     const t1 = trimesterData['1T'] || 0;
@@ -1424,11 +1443,7 @@
 
                 if (students && students.length > 0) {
                     students.forEach(s => {
-                        // Convertir formato de nombre de "Nombre Apellido" a "Apellido, Nombre"
-                        const nameParts = s.fullName.split(' ');
-                        const formattedName = nameParts.length > 1 
-                            ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
-                            : s.fullName;
+                        const formattedName = formatName(s.fullName);
                         
                         let row = `<tr data-stu-id="${s.id}"><td>${formattedName}</td><td>${s.documentId || 'Sin cédula'}</td>`;
 
@@ -2142,7 +2157,7 @@
 
         function cargarAsistencias(subjectId, groupId, gradeLevelId, trimester) {
             $.ajax({
-                url: '/TeacherGradebook/GetAsistencias',
+                url: '/OrientationReport/GetAsistencias',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({ subjectId, groupId, gradeLevelId, trimester }),
@@ -2261,7 +2276,7 @@
                         response.forEach(student => {
                             const row = `
                                 <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                    <td>${student.fullName}</td>
+                                    <td>${formatName(student.fullName)}</td>
                                     <td>${grupoSeleccionado}</td>
                                     <td>
                                         <span class="status-badge present">
@@ -2349,7 +2364,7 @@
                         
                         const row = `
                             <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                <td>${student.fullName}</td>
+                                <td>${formatName(student.fullName)}</td>
                                 <td>${$('#filtroGradoAsistencia option:selected').text()}</td>
                                 <td>
                                     <span class="status-badge ${currentStatus}">
@@ -2747,7 +2762,7 @@
                     data: { subjectId: subjectId, groupId: groupId, gradeId: gradeId },
                     success: function(students) {
                         students.forEach(function(s) {
-                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${s.fullName}</option>`);
+                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${formatName(s.fullName)}</option>`);
                         });
                     }
                 });
@@ -2781,7 +2796,7 @@
     };
 
     window.cargarHistorialEstudiante = function(studentId) {
-        console.log('📚 Cargando historial para estudiante:', studentId);
+        console.log('📚 [ORIENTACION] Cargando historial para estudiante:', studentId);
         $('#historialEstudianteOrientacion').html('<div class="text-center text-muted">Cargando historial...</div>');
         
         $.ajax({
@@ -2789,12 +2804,13 @@
             method: 'GET',
             data: { studentId: studentId },
             success: function(response) {
-                console.log('📋 Respuesta del historial:', response);
-                console.log('📊 Cantidad de registros:', response ? response.length : 0);
+                console.log('📋 [ORIENTACION] Respuesta del historial:', response);
+                console.log('📊 [ORIENTACION] Cantidad de registros:', response ? response.length : 0);
+                console.log('🔍 [ORIENTACION] Primer registro:', response && response.length > 0 ? response[0] : 'No hay registros');
                 
                 if (!response || response.length === 0) {
-                    console.log('ℹ️ No hay registros para este estudiante');
-                    $('#historialEstudianteDisciplina').html('<div class="text-center text-muted">No hay registros para este estudiante</div>');
+                    console.log('ℹ️ [ORIENTACION] No hay registros para este estudiante');
+                    $('#historialEstudianteOrientacion').html('<div class="text-center text-muted">No hay registros para este estudiante</div>');
                     return;
                 }
                 const historial = $('<div class="list-group"></div>');
@@ -2870,13 +2886,13 @@
                     `;
                     historial.append(item);
                 });
-                console.log('✅ Historial cargado y renderizado correctamente');
-                $('#historialEstudianteDisciplina').empty().append(historial);
+                console.log('✅ [ORIENTACION] Historial cargado y renderizado correctamente');
+                $('#historialEstudianteOrientacion').empty().append(historial);
             },
             error: function(xhr, status, error) {
-                console.error('❌ Error al cargar historial:', error);
-                console.error('📄 Detalles del error:', xhr.responseText);
-                $('#historialEstudianteDisciplina').html(`<div class="text-center text-danger">Error al cargar historial: ${error}</div>`);
+                console.error('❌ [ORIENTACION] Error al cargar historial:', error);
+                console.error('📄 [ORIENTACION] Detalles del error:', xhr.responseText);
+                $('#historialEstudianteOrientacion').html(`<div class="text-center text-danger">Error al cargar historial: ${error}</div>`);
             }
         });
     };
@@ -3032,7 +3048,7 @@
         const [subjectId, groupId, gradeLevelId] = combo.split('|');
         $('#listaEstudiantesDisciplina').html('<div class="text-center">Cargando estudiantes...</div>');
         $.ajax({
-            url: '/TeacherGradebook/StudentsByGroupAndGrade',
+            url: '/OrientationReport/StudentsByGroupAndGrade',
             method: 'GET',
             data: { groupId: groupId, gradeId: gradeLevelId },
             success: function(response) {
@@ -3044,7 +3060,8 @@
                 }
                 const container = $('<div class="list-group"></div>');
                 response.forEach(student => {
-                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${student.fullName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
+                    const formattedName = formatName(student.fullName);
+                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${formattedName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
                     container.append(item);
                 });
                 listaEstudiantes.append(container);
@@ -3058,7 +3075,7 @@
     </script>
 
     <script>
-        // --- Cambiar filtro de Materia, Grado y Grupo en disciplina ---
+        // --- Cambiar filtro de Grado y Grupo en disciplina ---
         $('#filtroGradoDisciplina').on('change', function() {
             console.log('Filtro de disciplina cambiado');
             const combo = $(this).val();
@@ -3069,17 +3086,16 @@
                 return;
             }
 
-            const [subjectId, groupId, gradeLevelId] = combo.split('|');
-            console.log('IDs extraídos:', { subjectId, groupId, gradeLevelId });
+            const [groupId, gradeLevelId] = combo.split('|');
+            console.log('IDs extraídos:', { groupId, gradeLevelId });
             
             // Mostrar indicador de carga
             $('#listaEstudiantesDisciplina').html('<div class="text-center">Cargando estudiantes...</div>');
             
             $.ajax({
-                url: '/TeacherGradebook/StudentsByGroupAndGrade',
+                url: '/OrientationReport/StudentsByGroupAndGrade',
                 method: 'GET',
                 data: { 
-                    subjectId: subjectId, 
                     groupId: groupId, 
                     gradeId: gradeLevelId 
                 },
@@ -3103,7 +3119,7 @@
                                 <div class="d-flex align-items-center">
                                     <i class="bi bi-person-circle me-2"></i>
                                     <div>
-                                        <div class="fw-semibold">${student.fullName}</div>
+                                        <div class="fw-semibold">${formatName(student.fullName)}</div>
                                         <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                         <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                     </div>
@@ -3142,31 +3158,55 @@
         $(document).ready(function() {
             // Habilitar/deshabilitar botón según selección de grupo
             $('#filtroGrupoHistorialDisciplina').on('change', function() {
+                console.log('🔄 [ORIENTACION] Filtro de historial de disciplina cambiado');
                 const combo = $(this).val();
+                console.log('📊 [ORIENTACION] Valor del combo:', combo);
+                
                 if (!combo) {
+                    console.log('❌ [ORIENTACION] No hay combo seleccionado');
                     $('#btnFiltrarHistorialDisciplina').prop('disabled', true);
                 } else {
+                    console.log('✅ [ORIENTACION] Combo seleccionado, habilitando botón');
                     $('#btnFiltrarHistorialDisciplina').prop('disabled', false);
                     
                     // Cargar estudiantes cuando se selecciona un grupo
-                    const [subjectId, groupId, gradeId] = combo.split('|');
+                    const [groupId, gradeId] = combo.split('|');
+                    console.log('📚 [ORIENTACION] IDs extraídos:', { groupId, gradeId });
+                    
+                    console.log('🌐 [ORIENTACION] Enviando petición AJAX para cargar estudiantes...');
                     $.ajax({
-                        url: '/TeacherGradebookDuplicate/StudentsByGroupAndGrade',
+                        url: '/OrientationReport/StudentsByGroupAndGrade',
                         method: 'GET',
                         data: { 
-                            subjectId: subjectId, 
                             groupId: groupId, 
                             gradeId: gradeId 
                         },
                         success: function(response) {
+                            console.log('✅ [ORIENTACION] Respuesta exitosa recibida:', response);
+                            console.log('📊 [ORIENTACION] Cantidad de estudiantes:', response ? response.length : 0);
+                            
                             const select = $('#estudianteHistorialDisciplina');
                             select.html('<option value="">Todos los estudiantes</option>');
-                            response.forEach(student => {
-                                select.append(`<option value="${student.studentId}">${student.fullName}</option>`);
-                            });
+                            
+                            if (response && response.length > 0) {
+                                response.forEach((student, index) => {
+                                    console.log(`👤 [ORIENTACION] Estudiante ${index + 1}:`, {
+                                        id: student.studentId,
+                                        nombre: formatName(student.fullName),
+                                        documentId: student.documentId
+                                    });
+                                    select.append(`<option value="${student.studentId}">${formatName(student.fullName)}</option>`);
+                                });
+                                console.log('✅ [ORIENTACION] Dropdown de estudiantes poblado correctamente');
+                            } else {
+                                console.log('⚠️ [ORIENTACION] No hay estudiantes para mostrar');
+                            }
                         },
                         error: function(xhr, status, error) {
-                            console.error('Error al cargar estudiantes:', error);
+                            console.error('❌ [ORIENTACION] Error al cargar estudiantes:', error);
+                            console.error('📄 [ORIENTACION] Detalles del error:', xhr.responseText);
+                            console.error('📊 [ORIENTACION] Status:', status);
+                            console.error('🚨 [ORIENTACION] XHR:', xhr);
                         }
                     });
                 }
@@ -3178,17 +3218,25 @@
             }
 
             $('#btnFiltrarHistorialDisciplina').off('click').on('click', function() {
+                console.log('🔍 [ORIENTACION] Botón Filtrar Historial clickeado');
                 const fechaInicio = $('#filtroFechaInicioDisciplina').val();
                 const fechaFin = $('#filtroFechaFinDisciplina').val();
                 const combo = $('#filtroGrupoHistorialDisciplina').val();
                 const estudiante = $('#estudianteHistorialDisciplina').val();
+                
+                console.log('📅 [ORIENTACION] Datos del filtro:', {
+                    fechaInicio,
+                    fechaFin,
+                    combo,
+                    estudiante
+                });
 
                 // Solo validar que se haya seleccionado un grupo
                 if (!combo) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Debe seleccionar Materia, Grado y Grupo antes de buscar.'
+                        text: 'Debe seleccionar Grado y Grupo antes de buscar.'
                     });
                     return;
                 }
@@ -3217,7 +3265,8 @@
                     }
                 }
 
-                const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                const [groupId, gradeLevelId] = combo.split('|');
+                console.log('🎯 [ORIENTACION] IDs para filtrado:', { groupId, gradeLevelId });
 
                 let mensajeBusqueda = 'Buscando registros disciplinarios';
                 if (fechaInicio && fechaFin) {
@@ -3237,6 +3286,15 @@
                 const fechaInicioObj = fechaInicio ? new Date(fechaInicio + 'T00:00:00') : null;
                 const fechaFinObj = fechaFin ? new Date(fechaFin + 'T23:59:59') : null;
                 
+                console.log('🌐 [ORIENTACION] Enviando petición de filtrado...');
+                console.log('📤 [ORIENTACION] Datos a enviar:', {
+                    fechaInicio: fechaInicio ? fechaInicio + 'T00:00:00' : null,
+                    fechaFin: fechaFin ? fechaFin + 'T23:59:59' : null,
+                    gradoId: gradeLevelId,
+                    groupId: groupId,
+                    studentId: estudiante || null
+                });
+                
                 $.ajax({
                     url: '/OrientationReport/GetFiltered',
                     method: 'GET',
@@ -3248,10 +3306,18 @@
                         studentId: estudiante || null
                     },
                     success: function(data) {
+                        console.log('✅ [ORIENTACION] Respuesta de filtrado recibida:', data);
+                        console.log('📊 [ORIENTACION] Cantidad de registros:', data ? data.length : 0);
+                        console.log('🔍 [ORIENTACION] Tipo de datos recibidos:', typeof data);
+                        console.log('📄 [ORIENTACION] Primer registro (si existe):', data && data.length > 0 ? data[0] : 'No hay registros');
+                        
                         if (!data || data.length === 0) {
+                            console.log('⚠️ [ORIENTACION] No hay registros para mostrar');
                             $('#tablaHistorialDisciplina').html('<div class="text-center text-muted">No hay registros para los filtros seleccionados</div>');
                             return;
                         }
+                        
+                        console.log('🔨 [ORIENTACION] Construyendo tabla de historial...');
                         let html = `<div class="table-responsive">
                             <table class="table table-bordered table-hover">
                                 <thead>
@@ -3269,7 +3335,9 @@
                                 </thead>
                                 <tbody>`;
                         
-                        data.forEach(r => {
+                        console.log('🔄 [ORIENTACION] Procesando', data.length, 'registros...');
+                        data.forEach((r, index) => {
+                            console.log(`📝 [ORIENTACION] Procesando registro ${index + 1}:`, r);
                             // Badge para tipo
                             let tipoBadge = '';
                             if (r.tipo === 'Comentario') {
@@ -3344,9 +3412,14 @@
                         });
                         
                         html += '</tbody></table></div>';
+                        console.log('✅ [ORIENTACION] Tabla de historial construida y renderizada');
                         $('#tablaHistorialDisciplina').html(html);
                     },
                     error: function(xhr) {
+                        console.error('❌ [ORIENTACION] Error en filtrado de historial:', xhr);
+                        console.error('📄 [ORIENTACION] Response text:', xhr.responseText);
+                        console.error('📊 [ORIENTACION] Status:', xhr.status);
+                        
                         let msg = 'No se pudo consultar el historial de disciplina.';
                         if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
                             msg = xhr.responseJSON.error;
@@ -3517,17 +3590,16 @@
                     return;
                 }
 
-                const [subjectId, groupId, gradeLevelId] = combo.split('|');
-                console.log('IDs extraídos:', { subjectId, groupId, gradeLevelId });
+                const [groupId, gradeLevelId] = combo.split('|');
+                console.log('IDs extraídos:', { groupId, gradeLevelId });
                 
                 // Mostrar indicador de carga
                 $('#listaEstudiantesDisciplina').html('<div class="text-center">Cargando estudiantes...</div>');
                 
                 $.ajax({
-                    url: '/TeacherGradebookDuplicate/StudentsByGroupAndGrade',
+                    url: '/OrientationReport/StudentsByGroupAndGrade',
                     method: 'GET',
                     data: { 
-                        subjectId: subjectId, 
                         groupId: groupId, 
                         gradeId: gradeLevelId 
                     },
@@ -3549,7 +3621,7 @@
                         response.forEach((student, index) => {
                             console.log(`👤 Estudiante ${index + 1}:`, {
                                 id: student.studentId,
-                                nombre: student.fullName,
+                                nombre: formatName(student.fullName),
                                 documentId: student.documentId
                             });
                             
@@ -3561,7 +3633,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplinaInput').val()}</small>
                                         </div>
@@ -3605,15 +3677,15 @@
                     return;
                 }
                 const combo = $('#filtroGradoDisciplina').val();
-                let subjectId = null, groupId = null, gradeLevelId = null;
+                let groupId = null, gradeLevelId = null;
                 if (combo) {
-                    [subjectId, groupId, gradeLevelId] = combo.split('|');
+                    [groupId, gradeLevelId] = combo.split('|');
                 }
                 // Crear FormData para incluir archivos
                 const formData = new FormData();
                 formData.append('StudentId', window.estudianteSeleccionado.id);
                 formData.append('TeacherId', '@Model.TeacherId');
-                formData.append('SubjectId', subjectId);
+                formData.append('SubjectId', ''); // Sin materia específica
                 formData.append('GroupId', groupId);
                 formData.append('GradeLevelId', gradeLevelId);
                 formData.append('Date', $('#fechaDisciplina').val());
@@ -3873,7 +3945,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                         </div>
@@ -3931,7 +4003,7 @@
                         response.data.forEach(item => {
                             if (!estudiantes[item.studentId]) {
                                 estudiantes[item.studentId] = {
-                                    nombre: item.studentFullName,
+                                    nombre: formatName(item.studentFullName),
                                     documentId: item.documentId || 'Sin cédula',
                                     t1: null,
                                     t2: null,
@@ -4090,7 +4162,7 @@
                 data.students.forEach(function(student) {
                     let row = `<tr>
                         <td style="position: sticky; left: 0; background-color: white; z-index: 1; font-weight: 600;">
-                            <div>${student.fullName}</div>
+                            <div>${formatName(student.fullName)}</div>
                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small>
                         </td>`;
                     
@@ -4308,7 +4380,7 @@
                         response.forEach((student, index) => {
                             console.log(`👤 Estudiante ${index + 1} (automático):`, {
                                 id: student.studentId,
-                                nombre: student.fullName,
+                                nombre: formatName(student.fullName),
                                 documentId: student.documentId
                             });
                             
@@ -4320,7 +4392,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplinaInput').val()}</small>
                                         </div>

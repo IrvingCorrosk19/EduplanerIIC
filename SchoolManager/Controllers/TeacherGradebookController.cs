@@ -27,6 +27,7 @@ namespace SchoolManager.Controllers
         private readonly IAttendanceService _attendanceService;
         private readonly ICounselorAssignmentService _counselorAssignmentService;
         private readonly ISubjectAssignmentService _subjectAssignmentService;
+        private readonly SchoolDbContext _context;
 
 
         public TeacherGradebookController(
@@ -39,7 +40,8 @@ namespace SchoolManager.Controllers
             IStudentService studentService,
             IAttendanceService attendanceService,
             ICounselorAssignmentService counselorAssignmentService,
-            ISubjectAssignmentService subjectAssignmentService)
+            ISubjectAssignmentService subjectAssignmentService,
+            SchoolDbContext context)
             
         {
             _studentService = studentService;   
@@ -52,6 +54,7 @@ namespace SchoolManager.Controllers
             _attendanceService = attendanceService;
             _counselorAssignmentService = counselorAssignmentService;
             _subjectAssignmentService = subjectAssignmentService;
+            _context = context;
             
         }
 
@@ -91,10 +94,27 @@ namespace SchoolManager.Controllers
                                 return BadRequest($"La nota '{nota.Nota}' tiene un formato inválido.");
                             }
                         }
+                        // Determinar si nota.Actividad es un ID (GUID) o un nombre
+                        Guid activityId = Guid.Empty;
+                        string activityName = nota.Actividad;
+                        
+                        if (Guid.TryParse(nota.Actividad, out activityId))
+                        {
+                            // Es un GUID válido, usarlo como ActivityId
+                            Console.WriteLine($"[CONTROLLER] Usando ActivityId: {activityId}");
+                        }
+                        else
+                        {
+                            // No es un GUID, es un nombre de actividad
+                            Console.WriteLine($"[CONTROLLER] Usando ActivityName: {activityName}");
+                            activityId = Guid.Empty; // Resetear para que el servicio busque por nombre
+                        }
+                        
                         registros.Add(new StudentActivityScoreCreateDto
                         {
                             StudentId = studentId,
-                            ActivityName = nota.Actividad,
+                            ActivityId = activityId,
+                            ActivityName = activityName,
                             Type = nota.Tipo,
                             Score = score, // Puede ser null
                             SubjectId = subjectId,
@@ -729,6 +749,35 @@ namespace SchoolManager.Controllers
                 Console.WriteLine($"ERROR en GetCounselorGroupAverages: {ex.Message}");
                 Console.WriteLine($"StackTrace: {ex.StackTrace}");
                 return StatusCode(500, new { success = false, error = ex.Message });
+            }
+        }
+
+        // MÉTODO TEMPORAL DE DEBUGGING
+        [HttpGet]
+        public async Task<JsonResult> CheckActivityScores(Guid activityId)
+        {
+            try
+            {
+                var scores = await _context.StudentActivityScores
+                    .Where(s => s.ActivityId == activityId)
+                    .Select(s => new { 
+                        s.Id, 
+                        s.StudentId, 
+                        s.Score, 
+                        StudentName = s.Student.Name + " " + s.Student.LastName 
+                    })
+                    .ToListAsync();
+
+                return Json(new { 
+                    success = true, 
+                    activityId = activityId,
+                    scoresCount = scores.Count,
+                    scores = scores 
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
             }
         }
     }

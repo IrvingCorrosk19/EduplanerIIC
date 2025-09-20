@@ -579,7 +579,7 @@
                             <select id="activityType" name="Type" class="form-select">
                                 @foreach (var t in Model.Types)
                                 {
-                                    <option value="@t.Name">@t.Name</option>
+                                    <option value="@t.Name">@(!string.IsNullOrEmpty(t.DisplayName) ? t.DisplayName : t.Name)</option>
                                 }
                             </select>
                         </div>
@@ -841,24 +841,38 @@
                         <!-- TAB 3: ESTADÍSTICAS -->
                         <div class="tab-pane fade" id="estadisticas" role="tabpanel" aria-labelledby="estadisticas-tab">
                             <div class="row mb-4">
-                                <div class="col-md-4">
+                                <div class="col-md-4 col-lg-2">
                                     <div class="statistics-card">
                                         <h5 class="card-title">Asistencia General</h5>
                                         <div class="display-4 text-primary">-</div>
                                         <p class="text-muted">Promedio de asistencia</p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-4 col-lg-2">
                                     <div class="statistics-card">
                                         <h5 class="card-title">Ausencias</h5>
                                         <div class="display-4 text-danger">-</div>
                                         <p class="text-muted">Total del período actual</p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-4 col-lg-2">
                                     <div class="statistics-card">
                                         <h5 class="card-title">Tardanzas</h5>
                                         <div class="display-4 text-warning">-</div>
+                                        <p class="text-muted">Total del período actual</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-lg-2">
+                                    <div class="statistics-card">
+                                        <h5 class="card-title">Fugas</h5>
+                                        <div class="display-4 text-danger" style="opacity: 0.75;">-</div>
+                                        <p class="text-muted">Total del período actual</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-lg-2">
+                                    <div class="statistics-card">
+                                        <h5 class="card-title">Excusas</h5>
+                                        <div class="display-4 text-info">-</div>
                                         <p class="text-muted">Total del período actual</p>
                                     </div>
                                 </div>
@@ -866,7 +880,22 @@
 
                             <!-- Filtros internos de estadísticas -->
                             <div class="row mb-3">
-                                <div class="col-md-6">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Grado y Grupo</label>
+                                    <select id="filtroGrupoEstadisticas" class="form-select">
+                                        <option value="">-- Seleccionar grupo --</option>
+                                        @foreach (var subject in Model.Teacher.SubjectGroupDetails)
+                                        {
+                                            foreach (var group in subject.GroupGradePairs)
+                                            {
+                                                var value = $"{subject.SubjectId}|{group.GroupId}|{group.GradeLevelId}";
+                                                var text = $"{subject.SubjectName} - {group.GradeLevelName} {group.GroupName}";
+                                                <option value="@value">@text</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
                                     <label class="form-label fw-semibold">Trimestre</label>
                                     <select id="trimestreEstadisticas" class="form-select">
                                         @foreach (var t in Model.Trimesters)
@@ -875,8 +904,8 @@
                                         }
                                     </select>
                                 </div>
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button id="btnConsultarEstadisticas" class="btn btn-primary w-100">
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <button id="btnConsultarEstadisticas" class="btn btn-primary w-100" disabled>
                                         <i class="bi bi-bar-chart-line me-2"></i> Consultar estadísticas
                                     </button>
                                 </div>
@@ -895,6 +924,8 @@
                                                     <th>Asistencias</th>
                                                     <th>Ausencias</th>
                                                     <th>Tardanzas</th>
+                                                    <th>Fugas</th>
+                                                    <th>Excusas</th>
                                                     <th>% Asistencia</th>
                                                 </tr>
                                             </thead>
@@ -938,19 +969,29 @@
                                         <div class="card-header bg-success text-white fw-semibold">Seleccionar Estudiante</div>
                                         <div class="card-body">
                                             <div class="mb-3">
-                                                <label class="form-label">Materia, Grado y Grupo</label>
+                                                <label class="form-label">Grado y Grupo</label>
                                                 <div class="position-relative">
-                                                    <input type="text" id="filtroGradoDisciplinaInput" class="form-control" placeholder="Buscar Materia, Grado y Grupo..." autocomplete="off" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().SubjectName} - {Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelName} - {Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupName}" : "")">
-                                                    <input type="hidden" id="filtroGradoDisciplina" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().SubjectId}|{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupId}|{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelId}" : "")">
+                                                    <input type="text" id="filtroGradoDisciplinaInput" class="form-control" placeholder="Buscar Grado y Grupo..." autocomplete="off" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelName} - {Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupName}" : "")">
+                                                    <input type="hidden" id="filtroGradoDisciplina" value="@(Model.Teacher.SubjectGroupDetails.FirstOrDefault()?.GroupGradePairs.FirstOrDefault() != null ? $"{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GroupId}|{Model.Teacher.SubjectGroupDetails.FirstOrDefault().GroupGradePairs.FirstOrDefault().GradeLevelId}" : "")">
                                                     <div id="disciplinaDropdown" class="dropdown-menu w-100" style="max-height: 300px; overflow-y: auto; display: none;">
-                                                        @foreach (var subject in Model.Teacher.SubjectGroupDetails)
+                                                        @{
+                                                            var uniqueGradeGroups = Model.Teacher.SubjectGroupDetails
+                                                                .SelectMany(s => s.GroupGradePairs)
+                                                                .GroupBy(g => new { g.GradeLevelId, g.GroupId })
+                                                                .Select(g => new {
+                                                                    GradeLevelId = g.Key.GradeLevelId,
+                                                                    GroupId = g.Key.GroupId,
+                                                                    GradeLevelName = g.First().GradeLevelName,
+                                                                    GroupName = g.First().GroupName,
+                                                                    Value = $"{g.Key.GroupId}|{g.Key.GradeLevelId}",
+                                                                    Text = $"{g.First().GradeLevelName} - {g.First().GroupName}"
+                                                                })
+                                                                .OrderBy(g => g.GradeLevelName)
+                                                                .ThenBy(g => g.GroupName);
+                                                        }
+                                                        @foreach (var gradeGroup in uniqueGradeGroups)
                                                         {
-                                                            foreach (var group in subject.GroupGradePairs)
-                                                            {
-                                                                var value = $"{subject.SubjectId}|{group.GroupId}|{group.GradeLevelId}";
-                                                                var text = $"{subject.SubjectName} - {group.GradeLevelName} - {group.GroupName}";
-                                                                <div class="dropdown-item disciplina-option" data-value="@value" style="cursor: pointer;">@text</div>
-                                                            }
+                                                            <div class="dropdown-item disciplina-option" data-value="@gradeGroup.Value" style="cursor: pointer;">@gradeGroup.Text</div>
                                                         }
                                                     </div>
                                                 </div>
@@ -1082,20 +1123,30 @@
                         <div class="tab-pane fade" id="historialDisciplinaTab" role="tabpanel" aria-labelledby="historial-tab">
                             <div class="row g-3 align-items-end mb-3">
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Materia, Grado y Grupo</label>
+                                    <label class="form-label fw-semibold">Grado y Grupo</label>
                                     <div class="position-relative">
-                                        <input type="text" id="filtroGrupoHistorialDisciplinaInput" class="form-control" placeholder="Buscar Materia, Grado y Grupo..." autocomplete="off">
+                                        <input type="text" id="filtroGrupoHistorialDisciplinaInput" class="form-control" placeholder="Buscar Grado y Grupo..." autocomplete="off">
                                         <input type="hidden" id="filtroGrupoHistorialDisciplina" value="">
                                         <div id="historialDisciplinaDropdown" class="dropdown-menu w-100" style="max-height: 300px; overflow-y: auto; display: none;">
                                             <div class="dropdown-item historial-disciplina-option" data-value="" style="cursor: pointer;">Todos</div>
-                                            @foreach (var subject in Model.Teacher.SubjectGroupDetails)
+                                            @{
+                                                var uniqueGradeGroupsHistorial = Model.Teacher.SubjectGroupDetails
+                                                    .SelectMany(s => s.GroupGradePairs)
+                                                    .GroupBy(g => new { g.GradeLevelId, g.GroupId })
+                                                    .Select(g => new {
+                                                        GradeLevelId = g.Key.GradeLevelId,
+                                                        GroupId = g.Key.GroupId,
+                                                        GradeLevelName = g.First().GradeLevelName,
+                                                        GroupName = g.First().GroupName,
+                                                        Value = $"{g.Key.GroupId}|{g.Key.GradeLevelId}",
+                                                        Text = $"{g.First().GradeLevelName} - {g.First().GroupName}"
+                                                    })
+                                                    .OrderBy(g => g.GradeLevelName)
+                                                    .ThenBy(g => g.GroupName);
+                                            }
+                                            @foreach (var gradeGroup in uniqueGradeGroupsHistorial)
                                             {
-                                                foreach (var group in subject.GroupGradePairs)
-                                                {
-                                                    var value = $"{subject.SubjectId}|{group.GroupId}|{group.GradeLevelId}";
-                                                    var text = $"{subject.SubjectName} - {group.GradeLevelName} - {group.GroupName}";
-                                                    <div class="dropdown-item historial-disciplina-option" data-value="@value" style="cursor: pointer;">@text</div>
-                                                }
+                                                <div class="dropdown-item historial-disciplina-option" data-value="@gradeGroup.Value" style="cursor: pointer;">@gradeGroup.Text</div>
                                             }
                                         </div>
                                     </div>
@@ -1246,6 +1297,25 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 @section Scripts {
     <script>
+        // Función helper global para formatear nombres como "Apellido, Nombre"
+        function formatName(fullName) {
+            if (!fullName) return '(Sin nombre)';
+            const nameParts = fullName.split(' ');
+            return nameParts.length > 1 
+                ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
+                : fullName;
+        }
+
+        // Función helper global para mapear tipos internos a nombres bonitos
+        function getActivityTypeDisplayName(internalType) {
+            const typeMap = {
+                'tarea': 'Notas de apreciación',
+                'parcial': 'Ejercicios Diarios',
+                'examen': 'Examen'
+            };
+            return typeMap[internalType] || internalType;
+        }
+
         $(document).ready(() => {
             const teacherId = '@Model.TeacherId';
             const students = [];
@@ -1325,7 +1395,7 @@
                 }
                 
                 uniqueStudents.forEach(s => {
-                    const nombre = s.fullName || '(Sin nombre)';
+                    const nombre = formatName(s.fullName);
                     const documentId = s.documentId || 'Sin cédula';
                     const trimesterData = studentAnnualScores[s.id] || {};
                     const t1 = trimesterData['1T'] || 0;
@@ -1403,14 +1473,14 @@
                                   <span>
                                     ${a.name}
                                     <br/>
-                                    <small>(${type})</small>
+                                    <small>(${getActivityTypeDisplayName(type)})</small>
                                     ${fechaEntrega ? `<br/><small class='text-muted' style='font-size:0.85em;'>(Entrega: ${fechaEntrega})</small>` : ''}
                                   </span>
                                 </div>
                               </th>`
                             );
                         });
-                        hdrRow.append(`<th class='text-primary'>Prom. ${type.charAt(0).toUpperCase() + type.slice(1)}</th>`);
+                        hdrRow.append(`<th class='text-primary'>Prom. ${getActivityTypeDisplayName(type)}</th>`);
                     }
                 });
                 
@@ -1424,11 +1494,7 @@
 
                 if (students && students.length > 0) {
                     students.forEach(s => {
-                        // Convertir formato de nombre de "Nombre Apellido" a "Apellido, Nombre"
-                        const nameParts = s.fullName.split(' ');
-                        const formattedName = nameParts.length > 1 
-                            ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
-                            : s.fullName;
+                        const formattedName = formatName(s.fullName);
                         
                         let row = `<tr data-stu-id="${s.id}"><td>${formattedName}</td><td>${s.documentId || 'Sin cédula'}</td>`;
 
@@ -2142,7 +2208,7 @@
 
         function cargarAsistencias(subjectId, groupId, gradeLevelId, trimester) {
             $.ajax({
-                url: '/TeacherGradebook/GetAsistencias',
+                url: '/TeacherGradebookDuplicate/GetAsistencias',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({ subjectId, groupId, gradeLevelId, trimester }),
@@ -2261,7 +2327,7 @@
                         response.forEach(student => {
                             const row = `
                                 <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                    <td>${student.fullName}</td>
+                                    <td>${formatName(student.fullName)}</td>
                                     <td>${grupoSeleccionado}</td>
                                     <td>
                                         <span class="status-badge present">
@@ -2349,7 +2415,7 @@
                         
                         const row = `
                             <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                <td>${student.fullName}</td>
+                                <td>${formatName(student.fullName)}</td>
                                 <td>${$('#filtroGradoAsistencia option:selected').text()}</td>
                                 <td>
                                     <span class="status-badge ${currentStatus}">
@@ -2610,7 +2676,9 @@
                             if (a.estado === 'present') badge = '<span class="badge bg-success">Presente</span>';
                             else if (a.estado === 'absent') badge = '<span class="badge bg-danger">Ausente</span>';
                             else if (a.estado === 'late') badge = '<span class="badge bg-warning text-dark">Tardanza</span>';
-                            else badge = a.estado;
+                            else if (a.estado === 'fuga') badge = '<span class="badge bg-danger bg-opacity-75">Fuga</span>';
+                            else if (a.estado === 'excusa') badge = '<span class="badge bg-info">Excusa</span>';
+                            else badge = `<span class="badge bg-secondary">${a.estado}</span>`;
                             html += `<tr>
                                 <td>
                                     <div>${a.estudiante || '-'}</div>
@@ -2650,7 +2718,7 @@
     <script>
         $(document).ready(() => {
             function consultarEstadisticas() {
-                const combo = $('#selGroup').val();
+                const combo = $('#filtroGrupoEstadisticas').val();
                 const trimestre = $('#trimestreEstadisticas').val();
                 let groupId = null;
                 let gradeId = null;
@@ -2659,20 +2727,21 @@
                     groupId = parts[1];
                     gradeId = parts[2];
                 }
-                if (!groupId || !gradeId || !trimestre) {
+                if (!combo || !groupId || !gradeId || !trimestre) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Debe seleccionar grupo, grado y trimestre.'
+                        text: 'Debe seleccionar grado, grupo y trimestre.'
                     });
                     return;
                 }
-                // Obtener fechas del option seleccionado y forzar formato ISO
+                // Obtener fechas del option seleccionado
                 const selected = $('#trimestreEstadisticas option:selected');
                 let fechaInicio = selected.data('inicio');
                 let fechaFin = selected.data('fin');
-                fechaInicio = fechaInicio ? fechaInicio + 'T00:00:00' : null;
-                fechaFin = fechaFin ? fechaFin + 'T23:59:59' : null;
+                // Enviar como strings simples para evitar problemas de zona horaria
+                fechaInicio = fechaInicio || null;
+                fechaFin = fechaFin || null;
                 // Mostrar en consola para depuración
                 console.log('Datos a enviar:', {
                     groupId: groupId,
@@ -2695,19 +2764,23 @@
                     success: function(data) {
                         // Tarjetas
                         $('.statistics-card .display-4.text-primary').text(data.porcentajeAsistencia + '%');
-                        $('.statistics-card .display-4.text-danger').text(data.porcentajeAusencias + '%');
+                        $('.statistics-card .display-4.text-danger').first().text(data.porcentajeAusencias + '%');
                         $('.statistics-card .display-4.text-warning').text(data.porcentajeTardanzas + '%');
+                        $('.statistics-card .display-4.text-danger[style*="opacity"]').text(data.porcentajeFugas ? data.porcentajeFugas + '%' : '0%');
+                        $('.statistics-card .display-4.text-info').text(data.porcentajeExcusas ? data.porcentajeExcusas + '%' : '0%');
                         // Tabla por estudiante
                         let html = '';
                         data.porEstudiante.forEach(e => {
                             html += `<tr>
                                 <td>
-                                    <div>${e.estudiante}</div>
+                                    <div>${formatName(e.estudiante)}</div>
                                     <small class="text-muted">${e.documentId || 'Sin cédula'}</small>
                                 </td>
-                                <td>${e.presentes}</td>
-                                <td>${e.ausentes}</td>
-                                <td>${e.tardanzas}</td>
+                                <td>${e.presentes || 0}</td>
+                                <td>${e.ausentes || 0}</td>
+                                <td>${e.tardanzas || 0}</td>
+                                <td>${e.fugas || 0}</td>
+                                <td>${e.excusas || 0}</td>
                                 <td>${e.porcentajeAsistencia}%</td>
                             </tr>`;
                         });
@@ -2723,13 +2796,26 @@
                 });
             }
 
+            // Validación del filtro de estadísticas
+            function validarFiltrosEstadisticas() {
+                const grupo = $('#filtroGrupoEstadisticas').val();
+                const trimestre = $('#trimestreEstadisticas').val();
+                
+                if (grupo && trimestre) {
+                    $('#btnConsultarEstadisticas').prop('disabled', false);
+                } else {
+                    $('#btnConsultarEstadisticas').prop('disabled', true);
+                }
+            }
+            
+            // Event listeners para los filtros de estadísticas
+            $('#filtroGrupoEstadisticas, #trimestreEstadisticas').on('change', validarFiltrosEstadisticas);
+            
             // Al hacer click en el botón
             $('#btnConsultarEstadisticas').on('click', consultarEstadisticas);
-            // También al cambiar de grupo o trimestre principal, recargar el select de trimestre
-            $('#selGroup').on('change', function() {
-                // Opcional: podrías resetear el select de trimestre si lo deseas
-                // $('#trimestreEstadisticas').val($('#trimestreEstadisticas option:first').val());
-            });
+            
+            // Validar estado inicial del botón
+            validarFiltrosEstadisticas();
         });
     </script>
 
@@ -2747,7 +2833,7 @@
                     data: { subjectId: subjectId, groupId: groupId, gradeId: gradeId },
                     success: function(students) {
                         students.forEach(function(s) {
-                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${s.fullName}</option>`);
+                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${formatName(s.fullName)}</option>`);
                         });
                     }
                 });
@@ -3032,7 +3118,7 @@
         const [subjectId, groupId, gradeLevelId] = combo.split('|');
         $('#listaEstudiantesDisciplina').html('<div class="text-center">Cargando estudiantes...</div>');
         $.ajax({
-            url: '/TeacherGradebook/StudentsByGroupAndGrade',
+            url: '/TeacherGradebookDuplicate/StudentsByGroupAndGrade',
             method: 'GET',
             data: { groupId: groupId, gradeId: gradeLevelId },
             success: function(response) {
@@ -3044,7 +3130,8 @@
                 }
                 const container = $('<div class="list-group"></div>');
                 response.forEach(student => {
-                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${student.fullName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
+                    const formattedName = formatName(student.fullName);
+                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${formattedName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
                     container.append(item);
                 });
                 listaEstudiantes.append(container);
@@ -3058,7 +3145,7 @@
     </script>
 
     <script>
-        // --- Cambiar filtro de Materia, Grado y Grupo en disciplina ---
+        // --- Cambiar filtro de Grado y Grupo en disciplina ---
         $('#filtroGradoDisciplina').on('change', function() {
             console.log('Filtro de disciplina cambiado');
             const combo = $(this).val();
@@ -3069,17 +3156,16 @@
                 return;
             }
 
-            const [subjectId, groupId, gradeLevelId] = combo.split('|');
-            console.log('IDs extraídos:', { subjectId, groupId, gradeLevelId });
+            const [groupId, gradeLevelId] = combo.split('|');
+            console.log('IDs extraídos:', { groupId, gradeLevelId });
             
             // Mostrar indicador de carga
             $('#listaEstudiantesDisciplina').html('<div class="text-center">Cargando estudiantes...</div>');
             
             $.ajax({
-                url: '/TeacherGradebook/StudentsByGroupAndGrade',
+                url: '/TeacherGradebookDuplicate/StudentsByGroupAndGrade',
                 method: 'GET',
                 data: { 
-                    subjectId: subjectId, 
                     groupId: groupId, 
                     gradeId: gradeLevelId 
                 },
@@ -3103,9 +3189,9 @@
                                 <div class="d-flex align-items-center">
                                     <i class="bi bi-person-circle me-2"></i>
                                     <div>
-                                        <div class="fw-semibold">${student.fullName}</div>
+                                        <div class="fw-semibold">${formatName(student.fullName)}</div>
                                         <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
-                                        <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
+                                        <small class="text-muted">${$('#filtroGradoDisciplinaInput').val()}</small>
                                     </div>
                                 </div>
                             </div>`;
@@ -3142,31 +3228,55 @@
         $(document).ready(function() {
             // Habilitar/deshabilitar botón según selección de grupo
             $('#filtroGrupoHistorialDisciplina').on('change', function() {
+                console.log('🔄 Filtro de historial de disciplina cambiado');
                 const combo = $(this).val();
+                console.log('📊 Valor del combo:', combo);
+                
                 if (!combo) {
+                    console.log('❌ No hay combo seleccionado');
                     $('#btnFiltrarHistorialDisciplina').prop('disabled', true);
                 } else {
+                    console.log('✅ Combo seleccionado, habilitando botón');
                     $('#btnFiltrarHistorialDisciplina').prop('disabled', false);
                     
                     // Cargar estudiantes cuando se selecciona un grupo
-                    const [subjectId, groupId, gradeId] = combo.split('|');
+                    const [groupId, gradeId] = combo.split('|');
+                    console.log('📚 IDs extraídos:', { groupId, gradeId });
+                    
+                    console.log('🌐 Enviando petición AJAX para cargar estudiantes...');
                     $.ajax({
                         url: '/TeacherGradebookDuplicate/StudentsByGroupAndGrade',
                         method: 'GET',
                         data: { 
-                            subjectId: subjectId, 
                             groupId: groupId, 
                             gradeId: gradeId 
                         },
                         success: function(response) {
+                            console.log('✅ Respuesta exitosa recibida:', response);
+                            console.log('📊 Cantidad de estudiantes:', response ? response.length : 0);
+                            
                             const select = $('#estudianteHistorialDisciplina');
                             select.html('<option value="">Todos los estudiantes</option>');
-                            response.forEach(student => {
-                                select.append(`<option value="${student.studentId}">${student.fullName}</option>`);
-                            });
+                            
+                            if (response && response.length > 0) {
+                                response.forEach((student, index) => {
+                                    console.log(`👤 Estudiante ${index + 1}:`, {
+                                        id: student.studentId,
+                                        nombre: formatName(student.fullName),
+                                        documentId: student.documentId
+                                    });
+                                    select.append(`<option value="${student.studentId}">${formatName(student.fullName)}</option>`);
+                                });
+                                console.log('✅ Dropdown de estudiantes poblado correctamente');
+                            } else {
+                                console.log('⚠️ No hay estudiantes para mostrar');
+                            }
                         },
                         error: function(xhr, status, error) {
-                            console.error('Error al cargar estudiantes:', error);
+                            console.error('❌ Error al cargar estudiantes:', error);
+                            console.error('📄 Detalles del error:', xhr.responseText);
+                            console.error('📊 Status:', status);
+                            console.error('🚨 XHR:', xhr);
                         }
                     });
                 }
@@ -3188,7 +3298,7 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Debe seleccionar Materia, Grado y Grupo antes de buscar.'
+                        text: 'Debe seleccionar Grado y Grupo antes de buscar.'
                     });
                     return;
                 }
@@ -3217,7 +3327,8 @@
                     }
                 }
 
-                const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                const [groupId, gradeLevelId] = combo.split('|');
+                console.log('🎯 IDs para filtrado:', { groupId, gradeLevelId });
 
                 let mensajeBusqueda = 'Buscando registros disciplinarios';
                 if (fechaInicio && fechaFin) {
@@ -3517,8 +3628,8 @@
                     return;
                 }
 
-                const [subjectId, groupId, gradeLevelId] = combo.split('|');
-                console.log('IDs extraídos:', { subjectId, groupId, gradeLevelId });
+                const [groupId, gradeLevelId] = combo.split('|');
+                console.log('IDs extraídos:', { groupId, gradeLevelId });
                 
                 // Mostrar indicador de carga
                 $('#listaEstudiantesDisciplina').html('<div class="text-center">Cargando estudiantes...</div>');
@@ -3527,7 +3638,6 @@
                     url: '/TeacherGradebookDuplicate/StudentsByGroupAndGrade',
                     method: 'GET',
                     data: { 
-                        subjectId: subjectId, 
                         groupId: groupId, 
                         gradeId: gradeLevelId 
                     },
@@ -3549,7 +3659,7 @@
                         response.forEach((student, index) => {
                             console.log(`👤 Estudiante ${index + 1}:`, {
                                 id: student.studentId,
-                                nombre: student.fullName,
+                                nombre: formatName(student.fullName),
                                 documentId: student.documentId
                             });
                             
@@ -3561,7 +3671,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplinaInput').val()}</small>
                                         </div>
@@ -3615,17 +3725,17 @@
                 console.log('📊 Obteniendo datos del combo...');
                 const combo = $('#filtroGradoDisciplina').val();
                 console.log('🎯 Valor del combo:', combo);
-                let subjectId = null, groupId = null, gradeLevelId = null;
+                let groupId = null, gradeLevelId = null;
                 if (combo) {
-                    [subjectId, groupId, gradeLevelId] = combo.split('|');
-                    console.log('📚 IDs extraídos:', { subjectId, groupId, gradeLevelId });
+                    [groupId, gradeLevelId] = combo.split('|');
+                    console.log('📚 IDs extraídos:', { groupId, gradeLevelId });
                 }
                 
                 console.log('📝 Recopilando datos del formulario...');
                 const formData = new FormData();
                 formData.append('StudentId', window.estudianteSeleccionado.id);
                 formData.append('TeacherId', '@Model.TeacherId');
-                formData.append('SubjectId', subjectId);
+                formData.append('SubjectId', ''); // Sin materia específica
                 formData.append('GroupId', groupId);
                 formData.append('GradeLevelId', gradeLevelId);
                 formData.append('Date', $('#fechaDisciplina').val());
@@ -3638,7 +3748,7 @@
                 console.log('📄 Datos del formulario:');
                 console.log('  - StudentId:', window.estudianteSeleccionado.id);
                 console.log('  - TeacherId:', '@Model.TeacherId');
-                console.log('  - SubjectId:', subjectId);
+                console.log('  - SubjectId:', ''); // Sin materia específica
                 console.log('  - GroupId:', groupId);
                 console.log('  - GradeLevelId:', gradeLevelId);
                 console.log('  - Date:', $('#fechaDisciplina').val());
@@ -3922,7 +4032,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                         </div>
@@ -3980,7 +4090,7 @@
                         response.data.forEach(item => {
                             if (!estudiantes[item.studentId]) {
                                 estudiantes[item.studentId] = {
-                                    nombre: item.studentFullName,
+                                    nombre: formatName(item.studentFullName),
                                     documentId: item.documentId || 'Sin cédula',
                                     t1: null,
                                     t2: null,
@@ -4139,7 +4249,7 @@
                 data.students.forEach(function(student) {
                     let row = `<tr>
                         <td style="position: sticky; left: 0; background-color: white; z-index: 1; font-weight: 600;">
-                            <div>${student.fullName}</div>
+                            <div>${formatName(student.fullName)}</div>
                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small>
                         </td>`;
                     
@@ -4357,7 +4467,7 @@
                         response.forEach((student, index) => {
                             console.log(`👤 Estudiante ${index + 1} (automático):`, {
                                 id: student.studentId,
-                                nombre: student.fullName,
+                                nombre: formatName(student.fullName),
                                 documentId: student.documentId
                             });
                             
@@ -4369,7 +4479,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplinaInput').val()}</small>
                                         </div>

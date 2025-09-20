@@ -54,12 +54,29 @@ namespace SchoolManager.Services.Implementations
         {
             return Enum.GetValues(typeof(ActivityTypeEnum))
                 .Cast<ActivityTypeEnum>()
-                .Select(enumValue => new ActivityTypeDto
-                {
-                    Id = Guid.Empty,
-                    Name = enumValue.ToString()
-                })
+                .Select(GetActivityTypeDto)
                 .ToList();
+        }
+
+        /// <summary>
+        /// Obtiene el DTO con nombre interno y nombre para mostrar
+        /// </summary>
+        private static ActivityTypeDto GetActivityTypeDto(ActivityTypeEnum enumValue)
+        {
+            var (displayName, internalValue) = enumValue switch
+            {
+                ActivityTypeEnum.NotasDeApreciacion => ("Notas de apreciación", "tarea"),
+                ActivityTypeEnum.EjerciciosDiarios => ("Ejercicios Diarios", "parcial"),
+                ActivityTypeEnum.Examen => ("Examen", "examen"),
+                _ => (enumValue.ToString(), enumValue.ToString().ToLower())
+            };
+
+            return new ActivityTypeDto
+            {
+                Id = Guid.Empty,
+                Name = internalValue, // Valor interno que espera el JavaScript
+                DisplayName = displayName // Nombre bonito para mostrar en el dropdown
+            };
         }
     }
 }

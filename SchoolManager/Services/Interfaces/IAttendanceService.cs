@@ -13,7 +13,7 @@ public interface IAttendanceService
     Task DeleteAsync(Guid id);
     Task<List<Attendance>> GetByStudentAsync(Guid studentId);
     Task<List<Attendance>> GetHistorialAsync(Guid groupId, Guid gradeId, DateOnly? fechaInicio, DateOnly? fechaFin, Guid? studentId = null);
-    Task<EstadisticasAsistenciaDto> GetEstadisticasAsync(Guid groupId, Guid gradeId, string trimestre, DateTime fechaInicio, DateTime fechaFin);
+    Task<EstadisticasAsistenciaDto> GetEstadisticasAsync(Guid groupId, Guid gradeId, string trimestre, string? fechaInicio, string? fechaFin);
     Task SaveAttendancesAsync(List<AttendanceSaveDto> attendances);
     Task<List<AttendanceResponseDto>> GetAttendancesByDateAsync(Guid groupId, Guid gradeId, DateOnly date);
     Task<List<object>> GetHistorialAsistenciaAsync(HistorialAsistenciaFiltroDto filtro);

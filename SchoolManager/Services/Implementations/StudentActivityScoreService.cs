@@ -27,8 +27,12 @@ namespace SchoolManager.Services
         /* ------------ 1. Guardar / actualizar notas ------------ */
         public async Task SaveAsync(IEnumerable<StudentActivityScoreCreateDto> scores)
         {
+            Console.WriteLine($"[SCORE-SERVICE] SaveAsync iniciado con {scores.Count()} notas");
+            
             foreach (var dto in scores)
             {
+                Console.WriteLine($"[SCORE-SERVICE] Procesando nota: StudentId={dto.StudentId}, ActivityId={dto.ActivityId}, Score={dto.Score}, Trimester={dto.Trimester}");
+                
                 // Validar trimestre activo
                 await _trimesterService.ValidateTrimesterActiveAsync(dto.Trimester);
 
@@ -38,6 +42,7 @@ namespace SchoolManager.Services
 
                 if (entity is null)
                 {
+                    Console.WriteLine($"[SCORE-SERVICE] Creando nueva nota para StudentId={dto.StudentId}, ActivityId={dto.ActivityId}");
                     var newScore = new StudentActivityScore
                     {
                         Id = Guid.NewGuid(),
@@ -51,15 +56,20 @@ namespace SchoolManager.Services
                     await AuditHelper.SetSchoolIdAsync(newScore, _currentUserService);
                     
                     _context.StudentActivityScores.Add(newScore);
+                    Console.WriteLine($"[SCORE-SERVICE] Nota agregada al contexto: Id={newScore.Id}");
                 }
                 else
                 {
+                    Console.WriteLine($"[SCORE-SERVICE] Actualizando nota existente: Id={entity.Id}, Nueva puntuación={dto.Score}");
                     entity.Score = dto.Score;
                     // Configurar campos de auditoría para actualización
                     await AuditHelper.SetAuditFieldsForUpdateAsync(entity, _currentUserService);
                 }
             }
+            
+            Console.WriteLine($"[SCORE-SERVICE] Guardando cambios en la base de datos...");
             await _context.SaveChangesAsync();
+            Console.WriteLine($"[SCORE-SERVICE] ✅ Cambios guardados exitosamente");
         }
 
         /* ------------ 2. Libro de calificaciones pivotado ------------ */
@@ -142,16 +152,31 @@ namespace SchoolManager.Services
                     // Validar trimestre activo antes de procesar
                     await _trimesterService.ValidateTrimesterActiveAsync(dto.Trimester);
 
-                    // Buscar o crear la actividad por nombre, docente, grupo, trimestre y grado
-                    var activity = await _context.Activities
-                        .FirstOrDefaultAsync(a =>
-                            a.Name == dto.ActivityName &&
-                            a.TeacherId == dto.TeacherId &&
-                            a.Trimester == dto.Trimester &&
-                            a.SubjectId == dto.SubjectId &&
-                            a.GroupId == dto.GroupId &&
-                            a.GradeLevelId == dto.GradeLevelId &&
-                            a.Type == dto.Type);
+                    // Buscar la actividad por ID si está disponible, sino por nombre
+                    Activity? activity = null;
+                    
+                    if (dto.ActivityId != Guid.Empty)
+                    {
+                        // Si viene ActivityId, usarlo directamente
+                        activity = await _context.Activities
+                            .FirstOrDefaultAsync(a => a.Id == dto.ActivityId);
+                        Console.WriteLine($"[SCORE-SERVICE] Buscando actividad por ID: {dto.ActivityId}, Encontrada: {activity != null}");
+                    }
+                    
+                    if (activity == null)
+                    {
+                        // Si no se encontró por ID o no vino ID, buscar por nombre
+                        activity = await _context.Activities
+                            .FirstOrDefaultAsync(a =>
+                                a.Name == dto.ActivityName &&
+                                a.TeacherId == dto.TeacherId &&
+                                a.Trimester == dto.Trimester &&
+                                a.SubjectId == dto.SubjectId &&
+                                a.GroupId == dto.GroupId &&
+                                a.GradeLevelId == dto.GradeLevelId &&
+                                a.Type == dto.Type);
+                        Console.WriteLine($"[SCORE-SERVICE] Buscando actividad por nombre: {dto.ActivityName}, Encontrada: {activity != null}");
+                    }
 
                     // Si no existe, la creamos
                     if (activity == null)

@@ -146,6 +146,15 @@ namespace SchoolManager.Services
                     throw new InvalidOperationException($"No se encontró el trimestre '{dto.TrimesterCode}' para la escuela actual.");
                 }
 
+                // Verificar si hay notas asociadas antes de actualizar
+                var existingScores = await _context.StudentActivityScores
+                    .Where(s => s.ActivityId == activity.Id)
+                    .ToListAsync();
+                
+                Console.WriteLine($"[ActivityService] Actividad tiene {existingScores.Count} notas asociadas antes de la actualización");
+                // También usar el logger apropiado
+                // _logger.LogInformation("[ActivityService] Actividad tiene {Count} notas asociadas antes de la actualización", existingScores.Count);
+                
                 // Actualizar los campos
                 activity.Name = dto.Name;
                 activity.Type = dto.Type;
@@ -156,6 +165,8 @@ namespace SchoolManager.Services
                 activity.GroupId = dto.GroupId;
                 activity.GradeLevelId = dto.GradeLevelId;
                 activity.DueDate = dto.DueDate.ToUniversalTime();
+                
+                Console.WriteLine($"[ActivityService] Campos actualizados - Nombre: {activity.Name}, Tipo: {activity.Type}");
 
                 // Manejar archivo PDF si se proporciona uno nuevo
                 if (dto.Pdf != null)
@@ -172,6 +183,18 @@ namespace SchoolManager.Services
                 _context.Activities.Update(activity);
                 await _context.SaveChangesAsync();
                 Console.WriteLine($"[ActivityService] Actividad actualizada exitosamente en la base de datos");
+                
+                // Verificar si las notas siguen ahí después de la actualización
+                var scoresAfterUpdate = await _context.StudentActivityScores
+                    .Where(s => s.ActivityId == activity.Id)
+                    .ToListAsync();
+                
+                Console.WriteLine($"[ActivityService] Actividad tiene {scoresAfterUpdate.Count} notas asociadas DESPUÉS de la actualización");
+                
+                if (existingScores.Count != scoresAfterUpdate.Count)
+                {
+                    Console.WriteLine($"[ActivityService] ⚠️ ALERTA: Se perdieron notas durante la actualización! Antes: {existingScores.Count}, Después: {scoresAfterUpdate.Count}");
+                }
 
                 var subject = await _context.Subjects.FindAsync(dto.SubjectId);
                 var group = await _context.Groups.FindAsync(dto.GroupId);

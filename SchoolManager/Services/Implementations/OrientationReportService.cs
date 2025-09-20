@@ -62,6 +62,8 @@ namespace SchoolManager.Services
 
         public async Task<List<OrientationReport>> GetFilteredAsync(DateTime? fechaInicio, DateTime? fechaFin, Guid? gradoId, Guid? groupId = null, Guid? studentId = null)
         {
+            Console.WriteLine($"🔍 [ORIENTACION-SERVICE] Filtros: grado={gradoId}, grupo={groupId}, estudiante={studentId}, fechas={fechaInicio} a {fechaFin}");
+            
             var query = _context.OrientationReports
                 .Include(r => r.Student)
                 .Include(r => r.Teacher)
@@ -73,35 +75,55 @@ namespace SchoolManager.Services
             if (gradoId.HasValue)
             {
                 query = query.Where(r => r.GradeLevelId == gradoId);
+                Console.WriteLine($"🎯 [ORIENTACION-SERVICE] Filtro grado: {gradoId}");
             }
 
             // Filtros opcionales
             if (groupId.HasValue)
             {
                 query = query.Where(r => r.GroupId == groupId);
+                Console.WriteLine($"👥 [ORIENTACION-SERVICE] Filtro grupo: {groupId}");
             }
 
             if (studentId.HasValue)
             {
                 query = query.Where(r => r.StudentId == studentId);
+                Console.WriteLine($"👤 [ORIENTACION-SERVICE] Filtro estudiante: {studentId}");
             }
 
+            // Filtros de fecha usando created_at - convertir de zona horaria local a UTC
             if (fechaInicio.HasValue)
             {
-                var startDate = fechaInicio.Value.Date.ToUniversalTime();
-                query = query.Where(r => r.Date >= startDate);
+                // Inicio del día en hora local, convertir a UTC
+                var localStart = fechaInicio.Value.Date; // 2025-09-19 00:00:00 (local)
+                var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, TimeZoneInfo.Local);
+                query = query.Where(r => r.CreatedAt >= utcStart);
+                Console.WriteLine($"📅 [ORIENTACION-SERVICE] Filtro inicio: {localStart:yyyy-MM-dd HH:mm:ss} (local) -> {utcStart:yyyy-MM-dd HH:mm:ss} (UTC)");
             }
 
             if (fechaFin.HasValue)
             {
-                var endDate = fechaFin.Value.Date.AddDays(1).AddTicks(-1).ToUniversalTime();
-                query = query.Where(r => r.Date <= endDate);
+                // Final del día en hora local, convertir a UTC
+                var localEnd = fechaFin.Value.Date.AddDays(1).AddTicks(-1); // 2025-09-19 23:59:59 (local)
+                var utcEnd = TimeZoneInfo.ConvertTimeToUtc(localEnd, TimeZoneInfo.Local);
+                query = query.Where(r => r.CreatedAt <= utcEnd);
+                Console.WriteLine($"📅 [ORIENTACION-SERVICE] Filtro fin: {localEnd:yyyy-MM-dd HH:mm:ss} (local) -> {utcEnd:yyyy-MM-dd HH:mm:ss} (UTC)");
             }
 
-            return await query
-                .OrderByDescending(r => r.Date)
-                .ThenByDescending(r => r.CreatedAt)
+            var result = await query
+                .OrderByDescending(r => r.CreatedAt)
+                .ThenByDescending(r => r.Date)
                 .ToListAsync();
+                
+            Console.WriteLine($"✅ [ORIENTACION-SERVICE] Resultado final: {result.Count} registros encontrados");
+            
+            // Mostrar detalles de los registros encontrados para debugging
+            foreach (var record in result)
+            {
+                Console.WriteLine($"📄 [ORIENTACION-SERVICE] Registro: ID={record.Id}, CreatedAt={record.CreatedAt:yyyy-MM-dd HH:mm:ss}, Date={record.Date:yyyy-MM-dd HH:mm:ss}, Estudiante={record.Student?.Name} {record.Student?.LastName}");
+            }
+            
+            return result;
         }
 
         public async Task<List<OrientationReportDto>> GetByStudentDtoAsync(Guid studentId, string trimester = null)

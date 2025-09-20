@@ -5,7 +5,7 @@ namespace SchoolManager.Dtos
         public Guid GroupId { get; set; }
         public Guid GradeId { get; set; }
         public string Trimestre { get; set; }
-        public DateTime FechaInicio { get; set; }
-        public DateTime FechaFin { get; set; }
+        public string? FechaInicio { get; set; }
+        public string? FechaFin { get; set; }
     }
 } 

@@ -20,6 +20,8 @@ public class OrientationReportController : Controller
     private readonly ISubjectService _subjectService;
     private readonly ITrimesterService _trimesterService;
     private readonly IActivityTypeService _activityTypeService;
+    private readonly IStudentService _studentService;
+    private readonly IAttendanceService _attendanceService;
 
     public OrientationReportController(
         IOrientationReportService orientationReportService, 
@@ -30,7 +32,9 @@ public class OrientationReportController : Controller
         IGradeLevelService gradeLevelService,
         ISubjectService subjectService,
         ITrimesterService trimesterService,
-        IActivityTypeService activityTypeService)
+        IActivityTypeService activityTypeService,
+        IStudentService studentService,
+        IAttendanceService attendanceService)
     {
         _orientationReportService = orientationReportService;
         _userService = userService;
@@ -41,6 +45,8 @@ public class OrientationReportController : Controller
         _subjectService = subjectService;
         _trimesterService = trimesterService;
         _activityTypeService = activityTypeService;
+        _studentService = studentService;
+        _attendanceService = attendanceService;
     }
 
     public async Task<IActionResult> Index()
@@ -270,20 +276,32 @@ public class OrientationReportController : Controller
     [HttpGet]
     public async Task<IActionResult> GetFiltered(DateTime? fechaInicio, DateTime? fechaFin, Guid? gradoId, Guid? groupId = null, Guid? studentId = null)
     {
+        _logger.LogInformation("🔍 [ORIENTACION-BACKEND] GetFiltered llamado con parámetros:");
+        _logger.LogInformation("📅 [ORIENTACION-BACKEND] fechaInicio: {FechaInicio}", fechaInicio);
+        _logger.LogInformation("📅 [ORIENTACION-BACKEND] fechaFin: {FechaFin}", fechaFin);
+        _logger.LogInformation("🎯 [ORIENTACION-BACKEND] gradoId: {GradoId}", gradoId);
+        _logger.LogInformation("👥 [ORIENTACION-BACKEND] groupId: {GroupId}", groupId);
+        _logger.LogInformation("👤 [ORIENTACION-BACKEND] studentId: {StudentId}", studentId);
+        
         if (!gradoId.HasValue)
         {
+            _logger.LogWarning("❌ [ORIENTACION-BACKEND] gradoId es requerido pero no fue proporcionado");
             return BadRequest(new { error = "El grado es obligatorio" });
         }
 
         try
         {
+            _logger.LogInformation("🌐 [ORIENTACION-BACKEND] Llamando a GetFilteredAsync...");
             var reports = await _orientationReportService.GetFilteredAsync(fechaInicio, fechaFin, gradoId, groupId, studentId);
+            _logger.LogInformation("📊 [ORIENTACION-BACKEND] Registros encontrados: {Count}", reports?.Count ?? 0);
             
             var result = reports.Select(r => new {
+                id = r.Id,
+                studentId = r.StudentId,
                 estudiante = r.Student != null ? $"{r.Student.Name} {r.Student.LastName}" : null,
                 documentId = r.Student?.DocumentId,
-                fecha = r.Date.ToString("dd/MM/yyyy"),
-                hora = r.Date.ToString("HH:mm"),
+                fecha = r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy"),
+                hora = r.CreatedAt.ToLocalTime().ToString("HH:mm"),
                 tipo = r.ReportType,
                 categoria = r.Category,
                 status = r.Status,
@@ -291,7 +309,13 @@ public class OrientationReportController : Controller
                 documents = r.Documents,
                 grupo = r.Group?.Name,
                 grado = r.GradeLevel?.Name
-            });
+            }).ToList();
+
+            _logger.LogInformation("✅ [ORIENTACION-BACKEND] Resultado procesado con {Count} registros", result.Count);
+            if (result.Count > 0)
+            {
+                _logger.LogInformation("📄 [ORIENTACION-BACKEND] Primer registro: {@FirstRecord}", result.First());
+            }
 
             return Json(result);
         }
@@ -357,5 +381,144 @@ public class OrientationReportController : Controller
         }
 
         return teacherId;
+    }
+
+    // =================== MÉTODOS ÚNICOS PARA ORIENTATIONREPORT ===================
+
+    [HttpGet]
+    public async Task<JsonResult> StudentsByGroupAndGrade(Guid groupId, Guid gradeId, Guid? subjectId = null)
+    {
+        try
+        {
+            IEnumerable<StudentBasicDto> students;
+            if (subjectId.HasValue && subjectId.Value != Guid.Empty)
+            {
+                // Filtrar por materia, grupo y grado
+                students = await _studentService.GetBySubjectGroupAndGradeAsync(subjectId.Value, groupId, gradeId);
+            }
+            else
+            {
+                // Filtrar solo por grupo y grado (comportamiento anterior)
+                students = await _studentService.GetByGroupAndGradeAsync(groupId, gradeId);
+            }
+            return Json(students);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener estudiantes por grupo y grado");
+            return Json(new { error = "Error al obtener estudiantes" });
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> GetAsistencias([FromBody] GetNotesDto request)
+    {
+        try
+        {
+            var teacherId = GetTeacherId();
+            
+            // Obtener asistencias para el grupo específico
+            var asistencias = await _attendanceService.GetAttendancesByDateAsync(request.GroupId, request.GradeLevelId, DateOnly.FromDateTime(DateTime.Now));
+            
+            return Json(new { success = true, data = asistencias });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener asistencias");
+            return Json(new { success = false, error = ex.Message });
+        }
+    }
+
+    // =================== MÉTODO DE PRUEBA SIMPLE ===================
+    
+    [HttpGet]
+    public async Task<IActionResult> TestSimpleFilter(Guid? gradoId, Guid? groupId = null, Guid? studentId = null)
+    {
+        try
+        {
+            _logger.LogInformation("🧪 [TEST] Filtro simple SIN fechas: grado={GradoId}, grupo={GroupId}, estudiante={StudentId}", gradoId, groupId, studentId);
+            
+            // Usar el servicio pero sin fechas
+            var reports = await _orientationReportService.GetFilteredAsync(null, null, gradoId, groupId, studentId);
+            
+            var result = reports.Select(r => new {
+                id = r.Id,
+                studentId = r.StudentId,
+                estudiante = r.Student != null ? $"{r.Student.Name} {r.Student.LastName}" : null,
+                documentId = r.Student?.DocumentId,
+                fecha = r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy"),
+                hora = r.CreatedAt.ToLocalTime().ToString("HH:mm"),
+                tipo = r.ReportType,
+                categoria = r.Category,
+                status = r.Status,
+                description = r.Description,
+                documents = r.Documents,
+                grupo = r.Group?.Name,
+                grado = r.GradeLevel?.Name,
+                dateOriginal = r.Date,
+                dateKind = r.Date.Kind.ToString()
+            }).ToList();
+            
+            _logger.LogInformation("🧪 [TEST] Encontrados {Count} registros", result.Count);
+            return Json(new { 
+                success = true, 
+                count = result.Count, 
+                data = result 
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "🧪 [TEST] Error en filtro simple: {Error}", ex.Message);
+            return Json(new { 
+                success = false, 
+                error = ex.Message, 
+                stackTrace = ex.StackTrace 
+            });
+        }
+    }
+    
+    [HttpGet]
+    public async Task<IActionResult> TestDateFilter(DateTime? fechaInicio, DateTime? fechaFin, Guid? gradoId, Guid? groupId = null, Guid? studentId = null)
+    {
+        try
+        {
+            _logger.LogInformation("🧪 [TEST-DATE] Parámetros recibidos:");
+            _logger.LogInformation("📅 fechaInicio: {FechaInicio}", fechaInicio);
+            _logger.LogInformation("📅 fechaFin: {FechaFin}", fechaFin);
+            
+            if (fechaInicio.HasValue)
+            {
+                var startDateOnly = DateOnly.FromDateTime(fechaInicio.Value);
+                _logger.LogInformation("📅 startDateOnly: {StartDate}", startDateOnly);
+            }
+            
+            if (fechaFin.HasValue)
+            {
+                var endDateOnly = DateOnly.FromDateTime(fechaFin.Value);
+                _logger.LogInformation("📅 endDateOnly: {EndDate}", endDateOnly);
+            }
+            
+            // Llamar al método normal
+            var reports = await _orientationReportService.GetFilteredAsync(fechaInicio, fechaFin, gradoId, groupId, studentId);
+            
+            var result = reports.Select(r => new {
+                id = r.Id,
+                studentId = r.StudentId,
+                studentName = r.Student != null ? $"{r.Student.Name} {r.Student.LastName}" : "Sin nombre",
+                date = r.Date.ToString("yyyy-MM-dd HH:mm:ss"),
+                dateOnly = DateOnly.FromDateTime(r.Date).ToString("yyyy-MM-dd"),
+                matchesStart = !fechaInicio.HasValue || DateOnly.FromDateTime(r.Date) >= DateOnly.FromDateTime(fechaInicio.Value),
+                matchesEnd = !fechaFin.HasValue || DateOnly.FromDateTime(r.Date) <= DateOnly.FromDateTime(fechaFin.Value),
+                grupo = r.Group?.Name,
+                grado = r.GradeLevel?.Name
+            });
+            
+            return Json(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en TestDateFilter");
+            return Json(new { error = ex.Message, stackTrace = ex.StackTrace });
+        }
     }
 }
