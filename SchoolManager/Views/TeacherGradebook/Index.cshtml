@@ -1186,19 +1186,19 @@
                 </div>
                 <div class="card-body">
                     <div class="row" id="estadisticasConsejeria">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <div class="statistics-card">
                                 <h6 class="card-title">Total Estudiantes</h6>
                                 <div class="display-4 text-primary" id="totalEstudiantes">-</div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <div class="statistics-card">
                                 <h6 class="card-title">Total Materias</h6>
                                 <div class="display-4 text-info" id="totalMaterias">-</div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <div class="statistics-card">
                                 <h6 class="card-title">Promedio General</h6>
                                 <div class="display-4 text-success" id="promedioGeneral">-</div>
@@ -1208,6 +1208,12 @@
                             <div class="statistics-card">
                                 <h6 class="card-title">% Aprobados</h6>
                                 <div class="display-4 text-warning" id="porcentajeAprobados">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="statistics-card">
+                                <h6 class="card-title">% Reprobados</h6>
+                                <div class="display-4 text-danger" id="porcentajeReprobados">-</div>
                             </div>
                         </div>
                     </div>
@@ -3726,6 +3732,10 @@
             $('#totalMaterias').text(totalSubjects);
             $('#promedioGeneral').text(generalAverage > 0 ? generalAverage.toFixed(1) : '-');
             $('#porcentajeAprobados').text(approvalPercentage > 0 ? approvalPercentage.toFixed(1) + '%' : '-');
+            
+            // Calcular porcentaje de reprobados
+            const reprobadosPercentage = approvalPercentage > 0 ? (100 - approvalPercentage) : 0;
+            $('#porcentajeReprobados').text(reprobadosPercentage > 0 ? reprobadosPercentage.toFixed(1) + '%' : '-');
         }
 
         // Event listeners para consejería

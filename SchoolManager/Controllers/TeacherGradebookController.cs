@@ -27,6 +27,7 @@ namespace SchoolManager.Controllers
         private readonly IAttendanceService _attendanceService;
         private readonly ICounselorAssignmentService _counselorAssignmentService;
         private readonly ISubjectAssignmentService _subjectAssignmentService;
+        private readonly ITeacherAssignmentService _teacherAssignmentService;
         private readonly SchoolDbContext _context;
 
 
@@ -41,6 +42,7 @@ namespace SchoolManager.Controllers
             IAttendanceService attendanceService,
             ICounselorAssignmentService counselorAssignmentService,
             ISubjectAssignmentService subjectAssignmentService,
+            ITeacherAssignmentService teacherAssignmentService,
             SchoolDbContext context)
             
         {
@@ -54,6 +56,7 @@ namespace SchoolManager.Controllers
             _attendanceService = attendanceService;
             _counselorAssignmentService = counselorAssignmentService;
             _subjectAssignmentService = subjectAssignmentService;
+            _teacherAssignmentService = teacherAssignmentService;
             _context = context;
             
         }
@@ -615,34 +618,27 @@ namespace SchoolManager.Controllers
                     });
                 }
 
-                // Obtener todas las materias asignadas al grupo
-                Console.WriteLine("Obteniendo materias asignadas al grupo...");
-                IEnumerable<object> subjectAssignments;
-                if (request.GradeLevelId != Guid.Empty)
-                {
-                    subjectAssignments = await _subjectAssignmentService.GetByGroupAndGradeAsync(request.GroupId, request.GradeLevelId);
-                }
-                else
-                {
-                    // Si no hay GradeLevelId, obtener todas las materias del grupo
-                    // Esto podría requerir un método diferente en el servicio
-                    subjectAssignments = await _subjectAssignmentService.GetByGroupAndGradeAsync(request.GroupId, Guid.Empty);
-                }
-                Console.WriteLine($"Materias encontradas: {subjectAssignments?.Count() ?? 0}");
+                // Obtener solo las materias que enseña el profesor consejero en este grupo
+                Console.WriteLine("Obteniendo materias que enseña el profesor consejero...");
                 
-                var subjects = subjectAssignments.Select(sa => {
-                    // Usar reflexión para acceder a las propiedades dinámicamente
-                    var subjectId = sa.GetType().GetProperty("SubjectId")?.GetValue(sa);
-                    var subject = sa.GetType().GetProperty("Subject")?.GetValue(sa);
-                    var subjectName = subject?.GetType().GetProperty("Name")?.GetValue(subject);
-                    
-                    return new { 
-                        id = subjectId, 
-                        name = subjectName ?? "Sin nombre" 
-                    };
+                // Obtener todas las asignaciones del profesor
+                var teacherAssignments = await _teacherAssignmentService.GetByTeacherIdAsync(teacherId);
+                Console.WriteLine($"Total de asignaciones del profesor: {teacherAssignments.Count}");
+                
+                // Filtrar por grupo y grado específico a través de SubjectAssignment
+                var filteredAssignments = teacherAssignments.Where(ta => 
+                    ta.SubjectAssignment.GroupId == request.GroupId && 
+                    (request.GradeLevelId == Guid.Empty || ta.SubjectAssignment.GradeLevelId == request.GradeLevelId)
+                ).ToList();
+                
+                Console.WriteLine($"Materias que enseña el profesor en este grupo: {filteredAssignments.Count}");
+                
+                var subjects = filteredAssignments.Select(ta => new { 
+                    id = ta.SubjectAssignment?.SubjectId ?? Guid.Empty, 
+                    name = ta.SubjectAssignment?.Subject?.Name ?? "Sin nombre" 
                 }).ToList();
                 
-                Console.WriteLine($"Materias procesadas: {subjects.Count}");
+                Console.WriteLine($"Materias procesadas: {subjects.Count()}");
 
                 var result = new List<object>();
                 var allAverages = new List<double>();
