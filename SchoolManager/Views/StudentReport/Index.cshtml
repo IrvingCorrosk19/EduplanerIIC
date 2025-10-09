@@ -90,6 +90,44 @@
         text-align: center;
         vertical-align: middle;
     }
+    
+    /* Estilos para las pestañas */
+    .nav-tabs-custom {
+        border-bottom: 2px solid #e2e8f0;
+        gap: 0.5rem;
+    }
+    .nav-tabs-custom .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #64748b;
+        font-weight: 500;
+        padding: 1rem 1.5rem;
+        transition: all 0.3s ease;
+        background: transparent;
+    }
+    .nav-tabs-custom .nav-link:hover {
+        color: #2563eb;
+        background: #f0f6ff;
+        border-radius: 0.5rem 0.5rem 0 0;
+        border-bottom-color: transparent;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #2563eb;
+        font-weight: 600;
+        border-bottom-color: #2563eb;
+        background: transparent;
+    }
+    .tab-content {
+        padding-top: 1.5rem;
+    }
+    .nav-tabs-custom .nav-link .badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .nav-tabs-custom .nav-link:hover .badge {
+        transform: scale(1.1);
+        transition: transform 0.2s ease;
+    }
 </style>
 
 <div class="container-fluid">
@@ -127,12 +165,47 @@
 
     <input type="hidden" id="student-id" value="@Model.StudentId" />
 
-    <div class="row">
-        <!-- Calificaciones -->
-        <div class="col-md-6">
+    <!-- PESTAÑAS DE NAVEGACIÓN -->
+    <ul class="nav nav-tabs nav-tabs-custom mb-4" id="studentReportTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="grades-tab" data-bs-toggle="tab" data-bs-target="#grades-panel" type="button" role="tab">
+                <i class="bi bi-journal-check me-2"></i>Calificaciones
+                <span class="badge bg-primary ms-2">@Model.Grades.Count()</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending-panel" type="button" role="tab">
+                <i class="bi bi-exclamation-circle me-2"></i>Actividades Pendientes
+                @if (Model.PendingActivities.Any())
+                {
+                    <span class="badge bg-warning text-dark ms-2">@Model.PendingActivities.Count()</span>
+                }
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance-panel" type="button" role="tab">
+                <i class="bi bi-calendar3 me-2"></i>Asistencia
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="discipline-tab" data-bs-toggle="tab" data-bs-target="#discipline-panel" type="button" role="tab">
+                <i class="bi bi-exclamation-triangle me-2"></i>Reportes de Disciplina
+                @if (Model.DisciplineReports != null && Model.DisciplineReports.Any())
+                {
+                    <span class="badge bg-danger ms-2">@Model.DisciplineReports.Count()</span>
+                }
+            </button>
+        </li>
+    </ul>
+
+    <!-- CONTENIDO DE LAS PESTAÑAS -->
+    <div class="tab-content" id="studentReportTabContent">
+        
+        <!-- PESTAÑA 1: CALIFICACIONES -->
+        <div class="tab-pane fade show active" id="grades-panel" role="tabpanel">
             <div class="card card-outline card-primary">
                 <div class="card-header">
-                    <i class="bi bi-journal-check me-2"></i> Calificaciones
+                    <i class="bi bi-journal-check me-2"></i> Calificaciones del Trimestre
                 </div>
                 <div class="card-body">
                     <table class="table table-hover table-bordered align-middle" id="grades-table">
@@ -186,8 +259,8 @@
             </div>
         </div>
 
-        <!-- Actividades Pendientes -->
-        <div class="col-md-6">
+        <!-- PESTAÑA 2: ACTIVIDADES PENDIENTES -->
+        <div class="tab-pane fade" id="pending-panel" role="tabpanel">
             <div class="card card-outline card-warning">
                 <div class="card-header">
                     <i class="bi bi-exclamation-circle me-2"></i> Actividades Pendientes
@@ -236,83 +309,84 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="row">
-        <!-- Asistencia por Mes -->
-        <div class="col-md-6">
-            <div class="card card-outline card-primary mb-4">
-                <div class="card-header">
-                    <i class="bi bi-calendar3 me-2"></i> Asistencia por Mes
+        <!-- PESTAÑA 3: ASISTENCIA -->
+        <div class="tab-pane fade" id="attendance-panel" role="tabpanel">
+            <div class="row">
+                <!-- Asistencia por Mes -->
+                <div class="col-md-6">
+                    <div class="card card-outline card-primary mb-4">
+                        <div class="card-header">
+                            <i class="bi bi-calendar3 me-2"></i> Asistencia por Mes
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-hover table-bordered align-middle" id="attendance-month-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mes</th>
+                                        <th>Asistencias</th>
+                                        <th>Ausencias</th>
+                                        <th>Tardanzas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var a in Model.AttendanceByMonth)
+                                    {
+                                        <tr>
+                                            <td>@a.Month</td>
+                                            <td>@a.Present</td>
+                                            <td>@a.Absent</td>
+                                            <td>@a.Late</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <table class="table table-hover table-bordered align-middle" id="attendance-month-table">
-                        <thead>
-                            <tr>
-                                <th>Mes</th>
-                                <th>Asistencias</th>
-                                <th>Ausencias</th>
-                                <th>Tardanzas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var a in Model.AttendanceByMonth)
-                            {
-                                <tr>
-                                    <td>@a.Month</td>
-                                    <td>@a.Present</td>
-                                    <td>@a.Absent</td>
-                                    <td>@a.Late</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+
+                <!-- Asistencia por Trimestre -->
+                <div class="col-md-6">
+                    <div class="card card-outline card-primary mb-4">
+                        <div class="card-header">
+                            <i class="bi bi-calendar3 me-2"></i> Asistencia por Trimestre
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-hover table-bordered align-middle mb-4" id="attendance-trimester-table">
+                                <thead>
+                                    <tr>
+                                        <th>Trimestre</th>
+                                        <th>Asistencias</th>
+                                        <th>Ausencias</th>
+                                        <th>Tardanzas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var a in Model.AttendanceByTrimester)
+                                    {
+                                        <tr>
+                                            <td>@a.Trimester</td>
+                                            <td>@a.Present</td>
+                                            <td>@a.Absent</td>
+                                            <td>@a.Late</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Asistencia por Trimestre -->
-        <div class="col-md-6">
-            <div class="card card-outline card-primary mb-4">
-                <div class="card-header">
-                    <i class="bi bi-calendar3 me-2"></i> Asistencia por Trimestre
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover table-bordered align-middle mb-4" id="attendance-trimester-table">
-                        <thead>
-                            <tr>
-                                <th>Trimestre</th>
-                                <th>Asistencias</th>
-                                <th>Ausencias</th>
-                                <th>Tardanzas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var a in Model.AttendanceByTrimester)
-                            {
-                                <tr>
-                                    <td>@a.Trimester</td>
-                                    <td>@a.Present</td>
-                                    <td>@a.Absent</td>
-                                    <td>@a.Late</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reportes de Disciplina -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card card-outline card-primary mb-4">
+        <!-- PESTAÑA 4: REPORTES DE DISCIPLINA -->
+        <div class="tab-pane fade" id="discipline-panel" role="tabpanel">
+            <div class="card card-outline card-danger mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
                         <i class="bi bi-exclamation-triangle me-2"></i> Reportes de Disciplina
                     </div>
-                    <button type="button" class="btn btn-primary btn-sm" id="exportDisciplinePdf" title="Exportar expediente de disciplina en PDF">
+                    <button type="button" class="btn btn-light btn-sm" id="exportDisciplinePdf" title="Exportar expediente de disciplina en PDF">
                         <i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF
                     </button>
                 </div>
@@ -415,6 +489,9 @@
                         });
                         const average = count > 0 ? (sum / count).toFixed(1) : "0.0";
                         $('#grades-average').text(average);
+                        
+                        // Actualizar badge de calificaciones
+                        $('#grades-tab .badge').text(data.grades.length);
 
                         // Asistencia por Trimestre
                         const attTrimesterTbody = $('#attendance-trimester-table tbody');
@@ -465,6 +542,18 @@
                         } else {
                             pendingTbody.append('<tr><td colspan="5" class="text-center text-muted">No hay actividades pendientes para mostrar.</td></tr>');
                         }
+                        
+                        // Actualizar badge de actividades pendientes
+                        const pendingBadge = $('#pending-tab .badge');
+                        if (data.pendingActivities && data.pendingActivities.length > 0) {
+                            if (pendingBadge.length === 0) {
+                                $('#pending-tab').append(`<span class="badge bg-warning text-dark ms-2">${data.pendingActivities.length}</span>`);
+                            } else {
+                                pendingBadge.text(data.pendingActivities.length);
+                            }
+                        } else {
+                            pendingBadge.remove();
+                        }
 
                         // Reportes de Disciplina
                         const disciplineTbody = $('#discipline-table tbody');
@@ -493,6 +582,18 @@
                                     <td colspan="6" class="text-center text-muted">No hay reportes de disciplina registrados.</td>
                                 </tr>
                             `);
+                        }
+                        
+                        // Actualizar badge de disciplina
+                        const disciplineBadge = $('#discipline-tab .badge');
+                        if (data.disciplineReports && data.disciplineReports.length > 0) {
+                            if (disciplineBadge.length === 0) {
+                                $('#discipline-tab').append(`<span class="badge bg-danger ms-2">${data.disciplineReports.length}</span>`);
+                            } else {
+                                disciplineBadge.text(data.disciplineReports.length);
+                            }
+                        } else {
+                            disciplineBadge.remove();
                         }
                     },
                     error: function (xhr, status, error) {

@@ -1191,6 +1191,15 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 @section Scripts {
     <script>
+        // Función helper global para formatear nombres como "Apellido, Nombre"
+        function formatName(fullName) {
+            if (!fullName) return '(Sin nombre)';
+            const nameParts = fullName.split(' ');
+            return nameParts.length > 1 
+                ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
+                : fullName;
+        }
+
         $(document).ready(() => {
             const teacherId = '@Model.TeacherId';
             const students = [];
@@ -1270,7 +1279,7 @@
                 }
                 
                 uniqueStudents.forEach(s => {
-                    const nombre = s.fullName || '(Sin nombre)';
+                    const nombre = formatName(s.fullName);
                     const documentId = s.documentId || 'Sin cédula';
                     const trimesterData = studentAnnualScores[s.id] || {};
                     const t1 = trimesterData['1T'] || 0;
@@ -1369,11 +1378,7 @@
 
                 if (students && students.length > 0) {
                     students.forEach(s => {
-                        // Convertir formato de nombre de "Nombre Apellido" a "Apellido, Nombre"
-                        const nameParts = s.fullName.split(' ');
-                        const formattedName = nameParts.length > 1 
-                            ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
-                            : s.fullName;
+                        const formattedName = formatName(s.fullName);
                         
                         let row = `<tr data-stu-id="${s.id}"><td>${formattedName}</td><td>${s.documentId || 'Sin cédula'}</td>`;
 
@@ -2206,7 +2211,7 @@
                         response.forEach(student => {
                             const row = `
                                 <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                    <td>${student.fullName}</td>
+                                    <td>${formatName(student.fullName)}</td>
                                     <td>${grupoSeleccionado}</td>
                                     <td>
                                         <span class="status-badge present">
@@ -2294,7 +2299,7 @@
                         
                         const row = `
                             <tr data-student-id="${student.studentId}" data-student-name="${student.fullName.toLowerCase()}">
-                                <td>${student.fullName}</td>
+                                <td>${formatName(student.fullName)}</td>
                                 <td>${$('#filtroGradoAsistencia option:selected').text()}</td>
                                 <td>
                                     <span class="status-badge ${currentStatus}">
@@ -2692,7 +2697,7 @@
                     data: { subjectId: subjectId, groupId: groupId, gradeId: gradeId },
                     success: function(students) {
                         students.forEach(function(s) {
-                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${s.fullName}</option>`);
+                            $('#estudianteHistorial').append(`<option value="${s.studentId}">${formatName(s.fullName)}</option>`);
                         });
                     }
                 });
@@ -2900,7 +2905,8 @@
                 }
                 const container = $('<div class="list-group"></div>');
                 response.forEach(student => {
-                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${student.fullName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
+                    const formattedName = formatName(student.fullName);
+                    const item = `<div class="list-group-item list-group-item-action estudiante-item-disciplina" data-id="${student.studentId}" data-nombre="${student.fullName}" style="cursor:pointer;"><div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i><div><div class="fw-semibold">${formattedName}</div><small class="text-muted">${student.documentId || 'Sin cédula'}</small><br><small class="text-muted">${$('#selGroup option:selected').text()}</small></div></div></div>`;
                     container.append(item);
                 });
                 listaEstudiantes.append(container);
@@ -2959,7 +2965,7 @@
                                 <div class="d-flex align-items-center">
                                     <i class="bi bi-person-circle me-2"></i>
                                     <div>
-                                        <div class="fw-semibold">${student.fullName}</div>
+                                        <div class="fw-semibold">${formatName(student.fullName)}</div>
                                         <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                         <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                     </div>
@@ -3072,7 +3078,7 @@
                             const select = $('#estudianteHistorialDisciplina');
                             select.html('<option value="">Todos los estudiantes</option>');
                             response.forEach(student => {
-                                select.append(`<option value="${student.studentId}">${student.fullName}</option>`);
+                                select.append(`<option value="${student.studentId}">${formatName(student.fullName)}</option>`);
                             });
                         },
                         error: function(xhr, status, error) {
@@ -3359,7 +3365,7 @@
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-person-circle me-2"></i>
                                         <div>
-                                            <div class="fw-semibold">${student.fullName}</div>
+                                            <div class="fw-semibold">${formatName(student.fullName)}</div>
                                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small><br>
                                             <small class="text-muted">${$('#filtroGradoDisciplina option:selected').text()}</small>
                                         </div>
@@ -3416,8 +3422,9 @@
                         const estudiantes = {};
                         response.data.forEach(item => {
                             if (!estudiantes[item.studentId]) {
+                                console.log('Procesando estudiante:', item.studentFullName, '->', formatName(item.studentFullName));
                                 estudiantes[item.studentId] = {
-                                    nombre: item.studentFullName,
+                                    nombre: formatName(item.studentFullName),
                                     documentId: item.documentId || 'Sin cédula',
                                     t1: null,
                                     t2: null,
@@ -3576,7 +3583,7 @@
                 data.students.forEach(function(student) {
                     let row = `<tr>
                         <td style="position: sticky; left: 0; background-color: white; z-index: 1; font-weight: 600;">
-                            <div>${student.fullName}</div>
+                            <div>${formatName(student.fullName)}</div>
                             <small class="text-muted">${student.documentId || 'Sin cédula'}</small>
                         </td>`;
                     

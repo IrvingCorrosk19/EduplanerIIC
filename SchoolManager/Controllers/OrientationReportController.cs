@@ -20,6 +20,8 @@ public class OrientationReportController : Controller
     private readonly ISubjectService _subjectService;
     private readonly ITrimesterService _trimesterService;
     private readonly IActivityTypeService _activityTypeService;
+    private readonly IStudentService _studentService;
+    private readonly IAttendanceService _attendanceService;
 
     public OrientationReportController(
         IOrientationReportService orientationReportService, 
@@ -30,7 +32,9 @@ public class OrientationReportController : Controller
         IGradeLevelService gradeLevelService,
         ISubjectService subjectService,
         ITrimesterService trimesterService,
-        IActivityTypeService activityTypeService)
+        IActivityTypeService activityTypeService,
+        IStudentService studentService,
+        IAttendanceService attendanceService)
     {
         _orientationReportService = orientationReportService;
         _userService = userService;
@@ -41,6 +45,8 @@ public class OrientationReportController : Controller
         _subjectService = subjectService;
         _trimesterService = trimesterService;
         _activityTypeService = activityTypeService;
+        _studentService = studentService;
+        _attendanceService = attendanceService;
     }
 
     public async Task<IActionResult> Index()
@@ -357,5 +363,51 @@ public class OrientationReportController : Controller
         }
 
         return teacherId;
+    }
+
+    // =================== MÉTODOS ÚNICOS PARA ORIENTATIONREPORT ===================
+
+    [HttpGet]
+    public async Task<JsonResult> StudentsByGroupAndGrade(Guid groupId, Guid gradeId, Guid? subjectId = null)
+    {
+        try
+        {
+            IEnumerable<StudentBasicDto> students;
+            if (subjectId.HasValue && subjectId.Value != Guid.Empty)
+            {
+                // Filtrar por materia, grupo y grado
+                students = await _studentService.GetBySubjectGroupAndGradeAsync(subjectId.Value, groupId, gradeId);
+            }
+            else
+            {
+                // Filtrar solo por grupo y grado (comportamiento anterior)
+                students = await _studentService.GetByGroupAndGradeAsync(groupId, gradeId);
+            }
+            return Json(students);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener estudiantes por grupo y grado");
+            return Json(new { error = "Error al obtener estudiantes" });
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> GetAsistencias([FromBody] GetNotesDto request)
+    {
+        try
+        {
+            var teacherId = GetTeacherId();
+            
+            // Obtener asistencias para el grupo específico
+            var asistencias = await _attendanceService.GetAttendancesByDateAsync(request.GroupId, request.GradeLevelId, DateOnly.FromDateTime(DateTime.Now));
+            
+            return Json(new { success = true, data = asistencias });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener asistencias");
+            return Json(new { success = false, error = ex.Message });
+        }
     }
 }
