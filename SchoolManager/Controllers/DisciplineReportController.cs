@@ -11,17 +11,20 @@ public class DisciplineReportController : Controller
     private readonly IUserService _userService;
     private readonly IEmailService _emailService;
     private readonly ILogger<DisciplineReportController> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public DisciplineReportController(
         IDisciplineReportService disciplineReportService, 
         IUserService userService,
         IEmailService emailService,
-        ILogger<DisciplineReportController> logger)
+        ILogger<DisciplineReportController> logger,
+        ICurrentUserService currentUserService)
     {
         _disciplineReportService = disciplineReportService;
         _userService = userService;
         _emailService = emailService;
         _logger = logger;
+        _currentUserService = currentUserService;
     }
 
     public async Task<IActionResult> Index()
@@ -101,9 +104,14 @@ public class DisciplineReportController : Controller
                 documentsJson = System.Text.Json.JsonSerializer.Serialize(documentList);
             }
 
+            // Obtener usuario autenticado y su school_id
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+            
             var disciplineReport = new DisciplineReport
             {
                 Id = Guid.NewGuid(),
+                SchoolId = currentUser?.SchoolId, // ✅ SchoolId del usuario autenticado
                 StudentId = Guid.Parse(studentId),
                 TeacherId = Guid.Parse(teacherId),
                 SubjectId = !string.IsNullOrEmpty(subjectId) ? Guid.Parse(subjectId) : (Guid?)null,
@@ -115,7 +123,9 @@ public class DisciplineReportController : Controller
                 Description = description,
                 Category = category,
                 Documents = documentsJson,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = currentUserId, // ✅ ID del usuario autenticado
+                UpdatedBy = currentUserId  // ✅ ID del usuario autenticado
             };
 
             try
@@ -180,7 +190,9 @@ public class DisciplineReportController : Controller
             status = r.Status,
             description = r.Description,
             documents = r.Documents,
-            teacher = r.Teacher
+            teacher = r.Teacher,
+            subjectId = r.SubjectId, // ✅ Agregado
+            subjectName = r.SubjectName // ✅ Agregado
         }));
     }
 

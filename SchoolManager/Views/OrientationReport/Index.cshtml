@@ -2809,7 +2809,7 @@
                 
                 if (!response || response.length === 0) {
                     console.log('ℹ️ No hay registros para este estudiante');
-                    $('#historialEstudianteDisciplina').html('<div class="text-center text-muted">No hay registros para este estudiante</div>');
+                    $('#historialEstudianteOrientacion').html('<div class="text-center text-muted">No hay registros para este estudiante</div>');
                     return;
                 }
                 const historial = $('<div class="list-group"></div>');
@@ -2886,12 +2886,12 @@
                     historial.append(item);
                 });
                 console.log('✅ Historial cargado y renderizado correctamente');
-                $('#historialEstudianteDisciplina').empty().append(historial);
+                $('#historialEstudianteOrientacion').empty().append(historial);
             },
             error: function(xhr, status, error) {
                 console.error('❌ Error al cargar historial:', error);
                 console.error('📄 Detalles del error:', xhr.responseText);
-                $('#historialEstudianteDisciplina').html(`<div class="text-center text-danger">Error al cargar historial: ${error}</div>`);
+                $('#historialEstudianteOrientacion').html(`<div class="text-center text-danger">Error al cargar historial: ${error}</div>`);
             }
         });
     };

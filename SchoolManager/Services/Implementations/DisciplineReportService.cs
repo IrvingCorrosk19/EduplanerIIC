@@ -12,10 +12,12 @@ namespace SchoolManager.Services
     public class DisciplineReportService : IDisciplineReportService
     {
         private readonly SchoolDbContext _context;
+        private readonly ICurrentUserService _currentUserService;
 
-        public DisciplineReportService(SchoolDbContext context)
+        public DisciplineReportService(SchoolDbContext context, ICurrentUserService currentUserService)
         {
             _context = context;
+            _currentUserService = currentUserService;
         }
 
         public async Task<List<DisciplineReport>> GetAllAsync() =>
@@ -106,15 +108,25 @@ namespace SchoolManager.Services
 
         public async Task<List<DisciplineReportDto>> GetByStudentDtoAsync(Guid studentId, string trimester = null)
         {
+            // Obtener school_id del usuario autenticado
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            var schoolId = currentUser?.SchoolId;
+
             var query = _context.DisciplineReports
                 .Include(r => r.Teacher)
-                .Where(r => r.StudentId == studentId)
-                .AsQueryable();
+                .Include(r => r.Subject) // ✅ Incluir Subject
+                .Where(r => r.StudentId == studentId);
+
+            // ✅ Filtrar por school_id del usuario autenticado
+            if (schoolId.HasValue)
+            {
+                query = query.Where(r => r.SchoolId == schoolId.Value);
+            }
 
             if (!string.IsNullOrEmpty(trimester))
             {
                 var trimesterInfo = await _context.Trimesters
-                    .FirstOrDefaultAsync(t => t.Name == trimester);
+                    .FirstOrDefaultAsync(t => t.Name == trimester && t.SchoolId == schoolId);
 
                 if (trimesterInfo != null)
                 {
@@ -137,7 +149,9 @@ namespace SchoolManager.Services
                 Description = r.Description,
                 Date = r.Date,
                 Documents = r.Documents,
-                Teacher = r.Teacher != null ? $"{r.Teacher.Name} {r.Teacher.LastName}" : null
+                Teacher = r.Teacher != null ? $"{r.Teacher.Name} {r.Teacher.LastName}" : null,
+                SubjectId = r.SubjectId, // ✅ SubjectId (puede ser NULL)
+                SubjectName = r.Subject?.Name // ✅ SubjectName (puede ser NULL)
             }).ToList();
         }
     }

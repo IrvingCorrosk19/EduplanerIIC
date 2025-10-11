@@ -10,5 +10,7 @@ namespace SchoolManager.Dtos
         public string Time { get; set; }
         public string Teacher { get; set; }
         public string? Documents { get; set; }
+        public Guid? SubjectId { get; set; } // ✅ Agregado para consistencia
+        public string? SubjectName { get; set; } // ✅ Agregado para consistencia
     }
 } 

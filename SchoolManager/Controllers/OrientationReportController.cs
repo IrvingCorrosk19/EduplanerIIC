@@ -22,6 +22,7 @@ public class OrientationReportController : Controller
     private readonly IActivityTypeService _activityTypeService;
     private readonly IStudentService _studentService;
     private readonly IAttendanceService _attendanceService;
+    private readonly ICurrentUserService _currentUserService;
 
     public OrientationReportController(
         IOrientationReportService orientationReportService, 
@@ -34,7 +35,8 @@ public class OrientationReportController : Controller
         ITrimesterService trimesterService,
         IActivityTypeService activityTypeService,
         IStudentService studentService,
-        IAttendanceService attendanceService)
+        IAttendanceService attendanceService,
+        ICurrentUserService currentUserService)
     {
         _orientationReportService = orientationReportService;
         _userService = userService;
@@ -47,6 +49,7 @@ public class OrientationReportController : Controller
         _activityTypeService = activityTypeService;
         _studentService = studentService;
         _attendanceService = attendanceService;
+        _currentUserService = currentUserService;
     }
 
     public async Task<IActionResult> Index()
@@ -190,9 +193,14 @@ public class OrientationReportController : Controller
                 documentsJson = System.Text.Json.JsonSerializer.Serialize(documentList);
             }
 
+            // Obtener usuario autenticado y su school_id
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+            
             var orientationReport = new OrientationReport
             {
                 Id = Guid.NewGuid(),
+                SchoolId = currentUser?.SchoolId, // ✅ SchoolId del usuario autenticado
                 StudentId = Guid.Parse(studentId),
                 TeacherId = Guid.Parse(teacherId),
                 SubjectId = !string.IsNullOrEmpty(subjectId) ? Guid.Parse(subjectId) : (Guid?)null,
@@ -204,7 +212,9 @@ public class OrientationReportController : Controller
                 Description = description,
                 Category = category,
                 Documents = documentsJson,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = currentUserId, // ✅ ID del usuario autenticado
+                UpdatedBy = currentUserId  // ✅ ID del usuario autenticado
             };
 
             try
@@ -269,7 +279,9 @@ public class OrientationReportController : Controller
             status = r.Status,
             description = r.Description,
             documents = r.Documents,
-            teacher = r.Teacher
+            teacher = r.Teacher,
+            subjectId = r.SubjectId, // ✅ Agregado
+            subjectName = r.SubjectName // ✅ Agregado
         }));
     }
 
