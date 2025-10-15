@@ -466,19 +466,48 @@ public class UserController : Controller
                         <h2 style='color: #2563eb; text-align: center;'>¡Bienvenido a Eduplaner!</h2>
                         <p>Hola <strong>{user.Name} {user.LastName}</strong>,</p>
                         <p>Tu cuenta ha sido creada exitosamente en nuestro sistema educativo.</p>
+                        
                         <div style='background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;'>
-                            <p style='margin: 0;'><strong>Tu contraseña de acceso es:</strong></p>
+                            <p style='margin: 0;'><strong>Tus credenciales de acceso:</strong></p>
+                            <p style='margin: 10px 0;'><strong>Email:</strong> {user.Email}</p>
+                            <p style='margin: 0;'><strong>Contraseña:</strong></p>
                             <p style='font-size: 18px; font-weight: bold; color: #2563eb; margin: 10px 0;'>{password}</p>
                         </div>
+
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <a href='https://www.eduplaner.net' 
+                               style='display: inline-block; 
+                                      background-color: #2563eb; 
+                                      color: white; 
+                                      padding: 15px 40px; 
+                                      text-decoration: none; 
+                                      border-radius: 8px; 
+                                      font-weight: bold; 
+                                      font-size: 16px;
+                                      box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);'>
+                                🚀 Acceder a Eduplaner
+                            </a>
+                            <p style='margin-top: 15px; font-size: 14px; color: #6b7280;'>
+                                O copia y pega este enlace en tu navegador:<br>
+                                <a href='https://www.eduplaner.net' style='color: #2563eb; text-decoration: none;'>
+                                    https://www.eduplaner.net
+                                </a>
+                            </p>
+                        </div>
+
                         <p><strong>Información de tu cuenta:</strong></p>
                         <ul>
                             <li><strong>Email:</strong> {user.Email}</li>
                             <li><strong>Rol:</strong> {GetRoleDisplayName(user.Role)}</li>
                             <li><strong>Estado:</strong> {user.Status}</li>
                         </ul>
-                        <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
-                            Por seguridad, te recomendamos cambiar esta contraseña temporal en tu primer acceso al sistema.
-                        </p>
+                        
+                        <div style='background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;'>
+                            <p style='margin: 0; color: #92400e; font-size: 14px;'>
+                                <strong>⚠️ Importante:</strong> Por seguridad, te recomendamos cambiar esta contraseña temporal en tu primer acceso al sistema.
+                            </p>
+                        </div>
+
                         <hr style='border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;'>
                         <p style='text-align: center; color: #6b7280; font-size: 12px;'>
                             Este es un mensaje automático del sistema Eduplaner. Por favor, no respondas a este email.
