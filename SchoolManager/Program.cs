@@ -77,6 +77,11 @@ builder.Services.AddScoped<IDateTimeHomologationService, DateTimeHomologationSer
 builder.Services.AddScoped<IEmailConfigurationService, EmailConfigurationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICounselorAssignmentService, CounselorAssignmentService>();
+builder.Services.AddScoped<IStudentProfileService, StudentProfileService>();
+builder.Services.AddScoped<IMessagingService, MessagingService>();
+
+// Cloudinary para almacenamiento persistente de archivos en la nube
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 // Agregar servicios de autenticación
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

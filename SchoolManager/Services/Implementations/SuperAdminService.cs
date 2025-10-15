@@ -11,11 +11,16 @@ public class SuperAdminService : ISuperAdminService
 {
     private readonly SchoolDbContext _context;
     private readonly ILogger<SuperAdminService> _logger;
+    private readonly ICloudinaryService? _cloudinaryService;
 
-    public SuperAdminService(SchoolDbContext context, ILogger<SuperAdminService> logger)
+    public SuperAdminService(
+        SchoolDbContext context, 
+        ILogger<SuperAdminService> logger,
+        ICloudinaryService? cloudinaryService = null)
     {
         _context = context;
         _logger = logger;
+        _cloudinaryService = cloudinaryService;
     }
 
     #region Escuelas
@@ -535,13 +540,30 @@ public class SuperAdminService : ISuperAdminService
 
     #region Archivos
 
-    public async Task<string?> SaveLogoAsync(IFormFile? logoFile, string uploadsPath)
+    public async Task<string?> SaveLogoAsync(IFormFile? logoFile, string uploadsPath = "")
     {
         if (logoFile == null || logoFile.Length == 0)
             return null;
 
         try
         {
+            // Si Cloudinary está configurado, usarlo (recomendado para producción en Render)
+            if (_cloudinaryService != null)
+            {
+                Console.WriteLine($"☁️ [SuperAdminService] Subiendo logo a Cloudinary...");
+                var logoUrl = await _cloudinaryService.UploadImageAsync(logoFile, "schools/logos");
+                
+                if (!string.IsNullOrEmpty(logoUrl))
+                {
+                    Console.WriteLine($"✅ [SuperAdminService] Logo guardado en Cloudinary: {logoUrl}");
+                    return logoUrl; // URL completa: https://res.cloudinary.com/.../logo.png
+                }
+
+                Console.WriteLine($"⚠️ [SuperAdminService] Cloudinary no devolvió URL, intentando guardar localmente...");
+            }
+
+            // Fallback: Guardar localmente (para desarrollo o si Cloudinary no está configurado)
+            Console.WriteLine($"💾 [SuperAdminService] Guardando logo localmente...");
             var fileName = $"{Guid.NewGuid()}_{logoFile.FileName}";
             var filePath = Path.Combine(uploadsPath, "schools", fileName);
 
@@ -550,7 +572,7 @@ public class SuperAdminService : ISuperAdminService
             using var stream = new FileStream(filePath, FileMode.Create);
             await logoFile.CopyToAsync(stream);
 
-            Console.WriteLine($"📁 [SuperAdminService] Logo guardado: {fileName}");
+            Console.WriteLine($"📁 [SuperAdminService] Logo guardado localmente: {fileName}");
             return fileName;
         }
         catch (Exception ex)
@@ -560,13 +582,30 @@ public class SuperAdminService : ISuperAdminService
         }
     }
 
-    public async Task<string?> SaveAvatarAsync(IFormFile? avatarFile, string uploadsPath)
+    public async Task<string?> SaveAvatarAsync(IFormFile? avatarFile, string uploadsPath = "")
     {
         if (avatarFile == null || avatarFile.Length == 0)
             return null;
 
         try
         {
+            // Si Cloudinary está configurado, usarlo (recomendado para producción en Render)
+            if (_cloudinaryService != null)
+            {
+                Console.WriteLine($"☁️ [SuperAdminService] Subiendo avatar a Cloudinary...");
+                var avatarUrl = await _cloudinaryService.UploadImageAsync(avatarFile, "users/avatars");
+                
+                if (!string.IsNullOrEmpty(avatarUrl))
+                {
+                    Console.WriteLine($"✅ [SuperAdminService] Avatar guardado en Cloudinary: {avatarUrl}");
+                    return avatarUrl;
+                }
+
+                Console.WriteLine($"⚠️ [SuperAdminService] Cloudinary no devolvió URL, intentando guardar localmente...");
+            }
+
+            // Fallback: Guardar localmente
+            Console.WriteLine($"💾 [SuperAdminService] Guardando avatar localmente...");
             var fileName = $"{Guid.NewGuid()}_{avatarFile.FileName}";
             var filePath = Path.Combine(uploadsPath, "avatars", fileName);
 
@@ -575,7 +614,7 @@ public class SuperAdminService : ISuperAdminService
             using var stream = new FileStream(filePath, FileMode.Create);
             await avatarFile.CopyToAsync(stream);
 
-            Console.WriteLine($"📁 [SuperAdminService] Avatar guardado: {fileName}");
+            Console.WriteLine($"📁 [SuperAdminService] Avatar guardado localmente: {fileName}");
             return fileName;
         }
         catch (Exception ex)
@@ -592,11 +631,21 @@ public class SuperAdminService : ISuperAdminService
 
         try
         {
+            // Si es URL de Cloudinary (https://res.cloudinary.com/...), 
+            // devolver null para que la vista use la URL directamente
+            if (logoUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"☁️ [SuperAdminService] Logo en Cloudinary, acceso directo: {logoUrl}");
+                return null;
+            }
+
+            // Logo local (compatibilidad con logos antiguos)
             var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
             var filePath = Path.Combine(uploadsPath, "schools", logoUrl);
 
             if (File.Exists(filePath))
             {
+                Console.WriteLine($"📁 [SuperAdminService] Logo local encontrado: {logoUrl}");
                 return await File.ReadAllBytesAsync(filePath);
             }
 
@@ -617,11 +666,20 @@ public class SuperAdminService : ISuperAdminService
 
         try
         {
+            // Si es URL de Cloudinary, devolver null para acceso directo
+            if (avatarUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"☁️ [SuperAdminService] Avatar en Cloudinary, acceso directo: {avatarUrl}");
+                return null;
+            }
+
+            // Avatar local (compatibilidad)
             var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
             var filePath = Path.Combine(uploadsPath, "avatars", avatarUrl);
 
             if (File.Exists(filePath))
             {
+                Console.WriteLine($"📁 [SuperAdminService] Avatar local encontrado: {avatarUrl}");
                 return await File.ReadAllBytesAsync(filePath);
             }
 

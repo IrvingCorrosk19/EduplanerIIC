@@ -33,7 +33,9 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<OrientationReport> OrientationReports { get; set; }
 
-        public virtual DbSet<EmailConfiguration> EmailConfigurations { get; set; }
+    public virtual DbSet<EmailConfiguration> EmailConfigurations { get; set; }
+
+    public virtual DbSet<Message> Messages { get; set; }
 
     public virtual DbSet<CounselorAssignment> CounselorAssignments { get; set; }
 
@@ -1349,6 +1351,123 @@ public partial class SchoolDbContext : DbContext
                 }
             }
         }
+
+        // Configuración para Message
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("messages_pkey");
+            entity.ToTable("messages");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SenderId)
+                .HasColumnName("sender_id");
+
+            entity.Property(e => e.RecipientId)
+                .HasColumnName("recipient_id");
+
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.Subject)
+                .IsRequired()
+                .HasMaxLength(200)
+                .HasColumnName("subject");
+
+            entity.Property(e => e.Content)
+                .IsRequired()
+                .HasMaxLength(5000)
+                .HasColumnName("content");
+
+            entity.Property(e => e.MessageType)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("message_type");
+
+            entity.Property(e => e.GroupId)
+                .HasColumnName("group_id");
+
+            entity.Property(e => e.SentAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("sent_at");
+
+            entity.Property(e => e.IsRead)
+                .HasDefaultValue(false)
+                .HasColumnName("is_read");
+
+            entity.Property(e => e.ReadAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("read_at");
+
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValue(false)
+                .HasColumnName("is_deleted");
+
+            entity.Property(e => e.DeletedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("deleted_at");
+
+            entity.Property(e => e.Priority)
+                .HasMaxLength(20)
+                .HasDefaultValue("Normal")
+                .HasColumnName("priority");
+
+            entity.Property(e => e.ParentMessageId)
+                .HasColumnName("parent_message_id");
+
+            entity.Property(e => e.Attachments)
+                .HasColumnName("attachments");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            // Relaciones
+            entity.HasOne(e => e.Sender)
+                .WithMany()
+                .HasForeignKey(e => e.SenderId)
+                .HasConstraintName("messages_sender_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Recipient)
+                .WithMany()
+                .HasForeignKey(e => e.RecipientId)
+                .HasConstraintName("messages_recipient_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.School)
+                .WithMany()
+                .HasForeignKey(e => e.SchoolId)
+                .HasConstraintName("messages_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Group)
+                .WithMany()
+                .HasForeignKey(e => e.GroupId)
+                .HasConstraintName("messages_group_id_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.ParentMessage)
+                .WithMany(e => e.Replies)
+                .HasForeignKey(e => e.ParentMessageId)
+                .HasConstraintName("messages_parent_message_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Índices
+            entity.HasIndex(e => e.SenderId, "idx_messages_sender");
+            entity.HasIndex(e => e.RecipientId, "idx_messages_recipient");
+            entity.HasIndex(e => e.SchoolId, "idx_messages_school");
+            entity.HasIndex(e => e.SentAt, "idx_messages_sent_at");
+            entity.HasIndex(e => new { e.RecipientId, e.IsRead }, "idx_messages_recipient_unread");
+        });
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);

@@ -1,0 +1,235 @@
+@model SchoolManager.ViewModels.SendMessageViewModel
+@{
+    ViewData["Title"] = "Nuevo Mensaje";
+    var options = ViewBag.RecipientOptions as SchoolManager.ViewModels.RecipientOptionsViewModel;
+}
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-3">
+                <i class="bi bi-pencil-square"></i> Nuevo Mensaje
+            </h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <form asp-action="Compose" method="post">
+                        <input type="hidden" asp-for="ParentMessageId" />
+                        
+                        <div class="mb-3">
+                            <label asp-for="RecipientType" class="form-label">Enviar a:</label>
+                            <select asp-for="RecipientType" class="form-select" id="recipient-type" required>
+                                <option value="">-- Seleccione --</option>
+                                
+                                @if (options != null)
+                                {
+                                    @if (options.CanSendToAllTeachers)
+                                    {
+                                        <option value="AllTeachers">Todos los Profesores</option>
+                                    }
+                                    
+                                    @if (options.CanSendToAllStudents)
+                                    {
+                                        <option value="AllStudents">Todos los Estudiantes</option>
+                                    }
+                                    
+                                    @if (options.CanSendToBroadcast)
+                                    {
+                                        <option value="Broadcast">Todos (Difusión General)</option>
+                                    }
+                                    
+                                    @if (options.Teachers.Any())
+                                    {
+                                        <option value="" disabled>─────────────────</option>
+                                        <option value="Individual" data-target="teacher">Profesor Individual</option>
+                                    }
+                                    
+                                    @if (options.Students.Any())
+                                    {
+                                        <option value="Individual" data-target="student">Estudiante Individual</option>
+                                    }
+                                    
+                                    @if (options.Groups.Any())
+                                    {
+                                        <option value="Group">Grupo Completo</option>
+                                    }
+                                }
+                            </select>
+                            <span asp-validation-for="RecipientType" class="text-danger"></span>
+                        </div>
+
+                        <!-- Selector de profesor individual -->
+                        <div class="mb-3 recipient-selector" id="teacher-selector" style="display: none;">
+                            <label class="form-label">Profesor:</label>
+                            <select class="form-select" id="teacher-select">
+                                <option value="">-- Seleccione un profesor --</option>
+                                @if (options?.Teachers != null)
+                                {
+                                    foreach (var teacher in options.Teachers)
+                                    {
+                                        <option value="@teacher.Id">@teacher.Name (@teacher.AdditionalInfo)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Selector de estudiante individual -->
+                        <div class="mb-3 recipient-selector" id="student-selector" style="display: none;">
+                            <label class="form-label">Estudiante:</label>
+                            <select class="form-select" id="student-select">
+                                <option value="">-- Seleccione un estudiante --</option>
+                                @if (options?.Students != null)
+                                {
+                                    foreach (var student in options.Students)
+                                    {
+                                        <option value="@student.Id">@student.Name (@student.AdditionalInfo)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Selector de grupo -->
+                        <div class="mb-3 recipient-selector" id="group-selector" style="display: none;">
+                            <label class="form-label">Grupo:</label>
+                            <select class="form-select" asp-for="GroupId">
+                                <option value="">-- Seleccione un grupo --</option>
+                                @if (options?.Groups != null)
+                                {
+                                    foreach (var group in options.Groups)
+                                    {
+                                        <option value="@group.Id">@group.Name - @group.AdditionalInfo</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <input type="hidden" asp-for="RecipientId" id="recipient-id" />
+
+                        <div class="mb-3">
+                            <label asp-for="Priority" class="form-label">Prioridad:</label>
+                            <select asp-for="Priority" class="form-select">
+                                <option value="Low">Baja</option>
+                                <option value="Normal" selected>Normal</option>
+                                <option value="High">Alta</option>
+                                <option value="Urgent">Urgente</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Subject" class="form-label">Asunto:</label>
+                            <input asp-for="Subject" class="form-control" maxlength="200" required />
+                            <span asp-validation-for="Subject" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Content" class="form-label">Mensaje:</label>
+                            <textarea asp-for="Content" class="form-control" rows="10" maxlength="5000" required></textarea>
+                            <span asp-validation-for="Content" class="text-danger"></span>
+                            <div class="form-text">Máximo 5000 caracteres. Quedan: <span id="char-count">5000</span></div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="@Url.Action("Inbox", "Messaging")" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send"></i> Enviar Mensaje
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $(document).ready(function () {
+            // Contador de caracteres
+            const contentTextarea = $('textarea[name="Content"]');
+            const charCount = $('#char-count');
+            
+            contentTextarea.on('input', function () {
+                const remaining = 5000 - $(this).val().length;
+                charCount.text(remaining);
+                
+                if (remaining < 100) {
+                    charCount.addClass('text-danger');
+                } else {
+                    charCount.removeClass('text-danger');
+                }
+            });
+
+            // Manejo del tipo de destinatario
+            $('#recipient-type').change(function () {
+                const selectedOption = $(this).find('option:selected');
+                const value = $(this).val();
+                const target = selectedOption.data('target');
+                
+                // Ocultar todos los selectores
+                $('.recipient-selector').hide();
+                $('#recipient-id').val('');
+                $('#GroupId').val('');
+                
+                // Mostrar el selector apropiado
+                if (value === 'Individual') {
+                    if (target === 'teacher') {
+                        $('#teacher-selector').show();
+                    } else if (target === 'student') {
+                        $('#student-selector').show();
+                    }
+                } else if (value === 'Group') {
+                    $('#group-selector').show();
+                }
+            });
+
+            // Manejo de selección de profesor
+            $('#teacher-select').change(function () {
+                $('#recipient-id').val($(this).val());
+            });
+
+            // Manejo de selección de estudiante
+            $('#student-select').change(function () {
+                $('#recipient-id').val($(this).val());
+            });
+
+            // Validación antes de enviar
+            $('form').submit(function (e) {
+                const recipientType = $('#recipient-type').val();
+                
+                if (!recipientType) {
+                    e.preventDefault();
+                    Swal.fire('Error', 'Debe seleccionar un tipo de destinatario', 'error');
+                    return false;
+                }
+                
+                if (recipientType === 'Individual' && !$('#recipient-id').val()) {
+                    e.preventDefault();
+                    Swal.fire('Error', 'Debe seleccionar un destinatario específico', 'error');
+                    return false;
+                }
+                
+                if (recipientType === 'Group' && !$('#GroupId').val()) {
+                    e.preventDefault();
+                    Swal.fire('Error', 'Debe seleccionar un grupo', 'error');
+                    return false;
+                }
+                
+                return true;
+            });
+
+            // Si hay un recipientId preseleccionado (para respuestas)
+            const preselectedRecipientId = '@Model?.RecipientId';
+            if (preselectedRecipientId) {
+                $('#recipient-type').val('Individual').trigger('change');
+            }
+        });
+    </script>
+}
+

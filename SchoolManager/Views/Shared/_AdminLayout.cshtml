@@ -73,7 +73,16 @@
             <a href="/" class="brand-link">
                 @if (userSchool != null && !string.IsNullOrEmpty(userSchool.LogoUrl))
                 {
-                    <img src="/File/GetSchoolLogo?logoUrl=@userSchool.LogoUrl" alt="Logo de @userSchool.Name" class="brand-image img-circle elevation-3" style="opacity: .8">
+                    @if (userSchool.LogoUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <!-- URL de Cloudinary - acceso directo -->
+                        <img src="@userSchool.LogoUrl" alt="Logo de @userSchool.Name" class="brand-image img-circle elevation-3" style="opacity: .8">
+                    }
+                    else
+                    {
+                        <!-- URL local antigua -->
+                        <img src="/File/GetSchoolLogo?logoUrl=@userSchool.LogoUrl" alt="Logo de @userSchool.Name" class="brand-image img-circle elevation-3" style="opacity: .8">
+                    }
                 }
                 else
                 {
@@ -99,11 +108,48 @@
                                 <p>Cambiar Contraseña</p>
                             </a>
                         </li>
+                        <!-- Mensajería - Disponible para todos -->
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-envelope"></i>
+                                <p>
+                                    Mensajería
+                                    <i class="right fas fa-angle-left"></i>
+                                    <span class="badge badge-warning right unread-badge" style="display: none;">0</span>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Inbox", "Messaging")" class="nav-link">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Bandeja de Entrada</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Sent", "Messaging")" class="nav-link">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Enviados</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Compose", "Messaging")" class="nav-link">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Nuevo Mensaje</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                         @if (userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item">
                                 <a href="@Url.Action("Index", "StudentReport")" class="nav-link">
-                                <i class="nav-icon fas fa-user-graduate"></i>
-                                <p>Estudiantes</p>
+                                <i class="nav-icon fas fa-chart-line"></i>
+                                <p>Mis Calificaciones</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                                <a href="@Url.Action("Index", "StudentProfile")" class="nav-link">
+                                <i class="nav-icon fas fa-user-edit"></i>
+                                <p>Mi Perfil</p>
                             </a>
                         </li>
                         }
@@ -239,6 +285,30 @@
     <script src="~/lib/sweetalert2/sweetalert2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script para actualizar contador de mensajes no leídos -->
+    <script>
+        $(document).ready(function () {
+            function updateUnreadCount() {
+                $.get('@Url.Action("GetUnreadCount", "Messaging")', function (data) {
+                    if (data.count > 0) {
+                        $('.unread-badge').text(data.count).show();
+                    } else {
+                        $('.unread-badge').hide();
+                    }
+                }).fail(function() {
+                    // Silenciosamente fallar si el endpoint no está disponible
+                    console.log('No se pudo obtener el contador de mensajes');
+                });
+            }
+            
+            // Actualizar al cargar la página
+            updateUnreadCount();
+            
+            // Actualizar cada 30 segundos
+            setInterval(updateUnreadCount, 30000);
+        });
+    </script>
 
     @RenderSection("Scripts", required: false)
 </body>

@@ -12,6 +12,7 @@
         public List<AvailableTrimesters> AvailableTrimesters { get; set; } = new();
         public List<DisciplineReportDto> DisciplineReports { get; set; } = new();
         public List<PendingActivityDto> PendingActivities { get; set; } = new();
+        public List<string> AvailableSubjects { get; set; } = new();
     }
 
     public class AvailableTrimesters

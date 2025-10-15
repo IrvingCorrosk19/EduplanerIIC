@@ -87,7 +87,16 @@
                             <div class="text-center mb-3">
                                 @if (!string.IsNullOrEmpty(school.SchoolLogoUrl))
                                 {
-                                    <img src="/File/GetSchoolLogo?logoUrl=@school.SchoolLogoUrl" alt="Logo de @school.SchoolName" class="img-fluid rounded" style="max-height: 100px;">
+                                    @if (school.SchoolLogoUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <!-- URL de Cloudinary - acceso directo -->
+                                        <img src="@school.SchoolLogoUrl" alt="Logo de @school.SchoolName" class="img-fluid rounded" style="max-height: 100px;">
+                                    }
+                                    else
+                                    {
+                                        <!-- URL local antigua -->
+                                        <img src="/File/GetSchoolLogo?logoUrl=@school.SchoolLogoUrl" alt="Logo de @school.SchoolName" class="img-fluid rounded" style="max-height: 100px;">
+                                    }
                                 }
                                 else
                                 {

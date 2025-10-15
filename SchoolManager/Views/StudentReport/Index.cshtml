@@ -145,20 +145,33 @@
     <!-- BLOQUE DE INFORMACIÓN DEL ESTUDIANTE -->
     <div class="info-block mb-4">
         <div class="row g-3 align-items-center">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <p><strong>Nombre:</strong> @Model.StudentName</p>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <p><strong>Grado:</strong> @Model.Grade</p>
             </div>
-            <div class="col-md-4 position-relative">
+            <div class="col-md-3 position-relative">
                 <p class="mb-1">
                     <strong>Periodo Académico:</strong>
                     @Html.DropDownList("Trimester",
                         new SelectList(Model.AvailableTrimesters, "Trimester", "Trimester", Model.Trimester),
                         new { @class = "form-control d-inline w-auto ms-2 trimester-highlight", id = "trimester-select" })
                 </p>
-                <div class="trimester-helper">Selecciona el trimestre para ver las calificaciones y asistencias</div>
+                <div class="trimester-helper">Selecciona el trimestre</div>
+            </div>
+            <div class="col-md-3 position-relative">
+                <p class="mb-1">
+                    <strong>Filtrar por Materia:</strong>
+                    <select class="form-control d-inline w-auto ms-2 trimester-highlight" id="subject-filter">
+                        <option value="">Todas las materias</option>
+                        @foreach (var subject in Model.AvailableSubjects)
+                        {
+                            <option value="@subject">@subject</option>
+                        }
+                    </select>
+                </p>
+                <div class="trimester-helper">Filtra por materia específica</div>
             </div>
         </div>
     </div>
@@ -442,7 +455,61 @@
                 return result;
             }, {});
         }
+        // Variable global para almacenar todas las calificaciones
+        let allGrades = @Html.Raw(Json.Serialize(Model.Grades));
+        
+        // Función para filtrar y mostrar calificaciones
+        function filterAndDisplayGrades(grades) {
+            const gradesTbody = $('#grades-table-body');
+            gradesTbody.empty();
+            
+            if (!grades || grades.length === 0) {
+                gradesTbody.append('<tr><td colspan="5" class="text-center text-muted">No hay calificaciones para mostrar con los filtros seleccionados.</td></tr>');
+                $('#grades-average').text('0.0');
+                $('#grades-tab .badge').text('0');
+                return;
+            }
+            
+            let sum = 0;
+            let count = 0;
+            const groupedType = groupBy(grades, 'type');
+            
+            Object.keys(groupedType).forEach(type => {
+                gradesTbody.append(`<tr class='table-group-title'><td colspan='5' class='text-primary fw-bold'>${type.charAt(0).toUpperCase() + type.slice(1)}</td></tr>`);
+                groupedType[type].forEach(g => {
+                    sum += g.value || 0;
+                    count++;
+                    gradesTbody.append(`
+                        <tr class="grade-row" data-subject="${g.subject}">
+                            <td>${g.subject}</td>
+                            <td>${g.activityName || '-'}</td>
+                            <td>${g.teacher}</td>
+                            <td>${(g.value || 0).toFixed(1)}</td>
+                            <td>${g.fileUrl ? `<a href="${g.fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary ms-2" title="Descargar archivo adjunto"><i class="bi bi-download"></i></a>` : '<span class="text-muted">-</span>'}</td>
+                        </tr>`);
+                });
+            });
+            
+            const average = count > 0 ? (sum / count).toFixed(1) : "0.0";
+            $('#grades-average').text(average);
+            $('#grades-tab .badge').text(grades.length);
+        }
+
         $(document).ready(function () {
+            // Filtro por materia
+            $('#subject-filter').on('change', function () {
+                const selectedSubject = $(this).val();
+                
+                if (selectedSubject === '') {
+                    // Mostrar todas las materias
+                    filterAndDisplayGrades(allGrades);
+                } else {
+                    // Filtrar por materia específica
+                    const filteredGrades = allGrades.filter(g => g.subject === selectedSubject);
+                    filterAndDisplayGrades(filteredGrades);
+                }
+            });
+            
             $('#trimester-select').on('change', function () {
                 const selectedTrimester = $(this).val();
                 const studentId = $('#student-id').val();
@@ -465,33 +532,30 @@
                             return;
                         }
                         console.log('grades:', data.grades);
-                        // Calificaciones agrupadas por tipo
-                        const gradesTbody = $('#grades-table-body');
-                        gradesTbody.empty();
-                        let sum = 0;
-                        let count = 0;
-                        const grouped = groupBy(data.grades, 'subject');
-                        const groupedType = groupBy(data.grades, 'type');
-                        Object.keys(groupedType).forEach(type => {
-                            gradesTbody.append(`<tr class='table-group-title'><td colspan='5' class='text-primary fw-bold'>${type.charAt(0).toUpperCase() + type.slice(1)}</td></tr>`);
-                            groupedType[type].forEach(g => {
-                                sum += g.value;
-                                count++;
-                                gradesTbody.append(`
-                                    <tr>
-                                        <td>${g.subject}</td>
-                                        <td>${g.activityName || '-'}</td>
-                                        <td>${g.teacher}</td>
-                                        <td>${g.value.toFixed(1)}</td>
-                                        <td>${g.fileUrl ? `<a href="${g.fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary ms-2" title="Descargar archivo adjunto"><i class="bi bi-download"></i></a>` : '<span class="text-muted">-</span>'}</td>
-                                    </tr>`);
-                            });
-                        });
-                        const average = count > 0 ? (sum / count).toFixed(1) : "0.0";
-                        $('#grades-average').text(average);
                         
-                        // Actualizar badge de calificaciones
-                        $('#grades-tab .badge').text(data.grades.length);
+                        // Actualizar variable global con las nuevas calificaciones
+                        allGrades = data.grades;
+                        
+                        // Actualizar opciones del filtro de materias
+                        const subjectFilter = $('#subject-filter');
+                        const currentSubject = subjectFilter.val();
+                        subjectFilter.empty();
+                        subjectFilter.append('<option value="">Todas las materias</option>');
+                        
+                        const subjects = [...new Set(data.grades.map(g => g.subject))].sort();
+                        subjects.forEach(subject => {
+                            subjectFilter.append(`<option value="${subject}">${subject}</option>`);
+                        });
+                        
+                        // Restaurar selección si aún existe
+                        if (currentSubject && subjects.includes(currentSubject)) {
+                            subjectFilter.val(currentSubject);
+                        }
+                        
+                        // Filtrar y mostrar calificaciones
+                        const selectedSubject = subjectFilter.val();
+                        const gradesToShow = selectedSubject === '' ? data.grades : data.grades.filter(g => g.subject === selectedSubject);
+                        filterAndDisplayGrades(gradesToShow);
 
                         // Asistencia por Trimestre
                         const attTrimesterTbody = $('#attendance-trimester-table tbody');
