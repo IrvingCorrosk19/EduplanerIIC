@@ -15,7 +15,10 @@ namespace SchoolManager.Services.Interfaces
             string trimestre, 
             string nivelEducativo,
             string? gradoEspecifico = null,
-            string? grupoEspecifico = null);
+            string? grupoEspecifico = null,
+            Guid? especialidadId = null,
+            Guid? areaId = null,
+            Guid? materiaId = null);
 
         /// <summary>
         /// Obtiene los trimestres disponibles para una escuela
@@ -26,6 +29,21 @@ namespace SchoolManager.Services.Interfaces
         /// Obtiene los niveles educativos disponibles
         /// </summary>
         Task<List<string>> ObtenerNivelesEducativosAsync();
+        
+        /// <summary>
+        /// Obtiene las especialidades disponibles
+        /// </summary>
+        Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId);
+        
+        /// <summary>
+        /// Obtiene las áreas disponibles
+        /// </summary>
+        Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync();
+        
+        /// <summary>
+        /// Obtiene las materias disponibles
+        /// </summary>
+        Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null);
 
         /// <summary>
         /// Exportar el reporte a PDF

@@ -24,6 +24,20 @@
             .page-break {
                 page-break-after: always;
             }
+            .header-logo {
+                max-height: 80px !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .reporte-titulo {
+                border-bottom: 2px solid #000 !important;
+            }
+            th {
+                background-color: #2c3e50 !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
 
         body {
@@ -39,13 +53,35 @@
         }
 
         .header-logo {
-            max-height: 80px;
-            margin-bottom: 10px;
+            max-height: 100px;
+            max-width: 150px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto 15px auto;
         }
 
         .reporte-titulo {
             text-align: center;
             margin-bottom: 30px;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 20px;
+        }
+        
+        .reporte-header-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .reporte-header-logo {
+            flex: 0 0 auto;
+        }
+        
+        .reporte-header-text {
+            flex: 1 1 auto;
+            text-align: center;
         }
 
         .info-section {
@@ -106,13 +142,19 @@
     <div class="reporte-container">
         <!-- Encabezado -->
         <div class="reporte-titulo">
-            @if (!string.IsNullOrEmpty(Model.LogoUrl))
-            {
-                <img src="@Model.LogoUrl" alt="Logo" class="header-logo" />
-            }
-            <h5>Dirección Regional de San Miguelito</h5>
-            <h4><strong>@Model.InstitutoNombre</strong></h4>
-            <h5 class="text-primary mt-3"><strong>CUADRO DE APROBADOS Y REPROBADOS POR GRADO DEL TRIMESTRE</strong></h5>
+            <div class="reporte-header-container">
+                @if (!string.IsNullOrEmpty(Model.LogoUrl))
+                {
+                    <div class="reporte-header-logo">
+                        <img src="@Model.LogoUrl" alt="Logo Escuela" class="header-logo" onerror="this.style.display='none'" />
+                    </div>
+                }
+                <div class="reporte-header-text">
+                    <h5 class="mb-2">Dirección Regional de San Miguelito</h5>
+                    <h3 class="mb-2"><strong>@Model.InstitutoNombre</strong></h3>
+                    <h5 class="text-primary mt-3"><strong>CUADRO DE APROBADOS Y REPROBADOS POR GRADO DEL TRIMESTRE</strong></h5>
+                </div>
+            </div>
         </div>
 
         <!-- Información del reporte -->

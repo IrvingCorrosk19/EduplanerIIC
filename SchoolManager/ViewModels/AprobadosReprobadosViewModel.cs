@@ -84,6 +84,11 @@ namespace SchoolManager.ViewModels
 
         public string? GradoEspecifico { get; set; }
         public string? GrupoEspecifico { get; set; }
+        
+        // Nuevos filtros
+        public Guid? EspecialidadId { get; set; }
+        public Guid? AreaId { get; set; }
+        public Guid? MateriaId { get; set; }
     }
 }
 

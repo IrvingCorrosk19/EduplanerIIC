@@ -25,7 +25,10 @@ namespace SchoolManager.Services.Implementations
             string trimestre,
             string nivelEducativo,
             string? gradoEspecifico = null,
-            string? grupoEspecifico = null)
+            string? grupoEspecifico = null,
+            Guid? especialidadId = null,
+            Guid? areaId = null,
+            Guid? materiaId = null)
         {
             try
             {
@@ -62,7 +65,7 @@ namespace SchoolManager.Services.Implementations
 
                     foreach (var grupo in grupos)
                     {
-                        var stats = await CalcularEstadisticasGrupoAsync(grupo.Id, trimestre);
+                        var stats = await CalcularEstadisticasGrupoAsync(grupo.Id, trimestre, materiaId, areaId, especialidadId);
                         
                         estadisticas.Add(new GradoEstadisticaDto
                         {
@@ -119,7 +122,7 @@ namespace SchoolManager.Services.Implementations
             int ReprobadosHastaLaFecha, decimal PorcentajeReprobadosHastaLaFecha,
             int SinCalificaciones, decimal PorcentajeSinCalificaciones,
             int Retirados, decimal PorcentajeRetirados)> 
-            CalcularEstadisticasGrupoAsync(Guid grupoId, string trimestre)
+            CalcularEstadisticasGrupoAsync(Guid grupoId, string trimestre, Guid? materiaId = null, Guid? areaId = null, Guid? especialidadId = null)
         {
             // Obtener todos los estudiantes del grupo
             var estudiantesDelGrupo = await _context.StudentAssignments
@@ -146,11 +149,38 @@ namespace SchoolManager.Services.Implementations
                 }
 
                 // Obtener calificaciones del estudiante para el trimestre
-                var calificaciones = await _context.StudentActivityScores
+                var calificacionesQuery = _context.StudentActivityScores
                     .Include(sas => sas.Activity)
+                        .ThenInclude(a => a!.Subject)
+                            .ThenInclude(s => s!.Area)
                     .Where(sas => sas.StudentId == estudianteId && 
-                                  sas.Activity!.Trimester == trimestre)
-                    .ToListAsync();
+                                  sas.Activity!.Trimester == trimestre);
+                
+                // Aplicar filtro por materia si está especificado
+                if (materiaId.HasValue)
+                {
+                    calificacionesQuery = calificacionesQuery.Where(sas => sas.Activity!.SubjectId == materiaId.Value);
+                }
+                
+                // Aplicar filtro por área si está especificado
+                if (areaId.HasValue)
+                {
+                    calificacionesQuery = calificacionesQuery.Where(sas => sas.Activity!.Subject!.AreaId == areaId.Value);
+                }
+                
+                // Aplicar filtro por especialidad si está especificado
+                if (especialidadId.HasValue)
+                {
+                    calificacionesQuery = calificacionesQuery
+                        .Join(_context.SubjectAssignments,
+                            sas => sas.Activity!.SubjectId,
+                            sa => sa.SubjectId,
+                            (sas, sa) => new { sas, sa })
+                        .Where(x => x.sa.SpecialtyId == especialidadId.Value)
+                        .Select(x => x.sas);
+                }
+                
+                var calificaciones = await calificacionesQuery.ToListAsync();
 
                 if (!calificaciones.Any())
                 {
@@ -267,6 +297,83 @@ namespace SchoolManager.Services.Implementations
         public async Task<List<string>> ObtenerNivelesEducativosAsync()
         {
             return await Task.FromResult(new List<string> { "Premedia", "Media" });
+        }
+
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId)
+        {
+            try
+            {
+                var especialidades = await _context.Specialties
+                    .Where(s => s.SchoolId == schoolId || s.SchoolId == null)
+                    .OrderBy(s => s.Name)
+                    .Select(s => new { s.Id, s.Name })
+                    .ToListAsync();
+
+                return especialidades.Select(e => (e.Id, e.Name)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo especialidades");
+                return new List<(Guid, string)>();
+            }
+        }
+
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync()
+        {
+            try
+            {
+                var areas = await _context.Areas
+                    .Where(a => a.IsActive)
+                    .OrderBy(a => a.DisplayOrder)
+                    .ThenBy(a => a.Name)
+                    .Select(a => new { a.Id, a.Name })
+                    .ToListAsync();
+
+                return areas.Select(a => (a.Id, a.Name)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo áreas");
+                return new List<(Guid, string)>();
+            }
+        }
+
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null)
+        {
+            try
+            {
+                var query = _context.Subjects
+                    .Where(s => s.SchoolId == schoolId && s.Status == true);
+
+                // Filtrar por área si se especifica
+                if (areaId.HasValue)
+                {
+                    query = query.Where(s => s.AreaId == areaId.Value);
+                }
+
+                // Filtrar por especialidad si se especifica
+                if (especialidadId.HasValue)
+                {
+                    var materiasDeEspecialidad = _context.SubjectAssignments
+                        .Where(sa => sa.SpecialtyId == especialidadId.Value)
+                        .Select(sa => sa.SubjectId)
+                        .Distinct();
+
+                    query = query.Where(s => materiasDeEspecialidad.Contains(s.Id));
+                }
+
+                var materias = await query
+                    .OrderBy(s => s.Name)
+                    .Select(s => new { s.Id, s.Name })
+                    .ToListAsync();
+
+                return materias.Select(m => (m.Id, m.Name)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo materias");
+                return new List<(Guid, string)>();
+            }
         }
 
         public async Task<byte[]> ExportarAPdfAsync(AprobadosReprobadosReportViewModel reporte)

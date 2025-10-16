@@ -83,6 +83,57 @@
                     </div>
                 </div>
 
+                <!-- Filtros Adicionales -->
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Especialidad (Opcional):</strong></label>
+                            <select class="form-select" id="especialidadId" name="EspecialidadId">
+                                <option value="">Todas las especialidades</option>
+                                @if (ViewBag.EspecialidadesDisponibles != null)
+                                {
+                                    foreach (var especialidad in ViewBag.EspecialidadesDisponibles)
+                                    {
+                                        <option value="@especialidad.Id">@especialidad.Nombre</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Área (Opcional):</strong></label>
+                            <select class="form-select" id="areaId" name="AreaId">
+                                <option value="">Todas las áreas</option>
+                                @if (ViewBag.AreasDisponibles != null)
+                                {
+                                    foreach (var area in ViewBag.AreasDisponibles)
+                                    {
+                                        <option value="@area.Id">@area.Nombre</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Materia (Opcional):</strong></label>
+                            <select class="form-select" id="materiaId" name="MateriaId">
+                                <option value="">Todas las materias</option>
+                                @if (ViewBag.MateriasDisponibles != null)
+                                {
+                                    foreach (var materia in ViewBag.MateriasDisponibles)
+                                    {
+                                        <option value="@materia.Id">@materia.Nombre</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row">
                     <div class="col-md-12 text-center">
                         <button type="submit" class="btn btn-primary btn-lg">
@@ -139,6 +190,34 @@
                 }
             });
 
+            // Actualizar materias cuando cambia el área o especialidad
+            $('#areaId, #especialidadId').change(function () {
+                actualizarMaterias();
+            });
+
+            function actualizarMaterias() {
+                const areaId = $('#areaId').val();
+                const especialidadId = $('#especialidadId').val();
+                const materiaSelect = $('#materiaId');
+
+                $.ajax({
+                    url: '/AprobadosReprobados/ObtenerMaterias',
+                    type: 'GET',
+                    data: { areaId, especialidadId },
+                    success: function (response) {
+                        materiaSelect.html('<option value="">Todas las materias</option>');
+                        if (response.success && response.data) {
+                            response.data.forEach(function (materia) {
+                                materiaSelect.append(`<option value="${materia.id}">${materia.nombre}</option>`);
+                            });
+                        }
+                    },
+                    error: function () {
+                        console.error('Error al cargar materias');
+                    }
+                });
+            }
+
             // Generar reporte
             $('#filtro-form').submit(function (e) {
                 e.preventDefault();
@@ -146,6 +225,9 @@
                 const trimestre = $('#trimestre').val();
                 const nivelEducativo = $('#nivelEducativo').val();
                 const gradoEspecifico = $('#gradoEspecifico').val();
+                const especialidadId = $('#especialidadId').val();
+                const areaId = $('#areaId').val();
+                const materiaId = $('#materiaId').val();
                 
                 if (!trimestre || !nivelEducativo) {
                     Swal.fire('Error', 'Debe seleccionar trimestre y nivel educativo', 'error');
@@ -169,6 +251,9 @@
                         Trimestre: trimestre,
                         NivelEducativo: nivelEducativo,
                         GradoEspecifico: gradoEspecifico,
+                        EspecialidadId: especialidadId || null,
+                        AreaId: areaId || null,
+                        MateriaId: materiaId || null,
                         __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
                     },
                     success: function (response) {
@@ -192,6 +277,7 @@
             $('#btn-limpiar').click(function () {
                 $('#filtro-form')[0].reset();
                 $('#gradoEspecifico').html('<option value="">Todos los grados</option>');
+                $('#materiaId').html('<option value="">Todas las materias</option>');
                 $('#reporte-container').slideUp();
             });
 
@@ -200,11 +286,18 @@
                 const trimestre = $('#trimestre').val();
                 const nivelEducativo = $('#nivelEducativo').val();
                 const gradoEspecifico = $('#gradoEspecifico').val();
+                const especialidadId = $('#especialidadId').val();
+                const areaId = $('#areaId').val();
+                const materiaId = $('#materiaId').val();
                 
-                const url = '@Url.Action("VistaPrevia", "AprobadosReprobados")' +
+                let url = '@Url.Action("VistaPrevia", "AprobadosReprobados")' +
                     '?trimestre=' + encodeURIComponent(trimestre) +
-                    '&nivelEducativo=' + encodeURIComponent(nivelEducativo) +
-                    (gradoEspecifico ? '&grado=' + encodeURIComponent(gradoEspecifico) : '');
+                    '&nivelEducativo=' + encodeURIComponent(nivelEducativo);
+                    
+                if (gradoEspecifico) url += '&grado=' + encodeURIComponent(gradoEspecifico);
+                if (especialidadId) url += '&especialidadId=' + encodeURIComponent(especialidadId);
+                if (areaId) url += '&areaId=' + encodeURIComponent(areaId);
+                if (materiaId) url += '&materiaId=' + encodeURIComponent(materiaId);
                 
                 window.open(url, '_blank');
             });
