@@ -44,7 +44,7 @@ namespace SchoolManager.ViewModels
         public string Action { get; set; } = null!;
         public string Resource { get; set; } = null!;
         public string? Details { get; set; }
-        public DateTime Timestamp { get; set; }
+        public DateTime? Timestamp { get; set; }
         public string? IpAddress { get; set; }
         public string? SchoolName { get; set; }
     }

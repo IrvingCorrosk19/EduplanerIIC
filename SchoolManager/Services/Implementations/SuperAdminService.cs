@@ -944,7 +944,7 @@ public class SuperAdminService : ISuperAdminService
                 TotalMensajes = await _context.Messages.CountAsync(),
                 UsuariosActivos = await _context.Users.CountAsync(u => u.Status == "active"),
                 UsuariosInactivos = await _context.Users.CountAsync(u => u.Status != "active"),
-                FechaUltimaActividad = await _context.AuditLogs.MaxAsync(a => (DateTime?)a.Timestamp) ?? DateTime.UtcNow
+                FechaUltimaActividad = (await _context.AuditLogs.MaxAsync(a => (DateTime?)a.Timestamp)) ?? DateTime.UtcNow
             };
 
             // Estadísticas por escuela
