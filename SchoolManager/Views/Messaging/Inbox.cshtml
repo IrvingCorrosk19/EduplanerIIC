@@ -1,6 +1,7 @@
 @model List<SchoolManager.ViewModels.MessageListViewModel>
 @{
     ViewData["Title"] = "Mensajes Recibidos";
+    Layout = "_AdminLayout";
     var stats = ViewBag.Stats as SchoolManager.ViewModels.MessageStatsViewModel;
     var unreadOnly = ViewBag.UnreadOnly as bool? ?? false;
 }

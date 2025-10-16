@@ -345,6 +345,35 @@ namespace SchoolManager.Controllers
                 return Json(new { count = 0 });
             }
         }
+
+        // GET: Messaging/SearchUsers (para autocomplete)
+        [HttpGet]
+        public async Task<IActionResult> SearchUsers(string term, string type = "all")
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                if (userId == Guid.Empty)
+                {
+                    return Json(new List<object>());
+                }
+
+                var results = await _messagingService.SearchUsersForMessagingAsync(userId, term, type);
+                
+                return Json(results.Select(u => new
+                {
+                    id = u.Id,
+                    text = u.Name,
+                    additionalInfo = u.AdditionalInfo,
+                    role = u.Role
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error buscando usuarios");
+                return Json(new List<object>());
+            }
+        }
     }
 }
 

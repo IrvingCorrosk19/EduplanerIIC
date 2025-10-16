@@ -16,13 +16,14 @@
                     <tr>
                         <th class="text-center">Nombre</th>
                         <th class="text-center">Descripción</th>
-                        <th class="text-center" style="width: 150px;">Acciones</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 200px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var area in Model ?? Enumerable.Empty<SchoolManager.Models.Area>())
                     {
-                        <tr data-id="@area.Id">
+                        <tr data-id="@area.Id" data-active="@area.IsActive.ToString().ToLower()">
                             <td class="align-middle text-center">
                                 <span class="area-name-text">@area.Name</span>
                                 <input type="text" class="form-control d-none area-name-input" value="@area.Name" autocomplete="off" />
@@ -32,14 +33,36 @@
                                 <textarea class="form-control d-none area-description-input">@area.Description</textarea>
                             </td>
                             <td class="align-middle text-center">
+                                @if (area.IsActive)
+                                {
+                                    <span class="badge bg-success area-status-badge">Activa</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary area-status-badge">Inactiva</span>
+                                }
+                            </td>
+                            <td class="align-middle text-center">
                                 <button class="btn btn-action btn-edit me-1 btn-edit-area" title="Editar">
-                                    <i class="bi bi-pencil me-1"></i> Editar
+                                    <i class="bi bi-pencil"></i>
                                 </button>
                                 <button class="btn btn-action btn-save d-none me-1 btn-save-area" title="Guardar">
-                                    <i class="bi bi-check me-1"></i> Guardar
+                                    <i class="bi bi-check"></i>
                                 </button>
+                                @if (area.IsActive)
+                                {
+                                    <button class="btn btn-action btn-warning me-1 btn-toggle-area" title="Desactivar">
+                                        <i class="bi bi-pause-circle"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-action btn-success me-1 btn-toggle-area" title="Activar">
+                                        <i class="bi bi-play-circle"></i>
+                                    </button>
+                                }
                                 <button class="btn btn-action btn-delete btn-delete-area" title="Eliminar">
-                                    <i class="bi bi-trash me-1"></i> Eliminar
+                                    <i class="bi bi-trash"></i>
                                 </button>
                             </td>
                         </tr>

@@ -51,6 +51,13 @@
                 </li>
             </ul>
             <ul class="navbar-nav ml-auto">
+                <!-- Notificaciones de Mensajes -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link" href="@Url.Action("Inbox", "Messaging")" title="Mensajes">
+                        <i class="fas fa-envelope fa-lg"></i>
+                        <span class="badge badge-danger navbar-badge unread-badge-top" style="display: none;">0</span>
+                    </a>
+                </li>
                 <li class="nav-item">
                     <span class="nav-link">
                         <i class="fas fa-user"></i> @fullName
@@ -311,9 +318,16 @@
             function updateUnreadCount() {
                 $.get('@Url.Action("GetUnreadCount", "Messaging")', function (data) {
                     if (data.count > 0) {
+                        // Actualizar badge en el sidebar
                         $('.unread-badge').text(data.count).show();
+                        // Actualizar badge en el navbar superior
+                        $('.unread-badge-top').text(data.count).show();
+                        
+                        // Animar el icono de mensajes para llamar la atención
+                        $('.unread-badge-top').parent().addClass('pulse-animation');
                     } else {
-                        $('.unread-badge').hide();
+                        $('.unread-badge, .unread-badge-top').hide();
+                        $('.unread-badge-top').parent().removeClass('pulse-animation');
                     }
                 }).fail(function() {
                     // Silenciosamente fallar si el endpoint no está disponible
@@ -324,10 +338,44 @@
             // Actualizar al cargar la página
             updateUnreadCount();
             
-            // Actualizar cada 30 segundos
+            // Actualizar cada 30 segundos (tiempo real)
             setInterval(updateUnreadCount, 30000);
         });
     </script>
+    
+    <!-- CSS para animación de pulso -->
+    <style>
+        .navbar-badge {
+            font-size: 0.6rem;
+            font-weight: bold;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 2px 5px;
+            border-radius: 10px;
+        }
+        
+        @@keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        .unread-badge-top {
+            background-color: #dc3545 !important;
+            color: white !important;
+        }
+    </style>
 
     @RenderSection("Scripts", required: false)
 </body>

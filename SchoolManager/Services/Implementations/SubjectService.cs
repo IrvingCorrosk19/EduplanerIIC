@@ -43,7 +43,8 @@ public class SubjectService : ISubjectService
             subject = new Subject
             {
                 Id = Guid.NewGuid(),
-                Name = name
+                Name = name,
+                Status = true  // ✅ ACTIVA por defecto
             };
             
             // Configurar campos de auditoría y SchoolId

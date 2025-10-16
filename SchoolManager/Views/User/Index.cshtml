@@ -64,6 +64,7 @@
     .table {
         margin-bottom: 0;
         width: 100%;
+        min-width: 1800px; /* Ancho mínimo para que el scroll funcione */
         font-size: 0.95rem;
         border-collapse: separate;
         border-spacing: 0;
@@ -78,6 +79,11 @@
         padding: 0.75rem 1rem;
         border-bottom: 2px solid #e2e8f0;
         white-space: nowrap;
+    }
+    
+    .table thead th:last-child,
+    .table tbody td:last-child {
+        min-width: 200px; /* Ancho mínimo para la columna de Acciones */
     }
     .table tbody tr {
         transition: all 0.2s;
@@ -94,6 +100,29 @@
         border-bottom: 1px solid #e2e8f0;
         color: #334155;
         font-size: 0.875rem;
+        white-space: nowrap;
+    }
+    
+    /* Columna de Acciones pegada a la derecha */
+    .table thead th:last-child,
+    .table tbody td:last-child {
+        position: sticky;
+        right: 0;
+        background: white;
+        z-index: 10;
+        box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .table thead th:last-child {
+        background: #f1f5f9;
+    }
+    
+    .table tbody tr:nth-child(even) td:last-child {
+        background-color: #f8fafc;
+    }
+    
+    .table tbody tr:hover td:last-child {
+        background-color: #f1f5f9;
     }
     .btn-primary, .btn-warning, .btn-info, .btn-danger {
         border-radius: 0.5rem;
@@ -202,14 +231,25 @@
             position: sticky;
             left: 0;
             background: white;
-            z-index: 1;
+            z-index: 2;
+            box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+        }
+        .table thead th:first-child {
+            background: #f1f5f9;
+        }
+        .table tbody tr:nth-child(even) td:first-child {
+            background-color: #f8fafc;
+        }
+        .table tbody tr:hover td:first-child {
+            background-color: #f1f5f9;
         }
         .table thead th:last-child,
         .table tbody td:last-child {
             position: sticky;
             right: 0;
             background: white;
-            z-index: 1;
+            z-index: 2;
+            box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
         }
         .action-buttons {
             white-space: nowrap;

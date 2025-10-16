@@ -31,6 +31,9 @@ namespace SchoolManager.Services.Interfaces
 
         // Búsqueda
         Task<List<MessageListViewModel>> SearchMessagesAsync(Guid userId, string searchTerm);
+        
+        // Búsqueda de usuarios para autocomplete
+        Task<List<RecipientOptionDto>> SearchUsersForMessagingAsync(Guid userId, string searchTerm, string type = "all");
 
         // Validaciones
         Task<bool> CanSendToRecipientAsync(Guid senderId, string recipientType, Guid? recipientId, Guid? groupId);

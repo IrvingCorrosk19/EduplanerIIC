@@ -1,6 +1,7 @@
 @model SchoolManager.ViewModels.SendMessageViewModel
 @{
     ViewData["Title"] = "Nuevo Mensaje";
+    Layout = "_AdminLayout";
     var options = ViewBag.RecipientOptions as SchoolManager.ViewModels.RecipientOptionsViewModel;
 }
 
@@ -27,6 +28,11 @@
                                 
                                 @if (options != null)
                                 {
+                                    @if (options.Administrators.Any())
+                                    {
+                                        <option value="Individual" data-target="admin">👔 Administrador</option>
+                                    }
+                                    
                                     @if (options.CanSendToAllTeachers)
                                     {
                                         <option value="AllTeachers">Todos los Profesores</option>
@@ -62,34 +68,43 @@
                             <span asp-validation-for="RecipientType" class="text-danger"></span>
                         </div>
 
-                        <!-- Selector de profesor individual -->
-                        <div class="mb-3 recipient-selector" id="teacher-selector" style="display: none;">
-                            <label class="form-label">Profesor:</label>
-                            <select class="form-select" id="teacher-select">
-                                <option value="">-- Seleccione un profesor --</option>
-                                @if (options?.Teachers != null)
-                                {
-                                    foreach (var teacher in options.Teachers)
-                                    {
-                                        <option value="@teacher.Id">@teacher.Name (@teacher.AdditionalInfo)</option>
-                                    }
-                                }
+                        <!-- Selector de administrador individual con autocomplete -->
+                        <div class="mb-3 recipient-selector" id="admin-selector" style="display: none;">
+                            <label class="form-label">
+                                <i class="bi bi-shield-check"></i> Buscar Administrador:
+                            </label>
+                            <select class="form-select" id="admin-select">
+                                <option value="">-- Escriba para buscar (mínimo 2 letras) --</option>
                             </select>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-search"></i> Busque por nombre, apellido o email del administrador
+                            </small>
                         </div>
 
-                        <!-- Selector de estudiante individual -->
-                        <div class="mb-3 recipient-selector" id="student-selector" style="display: none;">
-                            <label class="form-label">Estudiante:</label>
-                            <select class="form-select" id="student-select">
-                                <option value="">-- Seleccione un estudiante --</option>
-                                @if (options?.Students != null)
-                                {
-                                    foreach (var student in options.Students)
-                                    {
-                                        <option value="@student.Id">@student.Name (@student.AdditionalInfo)</option>
-                                    }
-                                }
+                        <!-- Selector de profesor individual con autocomplete -->
+                        <div class="mb-3 recipient-selector" id="teacher-selector" style="display: none;">
+                            <label class="form-label">
+                                <i class="bi bi-person-badge"></i> Buscar Profesor:
+                            </label>
+                            <select class="form-select" id="teacher-select">
+                                <option value="">-- Escriba para buscar (mínimo 2 letras) --</option>
                             </select>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-search"></i> Busque por nombre, apellido o email del profesor
+                            </small>
+                        </div>
+
+                        <!-- Selector de estudiante individual con autocomplete -->
+                        <div class="mb-3 recipient-selector" id="student-selector" style="display: none;">
+                            <label class="form-label">
+                                <i class="bi bi-person"></i> Buscar Estudiante:
+                            </label>
+                            <select class="form-select" id="student-select">
+                                <option value="">-- Escriba para buscar (mínimo 2 letras) --</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-search"></i> Busque por nombre, apellido o email del estudiante
+                            </small>
                         </div>
 
                         <!-- Selector de grupo -->
@@ -107,7 +122,7 @@
                             </select>
                         </div>
 
-                        <input type="hidden" asp-for="RecipientId" id="recipient-id" />
+                        <input type="hidden" asp-for="RecipientId" id="recipient-id" name="RecipientId" />
 
                         <div class="mb-3">
                             <label asp-for="Priority" class="form-label">Prioridad:</label>
@@ -149,6 +164,45 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <!-- Select2 CSS y JS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    
+    <style>
+        /* Mejorar apariencia de Select2 */
+        .select2-container--bootstrap-5 .select2-selection {
+            min-height: 38px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+        }
+        
+        .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+            line-height: 36px;
+            padding-left: 12px;
+        }
+        
+        .select2-container--bootstrap-5 .select2-dropdown {
+            border-color: #dee2e6;
+        }
+        
+        .select2-container--bootstrap-5 .select2-results__option--highlighted {
+            background-color: #0d6efd;
+            color: white;
+        }
+        
+        .select2-container--bootstrap-5 .select2-search__field {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        .select2-container--bootstrap-5 .select2-selection__clear {
+            margin-right: 10px;
+        }
+    </style>
+    
     <script>
         $(document).ready(function () {
             // Contador de caracteres
@@ -166,20 +220,212 @@
                 }
             });
 
+            // Configurar Select2 para autocomplete de administradores
+            function initializeAdminSelect() {
+                $('#admin-select').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: '-- Escriba para buscar --',
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    language: {
+                        inputTooShort: function () {
+                            return '✍️ Escriba al menos 2 caracteres para buscar';
+                        },
+                        noResults: function () {
+                            return '❌ No se encontraron administradores';
+                        },
+                        searching: function () {
+                            return '<i class="fas fa-spinner fa-spin"></i> Buscando administradores...';
+                        },
+                        errorLoading: function () {
+                            return '⚠️ Error al cargar resultados';
+                        },
+                        loadingMore: function () {
+                            return '<i class="fas fa-spinner fa-spin"></i> Cargando más resultados...';
+                        }
+                    },
+                    ajax: {
+                        url: '@Url.Action("SearchUsers", "Messaging")',
+                        dataType: 'json',
+                        delay: 300,
+                        data: function (params) {
+                            return {
+                                term: params.term,
+                                type: 'admin'
+                            };
+                        },
+                        processResults: function (data) {
+                            return {
+                                results: data.map(function(item) {
+                                    return {
+                                        id: item.id,
+                                        text: '👔 ' + item.text + ' (' + item.additionalInfo + ')'
+                                    };
+                                })
+                            };
+                        },
+                        cache: true,
+                        transport: function (params, success, failure) {
+                            var $request = $.ajax(params);
+
+                            $request.then(success);
+                            $request.fail(failure);
+
+                            return $request;
+                        }
+                    },
+                    escapeMarkup: function(markup) {
+                        return markup; // Permite HTML en los mensajes
+                    }
+                });
+            }
+
+            // Configurar Select2 para autocomplete de profesores
+            function initializeTeacherSelect() {
+                $('#teacher-select').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: '-- Escriba para buscar --',
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    language: {
+                        inputTooShort: function () {
+                            return '✍️ Escriba al menos 2 caracteres para buscar';
+                        },
+                        noResults: function () {
+                            return '❌ No se encontraron profesores';
+                        },
+                        searching: function () {
+                            return '<i class="fas fa-spinner fa-spin"></i> Buscando profesores...';
+                        },
+                        errorLoading: function () {
+                            return '⚠️ Error al cargar resultados';
+                        },
+                        loadingMore: function () {
+                            return '<i class="fas fa-spinner fa-spin"></i> Cargando más resultados...';
+                        }
+                    },
+                    ajax: {
+                        url: '@Url.Action("SearchUsers", "Messaging")',
+                        dataType: 'json',
+                        delay: 300,
+                        data: function (params) {
+                            return {
+                                term: params.term,
+                                type: 'teacher'
+                            };
+                        },
+                        processResults: function (data) {
+                            return {
+                                results: data.map(function(item) {
+                                    return {
+                                        id: item.id,
+                                        text: item.text + ' (' + item.additionalInfo + ')'
+                                    };
+                                })
+                            };
+                        },
+                        cache: true,
+                        transport: function (params, success, failure) {
+                            var $request = $.ajax(params);
+
+                            $request.then(success);
+                            $request.fail(failure);
+
+                            return $request;
+                        }
+                    },
+                    escapeMarkup: function(markup) {
+                        return markup; // Permite HTML en los mensajes
+                    }
+                });
+            }
+
+            // Configurar Select2 para autocomplete de estudiantes
+            function initializeStudentSelect() {
+                $('#student-select').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: '-- Escriba para buscar --',
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    language: {
+                        inputTooShort: function () {
+                            return '✍️ Escriba al menos 2 caracteres para buscar';
+                        },
+                        noResults: function () {
+                            return '❌ No se encontraron estudiantes';
+                        },
+                        searching: function () {
+                            return '<i class="fas fa-spinner fa-spin"></i> Buscando estudiantes...';
+                        },
+                        errorLoading: function () {
+                            return '⚠️ Error al cargar resultados';
+                        },
+                        loadingMore: function () {
+                            return '<i class="fas fa-spinner fa-spin"></i> Cargando más resultados...';
+                        }
+                    },
+                    ajax: {
+                        url: '@Url.Action("SearchUsers", "Messaging")',
+                        dataType: 'json',
+                        delay: 300,
+                        data: function (params) {
+                            return {
+                                term: params.term,
+                                type: 'student'
+                            };
+                        },
+                        processResults: function (data) {
+                            return {
+                                results: data.map(function(item) {
+                                    return {
+                                        id: item.id,
+                                        text: item.text + ' (' + item.additionalInfo + ')'
+                                    };
+                                })
+                            };
+                        },
+                        cache: true,
+                        transport: function (params, success, failure) {
+                            var $request = $.ajax(params);
+
+                            $request.then(success);
+                            $request.fail(failure);
+
+                            return $request;
+                        }
+                    },
+                    escapeMarkup: function(markup) {
+                        return markup; // Permite HTML en los mensajes
+                    }
+                });
+            }
+
+            // Inicializar Select2
+            initializeAdminSelect();
+            initializeTeacherSelect();
+            initializeStudentSelect();
+
             // Manejo del tipo de destinatario
             $('#recipient-type').change(function () {
                 const selectedOption = $(this).find('option:selected');
                 const value = $(this).val();
                 const target = selectedOption.data('target');
                 
-                // Ocultar todos los selectores
+                // Ocultar todos los selectores y limpiar
                 $('.recipient-selector').hide();
                 $('#recipient-id').val('');
                 $('#GroupId').val('');
                 
+                // Limpiar selecciones de Select2
+                $('#admin-select').val(null).trigger('change');
+                $('#teacher-select').val(null).trigger('change');
+                $('#student-select').val(null).trigger('change');
+                
                 // Mostrar el selector apropiado
                 if (value === 'Individual') {
-                    if (target === 'teacher') {
+                    if (target === 'admin') {
+                        $('#admin-selector').show();
+                    } else if (target === 'teacher') {
                         $('#teacher-selector').show();
                     } else if (target === 'student') {
                         $('#student-selector').show();
@@ -189,14 +435,27 @@
                 }
             });
 
-            // Manejo de selección de profesor
-            $('#teacher-select').change(function () {
-                $('#recipient-id').val($(this).val());
+            // Manejo de selección de administrador con Select2
+            $('#admin-select').on('select2:select', function (e) {
+                const data = e.params.data;
+                $('#recipient-id').val(data.id);
             });
 
-            // Manejo de selección de estudiante
-            $('#student-select').change(function () {
-                $('#recipient-id').val($(this).val());
+            // Manejo de selección de profesor con Select2
+            $('#teacher-select').on('select2:select', function (e) {
+                const data = e.params.data;
+                $('#recipient-id').val(data.id);
+            });
+
+            // Manejo de selección de estudiante con Select2
+            $('#student-select').on('select2:select', function (e) {
+                const data = e.params.data;
+                $('#recipient-id').val(data.id);
+            });
+
+            // Limpiar cuando se deselecciona
+            $('#admin-select, #teacher-select, #student-select').on('select2:clear', function () {
+                $('#recipient-id').val('');
             });
 
             // Validación antes de enviar

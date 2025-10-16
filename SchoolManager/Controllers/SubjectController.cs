@@ -100,6 +100,31 @@ public class SubjectController : Controller
     }
 
     [HttpPost]
+    public async Task<IActionResult> ToggleActive([FromBody] ToggleActiveSubjectRequest request)
+    {
+        if (request.Id == Guid.Empty)
+            return Json(new { success = false, message = "ID de materia inválido." });
+
+        try
+        {
+            var subject = await _subjectService.GetByIdAsync(request.Id);
+            if (subject == null)
+                return Json(new { success = false, message = "Materia no encontrada." });
+
+            subject.Status = !(subject.Status ?? false);
+            subject.UpdatedAt = DateTime.UtcNow;
+            await _subjectService.UpdateAsync(subject);
+            
+            var estado = (subject.Status ?? false) ? "activada" : "desactivada";
+            return Json(new { success = true, isActive = subject.Status, message = $"Materia {estado} exitosamente." });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = "Error al cambiar el estado: " + ex.Message });
+        }
+    }
+
+    [HttpPost]
     public async Task<IActionResult> Delete([FromBody] DeleteSubjectRequest request)
     {
         if (request.Id == Guid.Empty)
@@ -123,6 +148,11 @@ public class SubjectController : Controller
             return Json(new { success = false, message = "Error al eliminar la materia: " + ex.Message });
         }
     }
+}
+
+public class ToggleActiveSubjectRequest
+{
+    public Guid Id { get; set; }
 }
 
 public class DeleteSubjectRequest

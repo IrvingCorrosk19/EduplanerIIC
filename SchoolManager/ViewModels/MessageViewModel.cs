@@ -82,6 +82,7 @@ namespace SchoolManager.ViewModels
     {
         public List<RecipientOption> Teachers { get; set; } = new();
         public List<RecipientOption> Students { get; set; } = new();
+        public List<RecipientOption> Administrators { get; set; } = new();
         public List<RecipientOption> Groups { get; set; } = new();
         public bool CanSendToAllTeachers { get; set; }
         public bool CanSendToAllStudents { get; set; }
@@ -93,6 +94,17 @@ namespace SchoolManager.ViewModels
         public Guid Id { get; set; }
         public string Name { get; set; } = null!;
         public string? AdditionalInfo { get; set; }
+    }
+
+    /// <summary>
+    /// DTO para opciones de destinatarios en autocomplete
+    /// </summary>
+    public class RecipientOptionDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = null!;
+        public string? AdditionalInfo { get; set; }
+        public string? Role { get; set; }
     }
 
     /// <summary>

@@ -33,7 +33,10 @@ namespace SchoolManager.Infrastructure.Services
                 {
                     Id = Guid.NewGuid(),
                     Name = name,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    IsActive = true,        // ✅ ACTIVA por defecto
+                    IsGlobal = true,        // ✅ GLOBAL para todas las escuelas
+                    DisplayOrder = 0        // ✅ Orden por defecto
                 };
 
                 _context.Areas.Add(area);

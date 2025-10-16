@@ -1,6 +1,7 @@
 @model SchoolManager.ViewModels.AprobadosReprobadosFiltroViewModel
 @{
     ViewData["Title"] = "Cuadro de Aprobados y Reprobados";
+    Layout = "_AdminLayout";
     var trimestres = ViewBag.TrimestresDisponibles as List<string>;
     var niveles = ViewBag.NivelesDisponibles as List<string>;
     var currentUser = ViewBag.CurrentUser as SchoolManager.Models.User;
@@ -94,7 +95,7 @@
                                 {
                                     foreach (var especialidad in ViewBag.EspecialidadesDisponibles)
                                     {
-                                        <option value="@especialidad.Id">@especialidad.Nombre</option>
+                                        <option value="@especialidad.Item1">@especialidad.Item2</option>
                                     }
                                 }
                             </select>
@@ -110,7 +111,7 @@
                                 {
                                     foreach (var area in ViewBag.AreasDisponibles)
                                     {
-                                        <option value="@area.Id">@area.Nombre</option>
+                                        <option value="@area.Item1">@area.Item2</option>
                                     }
                                 }
                             </select>
@@ -126,7 +127,7 @@
                                 {
                                     foreach (var materia in ViewBag.MateriasDisponibles)
                                     {
-                                        <option value="@materia.Id">@materia.Nombre</option>
+                                        <option value="@materia.Item1">@materia.Item2</option>
                                     }
                                 }
                             </select>

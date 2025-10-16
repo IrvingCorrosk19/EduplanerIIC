@@ -516,6 +516,21 @@ namespace SchoolManager.Services.Implementations
                     })
                     .ToListAsync();
 
+                // Todos pueden enviar a administradores (importante para soporte/consultas)
+                options.Administrators = await _context.Users
+                    .Where(u => u.SchoolId == user.SchoolId && 
+                           (u.Role.ToLower() == "admin" || u.Role.ToLower() == "director") && 
+                           u.Status == "active" &&
+                           u.Id != userId) // Excluir al usuario actual
+                    .OrderBy(u => u.Name)
+                    .Select(u => new RecipientOption
+                    {
+                        Id = u.Id,
+                        Name = $"{u.Name} {u.LastName}",
+                        AdditionalInfo = u.Email
+                    })
+                    .ToListAsync();
+
                 // Permisos según rol
                 switch (role)
                 {
@@ -655,6 +670,62 @@ namespace SchoolManager.Services.Implementations
             {
                 _logger.LogError(ex, "❌ Error buscando mensajes");
                 throw;
+            }
+        }
+
+        public async Task<List<RecipientOptionDto>> SearchUsersForMessagingAsync(Guid userId, string searchTerm, string type = "all")
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm) || searchTerm.Length < 2)
+                    return new List<RecipientOptionDto>();
+
+                var currentUser = await _context.Users.FindAsync(userId);
+                if (currentUser?.SchoolId == null)
+                    return new List<RecipientOptionDto>();
+
+                searchTerm = searchTerm.ToLower();
+
+                var query = _context.Users
+                    .Where(u => u.SchoolId == currentUser.SchoolId && 
+                               u.Id != userId && 
+                               u.Status == "active" &&
+                               (u.Name.ToLower().Contains(searchTerm) || 
+                                u.LastName.ToLower().Contains(searchTerm) ||
+                                u.Email.ToLower().Contains(searchTerm)));
+
+                // Filtrar por tipo si se especifica
+                if (type == "teacher")
+                {
+                    query = query.Where(u => u.Role.ToLower() == "teacher");
+                }
+                else if (type == "student")
+                {
+                    query = query.Where(u => u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante");
+                }
+                else if (type == "admin")
+                {
+                    query = query.Where(u => u.Role.ToLower() == "admin" || u.Role.ToLower() == "director");
+                }
+
+                var results = await query
+                    .OrderBy(u => u.Name)
+                    .Take(20) // Limitar a 20 resultados
+                    .Select(u => new RecipientOptionDto
+                    {
+                        Id = u.Id,
+                        Name = $"{u.Name} {u.LastName}",
+                        AdditionalInfo = u.Email,
+                        Role = u.Role
+                    })
+                    .ToListAsync();
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error buscando usuarios para autocomplete");
+                return new List<RecipientOptionDto>();
             }
         }
 

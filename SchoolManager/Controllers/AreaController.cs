@@ -68,6 +68,35 @@ public class AreaController : Controller
     }
 
     [HttpPost]
+    public async Task<IActionResult> ToggleActive([FromBody] ToggleActiveRequest request)
+    {
+        if (request.Id == Guid.Empty)
+        {
+            return Json(new { success = false, message = "ID de área inválido." });
+        }
+
+        try
+        {
+            var area = await _areaService.GetByIdAsync(request.Id);
+            if (area == null)
+            {
+                return Json(new { success = false, message = "Área no encontrada." });
+            }
+
+            area.IsActive = !area.IsActive;
+            area.UpdatedAt = DateTime.UtcNow;
+            await _areaService.UpdateAsync(area);
+            
+            var estado = area.IsActive ? "activada" : "desactivada";
+            return Json(new { success = true, isActive = area.IsActive, message = $"Área {estado} exitosamente." });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = "Error al cambiar el estado: " + ex.Message });
+        }
+    }
+
+    [HttpPost]
     public async Task<IActionResult> Delete([FromBody] DeleteAreaRequest request)
     {
         if (request.Id == Guid.Empty)
@@ -89,6 +118,11 @@ public class AreaController : Controller
             return Json(new { success = false, message = "Error al eliminar el área: " + ex.Message });
         }
     }
+}
+
+public class ToggleActiveRequest
+{
+    public Guid Id { get; set; }
 }
 
 public class DeleteAreaRequest

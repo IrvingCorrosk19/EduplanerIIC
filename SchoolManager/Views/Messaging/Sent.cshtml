@@ -1,6 +1,7 @@
 @model List<SchoolManager.ViewModels.MessageListViewModel>
 @{
     ViewData["Title"] = "Mensajes Enviados";
+    Layout = "_AdminLayout";
     var stats = ViewBag.Stats as SchoolManager.ViewModels.MessageStatsViewModel;
 }
 
