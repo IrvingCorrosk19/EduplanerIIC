@@ -42,6 +42,10 @@
         background: #f1f5f9 !important;
         color: #1e293b !important;
     }
+    .card-body {
+        max-height: 600px;
+        overflow-y: auto;
+    }
     .table-container {
         background: white;
         border-radius: 1rem;
@@ -442,7 +446,7 @@
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="Inclusion" id="inclusionCheck" value="true">
                                 <label class="form-check-label" for="inclusionCheck">
-                                    <i class="fas fa-heart me-1"></i>Inclusión D
+                                    <i class="fas fa-heart me-1"></i>Inclusión
                                 </label>
                             </div>
                         </div>
@@ -478,8 +482,8 @@
                             <th>Rol</th>
                             <th>Estado</th>
                             <th class="specialization-column">Disciplina</th>
-                        <th>Inclusión D</th>
                             <th class="specialization-column">Orientación</th>
+                            <th class="specialization-column">Inclusión D</th>
                             <th class="specialization-column">Inclusión E</th>
                             <th>Acciones</th>
                         </tr>
@@ -531,16 +535,6 @@
                                 }
                             </td>
                             <td class="specialization-column">
-                                @if (user.Inclusion == "si")
-                                {
-                                    <span class="badge bg-success"><i class="fas fa-heart me-1"></i>Sí</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">No</span>
-                                }
-                            </td>
-                            <td>
                                 @if (user.Inclusivo == true)
                                 {
                                     <span class="badge bg-warning"><i class="fas fa-users me-1"></i>Sí</span>
@@ -552,6 +546,16 @@
                                 else
                                 {
                                     <span class="badge bg-secondary"><i class="fas fa-minus me-1"></i>Sin definir</span>
+                                }
+                            </td>
+                            <td class="specialization-column">
+                                @if (user.Inclusion == "si")
+                                {
+                                    <span class="badge bg-success"><i class="fas fa-heart me-1"></i>Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No</span>
                                 }
                             </td>
                             <td>
@@ -1348,5 +1352,4 @@
             _ => role ?? "Sin rol"
         };
     }
-}
 }
