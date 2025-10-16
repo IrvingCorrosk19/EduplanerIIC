@@ -356,7 +356,7 @@ public class SuperAdminService : ISuperAdminService
         
         var admins = await _context.Users
             .Where(u => u.Role == "admin" || u.Role == "superadmin")
-            .Include(u => u.School)
+            .Include(u => u.SchoolNavigation)
             .ToListAsync();
 
         Console.WriteLine($"✅ [SuperAdminService] Encontrados {admins.Count} admins");
@@ -368,7 +368,7 @@ public class SuperAdminService : ISuperAdminService
         Console.WriteLine($"🔍 [SuperAdminService] Buscando usuario con ID: {id}");
         
         var user = await _context.Users
-            .Include(u => u.School)
+            .Include(u => u.SchoolNavigation)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user != null)
@@ -388,7 +388,7 @@ public class SuperAdminService : ISuperAdminService
         Console.WriteLine($"🔍 [SuperAdminService] Obteniendo usuario para edición con ID: {id}");
         
         var user = await _context.Users
-            .Include(u => u.School)
+            .Include(u => u.SchoolNavigation)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)

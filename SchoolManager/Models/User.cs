@@ -65,8 +65,6 @@ public partial class User
 
     public virtual ICollection<OrientationReport> OrientationReportTeachers { get; set; } = new List<OrientationReport>();
 
-    public virtual School? School { get; set; }
-
     public virtual School? SchoolNavigation { get; set; }
 
     public virtual ICollection<StudentActivityScore> StudentActivityScores { get; set; } = new List<StudentActivityScore>();

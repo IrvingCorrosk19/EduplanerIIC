@@ -201,7 +201,7 @@ public class UserService : IUserService
                 .Include(u => u.Subjects)
                 .Include(u => u.Groups)
                 .Include(u => u.Grades)
-                .Include(u => u.School)
+                .Include(u => u.SchoolNavigation)
                 .FirstOrDefaultAsync(u => u.Id == id);
                 
             if (user != null)
