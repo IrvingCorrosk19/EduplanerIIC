@@ -29,4 +29,8 @@ public interface ISuperAdminService
     Task<string?> SaveAvatarAsync(IFormFile? avatarFile, string uploadsPath);
     Task<byte[]?> GetLogoAsync(string? logoUrl);
     Task<byte[]?> GetAvatarAsync(string? avatarUrl);
+    
+    // Estadísticas y Configuración
+    Task<SystemStatsViewModel> GetSystemStatsAsync();
+    Task<PagedResult<AuditLogViewModel>> GetActivityLogsAsync(int page = 1, int pageSize = 50);
 } 

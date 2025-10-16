@@ -925,4 +925,99 @@ public class SuperAdminService : ISuperAdminService
     }
 
     #endregion
+
+    #region Estadísticas y Logs
+
+    public async Task<SystemStatsViewModel> GetSystemStatsAsync()
+    {
+        try
+        {
+            var stats = new SystemStatsViewModel
+            {
+                TotalEscuelas = await _context.Schools.CountAsync(),
+                TotalUsuarios = await _context.Users.CountAsync(),
+                TotalAdmins = await _context.Users.CountAsync(u => u.Role == "admin" || u.Role == "Admin" || u.Role == "director" || u.Role == "Director"),
+                TotalProfesores = await _context.Users.CountAsync(u => u.Role == "teacher" || u.Role == "Teacher"),
+                TotalEstudiantes = await _context.Users.CountAsync(u => u.Role == "student" || u.Role == "Student" || u.Role == "estudiante" || u.Role == "Estudiante"),
+                TotalActividades = await _context.Activities.CountAsync(),
+                TotalCalificaciones = await _context.StudentActivityScores.CountAsync(),
+                TotalMensajes = await _context.Messages.CountAsync(),
+                UsuariosActivos = await _context.Users.CountAsync(u => u.Status == "active"),
+                UsuariosInactivos = await _context.Users.CountAsync(u => u.Status != "active"),
+                FechaUltimaActividad = await _context.AuditLogs.MaxAsync(a => (DateTime?)a.Timestamp) ?? DateTime.UtcNow
+            };
+
+            // Estadísticas por escuela
+            stats.EscuelasStats = await _context.Schools
+                .Select(s => new EscuelaStatsDto
+                {
+                    Id = s.Id,
+                    Nombre = s.Name,
+                    LogoUrl = s.LogoUrl,
+                    TotalUsuarios = _context.Users.Count(u => u.SchoolId == s.Id),
+                    TotalEstudiantes = _context.Users.Count(u => u.SchoolId == s.Id && (u.Role == "student" || u.Role == "Student" || u.Role == "estudiante")),
+                    TotalProfesores = _context.Users.Count(u => u.SchoolId == s.Id && (u.Role == "teacher" || u.Role == "Teacher")),
+                    TotalActividades = _context.Activities.Count(a => a.SchoolId == s.Id)
+                })
+                .ToListAsync();
+
+            return stats;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error obteniendo estadísticas del sistema");
+            return new SystemStatsViewModel();
+        }
+    }
+
+    public async Task<PagedResult<AuditLogViewModel>> GetActivityLogsAsync(int page = 1, int pageSize = 50)
+    {
+        try
+        {
+            var totalLogs = await _context.AuditLogs.CountAsync();
+            
+            var logs = await _context.AuditLogs
+                .Include(a => a.User)
+                .Include(a => a.School)
+                .OrderByDescending(a => a.Timestamp)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(a => new AuditLogViewModel
+                {
+                    Id = a.Id,
+                    UserName = a.UserName ?? "Sistema",
+                    UserRole = a.UserRole ?? "N/A",
+                    Action = a.Action ?? "N/A",
+                    Resource = a.Resource ?? "N/A",
+                    Details = a.Details,
+                    Timestamp = a.Timestamp,
+                    IpAddress = a.IpAddress,
+                    SchoolName = a.School != null ? a.School.Name : "N/A"
+                })
+                .ToListAsync();
+
+            return new PagedResult<AuditLogViewModel>
+            {
+                Items = logs,
+                TotalCount = totalLogs,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling(totalLogs / (double)pageSize)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error obteniendo logs de actividad");
+            return new PagedResult<AuditLogViewModel>
+            {
+                Items = new List<AuditLogViewModel>(),
+                TotalCount = 0,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalPages = 0
+            };
+        }
+    }
+
+    #endregion
 } 

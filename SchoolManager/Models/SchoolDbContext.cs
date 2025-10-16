@@ -606,7 +606,7 @@ public partial class SchoolDbContext : DbContext
 
             entity.ToTable("schools");
 
-            entity.HasIndex(e => e.AdminId, "IX_schools_admin_id").IsUnique();
+            entity.HasIndex(e => e.AdminId, "idx_schools_admin_id"); // Sin .IsUnique() - múltiples admins permitidos
 
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
@@ -631,8 +631,10 @@ public partial class SchoolDbContext : DbContext
                 .HasDefaultValueSql("''::character varying")
                 .HasColumnName("phone");
 
-            entity.HasOne(d => d.Admin).WithOne(p => p.School)
-                .HasForeignKey<School>(d => d.AdminId)
+            // Relación opcional con admin principal (puede ser null)
+            // Múltiples admins se manejan via Users con SchoolId
+            entity.HasOne(d => d.Admin).WithMany()
+                .HasForeignKey(d => d.AdminId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

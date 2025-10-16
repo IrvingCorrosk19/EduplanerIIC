@@ -333,4 +333,81 @@ public class SuperAdminController : Controller
             });
         }
     }
+
+    // GET: SuperAdmin/SystemSettings
+    [HttpGet]
+    public async Task<IActionResult> SystemSettings()
+    {
+        try
+        {
+            var stats = await _superAdminService.GetSystemStatsAsync();
+            return View(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cargando configuración del sistema");
+            TempData["ErrorMessage"] = "Error al cargar la configuración.";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    // GET: SuperAdmin/Backup
+    [HttpGet]
+    public IActionResult Backup()
+    {
+        return View();
+    }
+
+    // POST: SuperAdmin/ExecuteBackup
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ExecuteBackup()
+    {
+        try
+        {
+            TempData["InfoMessage"] = "El respaldo debe realizarse desde pgAdmin o mediante comandos pg_dump. " +
+                "Consulte la documentación para más información.";
+            return RedirectToAction(nameof(Backup));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error ejecutando respaldo");
+            TempData["ErrorMessage"] = "Error al ejecutar el respaldo.";
+            return RedirectToAction(nameof(Backup));
+        }
+    }
+
+    // GET: SuperAdmin/SystemStats
+    [HttpGet]
+    public async Task<IActionResult> SystemStats()
+    {
+        try
+        {
+            var stats = await _superAdminService.GetSystemStatsAsync();
+            return View(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cargando estadísticas");
+            TempData["ErrorMessage"] = "Error al cargar las estadísticas.";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    // GET: SuperAdmin/ActivityLog
+    [HttpGet]
+    public async Task<IActionResult> ActivityLog(int page = 1, int pageSize = 50)
+    {
+        try
+        {
+            var logs = await _superAdminService.GetActivityLogsAsync(page, pageSize);
+            return View(logs);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cargando registro de actividad");
+            TempData["ErrorMessage"] = "Error al cargar el registro.";
+            return RedirectToAction(nameof(Index));
+        }
+    }
 } 
