@@ -185,6 +185,25 @@
                             </a>
                         </li>
                         }
+                        @if (userRole == "admin" || userRole == "director" || userRole == "teacher") {
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-file-alt"></i>
+                                <p>
+                                    Reportes
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "AprobadosReprobados")" class="nav-link">
+                                        <i class="fas fa-chart-bar nav-icon"></i>
+                                        <p>Aprobados y Reprobados</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        }
                         @if (userRole == "admin") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">

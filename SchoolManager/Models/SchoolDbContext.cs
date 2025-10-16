@@ -72,11 +72,11 @@ public partial class SchoolDbContext : DbContext
 
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
 
-   // Conexión LOCAL (desarrollo) - Comentada
-   //=> optionsBuilder.UseNpgsql("Host=localhost;Database=schoolmanagement;Username=postgres;Password=Panama2020$");
+   // Conexión LOCAL (desarrollo) - ACTIVA
+   => optionsBuilder.UseNpgsql("Host=localhost;Database=schoolmanagement;Username=postgres;Password=Panama2020$");
    
-   // Conexión RENDER (producción) - ACTIVA
-   => optionsBuilder.UseNpgsql("Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
+   // Conexión RENDER (producción) - Comentada
+   //=> optionsBuilder.UseNpgsql("Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
 
 
     }
