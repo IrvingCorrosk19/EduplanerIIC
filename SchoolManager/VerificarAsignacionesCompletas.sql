@@ -1,185 +1,179 @@
 -- ============================================================
 -- VERIFICAR ASIGNACIONES COMPLETAS EN RENDER
--- Fecha: 16 de Octubre, 2025
--- Descripción: Verifica todas las asignaciones de profesores, estudiantes y materias
 -- ============================================================
 
--- ============================================================
--- VERIFICACIÓN 1: ASIGNACIONES DE PROFESORES
--- ============================================================
+-- ========== PROFESORES ==========
 SELECT 
-    'ASIGNACIONES DE PROFESORES' as categoria,
-    COUNT(*) as total_asignaciones,
-    COUNT(DISTINCT teacher_id) as profesores_asignados,
-    COUNT(DISTINCT subject_assignment_id) as materias_asignadas
-FROM teacher_assignments;
+    '========== PROFESORES ==========' as separador;
 
--- ============================================================
--- VERIFICACIÓN 2: ASIGNACIONES DE ESTUDIANTES
--- ============================================================
+-- Total de profesores
 SELECT 
-    'ASIGNACIONES DE ESTUDIANTES' as categoria,
-    COUNT(*) as total_asignaciones,
-    COUNT(DISTINCT student_id) as estudiantes_asignados,
-    COUNT(DISTINCT grade_id) as grados_utilizados,
-    COUNT(DISTINCT group_id) as grupos_utilizados
-FROM student_assignments;
+    'TOTAL PROFESORES' as categoria,
+    COUNT(*) as cantidad
+FROM users 
+WHERE role IN ('teacher', 'Teacher', 'docente', 'Docente') 
+AND status = 'active';
 
--- ============================================================
--- VERIFICACIÓN 3: ASIGNACIONES DE MATERIAS
--- ============================================================
-SELECT 
-    'ASIGNACIONES DE MATERIAS' as categoria,
-    COUNT(*) as total_asignaciones,
-    COUNT(DISTINCT subject_id) as materias_asignadas,
-    COUNT(DISTINCT grade_level_id) as grados_utilizados,
-    COUNT(DISTINCT group_id) as grupos_utilizados
-FROM subject_assignments;
-
--- ============================================================
--- VERIFICACIÓN 4: PROFESORES CON SUS ASIGNACIONES
--- ============================================================
+-- Profesores con asignaciones
 SELECT 
     'PROFESORES CON ASIGNACIONES' as categoria,
-    u.name as nombre,
-    u.last_name as apellido,
-    u.email,
-    COUNT(ta.id) as total_asignaciones,
-    COUNT(DISTINCT s.name) as materias_diferentes
-FROM users u
-INNER JOIN teacher_assignments ta ON u.id = ta.teacher_id
-INNER JOIN subject_assignments sa ON ta.subject_assignment_id = sa.id
-INNER JOIN subjects s ON sa.subject_id = s.id
-WHERE u.role IN ('teacher', 'Teacher')
-AND u.status = 'active'
-GROUP BY u.id, u.name, u.last_name, u.email
-ORDER BY total_asignaciones DESC
-LIMIT 15;
+    COUNT(DISTINCT ta.teacher_id) as cantidad
+FROM teacher_assignments ta;
 
--- ============================================================
--- VERIFICACIÓN 5: ESTUDIANTES CON SUS ASIGNACIONES
--- ============================================================
+-- Profesores SIN asignaciones
 SELECT 
-    'ESTUDIANTES CON ASIGNACIONES' as categoria,
-    u.name as nombre,
-    u.last_name as apellido,
-    u.email,
-    u.inclusivo,
-    gl.name as grado,
-    g.name as grupo,
-    COUNT(sas.id) as total_notas,
-    ROUND(AVG(sas.score), 2) as promedio
+    'PROFESORES SIN ASIGNACIONES' as categoria,
+    COUNT(*) as cantidad,
+    STRING_AGG(u.name || ' ' || u.last_name, ', ') as profesores
 FROM users u
-INNER JOIN student_assignments sa ON u.id = sa.student_id
-INNER JOIN grade_levels gl ON sa.grade_id = gl.id
-INNER JOIN groups g ON sa.group_id = g.id
-LEFT JOIN student_activity_scores sas ON u.id = sas.student_id
-WHERE u.role IN ('student', 'Student', 'estudiante', 'Estudiante')
-AND u.status = 'active'
-GROUP BY u.id, u.name, u.last_name, u.email, u.inclusivo, gl.name, g.name
-ORDER BY promedio DESC NULLS LAST
-LIMIT 15;
+WHERE role IN ('teacher', 'Teacher', 'docente', 'Docente') 
+AND status = 'active'
+AND NOT EXISTS (
+    SELECT 1 FROM teacher_assignments ta WHERE ta.teacher_id = u.id
+);
 
--- ============================================================
--- VERIFICACIÓN 6: MATERIAS CON SUS ASIGNACIONES
--- ============================================================
+-- ========== GRUPOS ==========
+SELECT 
+    '========== GRUPOS ==========' as separador;
+
+-- Total de grupos
+SELECT 
+    'TOTAL GRUPOS' as categoria,
+    COUNT(*) as cantidad
+FROM groups;
+
+-- Grupos con asignaciones de materias
+SELECT 
+    'GRUPOS CON ASIGNACIONES DE MATERIAS' as categoria,
+    COUNT(DISTINCT sa.group_id) as cantidad
+FROM subject_assignments sa;
+
+-- Grupos SIN asignaciones de materias
+SELECT 
+    'GRUPOS SIN ASIGNACIONES DE MATERIAS' as categoria,
+    COUNT(*) as cantidad
+FROM groups g
+WHERE NOT EXISTS (
+    SELECT 1 FROM subject_assignments sa WHERE sa.group_id = g.id
+);
+
+-- ========== MATERIAS ==========
+SELECT 
+    '========== MATERIAS ==========' as separador;
+
+-- Total de materias activas
+SELECT 
+    'TOTAL MATERIAS ACTIVAS' as categoria,
+    COUNT(*) as cantidad
+FROM subjects
+WHERE status = true;
+
+-- Materias con asignaciones
 SELECT 
     'MATERIAS CON ASIGNACIONES' as categoria,
-    s.name as materia,
-    s.code as codigo,
-    COUNT(sa.id) as total_asignaciones,
-    COUNT(DISTINCT sa.grade_level_id) as grados_diferentes,
-    COUNT(DISTINCT sa.group_id) as grupos_diferentes,
-    COUNT(DISTINCT ta.teacher_id) as profesores_asignados
-FROM subjects s
-INNER JOIN subject_assignments sa ON s.id = sa.subject_id
-LEFT JOIN teacher_assignments ta ON sa.id = ta.subject_assignment_id
-WHERE s.status = true
-GROUP BY s.id, s.name, s.code
-ORDER BY total_asignaciones DESC
-LIMIT 15;
+    COUNT(DISTINCT sa.subject_id) as cantidad
+FROM subject_assignments sa;
 
--- ============================================================
--- VERIFICACIÓN 7: ACTIVIDADES CON SUS ASIGNACIONES
--- ============================================================
+-- ========== ESTUDIANTES ==========
 SELECT 
-    'ACTIVIDADES CON ASIGNACIONES' as categoria,
-    a.name as actividad,
-    s.name as materia,
-    gl.name as grado,
-    g.name as grupo,
-    a.type as tipo_actividad,
-    a.trimester as trimestre,
-    u.name as profesor,
-    COUNT(sas.id) as total_calificaciones,
-    ROUND(AVG(sas.score), 2) as promedio
-FROM activities a
-INNER JOIN subjects s ON a.subject_id = s.id
-INNER JOIN grade_levels gl ON a.grade_level_id = gl.id
-INNER JOIN groups g ON a.group_id = g.id
-INNER JOIN users u ON a.teacher_id = u.id
-LEFT JOIN student_activity_scores sas ON a.id = sas.activity_id
-GROUP BY a.id, a.name, s.name, gl.name, g.name, a.type, a.trimester, u.name
-ORDER BY promedio DESC NULLS LAST
-LIMIT 15;
+    '========== ESTUDIANTES ==========' as separador;
 
--- ============================================================
--- VERIFICACIÓN 8: RESUMEN GENERAL
--- ============================================================
+-- Total de estudiantes
+SELECT 
+    'TOTAL ESTUDIANTES' as categoria,
+    COUNT(*) as cantidad
+FROM users 
+WHERE role IN ('student', 'Student', 'estudiante', 'Estudiante') 
+AND status = 'active';
+
+-- Estudiantes con asignaciones de grupo
+SELECT 
+    'ESTUDIANTES CON GRUPO ASIGNADO' as categoria,
+    COUNT(DISTINCT sa.student_id) as cantidad
+FROM student_assignments sa;
+
+-- Estudiantes SIN grupo
+SELECT 
+    'ESTUDIANTES SIN GRUPO' as categoria,
+    COUNT(*) as cantidad
+FROM users u
+WHERE role IN ('student', 'Student', 'estudiante', 'Estudiante') 
+AND status = 'active'
+AND NOT EXISTS (
+    SELECT 1 FROM student_assignments sa WHERE sa.student_id = u.id
+);
+
+-- ========== ASIGNACIONES DETALLADAS ==========
+SELECT 
+    '========== RESUMEN DETALLADO ==========' as separador;
+
+-- Detalle de asignaciones por grupo
+SELECT 
+    'ASIGNACIONES POR GRUPO' as tipo,
+    g.grade as grado,
+    g.name as grupo,
+    COUNT(DISTINCT sa.subject_id) as materias_asignadas,
+    COUNT(DISTINCT ta.teacher_id) as profesores_asignados,
+    (SELECT COUNT(*) FROM student_assignments st WHERE st.group_id = g.id) as estudiantes_asignados
+FROM groups g
+LEFT JOIN subject_assignments sa ON g.id = sa.group_id
+LEFT JOIN teacher_assignments ta ON sa.id = ta.subject_assignment_id
+GROUP BY g.id, g.grade, g.name
+ORDER BY g.grade, g.name
+LIMIT 20;
+
+-- Profesores y sus asignaciones
+SELECT 
+    'PROFESORES Y SUS ASIGNACIONES' as tipo,
+    u.name || ' ' || u.last_name as profesor,
+    u.email,
+    COUNT(DISTINCT ta.subject_assignment_id) as asignaciones,
+    STRING_AGG(DISTINCT s.name, ', ') as materias
+FROM users u
+LEFT JOIN teacher_assignments ta ON u.id = ta.teacher_id
+LEFT JOIN subject_assignments sa ON ta.subject_assignment_id = sa.id
+LEFT JOIN subjects s ON sa.subject_id = s.id
+WHERE u.role IN ('teacher', 'Teacher', 'docente', 'Docente')
+AND u.status = 'active'
+GROUP BY u.id, u.name, u.last_name, u.email
+ORDER BY u.name
+LIMIT 20;
+
+-- Resumen final
 DO $$
 DECLARE
-    total_students INTEGER;
-    students_with_assignments INTEGER;
-    total_teachers INTEGER;
-    teachers_with_assignments INTEGER;
-    total_subjects INTEGER;
-    subjects_with_assignments INTEGER;
-    total_activities INTEGER;
-    total_scores INTEGER;
-    total_student_assignments INTEGER;
-    total_teacher_assignments INTEGER;
-    total_subject_assignments INTEGER;
+    v_total_profesores INTEGER;
+    v_profesores_asignados INTEGER;
+    v_total_grupos INTEGER;
+    v_grupos_con_materias INTEGER;
+    v_total_estudiantes INTEGER;
+    v_estudiantes_con_grupo INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO total_students FROM users WHERE role IN ('student', 'Student', 'estudiante', 'Estudiante') AND status = 'active';
-    SELECT COUNT(DISTINCT student_id) INTO students_with_assignments FROM student_assignments;
-    SELECT COUNT(*) INTO total_teachers FROM users WHERE role IN ('teacher', 'Teacher') AND status = 'active';
-    SELECT COUNT(DISTINCT teacher_id) INTO teachers_with_assignments FROM teacher_assignments;
-    SELECT COUNT(*) INTO total_subjects FROM subjects WHERE status = true;
-    SELECT COUNT(DISTINCT subject_id) INTO subjects_with_assignments FROM subject_assignments;
-    SELECT COUNT(*) INTO total_activities FROM activities;
-    SELECT COUNT(*) INTO total_scores FROM student_activity_scores;
-    SELECT COUNT(*) INTO total_student_assignments FROM student_assignments;
-    SELECT COUNT(*) INTO total_teacher_assignments FROM teacher_assignments;
-    SELECT COUNT(*) INTO total_subject_assignments FROM subject_assignments;
+    SELECT COUNT(*) INTO v_total_profesores FROM users WHERE role IN ('teacher', 'Teacher', 'docente', 'Docente') AND status = 'active';
+    SELECT COUNT(DISTINCT teacher_id) INTO v_profesores_asignados FROM teacher_assignments;
+    SELECT COUNT(*) INTO v_total_grupos FROM groups;
+    SELECT COUNT(DISTINCT group_id) INTO v_grupos_con_materias FROM subject_assignments;
+    SELECT COUNT(*) INTO v_total_estudiantes FROM users WHERE role IN ('student', 'Student', 'estudiante', 'Estudiante') AND status = 'active';
+    SELECT COUNT(DISTINCT student_id) INTO v_estudiantes_con_grupo FROM student_assignments;
     
     RAISE NOTICE '';
     RAISE NOTICE '========================================================';
-    RAISE NOTICE '📊 RESUMEN GENERAL DE ASIGNACIONES';
+    RAISE NOTICE 'RESUMEN DE ASIGNACIONES';
     RAISE NOTICE '========================================================';
+    RAISE NOTICE 'PROFESORES:';
+    RAISE NOTICE '  Total: %', v_total_profesores;
+    RAISE NOTICE '  Con asignaciones: %', v_profesores_asignados;
+    RAISE NOTICE '  Cobertura: %%', ROUND((v_profesores_asignados::DECIMAL / v_total_profesores * 100), 2);
     RAISE NOTICE '';
-    RAISE NOTICE '👥 ESTUDIANTES:';
-    RAISE NOTICE '   Total: %', total_students;
-    RAISE NOTICE '   Con asignaciones: % (%%)', students_with_assignments, ROUND((students_with_assignments::DECIMAL / total_students * 100), 1);
+    RAISE NOTICE 'GRUPOS:';
+    RAISE NOTICE '  Total: %', v_total_grupos;
+    RAISE NOTICE '  Con materias: %', v_grupos_con_materias;
+    RAISE NOTICE '  Cobertura: %%', ROUND((v_grupos_con_materias::DECIMAL / v_total_grupos * 100), 2);
     RAISE NOTICE '';
-    RAISE NOTICE '👨‍🏫 PROFESORES:';
-    RAISE NOTICE '   Total: %', total_teachers;
-    RAISE NOTICE '   Con asignaciones: % (%%)', teachers_with_assignments, ROUND((teachers_with_assignments::DECIMAL / total_teachers * 100), 1);
-    RAISE NOTICE '';
-    RAISE NOTICE '📚 MATERIAS:';
-    RAISE NOTICE '   Total: %', total_subjects;
-    RAISE NOTICE '   Con asignaciones: % (%%)', subjects_with_assignments, ROUND((subjects_with_assignments::DECIMAL / total_subjects * 100), 1);
-    RAISE NOTICE '';
-    RAISE NOTICE '🔗 ASIGNACIONES:';
-    RAISE NOTICE '   Asignaciones de estudiantes: %', total_student_assignments;
-    RAISE NOTICE '   Asignaciones de profesores: %', total_teacher_assignments;
-    RAISE NOTICE '   Asignaciones de materias: %', total_subject_assignments;
-    RAISE NOTICE '';
-    RAISE NOTICE '📊 ACTIVIDADES Y NOTAS:';
-    RAISE NOTICE '   Actividades: %', total_activities;
-    RAISE NOTICE '   Calificaciones: %', total_scores;
-    RAISE NOTICE '';
-    RAISE NOTICE '========================================================';
-    RAISE NOTICE '✅ SISTEMA COMPLETAMENTE ASIGNADO';
+    RAISE NOTICE 'ESTUDIANTES:';
+    RAISE NOTICE '  Total: %', v_total_estudiantes;
+    RAISE NOTICE '  Con grupo: %', v_estudiantes_con_grupo;
+    RAISE NOTICE '  Cobertura: %%', ROUND((v_estudiantes_con_grupo::DECIMAL / v_total_estudiantes * 100), 2);
     RAISE NOTICE '========================================================';
     RAISE NOTICE '';
 END $$;
