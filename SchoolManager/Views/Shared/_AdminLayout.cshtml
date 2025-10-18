@@ -159,6 +159,12 @@
                                 <p>Mi Perfil</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                                <a href="@Url.Action("Index", "StudentOrientation")" class="nav-link">
+                                <i class="nav-icon fas fa-compass"></i>
+                                <p>Orientación Escolar</p>
+                            </a>
+                        </li>
                         }
                         @if (userRole == "teacher") {
                         <li class="nav-item">
@@ -295,9 +301,21 @@
         </div>
 
         <footer class="main-footer">
-            <strong>&copy; @DateTime.Now.Year SchoolManager</strong>
-            <div class="float-right d-none d-sm-inline-block">
-                Versión 1.0
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <strong>&copy; @DateTime.Now.Year Eduplaner. Todos los derechos reservados.</strong><br>
+                        <small class="text-muted">
+                            Eduplaner es un producto desarrollado y propiedad de QL Services.<br>
+                            Queda prohibida la reproducción total o parcial sin autorización expresa.
+                        </small>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <img src="~/images/Logo Eduplaner.png" alt="Eduplaner Logo" class="footer-logo" style="max-height: 35px; margin-right: 10px;">
+                        <small class="text-muted">Versión 1.0</small>
+                        <!-- Logo de QL Services se puede agregar aquí cuando esté disponible -->
+                    </div>
+                </div>
             </div>
         </footer>
     </div>

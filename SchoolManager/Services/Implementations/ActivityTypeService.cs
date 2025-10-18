@@ -57,7 +57,7 @@ namespace SchoolManager.Services.Implementations
                 .Select(enumValue => new ActivityTypeDto
                 {
                     Id = Guid.Empty,
-                    Name = enumValue.ToString()
+                    Name = enumValue.GetDisplayName()
                 })
                 .ToList();
         }

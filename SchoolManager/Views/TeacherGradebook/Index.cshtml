@@ -600,9 +600,9 @@
                     </div>
                 </div>
                 
-                    <div class="table-responsive" style="max-height: 500px; max-width: 100%; overflow-y: auto; overflow-x: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+                    <div class="table-responsive">
                         <table id="gradebook" class="table table-hover mb-0" style="min-width: 800px;">
-                            <thead class="sticky-top" style="background-color: #f8f9fa; z-index: 10;">
+                            <thead class="table-dark">
                                 <tr id="hdrRow">
                                     <th style="text-align: left;">Estudiante</th>
                                     <th style="text-align: left;">Cédula</th>
@@ -915,7 +915,7 @@
                                             <div class="mb-3">
                                                 <input type="text" id="buscarEstudianteDisciplina" class="form-control" placeholder="Nombre del estudiante" />
                                             </div>
-                                            <div id="listaEstudiantesDisciplina" style="max-height: calc(100vh - 400px); overflow-y: auto;"></div>
+                                            <div id="listaEstudiantesDisciplina"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -1130,11 +1130,11 @@
                     <div class="text-white-50">Estudiantes vs Materias - Promedios del trimestre seleccionado</div>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto; overflow-x: auto;">
+                    <div class="table-responsive">
                         <table class="table table-bordered table-hover" id="tablaPromediosConsejeria">
-                            <thead class="sticky-top" style="background-color: #f8f9fa; z-index: 10;">
+                            <thead class="table-dark">
                                 <tr id="headerMateriasConsejeria">
-                                    <th style="min-width: 200px; position: sticky; left: 0; background-color: #f8f9fa; z-index: 11;">Estudiante</th>
+                                    <th style="min-width: 200px;">Estudiante</th>
                                 </tr>
                             </thead>
                             <tbody id="bodyPromediosConsejeria">
@@ -2954,7 +2954,7 @@
                         return;
                     }
                     
-                    const container = $('<div class="list-group" style="max-height: 400px; overflow-y: auto;"></div>');
+                    const container = $('<div class="list-group"></div>');
                     response.forEach(student => {
                         const item = `
                             <div class="list-group-item list-group-item-action estudiante-item-disciplina" 
@@ -3354,7 +3354,7 @@
                             return;
                         }
                         
-                        const container = $('<div class="list-group" style="max-height: 400px; overflow-y: auto;"></div>');
+                        const container = $('<div class="list-group"></div>');
                         response.forEach(student => {
                             const item = `
                                 <div class="list-group-item list-group-item-action estudiante-item-disciplina" 
