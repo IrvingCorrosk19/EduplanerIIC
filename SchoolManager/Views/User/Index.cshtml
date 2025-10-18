@@ -170,7 +170,10 @@
         border-color: #2563eb;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
-    .search-bar::before {
+    .search-bar .flex-grow-1 {
+        position: relative;
+    }
+    .search-bar .flex-grow-1::before {
         content: "";
         position: absolute;
         left: 1rem;
@@ -183,6 +186,27 @@
         background-position: center;
         background-size: contain;
         opacity: 0.5;
+        z-index: 10;
+        pointer-events: none;
+    }
+    .role-filter .form-select {
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        background-color: white;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1rem;
+        padding-right: 2.5rem;
+    }
+    .role-filter .form-select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
     .dataTables_wrapper {
         display: flex;
@@ -527,8 +551,22 @@
     </div>
 
     <div class="table-container">
-            <div class="search-bar">
-            <input type="text" id="searchInput" placeholder="Buscar usuario por nombre, correo o documento...">
+            <div class="search-bar d-flex gap-3 align-items-center">
+                <!-- Filtro de Roles -->
+                <div class="role-filter">
+                    <select id="roleFilter" class="form-select" style="min-width: 180px;">
+                        <option value="">Todos los roles</option>
+                        <option value="admin">Administrador</option>
+                        <option value="director">Director</option>
+                        <option value="teacher">Docente</option>
+                        <option value="student">Estudiante</option>
+                        <option value="estudiante">Estudiante</option>
+                    </select>
+                </div>
+                <!-- Campo de búsqueda -->
+                <div class="flex-grow-1">
+                    <input type="text" id="searchInput" placeholder="Buscar usuario por nombre, correo o documento..." class="form-control">
+                </div>
             </div>
             <div class="table-responsive">
             <table class="table" id="users-table">
@@ -977,6 +1015,19 @@
                                 $('#searchInput').on('keyup', function () {
                                     usersTable.search(this.value).draw();
                                 });
+                                
+                                // Conectar el filtro de roles con DataTables
+                                $('#roleFilter').on('change', function () {
+                                    const selectedRole = $(this).val();
+                                    if (selectedRole === '') {
+                                        // Mostrar todos los roles
+                                        usersTable.column(7).search('').draw();
+                                    } else {
+                                        // Filtrar por rol específico - buscar tanto el rol exacto como variaciones
+                                        const rolePattern = selectedRole === 'estudiante' ? '(student|estudiante)' : selectedRole;
+                                        usersTable.column(7).search(rolePattern, true, false).draw();
+                                    }
+                                });
                             } else {
                                 console.warn('⚠️ DataTables no se pudo inicializar, usando búsqueda simple');
                                 setupSimpleSearch();
@@ -1001,16 +1052,40 @@
             // Función de búsqueda simple como fallback
             function setupSimpleSearch() {
                 $('#searchInput').on('keyup', function () {
-                    var searchText = $(this).val().toLowerCase();
+                    filterTable();
+                });
+                
+                $('#roleFilter').on('change', function () {
+                    filterTable();
+                });
+                
+                function filterTable() {
+                    var searchText = $('#searchInput').val().toLowerCase();
+                    var selectedRole = $('#roleFilter').val().toLowerCase();
+                    
                     $('#users-table tbody tr').each(function() {
                         var rowText = $(this).text().toLowerCase();
-                        if (rowText.indexOf(searchText) === -1) {
-                            $(this).hide();
-                        } else {
+                        var roleCell = $(this).find('td:eq(7)').text().toLowerCase(); // Columna de rol
+                        
+                        var matchesSearch = searchText === '' || rowText.indexOf(searchText) !== -1;
+                        var matchesRole = true;
+                        
+                        if (selectedRole !== '') {
+                            if (selectedRole === 'estudiante') {
+                                // Para estudiante, buscar tanto "student" como "estudiante"
+                                matchesRole = roleCell.indexOf('student') !== -1 || roleCell.indexOf('estudiante') !== -1;
+                            } else {
+                                matchesRole = roleCell.indexOf(selectedRole) !== -1;
+                            }
+                        }
+                        
+                        if (matchesSearch && matchesRole) {
                             $(this).show();
+                        } else {
+                            $(this).hide();
                         }
                     });
-                });
+                }
             }
             
             // Iniciar el proceso de verificación e inicialización

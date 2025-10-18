@@ -120,7 +120,7 @@ public class UserController : Controller
     }
 
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string role = "")
     {
         ViewBag.Roles = Enum.GetValues(typeof(UserRole))
       .Cast<UserRole>()
@@ -129,6 +129,13 @@ public class UserController : Controller
       .ToList();
 
         var users = await _userService.GetAllAsync();
+        
+        // Filtrar por rol si se especifica
+        if (!string.IsNullOrEmpty(role))
+        {
+            users = users.Where(u => u.Role?.ToLower() == role.ToLower()).ToList();
+        }
+        
         return View(users);
     }
 
@@ -227,6 +234,38 @@ public class UserController : Controller
             Subjects = user.Subjects.Select(s => s.Id),
             Groups = user.Groups.Select(g => g.Id)
         };
+
+        return Json(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetUsersByRole(string role = "")
+    {
+        var users = await _userService.GetAllAsync();
+        
+        // Filtrar por rol si se especifica
+        if (!string.IsNullOrEmpty(role))
+        {
+            users = users.Where(u => u.Role?.ToLower() == role.ToLower()).ToList();
+        }
+
+        var result = users.Select(u => new
+        {
+            u.Id,
+            u.Name,
+            u.LastName,
+            u.Email,
+            u.DocumentId,
+            u.DateOfBirth,
+            u.CellphonePrimary,
+            u.CellphoneSecondary,
+            Role = char.ToUpper(u.Role[0]) + u.Role.Substring(1).ToLower(),
+            u.Status,
+            u.Disciplina,
+            u.Inclusion,
+            u.Orientacion,
+            u.Inclusivo
+        });
 
         return Json(result);
     }
