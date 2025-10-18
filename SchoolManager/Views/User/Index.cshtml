@@ -556,11 +556,12 @@
                 <div class="role-filter">
                     <select id="roleFilter" class="form-select" style="min-width: 180px;">
                         <option value="">Todos los roles</option>
+                        <option value="superadmin">Super Administrador</option>
                         <option value="admin">Administrador</option>
                         <option value="director">Director</option>
                         <option value="teacher">Docente</option>
+                        <option value="parent">Padre/Madre</option>
                         <option value="student">Estudiante</option>
-                        <option value="estudiante">Estudiante</option>
                     </select>
                 </div>
                 <!-- Campo de búsqueda -->
@@ -1022,10 +1023,12 @@
                                     if (selectedRole === '') {
                                         // Mostrar todos los roles
                                         usersTable.column(7).search('').draw();
+                                    } else if (selectedRole === 'student') {
+                                        // Para estudiantes, buscar tanto 'student' como 'estudiante'
+                                        usersTable.column(7).search('(student|estudiante)', true, false).draw();
                                     } else {
-                                        // Filtrar por rol específico - buscar tanto el rol exacto como variaciones
-                                        const rolePattern = selectedRole === 'estudiante' ? '(student|estudiante)' : selectedRole;
-                                        usersTable.column(7).search(rolePattern, true, false).draw();
+                                        // Filtrar por rol específico
+                                        usersTable.column(7).search(selectedRole, true, false).draw();
                                     }
                                 });
                             } else {
@@ -1071,7 +1074,7 @@
                         var matchesRole = true;
                         
                         if (selectedRole !== '') {
-                            if (selectedRole === 'estudiante') {
+                            if (selectedRole === 'student') {
                                 // Para estudiante, buscar tanto "student" como "estudiante"
                                 matchesRole = roleCell.indexOf('student') !== -1 || roleCell.indexOf('estudiante') !== -1;
                             } else {
