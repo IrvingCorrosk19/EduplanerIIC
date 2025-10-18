@@ -287,7 +287,7 @@
                                         <td class="text-center">@(promApreciacion.HasValue ? promApreciacion.Value.ToString("0.0") : "-")</td>
                                         <td class="text-center">@(promEjercicios.HasValue ? promEjercicios.Value.ToString("0.0") : "-")</td>
                                         <td class="text-center">@(promExamen.HasValue ? promExamen.Value.ToString("0.0") : "-")</td>
-                                        <td class="text-center @(promedioFinal.HasValue && promedioFinal.Value >= 3.0 ? "text-success" : "text-danger") fw-bold">
+                                        <td class="text-center @(promedioFinal.HasValue && promedioFinal.Value >= 3.0m ? "text-success" : "text-danger") fw-bold">
                                             @(promedioFinal.HasValue ? promedioFinal.Value.ToString("0.0") : "-")
                                         </td>
                                     </tr>
@@ -301,7 +301,7 @@
                                     @{
                                         var promedioGeneral = materiaCount > 0 ? (totalPromedios / materiaCount).ToString("0.0") : "0.0";
                                     }
-                                    <span class="@(materiaCount > 0 && (totalPromedios / materiaCount) >= 3.0 ? "text-success" : "text-danger")">@promedioGeneral</span>
+                                    <span class="@(materiaCount > 0 && (totalPromedios / materiaCount) >= 3.0m ? "text-success" : "text-danger")">@promedioGeneral</span>
                                 </td>
                             </tr>
                         </tfoot>
