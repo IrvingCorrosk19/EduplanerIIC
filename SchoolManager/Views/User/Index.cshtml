@@ -58,16 +58,19 @@
         border-radius: 0.75rem;
         background: white;
         margin-top: 1rem;
-        overflow-x: auto;
+        overflow-x: auto !important;
+        overflow-y: visible;
         min-height: 400px;
+        -webkit-overflow-scrolling: touch; /* Para scroll suave en móviles */
     }
     .table {
         margin-bottom: 0;
-        width: 100%;
-        min-width: 1800px; /* Ancho mínimo para que el scroll funcione */
+        width: 100% !important;
+        min-width: 2000px; /* Aumentado para asegurar scroll */
         font-size: 0.95rem;
         border-collapse: separate;
         border-spacing: 0;
+        table-layout: auto; /* Permite que las columnas se ajusten al contenido */
     }
     .table thead th {
         background: #f1f5f9;
@@ -84,6 +87,14 @@
     .table thead th:last-child,
     .table tbody td:last-child {
         min-width: 200px; /* Ancho mínimo para la columna de Acciones */
+        width: 200px; /* Ancho fijo para la columna de Acciones */
+    }
+    
+    /* Asegurar que las columnas de especialización tengan ancho mínimo */
+    .table thead th.specialization-column,
+    .table tbody td.specialization-column {
+        min-width: 120px;
+        width: 120px;
     }
     .table tbody tr {
         transition: all 0.2s;
@@ -220,6 +231,17 @@
     .dataTables_filter,
     .dataTables_info {
         display: none !important;
+    }
+    
+    /* Asegurar que el contenedor de la tabla permita scroll horizontal */
+    .dataTables_wrapper {
+        overflow-x: auto !important;
+    }
+    
+    /* Forzar que las columnas de especialización sean visibles */
+    .specialization-column {
+        display: table-cell !important;
+        visibility: visible !important;
     }
     @@media (max-width: 768px) {
         .table thead th,
@@ -769,9 +791,14 @@
             function toggleSpecializationColumns() {
                 // Las columnas de especialización siempre se muestran ahora
                 $('.specialization-column').show();
+                // Forzar visibilidad con CSS
+                $('.specialization-column').css({
+                    'display': 'table-cell !important',
+                    'visibility': 'visible !important'
+                });
             }
 
-            // Inicializar DataTables en la tabla de usuarios con Responsive
+            // Inicializar DataTables en la tabla de usuarios SIN Responsive para permitir scroll horizontal
             var usersTable = $('#users-table').DataTable({
                 "pageLength": 25,
                 "dom": "<'row'<'col-sm-12'tr>><'row'<'col-sm-12'p>>",
@@ -790,29 +817,13 @@
                 "ordering": true,
                 "order": [[0, 'asc']],
                 "columnDefs": [
-                    { "orderable": true, "targets": [0,1,2,3,4,5,6] },
-                    { "orderable": false, "targets": 7 }
+                    { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9,10,11,12,13] },
+                    { "orderable": false, "targets": 14 } // Columna de Acciones
                 ],
-                "responsive": {
-                    details: {
-                        display: $.fn.dataTable.Responsive.display.childRow,
-                        type: 'column',
-                        renderer: function (api, rowIdx, columns) {
-                            var data = $.map(columns, function (col, i) {
-                                return col.hidden ?
-                                    '<tr data-dt-row="' + col.rowIndex + '" data-dt-column="' + col.columnIndex + '">' +
-                                    '<td>' + col.title + ':' + '</td> ' +
-                                    '<td>' + col.data + '</td>' +
-                                    '</tr>' :
-                                    '';
-                            }).join('');
-
-                            return data ?
-                                $('<table/>').append(data) :
-                                false;
-                        }
-                    }
-                }
+                "scrollX": true, // Habilitar scroll horizontal
+                "scrollCollapse": true,
+                "autoWidth": false, // Deshabilitar autoWidth para control manual
+                "responsive": false // Deshabilitar responsive para permitir scroll horizontal completo
             });
 
             // Conectar el input de búsqueda personalizado con DataTables
@@ -822,6 +833,19 @@
 
             // Mostrar/ocultar columnas de especialización después de inicializar DataTables
             toggleSpecializationColumns();
+            
+            // Asegurar que el scroll horizontal funcione correctamente
+            setTimeout(function() {
+                // Forzar que todas las columnas sean visibles
+                $('.specialization-column').removeClass('dtr-hidden').show();
+                
+                // Asegurar que el contenedor tenga scroll horizontal
+                $('.table-responsive').css('overflow-x', 'auto');
+                $('.dataTables_wrapper').css('overflow-x', 'auto');
+                
+                // Recalcular el ancho de la tabla
+                usersTable.columns.adjust().draw();
+            }, 100);
 
             // Usar delegación de eventos para los botones de editar y eliminar
             $(document).on('click', '.btn-edit-user', function() {
