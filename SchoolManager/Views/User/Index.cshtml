@@ -798,72 +798,191 @@
                 });
             }
 
-            // Verificar que la tabla tenga el número correcto de columnas antes de inicializar DataTables
-            var headerColumns = $('#users-table thead tr th').length;
-            var bodyRows = $('#users-table tbody tr');
-            var bodyColumns = bodyRows.length > 0 ? bodyRows.first().find('td').length : 0;
-            
-            console.log('Columnas en header:', headerColumns);
-            console.log('Columnas en body:', bodyColumns);
-            console.log('Filas en body:', bodyRows.length);
-            
-            if (headerColumns !== bodyColumns) {
-                console.error('Error: Número de columnas no coincide. Header:', headerColumns, 'Body:', bodyColumns);
-                // No inicializar DataTables si hay error
-                return;
-            }
-            
-            // Verificar que todas las filas tengan el mismo número de columnas
-            bodyRows.each(function(index) {
-                var rowColumns = $(this).find('td').length;
-                if (rowColumns !== headerColumns) {
-                    console.error('Error: Fila', index, 'tiene', rowColumns, 'columnas, esperadas:', headerColumns);
+            // Función para inicializar DataTables de forma segura
+            function initializeDataTables() {
+                // Verificar que la tabla existe y tiene contenido
+                var $table = $('#users-table');
+                if ($table.length === 0) {
+                    console.error('❌ Tabla #users-table no encontrada');
+                    return null;
                 }
-            });
 
-            // Inicializar DataTables con manejo de errores
-            try {
-                var usersTable = $('#users-table').DataTable({
-                    "pageLength": 25,
-                    "dom": "<'row'<'col-sm-12'tr>><'row'<'col-sm-12'p>>",
-                    "language": {
-                        "paginate": {
-                            "first": "«",
-                            "last": "»",
-                            "next": "›",
-                            "previous": "‹"
-                        },
-                        "zeroRecords": "No se encontraron resultados",
-                        "infoEmpty": "",
-                        "infoFiltered": "",
-                        "info": ""
-                    },
-                    "ordering": true,
-                    "order": [[0, 'asc']],
-                    "columnDefs": [
-                        { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9,10,11,12,13] },
-                        { "orderable": false, "targets": [14] } // Columna de Acciones (índice 14)
-                    ],
-                    "scrollX": true, // Habilitar scroll horizontal
-                    "scrollCollapse": true,
-                    "autoWidth": false, // Deshabilitar autoWidth para control manual
-                    "responsive": false, // Deshabilitar responsive para permitir scroll horizontal completo
-                    "initComplete": function() {
-                        console.log('✅ DataTables inicializado correctamente con', this.api().columns().count(), 'columnas');
-                    },
-                    "error": function(xhr, error, thrown) {
-                        console.error('❌ Error en DataTables:', error, thrown);
+                // Verificar que la tabla tenga el número correcto de columnas
+                var headerColumns = $table.find('thead tr th').length;
+                var bodyRows = $table.find('tbody tr');
+                var bodyColumns = bodyRows.length > 0 ? bodyRows.first().find('td').length : 0;
+                
+                console.log('Columnas en header:', headerColumns);
+                console.log('Columnas en body:', bodyColumns);
+                console.log('Filas en body:', bodyRows.length);
+                
+                if (headerColumns === 0) {
+                    console.error('❌ No se encontraron columnas en el header');
+                    return null;
+                }
+                
+                if (bodyRows.length === 0) {
+                    console.error('❌ No se encontraron filas en el body');
+                    return null;
+                }
+                
+                if (headerColumns !== bodyColumns) {
+                    console.error('❌ Error: Número de columnas no coincide. Header:', headerColumns, 'Body:', bodyColumns);
+                    return null;
+                }
+                
+                // Verificar que todas las filas tengan el mismo número de columnas
+                var hasInconsistentRows = false;
+                bodyRows.each(function(index) {
+                    var rowColumns = $(this).find('td').length;
+                    if (rowColumns !== headerColumns) {
+                        console.error('❌ Error: Fila', index, 'tiene', rowColumns, 'columnas, esperadas:', headerColumns);
+                        hasInconsistentRows = true;
                     }
                 });
                 
-                // Conectar el input de búsqueda personalizado con DataTables
-                $('#searchInput').on('keyup', function () {
-                    usersTable.search(this.value).draw();
-                });
+                if (hasInconsistentRows) {
+                    console.error('❌ Se encontraron filas con número inconsistente de columnas');
+                    return null;
+                }
+
+                // Limpiar cualquier instancia previa de DataTables
+                if ($.fn.DataTable.isDataTable('#users-table')) {
+                    $('#users-table').DataTable().destroy();
+                }
                 
-            } catch (error) {
-                console.error('❌ Error inicializando DataTables:', error);
-                // Fallback: usar búsqueda simple sin DataTables
+                // Limpiar cualquier atributo o clase que pueda interferir
+                $table.removeClass('dataTable');
+                $table.find('thead tr th').removeClass('sorting sorting_asc sorting_desc');
+                $table.find('tbody tr').removeClass('odd even');
+                
+                // Verificar que no haya elementos HTML malformados
+                var malformedElements = $table.find('td:empty, th:empty');
+                if (malformedElements.length > 0) {
+                    console.warn('⚠️ Se encontraron elementos vacíos:', malformedElements.length);
+                    malformedElements.each(function() {
+                        if ($(this).html().trim() === '') {
+                            $(this).html('&nbsp;'); // Agregar espacio no rompible
+                        }
+                    });
+                }
+
+                // Inicializar DataTables con configuración más conservadora
+                try {
+                    var usersTable = $table.DataTable({
+                        "pageLength": 25,
+                        "dom": "<'row'<'col-sm-12'tr>><'row'<'col-sm-12'p>>",
+                        "language": {
+                            "paginate": {
+                                "first": "«",
+                                "last": "»",
+                                "next": "›",
+                                "previous": "‹"
+                            },
+                            "zeroRecords": "No se encontraron resultados",
+                            "infoEmpty": "",
+                            "infoFiltered": "",
+                            "info": ""
+                        },
+                        "ordering": true,
+                        "order": [[0, 'asc']],
+                        "columnDefs": [
+                            { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9,10,11,12,13] },
+                            { "orderable": false, "targets": [14] } // Columna de Acciones (índice 14)
+                        ],
+                        "scrollX": true,
+                        "scrollCollapse": true,
+                        "autoWidth": false,
+                        "responsive": false,
+                        "deferRender": true, // Renderizar filas bajo demanda
+                        "processing": true, // Mostrar indicador de procesamiento
+                        "createdRow": function(row, data, dataIndex) {
+                            // Asegurar que cada fila tenga las propiedades necesarias
+                            $(row).attr('data-index', dataIndex);
+                        },
+                        "drawCallback": function(settings) {
+                            // Verificar que las filas tengan las propiedades correctas
+                            var api = this.api();
+                            api.rows().every(function() {
+                                var row = this.node();
+                                if (row && !row._DT_CellIndex) {
+                                    // Recrear la fila si no tiene las propiedades necesarias
+                                    var data = this.data();
+                                    var newRow = api.row.add(data).draw(false).node();
+                                    $(row).replaceWith(newRow);
+                                }
+                            });
+                        },
+                        "initComplete": function() {
+                            console.log('✅ DataTables inicializado correctamente con', this.api().columns().count(), 'columnas');
+                        },
+                        "error": function(xhr, error, thrown) {
+                            console.error('❌ Error en DataTables:', error, thrown);
+                        }
+                    });
+                    
+                    return usersTable;
+                    
+                } catch (error) {
+                    console.error('❌ Error inicializando DataTables:', error);
+                    return null;
+                }
+            }
+
+            // Esperar a que el DOM esté completamente cargado
+            function waitForTableAndInitialize() {
+                var attempts = 0;
+                var maxAttempts = 10;
+                
+                function checkAndInitialize() {
+                    attempts++;
+                    var $table = $('#users-table');
+                    var $tbody = $table.find('tbody');
+                    var $rows = $tbody.find('tr');
+                    
+                    console.log(`Intento ${attempts}: Verificando tabla...`);
+                    console.log('Tabla encontrada:', $table.length > 0);
+                    console.log('TBody encontrado:', $tbody.length > 0);
+                    console.log('Filas encontradas:', $rows.length);
+                    
+                    // Verificar que la tabla esté completamente renderizada
+                    if ($table.length > 0 && $tbody.length > 0 && $rows.length > 0) {
+                        // Verificar que las filas tengan contenido
+                        var firstRow = $rows.first();
+                        var cells = firstRow.find('td');
+                        
+                        if (cells.length > 0) {
+                            console.log('✅ Tabla completamente cargada, inicializando DataTables...');
+                            var usersTable = initializeDataTables();
+                            
+                            if (usersTable) {
+                                // Conectar el input de búsqueda personalizado con DataTables
+                                $('#searchInput').on('keyup', function () {
+                                    usersTable.search(this.value).draw();
+                                });
+                            } else {
+                                console.warn('⚠️ DataTables no se pudo inicializar, usando búsqueda simple');
+                                setupSimpleSearch();
+                            }
+                            return;
+                        }
+                    }
+                    
+                    // Si no está listo y no hemos excedido los intentos, esperar un poco más
+                    if (attempts < maxAttempts) {
+                        console.log(`⏳ Tabla no está lista, reintentando en 100ms... (${attempts}/${maxAttempts})`);
+                        setTimeout(checkAndInitialize, 100);
+                    } else {
+                        console.error('❌ No se pudo cargar la tabla después de', maxAttempts, 'intentos');
+                        setupSimpleSearch();
+                    }
+                }
+                
+                checkAndInitialize();
+            }
+            
+            // Función de búsqueda simple como fallback
+            function setupSimpleSearch() {
                 $('#searchInput').on('keyup', function () {
                     var searchText = $(this).val().toLowerCase();
                     $('#users-table tbody tr').each(function() {
@@ -876,6 +995,9 @@
                     });
                 });
             }
+            
+            // Iniciar el proceso de verificación e inicialización
+            waitForTableAndInitialize();
 
             // Mostrar/ocultar columnas de especialización después de inicializar DataTables
             toggleSpecializationColumns();

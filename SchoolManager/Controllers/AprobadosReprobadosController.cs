@@ -79,7 +79,14 @@ namespace SchoolManager.Controllers
 
                 if (!ModelState.IsValid)
                 {
-                    return Json(new { success = false, message = "Datos de filtro inválidos" });
+                    var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                    return Json(new { success = false, message = $"Datos de filtro inválidos: {string.Join(", ", errors)}" });
+                }
+
+                // Validar que se proporcionen los campos requeridos
+                if (string.IsNullOrEmpty(filtro.Trimestre) || string.IsNullOrEmpty(filtro.NivelEducativo))
+                {
+                    return Json(new { success = false, message = "Trimestre y nivel educativo son requeridos" });
                 }
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(

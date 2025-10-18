@@ -63,6 +63,12 @@ namespace SchoolManager.Services.Implementations
 
                     var grupos = await gruposQuery.ToListAsync();
 
+                    if (!grupos.Any())
+                    {
+                        _logger.LogWarning("No se encontraron grupos para el grado {Grado} en la escuela {SchoolId}", grado, schoolId);
+                        continue;
+                    }
+
                     foreach (var grupo in grupos)
                     {
                         var stats = await CalcularEstadisticasGrupoAsync(grupo.Id, trimestre, materiaId, areaId, especialidadId);
@@ -84,6 +90,12 @@ namespace SchoolManager.Services.Implementations
                             PorcentajeRetirados = stats.PorcentajeRetirados
                         });
                     }
+                }
+
+                if (!estadisticas.Any())
+                {
+                    _logger.LogWarning("No se encontraron estadísticas para los filtros aplicados - School: {SchoolId}, Trimestre: {Trimestre}, Nivel: {Nivel}", 
+                        schoolId, trimestre, nivelEducativo);
                 }
 
                 // Calcular totales generales
@@ -124,6 +136,8 @@ namespace SchoolManager.Services.Implementations
             int Retirados, decimal PorcentajeRetirados)> 
             CalcularEstadisticasGrupoAsync(Guid grupoId, string trimestre, Guid? materiaId = null, Guid? areaId = null, Guid? especialidadId = null)
         {
+            _logger.LogInformation("Calculando estadísticas para grupo {GrupoId}, trimestre {Trimestre}", grupoId, trimestre);
+            
             // Obtener todos los estudiantes del grupo
             var estudiantesDelGrupo = await _context.StudentAssignments
                 .Where(sa => sa.GroupId == grupoId)
@@ -132,6 +146,7 @@ namespace SchoolManager.Services.Implementations
                 .ToListAsync();
 
             int total = estudiantesDelGrupo.Count;
+            _logger.LogInformation("Total de estudiantes en el grupo: {Total}", total);
             int aprobados = 0;
             int reprobados = 0;
             int reprobadosHastaLaFecha = 0;
@@ -232,6 +247,9 @@ namespace SchoolManager.Services.Implementations
             decimal porcentajeSinCalificaciones = total > 0 ? (sinCalificaciones * 100m / total) : 0;
             decimal porcentajeRetirados = total > 0 ? (retirados * 100m / total) : 0;
 
+            _logger.LogInformation("Estadísticas calculadas - Total: {Total}, Aprobados: {Aprobados}, Reprobados: {Reprobados}, Sin Calificaciones: {SinCalificaciones}, Retirados: {Retirados}", 
+                total, aprobados, reprobados, sinCalificaciones, retirados);
+
             return (total, aprobados, porcentajeAprobados, 
                     reprobados, porcentajeReprobados,
                     reprobadosHastaLaFecha, porcentajeReprobadosHastaLaFecha,
@@ -278,18 +296,22 @@ namespace SchoolManager.Services.Implementations
         {
             try
             {
-                var trimestres = await _context.Set<Trimester>()
-                    .Where(t => t.SchoolId == schoolId)
-                    .OrderBy(t => t.Name)
-                    .Select(t => t.Name)
+                // Obtener trimestres que tienen actividades asociadas
+                var trimestres = await _context.Activities
+                    .Where(a => a.SchoolId == schoolId && a.Trimester != null)
+                    .Select(a => a.Trimester!)
                     .Distinct()
+                    .OrderBy(t => t)
                     .ToListAsync();
+
+                _logger.LogInformation("Trimestres disponibles para escuela {SchoolId}: {Trimestres}", 
+                    schoolId, string.Join(", ", trimestres));
 
                 return trimestres;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error obteniendo trimestres");
+                _logger.LogError(ex, "Error obteniendo trimestres para escuela {SchoolId}", schoolId);
                 return new List<string>();
             }
         }
