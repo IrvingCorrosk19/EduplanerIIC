@@ -10,7 +10,7 @@ namespace SchoolManager.Services.Implementations
     {
         private readonly SchoolDbContext _context;
         private readonly ILogger<AprobadosReprobadosService> _logger;
-        private const decimal NOTA_MINIMA_APROBACION = 71m;
+        private const decimal NOTA_MINIMA_APROBACION = 3.0m; // Escala 0-5, nota mínima para aprobar es 3.0
 
         public AprobadosReprobadosService(
             SchoolDbContext context,

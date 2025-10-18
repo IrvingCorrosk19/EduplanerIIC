@@ -539,10 +539,9 @@
                         <div class="col-md-2">
                             <label class="form-label">Tipo</label>
                             <select id="activityType" name="Type" class="form-select">
-                                @foreach (var t in Model.Types)
-                                {
-                                    <option value="@t.Name">@t.Name</option>
-                                }
+                                <option value="Notas de apreciación">Notas de apreciación</option>
+                                <option value="Ejercicios diarios">Ejercicios diarios</option>
+                                <option value="Examen Final">Examen Final</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -1332,7 +1331,7 @@
 
                 console.log('Objeto activities:', activities);
 
-                const activeTypes = ['tarea', 'parcial', 'examen'];
+                const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final'];
 
                 let hasActivities = false;
                 activeTypes.forEach(type => {
@@ -1659,7 +1658,7 @@
                     
                     if (!studentId) return; // Skip if no student ID
                     
-                    const activeTypes = ['tarea', 'parcial', 'examen'].filter(type => activities[type] && activities[type].length > 0);
+                    const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final'].filter(type => activities[type] && activities[type].length > 0);
                     const typeAvgs = {};
 
                     activeTypes.forEach(type => {

@@ -188,3 +188,6 @@ crijogar@gmail.com  disciplina lo marca como orientador
 | **Vacaciones**            | 09/15/2025      | 09/19/2025   | 1 semana                          |
 | **Tercer trimestre**      | 09/22/2025      | 12/19/2025   | 13 semanas                        |
 | **Evaluaciones / cierre** | 12/22/2025      | 12/30/2025   | Balance final, graduaciones, etc. |
+
+
+En usarios inde 

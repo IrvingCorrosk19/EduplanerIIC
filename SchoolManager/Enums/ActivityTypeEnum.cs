@@ -2,8 +2,8 @@ namespace SchoolManager.Enums
 {
     public enum ActivityTypeEnum
     {
-        Tarea = 1,
-        Parcial = 2,
-        Examen = 3
+        NotasDeApreciacion = 1,
+        EjerciciosDiarios = 2,
+        ExamenFinal = 3
     }
 } 

@@ -1407,7 +1407,7 @@
 
                 console.log('Objeto activities:', activities);
 
-                const activeTypes = ['tarea', 'parcial', 'examen'];
+                const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final'];
 
                 let hasActivities = false;
                 activeTypes.forEach(type => {
@@ -1734,7 +1734,7 @@
                     
                     if (!studentId) return; // Skip if no student ID
                     
-                    const activeTypes = ['tarea', 'parcial', 'examen'].filter(type => activities[type] && activities[type].length > 0);
+                    const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final'].filter(type => activities[type] && activities[type].length > 0);
                     const typeAvgs = {};
 
                     activeTypes.forEach(type => {

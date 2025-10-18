@@ -321,20 +321,35 @@ namespace SchoolManager.Services
                     var nombre = $"{(student.Name ?? "").Trim()} {(student.LastName ?? "").Trim()}".Trim();
                     if (string.IsNullOrWhiteSpace(nombre)) nombre = "(Sin nombre)";
 
+                    // Calcular promedios por tipo de actividad con los nuevos nombres
+                    var promedioNotasApreciacion = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "notas de apreciación" && x.Score.HasValue)
+                        .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "notas de apreciación" && x.Score.HasValue).Average(x => x.Score.Value) : (decimal?)null;
+                    
+                    var promedioEjerciciosDiarios = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "ejercicios diarios" && x.Score.HasValue)
+                        .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "ejercicios diarios" && x.Score.HasValue).Average(x => x.Score.Value) : (decimal?)null;
+                    
+                    var promedioExamenFinal = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "examen final" && x.Score.HasValue)
+                        .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "examen final" && x.Score.HasValue).Average(x => x.Score.Value) : (decimal?)null;
+
+                    // Calcular nota final como el promedio de los 3 promedios (solo los que tienen valor)
+                    var promediosConValor = new[] { promedioNotasApreciacion, promedioEjerciciosDiarios, promedioExamenFinal }
+                        .Where(p => p.HasValue)
+                        .Select(p => p.Value)
+                        .ToList();
+                    
+                    var notaFinal = promediosConValor.Any() ? promediosConValor.Average() : (decimal?)null;
+
                     promedios.Add(new PromedioFinalDto
                     {
                         StudentId = student.Id.ToString(),
                         StudentFullName = nombre,
                         DocumentId = student.DocumentId ?? "",
                         Trimester = trimestre,
-                        PromedioTareas = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "tarea" && x.Score.HasValue)
-                            .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "tarea" && x.Score.HasValue).Average(x => x.Score.Value) : null,
-                        PromedioParciales = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "parcial" && x.Score.HasValue)
-                            .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "parcial" && x.Score.HasValue).Average(x => x.Score.Value) : null,
-                        PromedioExamenes = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "examen" && x.Score.HasValue)
-                            .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "examen" && x.Score.HasValue).Average(x => x.Score.Value) : null,
-                        NotaFinal = notasValidas.Any() ? notasValidas.Average(x => x.Score.Value) : null,
-                        Estado = notasValidas.Any() ? (notasValidas.Average(x => x.Score.Value) >= 3.0m ? "Aprobado" : "Reprobado") : "Sin calificar"
+                        PromedioTareas = promedioNotasApreciacion,
+                        PromedioParciales = promedioEjerciciosDiarios,
+                        PromedioExamenes = promedioExamenFinal,
+                        NotaFinal = notaFinal,
+                        Estado = notaFinal.HasValue ? (notaFinal.Value >= 3.0m ? "Aprobado" : "Reprobado") : "Sin calificar"
                     });
                 }
             }
