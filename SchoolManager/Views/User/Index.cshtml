@@ -556,12 +556,9 @@
                 <div class="role-filter">
                     <select id="roleFilter" class="form-select" style="min-width: 180px;">
                         <option value="">Todos los roles</option>
-                        <option value="superadmin">Super Administrador</option>
-                        <option value="admin">Administrador</option>
-                        <option value="director">Director</option>
-                        <option value="teacher">Docente</option>
-                        <option value="parent">Padre/Madre</option>
-                        <option value="student">Estudiante</option>
+                        <option value="Director">Director</option>
+                        <option value="Teacher">Docente</option>
+                        <option value="Estudiante">Estudiante</option>
                     </select>
                 </div>
                 <!-- Campo de búsqueda -->
@@ -1023,12 +1020,12 @@
                                     if (selectedRole === '') {
                                         // Mostrar todos los roles
                                         usersTable.column(7).search('').draw();
-                                    } else if (selectedRole === 'student') {
+                                    } else if (selectedRole === 'Estudiante') {
                                         // Para estudiantes, buscar tanto 'student' como 'estudiante'
                                         usersTable.column(7).search('(student|estudiante)', true, false).draw();
                                     } else {
-                                        // Filtrar por rol específico
-                                        usersTable.column(7).search(selectedRole, true, false).draw();
+                                        // Filtrar por rol específico (convertir a minúscula para la búsqueda)
+                                        usersTable.column(7).search(selectedRole.toLowerCase(), true, false).draw();
                                     }
                                 });
                             } else {
@@ -1074,11 +1071,12 @@
                         var matchesRole = true;
                         
                         if (selectedRole !== '') {
-                            if (selectedRole === 'student') {
+                            if (selectedRole === 'Estudiante') {
                                 // Para estudiante, buscar tanto "student" como "estudiante"
                                 matchesRole = roleCell.indexOf('student') !== -1 || roleCell.indexOf('estudiante') !== -1;
                             } else {
-                                matchesRole = roleCell.indexOf(selectedRole) !== -1;
+                                // Convertir a minúscula para la búsqueda
+                                matchesRole = roleCell.indexOf(selectedRole.toLowerCase()) !== -1;
                             }
                         }
                         
