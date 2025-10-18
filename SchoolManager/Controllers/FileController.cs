@@ -21,6 +21,13 @@ public class FileController : Controller
     {
         if (string.IsNullOrEmpty(logoUrl))
         {
+            // Retornar logo por defecto si no hay logoUrl
+            var defaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
+            if (File.Exists(defaultLogoPath))
+            {
+                var defaultBytes = await File.ReadAllBytesAsync(defaultLogoPath);
+                return File(defaultBytes, "image/jpeg");
+            }
             return NotFound();
         }
 
@@ -29,6 +36,13 @@ public class FileController : Controller
             var bytes = await _superAdminService.GetLogoAsync(logoUrl);
             if (bytes == null)
             {
+                // Fallback a logo por defecto
+                var defaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
+                if (File.Exists(defaultLogoPath))
+                {
+                    var defaultBytes = await File.ReadAllBytesAsync(defaultLogoPath);
+                    return File(defaultBytes, "image/jpeg");
+                }
                 return NotFound();
             }
 
@@ -37,6 +51,22 @@ public class FileController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error obteniendo logo de escuela: {logoUrl}", logoUrl);
+            
+            // Fallback a logo por defecto en caso de error
+            try
+            {
+                var defaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
+                if (File.Exists(defaultLogoPath))
+                {
+                    var defaultBytes = await File.ReadAllBytesAsync(defaultLogoPath);
+                    return File(defaultBytes, "image/jpeg");
+                }
+            }
+            catch (Exception fallbackEx)
+            {
+                _logger.LogError(fallbackEx, "Error obteniendo logo por defecto");
+            }
+            
             return NotFound();
         }
     }

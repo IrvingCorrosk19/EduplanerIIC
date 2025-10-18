@@ -798,38 +798,84 @@
                 });
             }
 
-            // Inicializar DataTables en la tabla de usuarios SIN Responsive para permitir scroll horizontal
-            var usersTable = $('#users-table').DataTable({
-                "pageLength": 25,
-                "dom": "<'row'<'col-sm-12'tr>><'row'<'col-sm-12'p>>",
-                "language": {
-                    "paginate": {
-                        "first": "«",
-                        "last": "»",
-                        "next": "›",
-                        "previous": "‹"
-                    },
-                    "zeroRecords": "No se encontraron resultados",
-                    "infoEmpty": "",
-                    "infoFiltered": "",
-                    "info": ""
-                },
-                "ordering": true,
-                "order": [[0, 'asc']],
-                "columnDefs": [
-                    { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9,10,11,12,13] },
-                    { "orderable": false, "targets": 14 } // Columna de Acciones
-                ],
-                "scrollX": true, // Habilitar scroll horizontal
-                "scrollCollapse": true,
-                "autoWidth": false, // Deshabilitar autoWidth para control manual
-                "responsive": false // Deshabilitar responsive para permitir scroll horizontal completo
+            // Verificar que la tabla tenga el número correcto de columnas antes de inicializar DataTables
+            var headerColumns = $('#users-table thead tr th').length;
+            var bodyRows = $('#users-table tbody tr');
+            var bodyColumns = bodyRows.length > 0 ? bodyRows.first().find('td').length : 0;
+            
+            console.log('Columnas en header:', headerColumns);
+            console.log('Columnas en body:', bodyColumns);
+            console.log('Filas en body:', bodyRows.length);
+            
+            if (headerColumns !== bodyColumns) {
+                console.error('Error: Número de columnas no coincide. Header:', headerColumns, 'Body:', bodyColumns);
+                // No inicializar DataTables si hay error
+                return;
+            }
+            
+            // Verificar que todas las filas tengan el mismo número de columnas
+            bodyRows.each(function(index) {
+                var rowColumns = $(this).find('td').length;
+                if (rowColumns !== headerColumns) {
+                    console.error('Error: Fila', index, 'tiene', rowColumns, 'columnas, esperadas:', headerColumns);
+                }
             });
 
-            // Conectar el input de búsqueda personalizado con DataTables
-            $('#searchInput').on('keyup', function () {
-                usersTable.search(this.value).draw();
-            });
+            // Inicializar DataTables con manejo de errores
+            try {
+                var usersTable = $('#users-table').DataTable({
+                    "pageLength": 25,
+                    "dom": "<'row'<'col-sm-12'tr>><'row'<'col-sm-12'p>>",
+                    "language": {
+                        "paginate": {
+                            "first": "«",
+                            "last": "»",
+                            "next": "›",
+                            "previous": "‹"
+                        },
+                        "zeroRecords": "No se encontraron resultados",
+                        "infoEmpty": "",
+                        "infoFiltered": "",
+                        "info": ""
+                    },
+                    "ordering": true,
+                    "order": [[0, 'asc']],
+                    "columnDefs": [
+                        { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9,10,11,12,13] },
+                        { "orderable": false, "targets": [14] } // Columna de Acciones (índice 14)
+                    ],
+                    "scrollX": true, // Habilitar scroll horizontal
+                    "scrollCollapse": true,
+                    "autoWidth": false, // Deshabilitar autoWidth para control manual
+                    "responsive": false, // Deshabilitar responsive para permitir scroll horizontal completo
+                    "initComplete": function() {
+                        console.log('✅ DataTables inicializado correctamente con', this.api().columns().count(), 'columnas');
+                    },
+                    "error": function(xhr, error, thrown) {
+                        console.error('❌ Error en DataTables:', error, thrown);
+                    }
+                });
+                
+                // Conectar el input de búsqueda personalizado con DataTables
+                $('#searchInput').on('keyup', function () {
+                    usersTable.search(this.value).draw();
+                });
+                
+            } catch (error) {
+                console.error('❌ Error inicializando DataTables:', error);
+                // Fallback: usar búsqueda simple sin DataTables
+                $('#searchInput').on('keyup', function () {
+                    var searchText = $(this).val().toLowerCase();
+                    $('#users-table tbody tr').each(function() {
+                        var rowText = $(this).text().toLowerCase();
+                        if (rowText.indexOf(searchText) === -1) {
+                            $(this).hide();
+                        } else {
+                            $(this).show();
+                        }
+                    });
+                });
+            }
 
             // Mostrar/ocultar columnas de especialización después de inicializar DataTables
             toggleSpecializationColumns();
