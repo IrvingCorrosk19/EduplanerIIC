@@ -23,9 +23,9 @@ public class FileController : Controller
         {
             // Retornar logo por defecto si no hay logoUrl
             var defaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
-            if (File.Exists(defaultLogoPath))
+            if (System.IO.File.Exists(defaultLogoPath))
             {
-                var defaultBytes = await File.ReadAllBytesAsync(defaultLogoPath);
+                var defaultBytes = await System.IO.File.ReadAllBytesAsync(defaultLogoPath);
                 return File(defaultBytes, "image/jpeg");
             }
             return NotFound();
@@ -38,9 +38,9 @@ public class FileController : Controller
             {
                 // Fallback a logo por defecto
                 var defaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
-                if (File.Exists(defaultLogoPath))
+                if (System.IO.File.Exists(defaultLogoPath))
                 {
-                    var defaultBytes = await File.ReadAllBytesAsync(defaultLogoPath);
+                    var defaultBytes = await System.IO.File.ReadAllBytesAsync(defaultLogoPath);
                     return File(defaultBytes, "image/jpeg");
                 }
                 return NotFound();
@@ -56,9 +56,9 @@ public class FileController : Controller
             try
             {
                 var defaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
-                if (File.Exists(defaultLogoPath))
+                if (System.IO.File.Exists(defaultLogoPath))
                 {
-                    var defaultBytes = await File.ReadAllBytesAsync(defaultLogoPath);
+                    var defaultBytes = await System.IO.File.ReadAllBytesAsync(defaultLogoPath);
                     return File(defaultBytes, "image/jpeg");
                 }
             }
