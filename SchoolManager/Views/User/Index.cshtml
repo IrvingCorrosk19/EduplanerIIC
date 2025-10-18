@@ -1020,12 +1020,18 @@
                                     if (selectedRole === '') {
                                         // Mostrar todos los roles
                                         usersTable.column(7).search('').draw();
+                                    } else if (selectedRole === 'Director') {
+                                        // Buscar "Director" en la columna de rol
+                                        usersTable.column(7).search('Director', true, false).draw();
+                                    } else if (selectedRole === 'Teacher') {
+                                        // Buscar "Docente" en la columna de rol
+                                        usersTable.column(7).search('Docente', true, false).draw();
                                     } else if (selectedRole === 'Estudiante') {
-                                        // Para estudiantes, buscar tanto 'student' como 'estudiante'
-                                        usersTable.column(7).search('(student|estudiante)', true, false).draw();
+                                        // Para estudiantes, buscar tanto 'Estudiante' como 'Student'
+                                        usersTable.column(7).search('(Estudiante|Student)', true, false).draw();
                                     } else {
-                                        // Filtrar por rol específico (convertir a minúscula para la búsqueda)
-                                        usersTable.column(7).search(selectedRole.toLowerCase(), true, false).draw();
+                                        // Filtrar por rol específico
+                                        usersTable.column(7).search(selectedRole, true, false).draw();
                                     }
                                 });
                             } else {
@@ -1061,22 +1067,28 @@
                 
                 function filterTable() {
                     var searchText = $('#searchInput').val().toLowerCase();
-                    var selectedRole = $('#roleFilter').val().toLowerCase();
+                    var selectedRole = $('#roleFilter').val();
                     
                     $('#users-table tbody tr').each(function() {
                         var rowText = $(this).text().toLowerCase();
-                        var roleCell = $(this).find('td:eq(7)').text().toLowerCase(); // Columna de rol
+                        var roleCell = $(this).find('td:eq(7)').text(); // Columna de rol
                         
                         var matchesSearch = searchText === '' || rowText.indexOf(searchText) !== -1;
                         var matchesRole = true;
                         
                         if (selectedRole !== '') {
-                            if (selectedRole === 'Estudiante') {
-                                // Para estudiante, buscar tanto "student" como "estudiante"
-                                matchesRole = roleCell.indexOf('student') !== -1 || roleCell.indexOf('estudiante') !== -1;
+                            if (selectedRole === 'Director') {
+                                // Buscar "Director" en la columna de rol
+                                matchesRole = roleCell.indexOf('Director') !== -1;
+                            } else if (selectedRole === 'Teacher') {
+                                // Buscar "Docente" en la columna de rol
+                                matchesRole = roleCell.indexOf('Docente') !== -1;
+                            } else if (selectedRole === 'Estudiante') {
+                                // Para estudiante, buscar tanto "Estudiante" como "Student"
+                                matchesRole = roleCell.indexOf('Estudiante') !== -1 || roleCell.indexOf('Student') !== -1;
                             } else {
-                                // Convertir a minúscula para la búsqueda
-                                matchesRole = roleCell.indexOf(selectedRole.toLowerCase()) !== -1;
+                                // Buscar el texto exacto
+                                matchesRole = roleCell.indexOf(selectedRole) !== -1;
                             }
                         }
                         

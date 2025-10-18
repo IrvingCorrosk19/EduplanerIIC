@@ -163,7 +163,7 @@ https://eduplaner.net
 https://account.squarespace.com/domains/managed/eduplaner.net
 
 
-
+ quenna.lopez@qlservice.net
 
  https://eduplaner.net
  
@@ -175,6 +175,16 @@ https://account.squarespace.com/domains/managed/eduplaner.net
  
  https://www.eduplaner.net
  
- adrinis.alvarado@meduca.edu.pa  consejero consejero puede ver todo los temas del grupo de su consejeria
- cecimosqueea03@gmail.com orientacion lo marca como disciplina
+adrinis.alvarado@meduca.edu.pa  consejero consejero puede ver todo los temas del grupo de su consejeria
+cecimosqueea03@gmail.com orientacion lo marca como disciplina
 crijogar@gmail.com  disciplina lo marca como orientador
+
+
+| Periodo                   | Fecha de inicio | Fecha de fin | Duración / notas                  |
+| ------------------------- | --------------- | ------------ | --------------------------------- |
+| **Primer trimestre**      | 03/10/2025      | 06/13/2025   | 14 semanas                        |
+| **Vacaciones**            | 06/16/2025      | 06/20/2025   | 1 semana                          |
+| **Segundo trimestre**     | 06/23/2025      | 09/12/2025   | 12 semanas                        |
+| **Vacaciones**            | 09/15/2025      | 09/19/2025   | 1 semana                          |
+| **Tercer trimestre**      | 09/22/2025      | 12/19/2025   | 13 semanas                        |
+| **Evaluaciones / cierre** | 12/22/2025      | 12/30/2025   | Balance final, graduaciones, etc. |
