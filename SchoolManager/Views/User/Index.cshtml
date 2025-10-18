@@ -664,6 +664,9 @@
     <script src="~/lib/sweetalert2/sweetalert2.min.js"></script>
 
     <script>
+        // Variable global para la tabla de usuarios
+        var usersTable = null;
+        
         $(document).ready(function () {
             // Funcionalidad para mostrar/ocultar especializaciones según el rol
             $('#roleSelect').on('change', function() {
@@ -887,8 +890,8 @@
                         "ordering": true,
                         "order": [[0, 'asc']],
                         "columnDefs": [
-                            { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9,10,11,12,13] },
-                            { "orderable": false, "targets": [14] } // Columna de Acciones (índice 14)
+                            { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9,10,11,12] },
+                            { "orderable": false, "targets": [13] } // Columna de Acciones (índice 13)
                         ],
                         "scrollX": true,
                         "scrollCollapse": true,
@@ -899,19 +902,33 @@
                         "createdRow": function(row, data, dataIndex) {
                             // Asegurar que cada fila tenga las propiedades necesarias
                             $(row).attr('data-index', dataIndex);
+                            // Asegurar que todas las celdas tengan contenido válido
+                            $(row).find('td').each(function() {
+                                if ($(this).html().trim() === '') {
+                                    $(this).html('&nbsp;');
+                                }
+                            });
                         },
                         "drawCallback": function(settings) {
                             // Verificar que las filas tengan las propiedades correctas
-                            var api = this.api();
-                            api.rows().every(function() {
-                                var row = this.node();
-                                if (row && !row._DT_CellIndex) {
-                                    // Recrear la fila si no tiene las propiedades necesarias
-                                    var data = this.data();
-                                    var newRow = api.row.add(data).draw(false).node();
-                                    $(row).replaceWith(newRow);
-                                }
-                            });
+                            try {
+                                var api = this.api();
+                                api.rows().every(function() {
+                                    var row = this.node();
+                                    if (row && !row._DT_CellIndex) {
+                                        // Asegurar que la fila tenga las propiedades necesarias
+                                        $(row).find('td').each(function() {
+                                            if ($(this).html().trim() === '') {
+                                                $(this).html('&nbsp;');
+                                            }
+                                        });
+                                        // Forzar la actualización de las propiedades de DataTables
+                                        $(row).trigger('draw.dt');
+                                    }
+                                });
+                            } catch (error) {
+                                console.warn('⚠️ Error en drawCallback:', error);
+                            }
                         },
                         "initComplete": function() {
                             console.log('✅ DataTables inicializado correctamente con', this.api().columns().count(), 'columnas');
@@ -953,7 +970,7 @@
                         
                         if (cells.length > 0) {
                             console.log('✅ Tabla completamente cargada, inicializando DataTables...');
-                            var usersTable = initializeDataTables();
+                            usersTable = initializeDataTables();
                             
                             if (usersTable) {
                                 // Conectar el input de búsqueda personalizado con DataTables
@@ -1011,8 +1028,10 @@
                 $('.table-responsive').css('overflow-x', 'auto');
                 $('.dataTables_wrapper').css('overflow-x', 'auto');
                 
-                // Recalcular el ancho de la tabla
-                usersTable.columns.adjust().draw();
+                // Recalcular el ancho de la tabla solo si DataTables está inicializado
+                if (typeof usersTable !== 'undefined' && usersTable && $.fn.DataTable.isDataTable('#users-table')) {
+                    usersTable.columns.adjust().draw();
+                }
             }, 100);
 
             // Usar delegación de eventos para los botones de editar y eliminar
