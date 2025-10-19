@@ -557,7 +557,11 @@
                                 <option value="Notas de apreciación">Notas de apreciación</option>
                                 <option value="Ejercicios diarios">Ejercicios diarios</option>
                                 <option value="Examen Final">Examen Final</option>
+                                <option value="Recuperación">Recuperación</option>
                             </select>
+                            <small class="text-muted" id="recuperacionHelper" style="display: none;">
+                                <i class="bi bi-info-circle"></i> Solo para 9º y 12º
+                            </small>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Fecha de Entrega <span class="text-danger">*</span></label>
@@ -1223,6 +1227,15 @@
 
             console.log("Datos de studentAnnualScores al cargar:", studentAnnualScores);
 
+            // Event listener para mostrar helper de recuperación
+            $('#activityType').on('change', function() {
+                if ($(this).val().toLowerCase() === 'recuperación') {
+                    $('#recuperacionHelper').slideDown();
+                } else {
+                    $('#recuperacionHelper').slideUp();
+                }
+            });
+
             // Función para resetear el formulario
             function resetForm() {
                 $('#activityId').val('');
@@ -1230,6 +1243,7 @@
                 $('#activityType').val('');
                 $('#activityDueDate').val('');
                 $('#activityFile').val('');
+                $('#recuperacionHelper').hide();
                 
                 // Resetear UI a modo agregar
                 $('#formIcon').removeClass('bi-pencil text-warning').addClass('bi-plus-circle text-success');
@@ -1346,7 +1360,7 @@
 
                 console.log('Objeto activities:', activities);
 
-                const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final'];
+                const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final', 'recuperación'];
 
                 let hasActivities = false;
                 activeTypes.forEach(type => {
@@ -1673,7 +1687,7 @@
                     
                     if (!studentId) return; // Skip if no student ID
                     
-                    const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final'].filter(type => activities[type] && activities[type].length > 0);
+                    const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final', 'recuperación'].filter(type => activities[type] && activities[type].length > 0);
                     const typeAvgs = {};
 
                     activeTypes.forEach(type => {
@@ -1689,11 +1703,21 @@
                         row.find(`.avg-${type}`).text(truncAvg.toFixed(1));
                     });
 
+                    // LÓGICA ESPECIAL PARA RECUPERACIÓN:
+                    // Si existe recuperación y tiene nota > 0, reemplaza el promedio del examen final
+                    let typesForFinal = [...activeTypes];
+                    if (typeAvgs['recuperación'] && typeAvgs['recuperación'] > 0) {
+                        // Si hay recuperación, reemplazar el examen final con recuperación
+                        // y no contar ambos en el promedio final
+                        typeAvgs['examen final'] = typeAvgs['recuperación'];
+                        typesForFinal = typesForFinal.filter(t => t !== 'recuperación');
+                    }
+
                     let finalGrade = 0;
-                    let activeTypeCount = activeTypes.length;
+                    let activeTypeCount = typesForFinal.length;
 
                     if (activeTypeCount > 0) {
-                        finalGrade = activeTypes.reduce((sum, type) => sum + typeAvgs[type], 0) / activeTypeCount;
+                        finalGrade = typesForFinal.reduce((sum, type) => sum + typeAvgs[type], 0) / activeTypeCount;
                     }
 
                     const truncFinalGrade = Math.floor(finalGrade * 10) / 10;
@@ -1900,6 +1924,60 @@
                 }
 
                 const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                
+                // Validación especial para Recuperación
+                if (type.toLowerCase() === 'recuperación') {
+                    // Obtener el nombre del grado desde el combo
+                    const selectedText = $('#selGroup option:selected').text();
+                    const gradeMatch = selectedText.match(/(\d+)°/); // Extraer el número del grado
+                    
+                    if (!gradeMatch) {
+                        Swal.fire({ 
+                            icon: 'error', 
+                            title: 'Error', 
+                            text: 'No se pudo determinar el grado del grupo seleccionado' 
+                        });
+                        return;
+                    }
+                    
+                    const gradeNumber = parseInt(gradeMatch[1]);
+                    
+                    // Solo permitir para 9º y 12º
+                    if (gradeNumber !== 9 && gradeNumber !== 12) {
+                        Swal.fire({ 
+                            icon: 'warning', 
+                            title: 'Recuperación no permitida', 
+                            text: 'Las actividades de recuperación solo están disponibles para estudiantes de 9º y 12º grado',
+                            confirmButtonColor: '#f59e0b'
+                        });
+                        return;
+                    }
+                    
+                    // Advertencia sobre el límite de 3 fracasos
+                    Swal.fire({
+                        title: '⚠️ Importante',
+                        html: '<p><strong>La recuperación solo es válida para estudiantes con máximo 3 materias reprobadas.</strong></p>' +
+                              '<p class="text-muted mb-0">Por favor, verifica el número de fracasos del estudiante antes de asignar la nota de recuperación.</p>',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Entendido, continuar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#2563eb',
+                        cancelButtonColor: '#6c757d'
+                    }).then((result) => {
+                        if (!result.isConfirmed) {
+                            return;
+                        }
+                        // Si confirma, continuar con el proceso
+                        continueActivityCreation();
+                    });
+                    return; // Detener ejecución hasta que usuario confirme
+                }
+                
+                // Si no es recuperación, continuar normalmente
+                continueActivityCreation();
+                
+                function continueActivityCreation() {
                 const formData = new FormData();
                 formData.append('Name', name);
                 formData.append('Type', type);
@@ -1958,6 +2036,7 @@
                         $btn.html(originalHtml);
                     }
                 });
+                } // Fin de continueActivityCreation
             });
 
             $('#selGroup, #selTrimester').on('change', () => {
