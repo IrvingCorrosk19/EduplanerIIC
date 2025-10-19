@@ -212,6 +212,12 @@
                                 <p>Portal Director</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "StudentAssignment")" class="nav-link">
+                                <i class="nav-icon fas fa-exchange-alt"></i>
+                                <p>Cambios de Turno</p>
+                            </a>
+                        </li>
                         }
                         @if (userRole == "admin" || userRole == "director" || userRole == "teacher") {
                         <li class="nav-item has-treeview">
