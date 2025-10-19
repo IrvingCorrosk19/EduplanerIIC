@@ -234,11 +234,11 @@
                     <table class="table table-hover table-bordered align-middle" id="grades-table">
                         <thead style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white;">
                             <tr>
-                                <th style="width: 25%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2);">Materia</th>
-                                <th style="width: 20%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2); text-align: center;">Notas de Apreciación</th>
-                                <th style="width: 20%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2); text-align: center;">Ejercicios Diarios</th>
-                                <th style="width: 20%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2); text-align: center;">Examen Final</th>
-                                <th style="width: 15%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2); text-align: center;">Promedio Final</th>
+                                <th style="width: 20%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2);">Materia</th>
+                                <th style="width: 25%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2);">Tipo de Actividad</th>
+                                <th style="width: 35%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2);">Actividad</th>
+                                <th style="width: 10%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2); text-align: center;">Nota</th>
+                                <th style="width: 10%; font-weight: 600; font-size: 0.95rem; padding: 1rem; border-color: rgba(255,255,255,0.2); text-align: center;">Promedio</th>
                             </tr>
                         </thead>
                         <tbody id="grades-table-body">
@@ -256,96 +256,122 @@
                                 {
                                     var materia = subjectGroup.Key;
                                     
-                                    // Calcular promedios por tipo
-                                    var notasApreciacion = subjectGroup
-                                        .Where(g => g.Type.ToLower().Contains("nota") || 
-                                                   g.Type.ToLower().Contains("apreciación") || 
-                                                   g.Type.ToLower().Contains("apreciacion"))
-                                        .ToList();
+                                    // Agrupar por tipo de actividad
+                                    var tiposActividad = new[] { 
+                                        new { Nombre = "Notas de Apreciación", Filtro = new Func<SchoolManager.Dtos.GradeDto, bool>(g => g.Type.ToLower().Contains("nota") || g.Type.ToLower().Contains("apreciación") || g.Type.ToLower().Contains("apreciacion")) },
+                                        new { Nombre = "Ejercicios Diarios", Filtro = new Func<SchoolManager.Dtos.GradeDto, bool>(g => g.Type.ToLower().Contains("ejercicio") || g.Type.ToLower().Contains("diario")) },
+                                        new { Nombre = "Examen Final", Filtro = new Func<SchoolManager.Dtos.GradeDto, bool>(g => g.Type.ToLower().Contains("examen") || g.Type.ToLower().Contains("final")) }
+                                    };
+
+                                    bool firstRowForSubject = true;
+                                    int totalRowsForSubject = 0;
+                                    List<decimal> promediosTipos = new List<decimal>();
+
+                                    // Primero contar filas y calcular promedios POR TIPO
+                                    foreach (var tipoActividad in tiposActividad)
+                                    {
+                                        var actividadesTipo = subjectGroup
+                                            .Where(tipoActividad.Filtro)
+                                            .OrderBy(g => g.ActivityName)
+                                            .ToList();
+                                        
+                                        if (actividadesTipo.Any())
+                                        {
+                                            totalRowsForSubject += actividadesTipo.Count;
+                                            // Calcular el promedio de este TIPO de actividad
+                                            var promedio = actividadesTipo.Average(g => g.Value.Value);
+                                            promediosTipos.Add(promedio);
+                                        }
+                                    }
+
+                                    // Si no hay actividades, mostrar mensaje
+                                    if (totalRowsForSubject == 0)
+                                    {
+                                        <tr>
+                                            <td><strong>@materia</strong></td>
+                                            <td colspan="3" class="text-center text-muted">Sin calificaciones</td>
+                                            <td class="text-center text-danger fw-bold">-</td>
+                                        </tr>
+                                        continue;
+                                    }
+
+                                    // Calcular promedio final (promedio de los promedios de cada tipo)
+                                    decimal? promedioFinal = promediosTipos.Any() ? (decimal?)promediosTipos.Average() : null;
                                     
-                                    var ejerciciosDiarios = subjectGroup
-                                        .Where(g => g.Type.ToLower().Contains("ejercicio") || 
-                                                   g.Type.ToLower().Contains("diario"))
-                                        .ToList();
-                                    
-                                    var examenFinal = subjectGroup
-                                        .Where(g => g.Type.ToLower().Contains("examen") || 
-                                                   g.Type.ToLower().Contains("final"))
-                                        .ToList();
-
-                                    decimal? promApreciacion = notasApreciacion.Any() ? 
-                                        notasApreciacion.Average(g => g.Value.Value) : null;
-                                    decimal? promEjercicios = ejerciciosDiarios.Any() ? 
-                                        ejerciciosDiarios.Average(g => g.Value.Value) : null;
-                                    decimal? promExamen = examenFinal.Any() ? 
-                                        examenFinal.Average(g => g.Value.Value) : null;
-
-                                    // Calcular promedio final de la materia (promedio de los promedios de cada tipo)
-                                    var promediosValidos = new List<decimal>();
-                                    if (promApreciacion.HasValue) promediosValidos.Add(promApreciacion.Value);
-                                    if (promEjercicios.HasValue) promediosValidos.Add(promEjercicios.Value);
-                                    if (promExamen.HasValue) promediosValidos.Add(promExamen.Value);
-
-                                    decimal? promedioFinal = promediosValidos.Any() ? 
-                                        promediosValidos.Average() : null;
-
                                     if (promedioFinal.HasValue)
                                     {
                                         totalPromedios += promedioFinal.Value;
                                         materiaCount++;
                                     }
 
-                                    <tr>
-                                        <td><strong>@materia</strong></td>
-                                        <td class="text-center">
-                                            @if (promApreciacion.HasValue)
-                                            {
-                                                <span class="@(promApreciacion >= 3.0m ? "text-success" : "text-danger") fw-bold">
-                                                    @promApreciacion.Value.ToString("0.0")
-                                                </span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (promEjercicios.HasValue)
-                                            {
-                                                <span class="@(promEjercicios >= 3.0m ? "text-success" : "text-danger") fw-bold">
-                                                    @promEjercicios.Value.ToString("0.0")
-                                                </span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (promExamen.HasValue)
-                                            {
-                                                <span class="@(promExamen >= 3.0m ? "text-success" : "text-danger") fw-bold">
-                                                    @promExamen.Value.ToString("0.0")
-                                                </span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (promedioFinal.HasValue)
-                                            {
-                                                <span class="@(promedioFinal >= 3.0m ? "text-success" : "text-danger") fw-bold" style="font-size: 1.1rem;">
-                                                    @promedioFinal.Value.ToString("0.0")
-                                                </span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                    </tr>
+                                    // Ahora renderizar todas las filas
+                                    int rowIndexForSubject = 0;
+                                    
+                                    foreach (var tipoActividad in tiposActividad)
+                                    {
+                                        var actividadesTipo = subjectGroup
+                                            .Where(tipoActividad.Filtro)
+                                            .OrderBy(g => g.ActivityName)
+                                            .ToList();
+                                        
+                                        if (!actividadesTipo.Any()) continue;
+
+                                        bool firstRowForType = true;
+                                        decimal promedioTipo = actividadesTipo.Average(g => g.Value.Value);
+
+                                        foreach (var actividad in actividadesTipo)
+                                        {
+                                            <tr style="@(rowIndexForSubject % 2 == 0 ? "background-color: #f8f9fa;" : "")">
+                                                @if (firstRowForSubject)
+                                                {
+                                                    <td rowspan="@totalRowsForSubject" style="vertical-align: middle; border-right: 2px solid #dee2e6;">
+                                                        <strong style="font-size: 1.05rem;">@materia</strong>
+                                                    </td>
+                                                    firstRowForSubject = false;
+                                                }
+                                                
+                                                @if (firstRowForType)
+                                                {
+                                                    <td rowspan="@actividadesTipo.Count" style="vertical-align: middle; background-color: #e3f2fd;" class="fw-bold">
+                                                        @tipoActividad.Nombre
+                                                    </td>
+                                                    firstRowForType = false;
+                                                }
+                                                
+                                                <td style="text-align: left; padding-left: 1rem;">@actividad.ActivityName</td>
+                                                <td class="text-center" style="font-weight: 600;">
+                                                    <span class="badge @(actividad.Value >= 3.0m ? "bg-success" : "bg-danger")">
+                                                        @actividad.Value.Value.ToString("0.0")
+                                                    </span>
+                                                </td>
+                                                
+                                                @if (rowIndexForSubject == totalRowsForSubject - 1)
+                                                {
+                                                    <!-- Última fila de la materia: mostrar promedio final -->
+                                                    <td rowspan="1" style="vertical-align: middle; background-color: #fff3cd;" class="text-center fw-bold">
+                                                        <span class="@(promedioFinal >= 3.0m ? "text-success" : "text-danger")" style="font-size: 1.1rem;">
+                                                            @promedioFinal.Value.ToString("0.0")
+                                                        </span>
+                                                    </td>
+                                                }
+                                                else if (actividadesTipo.Last() == actividad)
+                                                {
+                                                    <!-- Última fila del tipo: mostrar promedio del tipo -->
+                                                    <td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
+                                                        <span class="@(promedioTipo >= 3.0m ? "text-success" : "text-danger")">
+                                                            ⌀ @promedioTipo.ToString("0.0")
+                                                        </span>
+                                                    </td>
+                                                }
+                                                else
+                                                {
+                                                    <!-- Celda vacía para promedio -->
+                                                    <td></td>
+                                                }
+                                            </tr>
+                                            rowIndexForSubject++;
+                                        }
+                                    }
                                 }
                             }
                         </tbody>
@@ -579,55 +605,121 @@
             Object.keys(groupedBySubject).forEach(subject => {
                 const subjectGrades = groupedBySubject[subject];
                 
-                // Calcular promedios por tipo
-                const notasApreciacion = subjectGrades.filter(g => 
-                    g.type.toLowerCase().includes('nota') || 
-                    g.type.toLowerCase().includes('apreciación') || 
-                    g.type.toLowerCase().includes('apreciacion')
-                ).map(g => g.value).filter(v => v != null);
+                // Definir tipos de actividad
+                const tiposActividad = [
+                    { 
+                        nombre: "Notas de Apreciación", 
+                        filtro: (g) => g.type.toLowerCase().includes('nota') || 
+                                     g.type.toLowerCase().includes('apreciación') || 
+                                     g.type.toLowerCase().includes('apreciacion')
+                    },
+                    { 
+                        nombre: "Ejercicios Diarios", 
+                        filtro: (g) => g.type.toLowerCase().includes('ejercicio') || 
+                                     g.type.toLowerCase().includes('diario')
+                    },
+                    { 
+                        nombre: "Examen Final", 
+                        filtro: (g) => g.type.toLowerCase().includes('examen') || 
+                                     g.type.toLowerCase().includes('final')
+                    }
+                ];
                 
-                const ejerciciosDiarios = subjectGrades.filter(g => 
-                    g.type.toLowerCase().includes('ejercicio') || 
-                    g.type.toLowerCase().includes('diario')
-                ).map(g => g.value).filter(v => v != null);
+                let firstRowForSubject = true;
+                let totalRowsForSubject = 0;
+                let promediosTipos = [];
                 
-                const examenFinal = subjectGrades.filter(g => 
-                    g.type.toLowerCase().includes('examen') || 
-                    g.type.toLowerCase().includes('final')
-                ).map(g => g.value).filter(v => v != null);
+                // Contar filas y calcular promedios por tipo
+                tiposActividad.forEach(tipo => {
+                    const actividadesTipo = subjectGrades.filter(tipo.filtro).sort((a, b) => a.activityName.localeCompare(b.activityName));
+                    if (actividadesTipo.length > 0) {
+                        totalRowsForSubject += actividadesTipo.length;
+                        const promedio = actividadesTipo.reduce((sum, g) => sum + g.value, 0) / actividadesTipo.length;
+                        promediosTipos.push(promedio);
+                    }
+                });
                 
-                const promApreciacion = notasApreciacion.length > 0 ? 
-                    notasApreciacion.reduce((a, b) => a + b, 0) / notasApreciacion.length : null;
-                const promEjercicios = ejerciciosDiarios.length > 0 ? 
-                    ejerciciosDiarios.reduce((a, b) => a + b, 0) / ejerciciosDiarios.length : null;
-                const promExamen = examenFinal.length > 0 ? 
-                    examenFinal.reduce((a, b) => a + b, 0) / examenFinal.length : null;
+                if (totalRowsForSubject === 0) {
+                    gradesTbody.append(`
+                        <tr>
+                            <td><strong>${subject}</strong></td>
+                            <td colspan="3" class="text-center text-muted">Sin calificaciones</td>
+                            <td class="text-center text-danger fw-bold">-</td>
+                        </tr>
+                    `);
+                    return;
+                }
                 
-                // Calcular promedio final de la materia (promedio de los promedios de cada tipo)
-                const promediosValidos = [];
-                if (promApreciacion !== null) promediosValidos.push(promApreciacion);
-                if (promEjercicios !== null) promediosValidos.push(promEjercicios);
-                if (promExamen !== null) promediosValidos.push(promExamen);
-                
-                const promedioFinal = promediosValidos.length > 0 ? 
-                    promediosValidos.reduce((a, b) => a + b, 0) / promediosValidos.length : null;
+                // Calcular promedio final
+                const promedioFinal = promediosTipos.length > 0 ? 
+                    promediosTipos.reduce((a, b) => a + b, 0) / promediosTipos.length : null;
                 
                 if (promedioFinal !== null) {
                     totalPromediosMaterias += promedioFinal;
                     materiaCount++;
                 }
                 
-                const rowClass = promedioFinal !== null && promedioFinal >= 3.0 ? 'text-success' : 'text-danger';
+                // Renderizar filas
+                let rowIndexForSubject = 0;
                 
-                gradesTbody.append(`
-                    <tr>
-                        <td><strong>${subject}</strong></td>
-                        <td class="text-center">${promApreciacion !== null ? promApreciacion.toFixed(1) : '-'}</td>
-                        <td class="text-center">${promEjercicios !== null ? promEjercicios.toFixed(1) : '-'}</td>
-                        <td class="text-center">${promExamen !== null ? promExamen.toFixed(1) : '-'}</td>
-                        <td class="text-center ${rowClass} fw-bold" style="font-size: 1.1rem;">${promedioFinal !== null ? promedioFinal.toFixed(1) : '-'}</td>
-                    </tr>
-                `);
+                tiposActividad.forEach(tipo => {
+                    const actividadesTipo = subjectGrades.filter(tipo.filtro).sort((a, b) => a.activityName.localeCompare(b.activityName));
+                    
+                    if (actividadesTipo.length === 0) return;
+                    
+                    let firstRowForType = true;
+                    const promedioTipo = actividadesTipo.reduce((sum, g) => sum + g.value, 0) / actividadesTipo.length;
+                    
+                    actividadesTipo.forEach((actividad, index) => {
+                        const isLastActivityOfType = index === actividadesTipo.length - 1;
+                        const isLastRowOfSubject = rowIndexForSubject === totalRowsForSubject - 1;
+                        
+                        let rowHtml = `<tr style="${rowIndexForSubject % 2 === 0 ? 'background-color: #f8f9fa;' : ''}">`;
+                        
+                        // Materia (solo en la primera fila)
+                        if (firstRowForSubject) {
+                            rowHtml += `<td rowspan="${totalRowsForSubject}" style="vertical-align: middle; border-right: 2px solid #dee2e6;"><strong style="font-size: 1.05rem;">${subject}</strong></td>`;
+                            firstRowForSubject = false;
+                        }
+                        
+                        // Tipo de actividad (solo en la primera fila del tipo)
+                        if (firstRowForType) {
+                            rowHtml += `<td rowspan="${actividadesTipo.length}" style="vertical-align: middle; background-color: #e3f2fd;" class="fw-bold">${tipo.nombre}</td>`;
+                            firstRowForType = false;
+                        }
+                        
+                        // Actividad y nota
+                        const badgeClass = actividad.value >= 3.0 ? 'bg-success' : 'bg-danger';
+                        rowHtml += `
+                            <td style="text-align: left; padding-left: 1rem;">${actividad.activityName}</td>
+                            <td class="text-center" style="font-weight: 600;">
+                                <span class="badge ${badgeClass}">${actividad.value.toFixed(1)}</span>
+                            </td>
+                        `;
+                        
+                        // Promedio
+                        if (isLastRowOfSubject) {
+                            // Última fila de la materia: mostrar promedio final
+                            const finalClass = promedioFinal >= 3.0 ? 'text-success' : 'text-danger';
+                            rowHtml += `<td rowspan="1" style="vertical-align: middle; background-color: #fff3cd;" class="text-center fw-bold">
+                                <span class="${finalClass}" style="font-size: 1.1rem;">${promedioFinal.toFixed(1)}</span>
+                            </td>`;
+                        } else if (isLastActivityOfType) {
+                            // Última fila del tipo: mostrar promedio del tipo
+                            const tipoClass = promedioTipo >= 3.0 ? 'text-success' : 'text-danger';
+                            rowHtml += `<td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
+                                <span class="${tipoClass}">⌀ ${promedioTipo.toFixed(1)}</span>
+                            </td>`;
+                        } else {
+                            // Celda vacía
+                            rowHtml += '<td></td>';
+                        }
+                        
+                        rowHtml += '</tr>';
+                        gradesTbody.append(rowHtml);
+                        rowIndexForSubject++;
+                    });
+                });
             });
             
             const promedioGeneral = materiaCount > 0 ? totalPromediosMaterias / materiaCount : 0;
