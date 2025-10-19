@@ -15,5 +15,7 @@ namespace SchoolManager.Dtos
         public string? SubjectName { get; set; } // ✅ Agregado
         public string? GroupName { get; set; } // ✅ Agregado
         public string? GradeName { get; set; } // ✅ Agregado
+        public string? StudentName { get; set; } // ✅ Agregado para consejeros
+        public Guid? StudentId { get; set; } // ✅ Agregado para consejeros
     }
 }

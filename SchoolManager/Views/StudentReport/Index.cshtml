@@ -27,12 +27,16 @@
         background: #f8fafc;
         border-left: 4px solid #2563eb;
         border-radius: 0.75rem;
-        padding: 1.25rem 2rem;
+        padding: 1.5rem;
         margin-bottom: 2rem;
     }
-    .info-block p {
+    .info-item {
+        height: 100%;
+    }
+    .info-block .form-label {
+        display: block;
+        font-size: 0.95rem;
         margin-bottom: 0.5rem;
-        color: #334155;
     }
     .trimester-highlight {
         border: 2px solid #2563eb !important;
@@ -41,17 +45,17 @@
         background: #fff;
         color: #1e293b;
         box-shadow: none;
-        transition: border-color 0.2s;
+        transition: all 0.2s;
+        width: 100% !important;
     }
     .trimester-highlight:focus, .trimester-highlight:hover {
         border-color: #1e40af !important;
         background: #f0f6ff;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
     .trimester-helper {
-        font-size: 0.95rem;
+        font-size: 0.8rem;
         color: #2563eb;
-        margin-top: 0.2rem;
-        margin-left: 0.2rem;
         font-weight: 500;
     }
     .card {
@@ -144,34 +148,40 @@
 
     <!-- BLOQUE DE INFORMACIÓN DEL ESTUDIANTE -->
     <div class="info-block mb-4">
-        <div class="row g-3 align-items-center">
-            <div class="col-md-3">
-                <p><strong>Nombre:</strong> @Model.StudentName</p>
+        <div class="row g-3">
+            <div class="col-lg-3 col-md-6">
+                <div class="info-item">
+                    <label class="form-label fw-bold mb-1" style="color: #1e293b;">Nombre</label>
+                    <p class="mb-0" style="color: #475569;">@Model.StudentName</p>
+                </div>
             </div>
-            <div class="col-md-3">
-                <p><strong>Grado:</strong> @Model.Grade</p>
+            <div class="col-lg-3 col-md-6">
+                <div class="info-item">
+                    <label class="form-label fw-bold mb-1" style="color: #1e293b;">Grado</label>
+                    <p class="mb-0" style="color: #475569;">@Model.Grade</p>
+                </div>
             </div>
-            <div class="col-md-3 position-relative">
-                <p class="mb-1">
-                    <strong>Periodo Académico:</strong>
+            <div class="col-lg-3 col-md-6">
+                <div class="info-item">
+                    <label for="trimester-select" class="form-label fw-bold mb-2" style="color: #1e293b;">Periodo Académico</label>
                     @Html.DropDownList("Trimester",
                         new SelectList(Model.AvailableTrimesters, "Trimester", "Trimester", Model.Trimester),
-                        new { @class = "form-control d-inline w-auto ms-2 trimester-highlight", id = "trimester-select" })
-                </p>
-                <div class="trimester-helper">Selecciona el trimestre</div>
+                        new { @class = "form-select trimester-highlight", id = "trimester-select" })
+                    <small class="trimester-helper d-block mt-1">Selecciona el trimestre</small>
+                </div>
             </div>
-            <div class="col-md-3 position-relative">
-                <p class="mb-1">
-                    <strong>Filtrar por Materia:</strong>
-                    <select class="form-control d-inline w-auto ms-2 trimester-highlight" id="subject-filter">
+            <div class="col-lg-3 col-md-6">
+                <div class="info-item">
+                    <label for="subject-filter" class="form-label fw-bold mb-2" style="color: #1e293b;">Filtrar por Materia</label>
+                    <select class="form-select trimester-highlight" id="subject-filter">
                         <option value="">Todas las materias</option>
                         @foreach (var subject in Model.AvailableSubjects)
                         {
                             <option value="@subject">@subject</option>
                         }
                     </select>
-                </p>
-                <div class="trimester-helper">Filtra por materia específica</div>
+                    <small class="trimester-helper d-block mt-1">Filtra por materia específica</small>
+                </div>
             </div>
         </div>
     </div>
@@ -257,7 +267,7 @@
                                     int totalRowsForSubject = 0;
                                     List<decimal> promediosTipos = new List<decimal>();
 
-                                    // Primero contar filas y calcular promedios
+                                    // Primero contar filas y calcular promedios POR TIPO
                                     foreach (var tipoActividad in tiposActividad)
                                     {
                                         var actividadesTipo = subjectGroup
@@ -268,6 +278,7 @@
                                         if (actividadesTipo.Any())
                                         {
                                             totalRowsForSubject += actividadesTipo.Count;
+                                            // Calcular el promedio de este TIPO de actividad
                                             var promedio = actividadesTipo.Average(g => g.Value.Value);
                                             promediosTipos.Add(promedio);
                                         }
@@ -284,7 +295,7 @@
                                         continue;
                                     }
 
-                                    // Calcular promedio final (promedio de promedios de tipos)
+                                    // Calcular promedio final (promedio de los promedios de cada tipo)
                                     decimal? promedioFinal = promediosTipos.Any() ? (decimal?)promediosTipos.Average() : null;
                                     
                                     if (promedioFinal.HasValue)
@@ -334,33 +345,27 @@
                                                     </span>
                                                 </td>
                                                 
-                                                @if (firstRowForType == false && rowIndexForSubject < totalRowsForSubject - 1)
+                                                @if (rowIndexForSubject == totalRowsForSubject - 1)
                                                 {
-                                                    <!-- Celda vacía para promedio, solo se muestra en la última fila del tipo -->
+                                                    <!-- Última fila de la materia: mostrar promedio final -->
+                                                    <td rowspan="1" style="vertical-align: middle; background-color: #fff3cd;" class="text-center fw-bold">
+                                                        <span class="@(promedioFinal >= 3.0m ? "text-success" : "text-danger")" style="font-size: 1.1rem;">
+                                                            @promedioFinal.Value.ToString("0.0")
+                                                        </span>
+                                                    </td>
                                                 }
                                                 else if (actividadesTipo.Last() == actividad)
                                                 {
-                                                    @if (rowIndexForSubject == totalRowsForSubject - 1)
-                                                    {
-                                                        <!-- Última fila de la materia: mostrar promedio final -->
-                                                        <td rowspan="1" style="vertical-align: middle; background-color: #fff3cd;" class="text-center fw-bold">
-                                                            <span class="@(promedioFinal >= 3.0m ? "text-success" : "text-danger")" style="font-size: 1.1rem;">
-                                                                @promedioFinal.Value.ToString("0.0")
-                                                            </span>
-                                                        </td>
-                                                    }
-                                                    else
-                                                    {
-                                                        <!-- Última fila del tipo: mostrar promedio del tipo -->
-                                                        <td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
-                                                            <span class="@(promedioTipo >= 3.0m ? "text-success" : "text-danger")">
-                                                                ⌀ @promedioTipo.ToString("0.0")
-                                                            </span>
-                                                        </td>
-                                                    }
+                                                    <!-- Última fila del tipo: mostrar promedio del tipo -->
+                                                    <td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
+                                                        <span class="@(promedioTipo >= 3.0m ? "text-success" : "text-danger")">
+                                                            ⌀ @promedioTipo.ToString("0.0")
+                                                        </span>
+                                                    </td>
                                                 }
                                                 else
                                                 {
+                                                    <!-- Celda vacía para promedio -->
                                                     <td></td>
                                                 }
                                             </tr>
@@ -624,7 +629,7 @@
                 const promExamen = examenFinal.length > 0 ? 
                     examenFinal.reduce((a, b) => a + b, 0) / examenFinal.length : null;
                 
-                // Calcular promedio final de la materia (promedio de los 3 promedios)
+                // Calcular promedio final de la materia (promedio de los promedios de cada tipo)
                 const promediosValidos = [];
                 if (promApreciacion !== null) promediosValidos.push(promApreciacion);
                 if (promEjercicios !== null) promediosValidos.push(promEjercicios);

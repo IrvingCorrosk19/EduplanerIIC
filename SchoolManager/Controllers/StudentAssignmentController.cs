@@ -20,6 +20,7 @@ namespace SchoolManager.Controllers
         private readonly IStudentAssignmentService _studentAssignmentService;
         private readonly ISubjectAssignmentService _subjectAssignmentService;
         private readonly IDateTimeHomologationService _dateTimeHomologationService;
+        private readonly ICurrentUserService _currentUserService;
 
         public StudentAssignmentController(
             IUserService userService,
@@ -28,7 +29,8 @@ namespace SchoolManager.Controllers
             IGradeLevelService gradeLevelService,
             IStudentAssignmentService studentAssignmentService,
             ISubjectAssignmentService subjectAssignmentService,
-            IDateTimeHomologationService dateTimeHomologationService)
+            IDateTimeHomologationService dateTimeHomologationService,
+            ICurrentUserService currentUserService)
         {
             _userService = userService;
             _subjectService = subjectService;
@@ -37,6 +39,7 @@ namespace SchoolManager.Controllers
             _studentAssignmentService = studentAssignmentService;
             _subjectAssignmentService = subjectAssignmentService;
             _dateTimeHomologationService = dateTimeHomologationService;
+            _currentUserService = currentUserService;
         }
 
         [HttpPost("/StudentAssignment/UpdateGroupAndGrade")]
@@ -44,6 +47,13 @@ namespace SchoolManager.Controllers
         {
             if (studentId == Guid.Empty || gradeId == Guid.Empty || groupId == Guid.Empty)
                 return Json(new { success = false, message = "Datos inválidos para la asignación." });
+
+            // Verificar que solo el director pueda hacer cambios de turno
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser?.Role?.ToLower() != "director")
+            {
+                return Json(new { success = false, message = "Solo el director tiene autorización para realizar cambios de turno." });
+            }
 
             // 1. Eliminar todas las asignaciones existentes de este estudiante
             await _studentAssignmentService.RemoveAssignmentsAsync(studentId);

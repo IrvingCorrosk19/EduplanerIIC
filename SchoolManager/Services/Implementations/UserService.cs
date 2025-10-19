@@ -13,12 +13,14 @@ namespace SchoolManager.Services.Implementations
 public class UserService : IUserService
 {
     private readonly SchoolDbContext _context;
-        private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<UserService> _logger;
 
-        public UserService(SchoolDbContext context, ICurrentUserService currentUserService)
+    public UserService(SchoolDbContext context, ICurrentUserService currentUserService, ILogger<UserService> logger)
     {
         _context = context;
-            _currentUserService = currentUserService;
+        _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<List<User>> GetAllStudentsAsync()
@@ -399,7 +401,22 @@ public async Task DeleteAsync(Guid id)
         await transaction.RollbackAsync();
         throw new Exception("Error inesperado al eliminar el usuario.", ex);
     }
-}
+    }
+
+    public async Task<User?> GetByRoleAndSchoolAsync(string role, Guid schoolId)
+    {
+        try
+        {
+            return await _context.Users
+                .Where(u => u.Role.ToLower() == role.ToLower() && u.SchoolId == schoolId && u.Status == "active")
+                .FirstOrDefaultAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener usuario por rol {Role} y escuela {SchoolId}", role, schoolId);
+            return null;
+        }
+    }
 //public async Task DeleteAsync(Guid id)
 //{
 //    try
@@ -537,7 +554,5 @@ public async Task<User?> AuthenticateAsync(string email, string password)
         // BCrypt hashes start with $2a$, $2b$, or $2y$
         return passwordHash.StartsWith("$2") && passwordHash.Length > 20;
     }
-
-    }
-
+}
 }

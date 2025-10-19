@@ -422,4 +422,39 @@ public class OrientationReportController : Controller
             return Json(new { success = false, error = ex.Message });
         }
     }
+
+    [HttpGet]
+    public async Task<IActionResult> GetByCounselor(string trimester = null)
+    {
+        try
+        {
+            var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized(new { error = "Usuario no autenticado" });
+            }
+
+            var reports = await _orientationReportService.GetByCounselorAsync(currentUserId.Value, trimester);
+            
+            return Json(reports.Select(r => new {
+                id = r.Id,
+                studentName = r.StudentName,
+                studentId = r.StudentId,
+                date = r.Date.ToString("dd/MM/yyyy"),
+                time = r.Date.ToString("HH:mm"),
+                type = r.Type,
+                category = r.Category,
+                status = r.Status,
+                description = r.Description,
+                documents = r.Documents,
+                teacher = r.Teacher,
+                subjectName = r.SubjectName
+            }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener reportes de orientación para consejero");
+            return BadRequest(new { error = "Error al obtener los reportes de orientación" });
+        }
+    }
 }

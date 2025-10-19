@@ -154,5 +154,84 @@ namespace SchoolManager.Services
                 SubjectName = r.Subject?.Name // ✅ SubjectName (puede ser NULL)
             }).ToList();
         }
+
+        public async Task<List<OrientationReportDto>> GetByCounselorAsync(Guid counselorId, string trimester = null)
+        {
+            // Obtener school_id del usuario autenticado
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            var schoolId = currentUser?.SchoolId;
+
+            // Obtener los grupos donde el usuario es consejero
+            var counselorGroups = await _context.CounselorAssignments
+                .Where(ca => ca.UserId == counselorId && ca.SchoolId == schoolId && ca.IsActive)
+                .Select(ca => new { ca.GroupId, ca.GradeId })
+                .ToListAsync();
+
+            if (!counselorGroups.Any())
+            {
+                return new List<OrientationReportDto>();
+            }
+
+            // Obtener estudiantes de los grupos donde es consejero
+            var groupIds = counselorGroups.Where(cg => cg.GroupId.HasValue).Select(cg => cg.GroupId.Value).ToList();
+            var gradeIds = counselorGroups.Where(cg => cg.GradeId.HasValue).Select(cg => cg.GradeId.Value).ToList();
+
+            var studentIds = await _context.StudentAssignments
+                .Where(sa => groupIds.Contains(sa.GroupId) || gradeIds.Contains(sa.GradeId))
+                .Select(sa => sa.StudentId)
+                .Distinct()
+                .ToListAsync();
+
+            if (!studentIds.Any())
+            {
+                return new List<OrientationReportDto>();
+            }
+
+            var query = _context.OrientationReports
+                .Include(r => r.Teacher)
+                .Include(r => r.Subject)
+                .Include(r => r.Student)
+                .Where(r => studentIds.Contains(r.StudentId.Value));
+
+            // Filtrar por school_id del usuario autenticado
+            if (schoolId.HasValue)
+            {
+                query = query.Where(r => r.SchoolId == schoolId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(trimester))
+            {
+                var trimesterInfo = await _context.Trimesters
+                    .FirstOrDefaultAsync(t => t.Name == trimester && t.SchoolId == schoolId);
+
+                if (trimesterInfo != null)
+                {
+                    var startDate = trimesterInfo.StartDate.ToUniversalTime();
+                    var endDate = trimesterInfo.EndDate.ToUniversalTime();
+                    query = query.Where(r => r.Date >= startDate && r.Date <= endDate);
+                }
+            }
+
+            var reports = await query
+                .OrderByDescending(r => r.Date)
+                .ThenByDescending(r => r.CreatedAt)
+                .ToListAsync();
+
+            return reports.Select(r => new OrientationReportDto
+            {
+                Id = r.Id,
+                Type = r.ReportType,
+                Category = r.Category,
+                Status = r.Status,
+                Description = r.Description,
+                Date = r.Date,
+                Documents = r.Documents,
+                Teacher = r.Teacher != null ? $"{r.Teacher.Name} {r.Teacher.LastName}" : null,
+                SubjectId = r.SubjectId,
+                SubjectName = r.Subject?.Name,
+                StudentName = r.Student != null ? $"{r.Student.Name} {r.Student.LastName}" : null,
+                StudentId = r.StudentId
+            }).ToList();
+        }
     }
 }

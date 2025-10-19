@@ -19,4 +19,5 @@ public interface IUserService
     Task<User?> AuthenticateAsync(string email, string password);
     Task<List<User>> GetAllTeachersAsync();
     Task<(bool success, string message)> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
+    Task<User?> GetByRoleAndSchoolAsync(string role, Guid schoolId);
 }
