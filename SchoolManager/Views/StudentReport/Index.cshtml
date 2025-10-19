@@ -324,7 +324,7 @@
                                             <tr style="@(rowIndexForSubject % 2 == 0 ? "background-color: #f8f9fa;" : "")">
                                                 @if (firstRowForSubject)
                                                 {
-                                                    <td rowspan="@totalRowsForSubject" style="vertical-align: middle; border-right: 2px solid #dee2e6;">
+                                                    <td rowspan="@(totalRowsForSubject + 1)" style="vertical-align: middle; border-right: 2px solid #dee2e6;">
                                                         <strong style="font-size: 1.05rem;">@materia</strong>
                                                     </td>
                                                     firstRowForSubject = false;
@@ -345,16 +345,7 @@
                                                     </span>
                                                 </td>
                                                 
-                                                @if (rowIndexForSubject == totalRowsForSubject - 1)
-                                                {
-                                                    <!-- Última fila de la materia: mostrar promedio final -->
-                                                    <td rowspan="1" style="vertical-align: middle; background-color: #fff3cd;" class="text-center fw-bold">
-                                                        <span class="@(promedioFinal >= 3.0m ? "text-success" : "text-danger")" style="font-size: 1.1rem;">
-                                                            @promedioFinal.Value.ToString("0.0")
-                                                        </span>
-                                                    </td>
-                                                }
-                                                else if (actividadesTipo.Last() == actividad)
+                                                @if (actividadesTipo.Last() == actividad)
                                                 {
                                                     <!-- Última fila del tipo: mostrar promedio del tipo -->
                                                     <td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
@@ -372,6 +363,16 @@
                                             rowIndexForSubject++;
                                         }
                                     }
+                                    
+                                    <!-- Fila final para mostrar el promedio de la materia -->
+                                    <tr style="background-color: #fff3cd; border-top: 2px solid #2563eb;">
+                                        <td colspan="3" class="text-end fw-bold" style="font-size: 1.05rem;">PROMEDIO FINAL DE @materia.ToUpper():</td>
+                                        <td class="text-center fw-bold" style="font-size: 1.2rem;">
+                                            <span class="@(promedioFinal >= 3.0m ? "text-success" : "text-danger")">
+                                                @promedioFinal.Value.ToString("0.0")
+                                            </span>
+                                        </td>
+                                    </tr>
                                 }
                             }
                         </tbody>
@@ -672,13 +673,12 @@
                     
                     actividadesTipo.forEach((actividad, index) => {
                         const isLastActivityOfType = index === actividadesTipo.length - 1;
-                        const isLastRowOfSubject = rowIndexForSubject === totalRowsForSubject - 1;
                         
                         let rowHtml = `<tr style="${rowIndexForSubject % 2 === 0 ? 'background-color: #f8f9fa;' : ''}">`;
                         
                         // Materia (solo en la primera fila)
                         if (firstRowForSubject) {
-                            rowHtml += `<td rowspan="${totalRowsForSubject}" style="vertical-align: middle; border-right: 2px solid #dee2e6;"><strong style="font-size: 1.05rem;">${subject}</strong></td>`;
+                            rowHtml += `<td rowspan="${totalRowsForSubject + 1}" style="vertical-align: middle; border-right: 2px solid #dee2e6;"><strong style="font-size: 1.05rem;">${subject}</strong></td>`;
                             firstRowForSubject = false;
                         }
                         
@@ -698,13 +698,7 @@
                         `;
                         
                         // Promedio
-                        if (isLastRowOfSubject) {
-                            // Última fila de la materia: mostrar promedio final
-                            const finalClass = promedioFinal >= 3.0 ? 'text-success' : 'text-danger';
-                            rowHtml += `<td rowspan="1" style="vertical-align: middle; background-color: #fff3cd;" class="text-center fw-bold">
-                                <span class="${finalClass}" style="font-size: 1.1rem;">${promedioFinal.toFixed(1)}</span>
-                            </td>`;
-                        } else if (isLastActivityOfType) {
+                        if (isLastActivityOfType) {
                             // Última fila del tipo: mostrar promedio del tipo
                             const tipoClass = promedioTipo >= 3.0 ? 'text-success' : 'text-danger';
                             rowHtml += `<td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
@@ -720,6 +714,18 @@
                         rowIndexForSubject++;
                     });
                 });
+                
+                // Fila final para mostrar el promedio de la materia
+                const finalClass = promedioFinal >= 3.0 ? 'text-success' : 'text-danger';
+                const finalRowHtml = `
+                    <tr style="background-color: #fff3cd; border-top: 2px solid #2563eb;">
+                        <td colspan="3" class="text-end fw-bold" style="font-size: 1.05rem;">PROMEDIO FINAL DE ${subject.toUpperCase()}:</td>
+                        <td class="text-center fw-bold" style="font-size: 1.2rem;">
+                            <span class="${finalClass}">${promedioFinal.toFixed(1)}</span>
+                        </td>
+                    </tr>
+                `;
+                gradesTbody.append(finalRowHtml);
             });
             
             const promedioGeneral = materiaCount > 0 ? totalPromediosMaterias / materiaCount : 0;
