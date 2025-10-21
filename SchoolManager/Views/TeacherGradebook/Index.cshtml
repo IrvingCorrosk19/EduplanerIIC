@@ -1417,7 +1417,9 @@
                                         const savedScore = scores[s.id]?.[type]?.[a.name] || '';
                                         row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.name}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
                                     });
-                                    row += `<td class='text-primary avg-${type}'></td>`;
+                                    // Reemplazar espacios con guiones para las clases CSS
+                                    const typeClass = type.replace(/\s+/g, '-');
+                                    row += `<td class='text-primary avg-${typeClass}'></td>`;
                                 }
                             });
                             row += `<td class='text-dark fw-bold final-grade'></td>`;
@@ -1691,16 +1693,19 @@
                     const typeAvgs = {};
 
                     activeTypes.forEach(type => {
-                        const values = row.find(`.score-cell[data-type='${type}']`)
+                        const values = row.find(`.score-cell[data-type="${type}"]`)
                             .map((_, td) => {
                                 const val = parseFloat($(td).text());
                                 return isNaN(val) ? 0 : val;
                             }).get();
                         const valid = values.filter(n => n > 0);
+                        // Calcular promedio (si no hay notas válidas, promedio = 0)
                         const avg = valid.length > 0 ? (valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
                         const truncAvg = Math.floor(avg * 10) / 10;
                         typeAvgs[type] = truncAvg;
-                        row.find(`.avg-${type}`).text(truncAvg.toFixed(1));
+                        
+                        // Siempre mostrar el promedio (0.0 si está en blanco)
+                        row.find(`.avg-${type.replace(/\s+/g, '-')}`).text(truncAvg.toFixed(1));
                     });
 
                     // LÓGICA ESPECIAL PARA RECUPERACIÓN:
@@ -1713,11 +1718,13 @@
                         typesForFinal = typesForFinal.filter(t => t !== 'recuperación');
                     }
 
+                    // Calcular nota final: SOLO con promedios > 0
                     let finalGrade = 0;
-                    let activeTypeCount = typesForFinal.length;
-
-                    if (activeTypeCount > 0) {
-                        finalGrade = typesForFinal.reduce((sum, type) => sum + typeAvgs[type], 0) / activeTypeCount;
+                    const validAvgs = typesForFinal.filter(type => typeAvgs[type] > 0);
+                    
+                    if (validAvgs.length > 0) {
+                        // Sumar solo los promedios que sean > 0 y dividir entre la cantidad de promedios válidos
+                        finalGrade = validAvgs.reduce((sum, type) => sum + typeAvgs[type], 0) / validAvgs.length;
                     }
 
                     const truncFinalGrade = Math.floor(finalGrade * 10) / 10;
@@ -2112,7 +2119,22 @@
                         });
                     });
 
-                    // Siempre incluir todos los estudiantes aunque todas las celdas estén vacías
+                    // Obtener los promedios calculados automáticamente (con clases usando guiones)
+                    const promedioApreciacion = parseFloat($row.find('.avg-notas-de-apreciación').text().trim()) || 0;
+                    const promedioEjercicios = parseFloat($row.find('.avg-ejercicios-diarios').text().trim()) || 0;
+                    const promedioExamen = parseFloat($row.find('.avg-examen-final').text().trim()) || 0;
+                    const promedioRecuperacion = parseFloat($row.find('.avg-recuperación').text().trim()) || 0;
+                    const notaFinal = parseFloat($row.find('.final-grade').text().trim()) || 0;
+
+                    // Crear diccionario de promedios por tipo
+                    const promedios = {
+                        'notas de apreciación': promedioApreciacion,
+                        'ejercicios diarios': promedioEjercicios,
+                        'examen final': promedioExamen,
+                        'recuperación': promedioRecuperacion
+                    };
+
+                    // Siempre incluir todos los estudiantes con sus promedios calculados
                     notasParaGuardar.push({
                         StudentId: studentId.toString(),
                         TeacherId: teacherId.toString(),
@@ -2120,7 +2142,9 @@
                         GroupId: groupId.toString(),
                         GradeLevelId: gradeLevelId.toString(),
                         Trimester: trimester,
-                        Notas: notasEstudiante
+                        Notas: notasEstudiante,
+                        Promedios: promedios,
+                        NotaFinal: notaFinal
                     });
                 });
 
@@ -2134,7 +2158,7 @@
                 //     return;
                 // }
 
-                console.log('Datos a enviar:', notasParaGuardar);
+                console.log('Datos a enviar (con promedios):', notasParaGuardar);
 
                 // Enviar al servidor
                 $.ajax({
@@ -2146,7 +2170,7 @@
                         Swal.fire({
                             icon: 'success',
                             title: '¡Éxito!',
-                            text: 'Las notas se guardaron correctamente.'
+                            text: 'Las notas y promedios se guardaron correctamente.'
                         });
                     },
                     error: function(xhr, status, error) {
