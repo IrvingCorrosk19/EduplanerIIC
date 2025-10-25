@@ -18,6 +18,7 @@ namespace SchoolManager.Controllers
         private readonly IGradeLevelService _gradeLevelService;
         private readonly IGroupService _groupService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ITrimesterService _trimesterService;
 
         public AcademicCatalogController(
             ISpecialtyService specialtyService,
@@ -25,7 +26,8 @@ namespace SchoolManager.Controllers
             ISubjectService subjectService,
             IGradeLevelService gradeLevelService,
             IGroupService groupService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            ITrimesterService trimesterService)
         {
             _specialtyService = specialtyService;
             _areaService = areaService;
@@ -33,6 +35,7 @@ namespace SchoolManager.Controllers
             _gradeLevelService = gradeLevelService;
             _groupService = groupService;
             _currentUserService = currentUserService;
+            _trimesterService = trimesterService;
         }
 
         public async Task<IActionResult> Index()
@@ -42,6 +45,7 @@ namespace SchoolManager.Controllers
             var subjects = await _subjectService.GetAllAsync();
             var grades = await _gradeLevelService.GetAllAsync();
             var groups = await _groupService.GetAllAsync();
+            var trimestres = await _trimesterService.GetAllAsync();
 
             var viewModel = new AcademicCatalogViewModel
             {
@@ -50,7 +54,7 @@ namespace SchoolManager.Controllers
                 Subjects = subjects,
                 GradesLevel = grades,
                 Groups = groups,
-                Trimestres = new List<TrimesterDto>() // Inicializar lista vacía
+                Trimestres = trimestres
             };
 
             return View(viewModel);
