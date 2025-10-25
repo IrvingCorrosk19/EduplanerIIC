@@ -1,198 +1,150 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using SchoolManager.Models;
+using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
-using SchoolManager.Services.Interfaces; // Asegúrate de incluir los namespaces correctos
-using Microsoft.AspNetCore.Authorization;
-using SchoolManager.Dtos;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
-[Authorize(Roles = "admin")]
-public class AcademicCatalogController : Controller
+namespace SchoolManager.Controllers
 {
-    private readonly IGradeLevelService _gradeLevelService;
-    private readonly IGroupService _groupService;
-    private readonly ISubjectService _subjectService;
-    private readonly IAreaService _areaService;
-    private readonly ISpecialtyService _specialtyService;
-    private readonly ITrimesterService _trimesterService;
-
-    public AcademicCatalogController(
-        IGradeLevelService gradeLevelService,
-        IGroupService groupService,
-        ISubjectService subjectService,
-        IAreaService areaService,
-        ISpecialtyService specialtyService,
-        ITrimesterService trimesterService)
+    public class AcademicCatalogController : Controller
     {
-        _gradeLevelService = gradeLevelService;
-        _groupService = groupService;
-        _subjectService = subjectService;
-        _areaService = areaService;
-        _specialtyService = specialtyService;
-        _trimesterService = trimesterService;
-    }
+        private readonly ISpecialtyService _specialtyService;
+        private readonly IAreaService _areaService;
+        private readonly ISubjectService _subjectService;
+        private readonly IGradeLevelService _gradeLevelService;
+        private readonly IGroupService _groupService;
+        private readonly ICurrentUserService _currentUserService;
 
-    public async Task<IActionResult> Index()
-    {
-        // Asegurarse de que se utiliza el tipo GradeLevel correctamente
-        var model = new AcademicCatalogViewModel
+        public AcademicCatalogController(
+            ISpecialtyService specialtyService,
+            IAreaService areaService,
+            ISubjectService subjectService,
+            IGradeLevelService gradeLevelService,
+            IGroupService groupService,
+            ICurrentUserService currentUserService)
         {
-            GradesLevel = await _gradeLevelService.GetAllAsync(), // Esto debe devolver IEnumerable<GradeLevel>
-            Groups = await _groupService.GetAllAsync(),//0
-            Subjects = await _subjectService.GetAllAsync(),//0
-            Areas = await _areaService.GetAllAsync(),//0
-            Specialties = await _specialtyService.GetAllAsync(),
-            Trimestres = await _trimesterService.GetAllAsync()
-        };
+            _specialtyService = specialtyService;
+            _areaService = areaService;
+            _subjectService = subjectService;
+            _gradeLevelService = gradeLevelService;
+            _groupService = groupService;
+            _currentUserService = currentUserService;
+        }
 
-        return View(model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> GuardarTrimestres([FromBody] List<SchoolManager.Dtos.TrimesterDto> trimestres)
-    {
-        try
+        public IActionResult Upload()
         {
-            if (trimestres == null || !trimestres.Any())
-                return BadRequest(new { success = false, message = "No se recibieron datos de trimestres." });
+            return View();
+        }
 
-            // Validar trimestres antes de guardar
-            var validacion = await _trimesterService.ValidarTrimestresAsync(trimestres);
-            if (!validacion.IsValid)
+        [HttpPost]
+        public async Task<IActionResult> SaveCatalog([FromBody] List<AcademicCatalogInputModel> catalogData)
+        {
+            if (catalogData == null || catalogData.Count == 0)
+                return BadRequest(new { success = false, message = "No se recibieron datos del catálogo." });
+
+            int especialidadesCreadas = 0;
+            int areasCreadas = 0;
+            int materiasCreadas = 0;
+            int gradosCreados = 0;
+            int gruposCreados = 0;
+            int duplicadas = 0;
+            var errores = new List<string>();
+
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            var schoolId = currentUser?.SchoolId;
+
+            if (schoolId == null)
             {
-                return BadRequest(new { 
-                    success = false, 
-                    message = "Error de validación en la configuración de trimestres.",
-                    errors = validacion.Errors,
-                    warnings = validacion.Warnings
-                });
+                return BadRequest(new { success = false, message = "No se pudo obtener el ID de la escuela." });
             }
 
-            await _trimesterService.GuardarTrimestresAsync(trimestres);
-            return Ok(new { 
-                success = true, 
-                message = "Trimestres guardados correctamente.",
-                warnings = validacion.Warnings
+            foreach (var item in catalogData)
+            {
+                try
+                {
+                    Console.WriteLine($"[SaveCatalog] Procesando: {item.Especialidad} - {item.Area} - {item.Materia} - {item.Grado} - {item.Grupo}");
+
+                    // Normalizar entradas
+                    var especialidad = string.IsNullOrWhiteSpace(item.Especialidad) ? "N/A" : item.Especialidad.Trim().ToUpper();
+                    var area = string.IsNullOrWhiteSpace(item.Area) ? "N/A" : item.Area.Trim().ToUpper();
+                    var materia = string.IsNullOrWhiteSpace(item.Materia) ? "N/A" : item.Materia.Trim().ToUpper();
+                    var grado = string.IsNullOrWhiteSpace(item.Grado) ? "N/A" : item.Grado.Trim().ToUpper();
+                    var grupo = string.IsNullOrWhiteSpace(item.Grupo) ? "N/A" : item.Grupo.Trim().ToUpper();
+
+                    // Crear o obtener especialidad
+                    var specialty = await _specialtyService.GetOrCreateAsync(especialidad);
+                    if (specialty == null)
+                    {
+                        errores.Add($"Error al crear/obtener especialidad: {especialidad}");
+                        continue;
+                    }
+                    if (specialty.Name == especialidad && specialty.Id != Guid.Empty)
+                        especialidadesCreadas++;
+
+                    // Crear o obtener área
+                    var areaEntity = await _areaService.GetOrCreateAsync(area);
+                    if (areaEntity == null)
+                    {
+                        errores.Add($"Error al crear/obtener área: {area}");
+                        continue;
+                    }
+                    if (areaEntity.Name == area && areaEntity.Id != Guid.Empty)
+                        areasCreadas++;
+
+                    // Crear o obtener materia
+                    var subject = await _subjectService.GetOrCreateAsync(materia);
+                    if (subject == null)
+                    {
+                        errores.Add($"Error al crear/obtener materia: {materia}");
+                        continue;
+                    }
+                    if (subject.Name == materia && subject.Id != Guid.Empty)
+                        materiasCreadas++;
+
+                    // Crear o obtener grado
+                    var grade = await _gradeLevelService.GetOrCreateAsync(grado);
+                    if (grade == null)
+                    {
+                        errores.Add($"Error al crear/obtener grado: {grado}");
+                        continue;
+                    }
+                    if (grade.Name == grado && grade.Id != Guid.Empty)
+                        gradosCreados++;
+
+                    // Crear o obtener grupo
+                    var groupEntity = await _groupService.GetOrCreateAsync(grupo);
+                    if (groupEntity == null)
+                    {
+                        errores.Add($"Error al crear/obtener grupo: {grupo}");
+                        continue;
+                    }
+                    if (groupEntity.Name == grupo && groupEntity.Id != Guid.Empty)
+                        gruposCreados++;
+
+                    Console.WriteLine($"[SaveCatalog] Procesado exitosamente: {especialidad} - {area} - {materia} - {grado} - {grupo}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SaveCatalog] Excepción en {item.Especialidad} - {item.Area} - {item.Materia}: {ex.Message}");
+                    errores.Add($"Excepción en {item.Especialidad} - {item.Area} - {item.Materia}: {ex.Message}");
+                }
+            }
+
+            return Ok(new
+            {
+                success = true,
+                especialidadesCreadas,
+                areasCreadas,
+                materiasCreadas,
+                gradosCreados,
+                gruposCreados,
+                duplicadas,
+                errores,
+                message = "Carga masiva del catálogo completada."
             });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { success = false, message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { success = false, message = "Error interno del servidor al guardar los trimestres." });
-        }
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetTrimestres()
-    {
-        try
-        {
-            var trimestres = await _trimesterService.GetAllAsync();
-            return Json(trimestres);
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, new { success = false, message = "Error al obtener los trimestres." });
-        }
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> EditarTrimestre([FromBody] SchoolManager.Dtos.TrimesterDto dto)
-    {
-        try
-        {
-            if (dto == null || dto.Id == Guid.Empty)
-                return BadRequest(new { success = false, message = "Datos de trimestre inválidos." });
-
-            if (dto.StartDate >= dto.EndDate)
-                return BadRequest(new { success = false, message = "La fecha de inicio debe ser anterior a la fecha de fin." });
-
-            var result = await _trimesterService.EditarFechasTrimestreAsync(dto);
-            if (!result)
-                return NotFound(new { success = false, message = "Trimestre no encontrado." });
-            
-            return Ok(new { success = true, message = "Fechas actualizadas correctamente." });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { success = false, message = ex.Message });
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, new { success = false, message = "Error interno del servidor al actualizar el trimestre." });
-        }
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ValidarConfiguracionTrimestres([FromBody] List<SchoolManager.Dtos.TrimesterDto> trimestres)
-    {
-        try
-        {
-            var validacion = await _trimesterService.ValidarTrimestresAsync(trimestres);
-            return Ok(new { 
-                success = validacion.IsValid, 
-                errors = validacion.Errors,
-                warnings = validacion.Warnings
-            });
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, new { success = false, message = "Error al validar la configuración." });
-        }
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> EliminarTodosLosTrimestres()
-    {
-        try
-        {
-            await _trimesterService.EliminarTodosLosTrimestresAsync();
-            return Ok(new { success = true, message = "Todos los trimestres eliminados correctamente." });
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, new { success = false, message = "Error al eliminar los trimestres." });
-        }
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ActivarTrimestre([FromBody] TrimesterActivationDto dto)
-    {
-        try
-        {
-            if (dto == null || dto.Id == Guid.Empty)
-                return BadRequest(new { success = false, message = "ID de trimestre inválido." });
-
-            var result = await _trimesterService.ActivarTrimestreAsync(dto.Id);
-            if (!result)
-                return NotFound(new { success = false, message = "Trimestre no encontrado." });
-            
-            return Ok(new { success = true, message = "Trimestre activado correctamente." });
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, new { success = false, message = "Error interno del servidor al activar el trimestre." });
-        }
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> DesactivarTrimestre([FromBody] TrimesterActivationDto dto)
-    {
-        try
-        {
-            if (dto == null || dto.Id == Guid.Empty)
-                return BadRequest(new { success = false, message = "ID de trimestre inválido." });
-
-            var result = await _trimesterService.DesactivarTrimestreAsync(dto.Id);
-            if (!result)
-                return NotFound(new { success = false, message = "Trimestre no encontrado." });
-            
-            return Ok(new { success = true, message = "Trimestre desactivado correctamente." });
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, new { success = false, message = "Error interno del servidor al desactivar el trimestre." });
         }
     }
 }

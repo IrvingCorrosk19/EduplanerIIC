@@ -113,8 +113,18 @@ fail: Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddleware[1]
 		  
 		  quenna.lopez@qlservice.net
 
+admin123
 
-prueba048@prueba.com
+
+quenna.lopez@qlservice.net
+
+1. Admin:
+Email: quenna.lopez@qlservice.net
+Contraseña: admin123
+
+2. SuperAdmin:
+Email: admin@qlservice.net
+Contraseña: admin123
 
 
 iptsanmiguelito85@gmail.com
@@ -161,7 +171,12 @@ https://eduplaner.com/
 https://eduplaner.net
 
 https://account.squarespace.com/domains/managed/eduplaner.net
+jaime.ramos@meduca.edu.com
+jaime.ramos20@meduca.edu.pa
 
+administrador original 
+
+123456789
 
  quenna.lopez@qlservice.net
 
@@ -183,9 +198,9 @@ crijogar@gmail.com  disciplina lo marca como orientador
 | Periodo                   | Fecha de inicio | Fecha de fin | Duración / notas                  |
 | ------------------------- | --------------- | ------------ | --------------------------------- |
 | **Primer trimestre**      | 03/10/2025      | 06/13/2025   | 14 semanas                        |
-| **Vacaciones**            | 06/16/2025      | 06/20/2025   | 1 semana                          |
+                     |
 | **Segundo trimestre**     | 06/23/2025      | 09/12/2025   | 12 semanas                        |
-| **Vacaciones**            | 09/15/2025      | 09/19/2025   | 1 semana                          |
+                       |
 | **Tercer trimestre**      | 09/22/2025      | 12/19/2025   | 13 semanas                        |
 | **Evaluaciones / cierre** | 12/22/2025      | 12/30/2025   | Balance final, graduaciones, etc. |
 
@@ -212,3 +227,13 @@ Ejecicios diarios
 Examen Final   esto se calcula de la siguiente forma  se saca un promedios los ejecidiario se saca un promedio examen final se caca un promedio  luego el promedipo de las tres es la nota final 
 
 Jeu#tdd@ne!8nif
+
+alejandro.moreno@estudiante.edu.pa	
+
+adrinis.alvarado@meduca.edu.pa
+%@a2RDp1!##6
+
+quitale el scrool que se depliegue a lo largo  TeacherGradebook/Index
+
+
+Para directo, consejero y estudiante  crea un modulo 
