@@ -2,6 +2,7 @@
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
+using SchoolManager.Dtos;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,6 +33,27 @@ namespace SchoolManager.Controllers
             _gradeLevelService = gradeLevelService;
             _groupService = groupService;
             _currentUserService = currentUserService;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var specialties = await _specialtyService.GetAllAsync();
+            var areas = await _areaService.GetAllAsync();
+            var subjects = await _subjectService.GetAllAsync();
+            var grades = await _gradeLevelService.GetAllAsync();
+            var groups = await _groupService.GetAllAsync();
+
+            var viewModel = new AcademicCatalogViewModel
+            {
+                Specialties = specialties,
+                Areas = areas,
+                Subjects = subjects,
+                GradesLevel = grades,
+                Groups = groups,
+                Trimestres = new List<TrimesterDto>() // Inicializar lista vacía
+            };
+
+            return View(viewModel);
         }
 
         public IActionResult Upload()

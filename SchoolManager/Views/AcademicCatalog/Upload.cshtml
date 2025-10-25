@@ -32,9 +32,9 @@
             </ol>
         </div>
         <div class="ms-3">
-            <a href="@Url.Action("DownloadTemplate", "File", new { fileName = "catalogo_academico.csv" })" 
+            <a href="@Url.Action("DownloadTemplate", "File", new { fileName = "catalogo_academico.xlsx" })" 
                class="btn btn-success btn-sm" 
-               download="catalogo_academico.csv">
+               download="catalogo_academico.xlsx">
                 <i class="bi bi-download me-1"></i>
                 Descargar Formato
             </a>
@@ -42,7 +42,7 @@
     </div>
 </div>
 
-<input type="file" id="excelFile" class="form-control mb-3" accept=".xlsx,.xls,.csv" />
+<input type="file" id="excelFile" class="form-control mb-3" accept=".xlsx,.xls" />
 
 <table id="excelTable" class="table table-bordered table-striped">
     <thead>
@@ -85,7 +85,7 @@
             $('#excelFile').on('change', function (e) {
                 const file = e.target.files[0];
                 if (!file) {
-                    Swal.fire("Archivo requerido", "Por favor selecciona un archivo Excel (.xlsx, .xls) o CSV (.csv).", "warning");
+                    Swal.fire("Archivo requerido", "Por favor selecciona un archivo Excel (.xlsx o .xls).", "warning");
                     return;
                 }
 
@@ -95,21 +95,12 @@
                 const reader = new FileReader();
 
                 reader.onload = function (e) {
-                    let json;
-                    
-                    if (file.name.toLowerCase().endsWith('.csv')) {
-                        // Manejar archivo CSV
-                        const csvText = e.target.result;
-                        const lines = csvText.split('\n');
-                        json = lines.map(line => line.split(','));
-                    } else {
-                        // Manejar archivo Excel
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const sheetName = workbook.SheetNames[0];
-                        const sheet = workbook.Sheets[sheetName];
-                        json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                    }
+                    // Manejar archivo Excel
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
                     // Validación de encabezados exactos
                     const headersEsperados = ["ESPECIALIDAD", "AREA", "MATERIA", "GRADO", "GRUPO"];
@@ -205,11 +196,7 @@
                     });
                 };
 
-                if (file.name.toLowerCase().endsWith('.csv')) {
-                    reader.readAsText(file);
-                } else {
-                    reader.readAsArrayBuffer(file);
-                }
+                reader.readAsArrayBuffer(file);
             });
 
             $('#btnGuardarCatalogo').on('click', function () {
