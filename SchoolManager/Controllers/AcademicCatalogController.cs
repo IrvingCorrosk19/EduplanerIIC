@@ -172,5 +172,158 @@ namespace SchoolManager.Controllers
                 message = "Carga masiva del catálogo completada."
             });
         }
+
+        [HttpPost]
+        public async Task<IActionResult> GuardarTrimestres([FromBody] List<TrimesterDto> trimestres)
+        {
+            try
+            {
+                if (trimestres == null || trimestres.Count == 0)
+                {
+                    return BadRequest(new { success = false, message = "No se recibieron datos de trimestres." });
+                }
+
+                await _trimesterService.GuardarTrimestresAsync(trimestres);
+                return Ok(new { success = true, message = "Configuración de trimestres guardada correctamente." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ActivarTrimestre([FromBody] TrimestreIdRequest request)
+        {
+            try
+            {
+                if (request == null || request.Id == Guid.Empty)
+                {
+                    return BadRequest(new { success = false, message = "ID de trimestre inválido." });
+                }
+
+                var resultado = await _trimesterService.ActivarTrimestreAsync(request.Id);
+                if (resultado)
+                {
+                    return Ok(new { success = true, message = "Trimestre activado correctamente." });
+                }
+                else
+                {
+                    return NotFound(new { success = false, message = "Trimestre no encontrado." });
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DesactivarTrimestre([FromBody] TrimestreIdRequest request)
+        {
+            try
+            {
+                if (request == null || request.Id == Guid.Empty)
+                {
+                    return BadRequest(new { success = false, message = "ID de trimestre inválido." });
+                }
+
+                var resultado = await _trimesterService.DesactivarTrimestreAsync(request.Id);
+                if (resultado)
+                {
+                    return Ok(new { success = true, message = "Trimestre desactivado correctamente." });
+                }
+                else
+                {
+                    return NotFound(new { success = false, message = "Trimestre no encontrado." });
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> EditarTrimestre([FromBody] EditarTrimestreRequest request)
+        {
+            try
+            {
+                if (request == null || request.Id == Guid.Empty)
+                {
+                    return BadRequest(new { success = false, message = "ID de trimestre inválido." });
+                }
+
+                if (string.IsNullOrEmpty(request.StartDate) || string.IsNullOrEmpty(request.EndDate))
+                {
+                    return BadRequest(new { success = false, message = "Debes proporcionar ambas fechas." });
+                }
+
+                if (!DateTime.TryParse(request.StartDate, out var startDate) || 
+                    !DateTime.TryParse(request.EndDate, out var endDate))
+                {
+                    return BadRequest(new { success = false, message = "Formato de fechas inválido." });
+                }
+
+                var dto = new TrimesterDto
+                {
+                    Id = request.Id,
+                    StartDate = startDate,
+                    EndDate = endDate
+                };
+
+                var resultado = await _trimesterService.EditarFechasTrimestreAsync(dto);
+                if (resultado)
+                {
+                    return Ok(new { success = true, message = "Fechas actualizadas correctamente." });
+                }
+                else
+                {
+                    return NotFound(new { success = false, message = "Trimestre no encontrado." });
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> EliminarTodosLosTrimestres()
+        {
+            try
+            {
+                await _trimesterService.EliminarTodosLosTrimestresAsync();
+                return Ok(new { success = true, message = "Todos los trimestres han sido eliminados." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+    }
+
+    public class TrimestreIdRequest
+    {
+        public Guid Id { get; set; }
+    }
+
+    public class EditarTrimestreRequest
+    {
+        public Guid Id { get; set; }
+        public string StartDate { get; set; }
+        public string EndDate { get; set; }
     }
 }

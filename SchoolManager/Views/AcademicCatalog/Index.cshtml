@@ -531,7 +531,9 @@
                 const id = $(this).data('id');
                 const inicio = fila.find('.fecha-inicio').text();
                 const fin = fila.find('.fecha-fin').text();
-                const anio = fila.find('td').first().text();
+                // Obtener el año de la fecha de inicio
+                const fechaISO = formatoISO(inicio);
+                const anio = fechaISO ? fechaISO.split('-')[0] : '';
                 $('#editTrimestreId').val(id);
                 $('#editTrimestreAnio').val(anio);
                 $('#editStartDate').val(formatoISO(inicio));
