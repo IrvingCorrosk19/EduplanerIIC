@@ -271,12 +271,15 @@ namespace SchoolManager.Services
         public async Task<List<PromedioFinalDto>> GetPromediosFinalesAsync(GetNotesDto notes)
         {
             // 1. Obtener todos los estudiantes del grupo y grado usando solo User y StudentAssignment
+            // Ordenar alfabéticamente por apellido primero, luego por nombre
             var students = await _context.StudentAssignments
                 .Where(sa => sa.GroupId == notes.GroupId && sa.GradeId == notes.GradeLevelId)
                 .Join(_context.Users,
                     sa => sa.StudentId,
                     u => u.Id,
                     (sa, u) => new { u.Id, u.Name, u.LastName, u.DocumentId })
+                .OrderBy(s => s.LastName)
+                .ThenBy(s => s.Name)
                 .ToListAsync();
 
             // 2. Obtener todas las notas del grupo, materia, grado y docente
