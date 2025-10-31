@@ -1869,7 +1869,7 @@
                                 map[item.studentId].notas.push(item.notaFinal ?? 0);
                             });
                             Object.values(map).forEach(est => {
-                                const nombre = est.studentFullName && est.studentFullName.trim() ? est.studentFullName : '(Sin nombre)';
+                                const nombre = formatName(est.studentFullName);
                                 const documentId = est.documentId || 'Sin cédula';
                                 const t1 = est.trimestres['1T'] || 0;
                                 const t2 = est.trimestres['2T'] || 0;

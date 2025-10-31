@@ -317,9 +317,9 @@ namespace SchoolManager.Services
 
                     var notasValidas = notasEstudianteTrimestre.Where(x => x.Score.HasValue).ToList();
 
-                    // Siempre armar el nombre correctamente
-                    var nombre = $"{(student.Name ?? "").Trim()} {(student.LastName ?? "").Trim()}".Trim();
-                    if (string.IsNullOrWhiteSpace(nombre)) nombre = "(Sin nombre)";
+                    // Siempre armar el nombre correctamente como "Apellido, Nombre"
+                    var nombre = $"{(student.LastName ?? "").Trim()}, {(student.Name ?? "").Trim()}".Trim();
+                    if (string.IsNullOrWhiteSpace(nombre) || nombre == ",") nombre = "(Sin nombre)";
 
                     // Calcular promedios por tipo de actividad con los nuevos nombres
                     var promedioNotasApreciacion = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "notas de apreciación" && x.Score.HasValue)
