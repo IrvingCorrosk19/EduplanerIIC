@@ -63,11 +63,11 @@ namespace SchoolManager.Services
                                 where (student.Role == "estudiante" || student.Role == "student" || student.Role == "alumno")
                                       && sa.GroupId == groupId
                                       && sa.GradeId == gradeId
-                                orderby student.Name
+                                orderby student.LastName, student.Name
                                 select new StudentBasicDto
                                 {
                                     StudentId = student.Id,
-                                    FullName = $"{student.Name} {student.LastName}",  // Nombre + Apellido concatenados
+                                    FullName = $"{student.LastName}, {student.Name}",  // Apellido, Nombre
                                     GradeName = grade.Name,
                                     GroupName = grupo.Name,
                                     DocumentId = student.DocumentId ?? ""
@@ -87,11 +87,11 @@ namespace SchoolManager.Services
                                       && sa.GroupId == groupId
                                       && sa.GradeId == gradeId
                                       && subjectAssign.SubjectId == subjectId
-                                orderby student.Name
+                                orderby student.LastName, student.Name
                                 select new StudentBasicDto
                                 {
                                     StudentId = student.Id,
-                                    FullName = $"{student.Name} {student.LastName}",  // Nombre + Apellido concatenados
+                                    FullName = $"{student.LastName}, {student.Name}",  // Apellido, Nombre
                                     GradeName = grade.Name,
                                     GroupName = grupo.Name,
                                     DocumentId = student.DocumentId ?? ""

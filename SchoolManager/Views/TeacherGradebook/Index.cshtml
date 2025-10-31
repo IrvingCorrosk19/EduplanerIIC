@@ -1210,12 +1210,11 @@
 @section Scripts {
     <script>
         // Función helper global para formatear nombres como "Apellido, Nombre"
+        // El servicio ya devuelve el FullName en formato "Apellido, Nombre"
         function formatName(fullName) {
             if (!fullName) return '(Sin nombre)';
-            const nameParts = fullName.split(' ');
-            return nameParts.length > 1 
-                ? `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`
-                : fullName;
+            const trimmed = fullName.trim();
+            return trimmed || '(Sin nombre)';
         }
 
         $(document).ready(() => {
