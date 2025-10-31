@@ -495,26 +495,26 @@ public class UserController : Controller
             var message = new System.Net.Mail.MailMessage();
             message.From = new System.Net.Mail.MailAddress(cleanUsername, emailConfig.FromName); // Usar el usuario limpio como From
             message.To.Add(user.Email);
-            message.Subject = "¡Bienvenido a Eduplaner!";
+            message.Subject = "Credenciales de Acceso - Eduplaner";
             message.IsBodyHtml = true;
             
             message.Body = $@"
                 <html>
                 <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
                     <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
-                        <h2 style='color: #2563eb; text-align: center;'>¡Bienvenido a Eduplaner!</h2>
+                        <h2 style='color: #2563eb; text-align: center;'>Credenciales de Acceso - Eduplaner</h2>
                         <p>Hola <strong>{user.Name} {user.LastName}</strong>,</p>
-                        <p>Tu cuenta ha sido creada exitosamente en nuestro sistema educativo.</p>
+                        <p>Te enviamos tu contraseña temporal para acceder a la plataforma Eduplaner.</p>
                         
                         <div style='background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;'>
                             <p style='margin: 0;'><strong>Tus credenciales de acceso:</strong></p>
                             <p style='margin: 10px 0;'><strong>Email:</strong> {user.Email}</p>
-                            <p style='margin: 0;'><strong>Contraseña:</strong></p>
+                            <p style='margin: 0;'><strong>Contraseña temporal:</strong></p>
                             <p style='font-size: 18px; font-weight: bold; color: #2563eb; margin: 10px 0;'>{password}</p>
                         </div>
 
                         <div style='text-align: center; margin: 30px 0;'>
-                            <a href='https://www.eduplaner.net' 
+                            <a href='https://eduplaner.net/' 
                                style='display: inline-block; 
                                       background-color: #2563eb; 
                                       color: white; 
@@ -524,12 +524,12 @@ public class UserController : Controller
                                       font-weight: bold; 
                                       font-size: 16px;
                                       box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);'>
-                                🚀 Acceder a Eduplaner
+                                🚀 Acceder a la Plataforma
                             </a>
                             <p style='margin-top: 15px; font-size: 14px; color: #6b7280;'>
                                 O copia y pega este enlace en tu navegador:<br>
-                                <a href='https://www.eduplaner.net' style='color: #2563eb; text-decoration: none;'>
-                                    https://www.eduplaner.net
+                                <a href='https://eduplaner.net/' style='color: #2563eb; text-decoration: none;'>
+                                    https://eduplaner.net/
                                 </a>
                             </p>
                         </div>
