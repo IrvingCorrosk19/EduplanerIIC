@@ -345,30 +345,47 @@ namespace SchoolManager.Controllers
                             PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), // Contraseña temporal por defecto hasheada
                             TwoFactorEnabled = false,
                             LastLogin = null,
-                            Inclusivo = item.Inclusivo
+                            Inclusivo = item.Inclusivo,
+                            Shift = !string.IsNullOrEmpty(item.Jornada) ? item.Jornada.Trim() : null // Jornada del estudiante
                         };
                         
                         await _userService.CreateAsync(newStudent, new List<Guid>(), new List<Guid>());
                         student = newStudent;
                         estudiantesCreados++;
                         
-                        Console.WriteLine($"[SaveAssignments] Estudiante creado con ID: {student.Id}");
+                        Console.WriteLine($"[SaveAssignments] Estudiante creado con ID: {student.Id}, Jornada: {student.Shift}");
                     }
                     else
                     {
-                        Console.WriteLine($"[SaveAssignments] Estudiante encontrado, actualizando campo Inclusivo: {item.Estudiante}");
+                        Console.WriteLine($"[SaveAssignments] Estudiante encontrado, actualizando campos Inclusivo y Jornada: {item.Estudiante}");
                         
-                        // Actualizar el campo Inclusivo del estudiante existente
+                        // Actualizar el campo Inclusivo y Jornada del estudiante existente
                         student.Inclusivo = item.Inclusivo;
+                        if (!string.IsNullOrEmpty(item.Jornada))
+                        {
+                            student.Shift = item.Jornada.Trim();
+                        }
                         student.UpdatedAt = DateTime.UtcNow;
                         
                         await _userService.UpdateAsync(student, new List<Guid>(), new List<Guid>());
                         
-                        Console.WriteLine($"[SaveAssignments] Campo Inclusivo actualizado para estudiante: {student.Id}");
+                        Console.WriteLine($"[SaveAssignments] Campos Inclusivo y Jornada actualizados para estudiante: {student.Id}, Jornada: {student.Shift}");
                     }
 
                     var grade = await _gradeLevelService.GetByNameAsync(item.Grado);
                     var group = await _groupService.GetByNameAndGradeAsync(item.Grupo);
+                    
+                    // Si el grupo existe y se proporcionó jornada, actualizar la jornada del grupo
+                    if (group != null && !string.IsNullOrEmpty(item.Jornada))
+                    {
+                        if (string.IsNullOrEmpty(group.Shift))
+                        {
+                            group.Shift = item.Jornada.Trim();
+                            group.UpdatedAt = DateTime.UtcNow;
+                            await _groupService.UpdateAsync(group);
+                            Console.WriteLine($"[SaveAssignments] Jornada {group.Shift} asignada al grupo {group.Name}");
+                        }
+                    }
 
                     if (grade == null || group == null)
                     {

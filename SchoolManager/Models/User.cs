@@ -48,6 +48,8 @@ public partial class User
     public bool? Orientacion { get; set; }
 
     public bool? Inclusivo { get; set; }
+    
+    public string? Shift { get; set; } // Jornada actual del estudiante: Mañana, Tarde, Noche
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 

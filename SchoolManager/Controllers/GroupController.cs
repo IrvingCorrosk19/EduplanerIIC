@@ -41,7 +41,8 @@ public class GroupController : Controller
                 success = true, 
                 id = newGroup.Id,
                 name = newGroup.Name,
-                description = newGroup.Description
+                description = newGroup.Description,
+                shift = newGroup.Shift
             });
         }
         catch (Exception ex)
@@ -67,6 +68,7 @@ public class GroupController : Controller
 
             existing.Name = group.Name;
             existing.Description = group.Description;
+            existing.Shift = group.Shift; // Actualizar jornada
             await _groupService.UpdateAsync(existing);
 
             return Json(new { success = true });

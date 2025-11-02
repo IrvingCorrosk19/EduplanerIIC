@@ -161,6 +161,31 @@
                                 </li>
                             </ul>
                         </li>
+                        @if (userRole == "acudiente" || userRole == "parent" || userRole == "student" || userRole == "estudiante") {
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-user-graduate"></i>
+                                <p>
+                                    Prematrícula
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("MyPrematriculations", "Prematriculation")" class="nav-link">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Mis Prematrículas</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Create", "Prematriculation")" class="nav-link">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Nueva Prematrícula</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        }
                         @if (userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item">
                                 <a href="@Url.Action("Index", "StudentReport")" class="nav-link">
@@ -238,6 +263,116 @@
                             </ul>
                         </li>
                         }
+                        @if (userRole == "admin" || userRole == "superadmin") {
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-user-graduate"></i>
+                                <p>
+                                    Prematrícula y Matrícula
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "PrematriculationPeriod")" class="nav-link">
+                                        <i class="fas fa-calendar-alt nav-icon"></i>
+                                        <p>Períodos de Prematrícula</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "Prematriculation")" class="nav-link">
+                                        <i class="fas fa-list-alt nav-icon"></i>
+                                        <p>Prematrículas</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-money-bill-wave"></i>
+                                <p>
+                                    Pagos
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "Payment")" class="nav-link">
+                                        <i class="fas fa-list nav-icon"></i>
+                                        <p>Gestión de Pagos</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Search", "Payment")" class="nav-link">
+                                        <i class="fas fa-search nav-icon"></i>
+                                        <p>Buscar Prematrícula</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Reports", "Payment")" class="nav-link">
+                                        <i class="fas fa-chart-bar nav-icon"></i>
+                                        <p>Reportes</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        }
+                        @if (userRole == "contabilidad" || userRole == "contable") {
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-money-bill-wave"></i>
+                                <p>
+                                    Pagos
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "Payment")" class="nav-link">
+                                        <i class="fas fa-list nav-icon"></i>
+                                        <p>Gestión de Pagos</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Search", "Payment")" class="nav-link">
+                                        <i class="fas fa-search nav-icon"></i>
+                                        <p>Buscar Prematrícula</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Reports", "Payment")" class="nav-link">
+                                        <i class="fas fa-chart-bar nav-icon"></i>
+                                        <p>Reportes</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        }
+                        @if (userRole == "acudiente" || userRole == "parent" || userRole == "student" || userRole == "estudiante") {
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-money-bill-wave"></i>
+                                <p>
+                                    Pagos
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("MyPayments", "Payment")" class="nav-link">
+                                        <i class="fas fa-list nav-icon"></i>
+                                        <p>Mis Pagos</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("PayFromPortal", "Payment")" class="nav-link">
+                                        <i class="fas fa-credit-card nav-icon"></i>
+                                        <p>Realizar Pago</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        }
                         @if (userRole == "admin") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
@@ -288,6 +423,12 @@
                                     <a href="@Url.Action("Upload", "StudentAssignment")" class="nav-link">
                                         <i class="fas fa-file-upload nav-icon"></i>
                                         <p>Carga Asignaciones Estudiantes</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "PaymentConcept")" class="nav-link">
+                                        <i class="fas fa-money-check-alt nav-icon"></i>
+                                        <p>Conceptos de Pago</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">

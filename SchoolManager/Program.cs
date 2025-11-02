@@ -80,6 +80,10 @@ builder.Services.AddScoped<ICounselorAssignmentService, CounselorAssignmentServi
 builder.Services.AddScoped<IStudentProfileService, StudentProfileService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IAprobadosReprobadosService, AprobadosReprobadosService>();
+builder.Services.AddScoped<IPrematriculationPeriodService, PrematriculationPeriodService>();
+builder.Services.AddScoped<IPrematriculationService, PrematriculationService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentConceptService, PaymentConceptService>();
 
 // Cloudinary para almacenamiento persistente de archivos en la nube
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
@@ -102,6 +106,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
     options.AddPolicy("Teacher", policy => policy.RequireRole("Teacher"));
     options.AddPolicy("Student", policy => policy.RequireRole("Student"));
+    options.AddPolicy("Parent", policy => policy.RequireRole("Parent", "Acudiente"));
+    options.AddPolicy("Accounting", policy => policy.RequireRole("Contabilidad", "Admin", "SuperAdmin"));
 });
 
 builder.Services.AddHttpContextAccessor();

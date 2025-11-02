@@ -65,6 +65,14 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<PrematriculationPeriod> PrematriculationPeriods { get; set; }
+
+    public virtual DbSet<Prematriculation> Prematriculations { get; set; }
+
+    public virtual DbSet<Payment> Payments { get; set; }
+
+    public virtual DbSet<PaymentConcept> PaymentConcepts { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // Configurar interceptor global para DateTime
@@ -72,11 +80,11 @@ public partial class SchoolDbContext : DbContext
 
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
 
-    // Conexión LOCAL (desarrollo) - Comentada
-    //=> optionsBuilder.UseNpgsql("Host=localhost;Database=schoolmanagement;Username=postgres;Password=Panama2020$");
+    // Conexión LOCAL (desarrollo) - ACTIVA
+    => optionsBuilder.UseNpgsql("Host=localhost;Database=schoolmanagement;Username=postgres;Password=Panama2020$");
     
-    // Conexión RENDER (producción) - ACTIVA
-    => optionsBuilder.UseNpgsql("Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
+    // Conexión RENDER (producción) - Comentada
+    //=> optionsBuilder.UseNpgsql("Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
 
 
     }
@@ -595,6 +603,13 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("updated_at");
+            
+            entity.Property(e => e.MaxCapacity)
+                .HasColumnName("max_capacity");
+            
+            entity.Property(e => e.Shift)
+                .HasMaxLength(20)
+                .HasColumnName("shift");
 
             entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
             entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
@@ -1099,6 +1114,10 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.Inclusivo)
                 .HasDefaultValue(false)
                 .HasColumnName("inclusivo");
+            
+            entity.Property(e => e.Shift)
+                .HasMaxLength(20)
+                .HasColumnName("shift");
 
             entity.HasOne(d => d.SchoolNavigation).WithMany(p => p.Users)
                 .HasForeignKey(d => d.SchoolId)
@@ -1469,6 +1488,344 @@ public partial class SchoolDbContext : DbContext
             entity.HasIndex(e => e.SchoolId, "idx_messages_school");
             entity.HasIndex(e => e.SentAt, "idx_messages_sent_at");
             entity.HasIndex(e => new { e.RecipientId, e.IsRead }, "idx_messages_recipient_unread");
+        });
+
+        // Configuración de PrematriculationPeriod
+        modelBuilder.Entity<PrematriculationPeriod>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("prematriculation_periods_pkey");
+            entity.ToTable("prematriculation_periods");
+
+            entity.HasIndex(e => e.SchoolId, "IX_prematriculation_periods_school_id");
+            entity.HasIndex(e => new { e.SchoolId, e.StartDate, e.EndDate }, "IX_prematriculation_periods_dates");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.StartDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("start_date");
+
+            entity.Property(e => e.EndDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("end_date");
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+
+            entity.Property(e => e.MaxCapacityPerGroup)
+                .HasDefaultValue(30)
+                .HasColumnName("max_capacity_per_group");
+
+            entity.Property(e => e.AutoAssignByShift)
+                .HasDefaultValue(true)
+                .HasColumnName("auto_assign_by_shift");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.Property(e => e.CreatedBy)
+                .HasColumnName("created_by");
+
+            entity.Property(e => e.UpdatedBy)
+                .HasColumnName("updated_by");
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .HasConstraintName("prematriculation_periods_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .HasConstraintName("prematriculation_periods_created_by_fkey");
+
+            entity.HasOne(d => d.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.UpdatedBy)
+                .HasConstraintName("prematriculation_periods_updated_by_fkey");
+        });
+
+        // Configuración de Prematriculation
+        modelBuilder.Entity<Prematriculation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("prematriculations_pkey");
+            entity.ToTable("prematriculations");
+
+            entity.HasIndex(e => e.SchoolId, "IX_prematriculations_school_id");
+            entity.HasIndex(e => e.StudentId, "IX_prematriculations_student_id");
+            entity.HasIndex(e => e.PrematriculationPeriodId, "IX_prematriculations_period_id");
+            entity.HasIndex(e => e.PrematriculationCode, "IX_prematriculations_code").IsUnique();
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.StudentId)
+                .HasColumnName("student_id");
+
+            entity.Property(e => e.ParentId)
+                .HasColumnName("parent_id");
+
+            entity.Property(e => e.GradeId)
+                .HasColumnName("grade_id");
+
+            entity.Property(e => e.GroupId)
+                .HasColumnName("group_id");
+
+            entity.Property(e => e.PrematriculationPeriodId)
+                .HasColumnName("prematriculation_period_id");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .HasDefaultValue("Pendiente")
+                .HasColumnName("status");
+
+            entity.Property(e => e.FailedSubjectsCount)
+                .HasColumnName("failed_subjects_count");
+
+            entity.Property(e => e.AcademicConditionValid)
+                .HasColumnName("academic_condition_valid");
+
+            entity.Property(e => e.RejectionReason)
+                .HasColumnName("rejection_reason");
+
+            entity.Property(e => e.PrematriculationCode)
+                .HasMaxLength(50)
+                .HasColumnName("prematriculation_code");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.Property(e => e.PaymentDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("payment_date");
+
+            entity.Property(e => e.MatriculationDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("matriculation_date");
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .HasConstraintName("prematriculations_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Student)
+                .WithMany()
+                .HasForeignKey(d => d.StudentId)
+                .HasConstraintName("prematriculations_student_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.Parent)
+                .WithMany()
+                .HasForeignKey(d => d.ParentId)
+                .HasConstraintName("prematriculations_parent_id_fkey");
+
+            entity.HasOne(d => d.Grade)
+                .WithMany()
+                .HasForeignKey(d => d.GradeId)
+                .HasConstraintName("prematriculations_grade_id_fkey");
+
+            entity.HasOne(d => d.Group)
+                .WithMany(p => p.Prematriculations)
+                .HasForeignKey(d => d.GroupId)
+                .HasConstraintName("prematriculations_group_id_fkey");
+
+            entity.HasOne(d => d.PrematriculationPeriod)
+                .WithMany(p => p.Prematriculations)
+                .HasForeignKey(d => d.PrematriculationPeriodId)
+                .HasConstraintName("prematriculations_period_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configuración de Payment
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("payments_pkey");
+            entity.ToTable("payments");
+
+            entity.HasIndex(e => e.SchoolId, "IX_payments_school_id");
+            entity.HasIndex(e => e.PrematriculationId, "IX_payments_prematriculation_id");
+            entity.HasIndex(e => e.ReceiptNumber, "IX_payments_receipt_number").IsUnique();
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.PrematriculationId)
+                .HasColumnName("prematriculation_id");
+
+            entity.Property(e => e.RegisteredBy)
+                .HasColumnName("registered_by");
+
+            entity.Property(e => e.Amount)
+                .HasPrecision(18, 2)
+                .HasColumnName("amount");
+
+            entity.Property(e => e.PaymentDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("payment_date");
+
+            entity.Property(e => e.ReceiptNumber)
+                .HasMaxLength(100)
+                .HasColumnName("receipt_number");
+
+            entity.Property(e => e.PaymentStatus)
+                .HasMaxLength(20)
+                .HasDefaultValue("Pendiente")
+                .HasColumnName("payment_status");
+
+            entity.Property(e => e.Notes)
+                .HasColumnName("notes");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.Property(e => e.ConfirmedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("confirmed_at");
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .HasConstraintName("payments_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Prematriculation)
+                .WithMany(p => p.Payments)
+                .HasForeignKey(d => d.PrematriculationId)
+                .HasConstraintName("payments_prematriculation_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(e => e.PaymentMethod)
+                .HasMaxLength(50)
+                .HasColumnName("payment_method");
+
+            entity.Property(e => e.ReceiptImage)
+                .HasColumnName("receipt_image");
+
+            entity.Property(e => e.PaymentConceptId)
+                .HasColumnName("payment_concept_id");
+
+            entity.Property(e => e.StudentId)
+                .HasColumnName("student_id");
+
+            entity.HasOne(d => d.RegisteredByUser)
+                .WithMany()
+                .HasForeignKey(d => d.RegisteredBy)
+                .HasConstraintName("payments_registered_by_fkey");
+
+            entity.HasOne(d => d.PaymentConcept)
+                .WithMany(p => p.Payments)
+                .HasForeignKey(d => d.PaymentConceptId)
+                .HasConstraintName("payments_payment_concept_id_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.Student)
+                .WithMany()
+                .HasForeignKey(d => d.StudentId)
+                .HasConstraintName("payments_student_id_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configuración de PaymentConcept
+        modelBuilder.Entity<PaymentConcept>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("payment_concepts_pkey");
+            entity.ToTable("payment_concepts");
+
+            entity.HasIndex(e => e.SchoolId, "IX_payment_concepts_school_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasColumnName("name");
+
+            entity.Property(e => e.Description)
+                .HasColumnName("description");
+
+            entity.Property(e => e.Amount)
+                .HasPrecision(18, 2)
+                .HasColumnName("amount");
+
+            entity.Property(e => e.Periodicity)
+                .HasMaxLength(50)
+                .HasColumnName("periodicity");
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.Property(e => e.CreatedBy)
+                .HasColumnName("created_by");
+
+            entity.Property(e => e.UpdatedBy)
+                .HasColumnName("updated_by");
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .HasConstraintName("payment_concepts_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .HasConstraintName("payment_concepts_created_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.UpdatedBy)
+                .HasConstraintName("payment_concepts_updated_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

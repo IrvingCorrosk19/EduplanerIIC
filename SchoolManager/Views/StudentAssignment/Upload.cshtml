@@ -31,6 +31,7 @@
                 <li><strong>Fecha Nacimiento:</strong> Fecha de nacimiento (formato: DD/MM/YYYY o número de Excel)</li>
                 <li><strong>Grado:</strong> Nombre del grado</li>
                 <li><strong>Grupo:</strong> Nombre del grupo</li>
+                <li><strong>Jornada:</strong> Jornada del estudiante (Mañana, Tarde, Noche - opcional)</li>
                 <li><strong>Inclusión:</strong> Indica si el estudiante tiene alguna discapacidad (si, no, o dejar vacío)</li>
             </ol>
         </div>
@@ -57,6 +58,7 @@
             <th>Fecha Nacimiento</th>
             <th>Grado</th>
             <th>Grupo</th>
+            <th>Jornada</th>
             <th>Inclusión</th>
         </tr>
     </thead>
@@ -108,7 +110,7 @@
                     const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
                     // Validación de encabezados exactos
-                    const headersEsperados = ["ESTUDIANTE (EMAIL)", "NOMBRE", "APELLIDO", "DOCUMENTO ID", "FECHA NACIMIENTO", "GRADO", "GRUPO", "INCLUSIÓN"];
+                    const headersEsperados = ["ESTUDIANTE (EMAIL)", "NOMBRE", "APELLIDO", "DOCUMENTO ID", "FECHA NACIMIENTO", "GRADO", "GRUPO", "JORNADA", "INCLUSIÓN"];
                     const headersObtenidos = json[0]?.map(h => h?.toString().trim().toUpperCase());
                     const headersValidados = headersEsperados.every((expected, i) =>
                         headersObtenidos[i] === expected
@@ -213,8 +215,26 @@
                             }
                         }
 
+                        // Procesar campo Jornada (opcional)
+                        let jornadaDisplay = row[7] ?? "";
+                        let jornadaValue = jornadaDisplay ? jornadaDisplay.toString().trim() : "";
+                        if (jornadaValue) {
+                            const jornadaLower = jornadaValue.toLowerCase();
+                            if (jornadaLower === "mañana" || jornadaLower === "manana" || jornadaLower === "mañana") {
+                                jornadaDisplay = '<span class="badge bg-info"><i class="fas fa-sun me-1"></i>Mañana</span>';
+                            } else if (jornadaLower === "tarde") {
+                                jornadaDisplay = '<span class="badge bg-warning"><i class="fas fa-sun me-1"></i>Tarde</span>';
+                            } else if (jornadaLower === "noche") {
+                                jornadaDisplay = '<span class="badge bg-dark"><i class="fas fa-moon me-1"></i>Noche</span>';
+                            } else {
+                                jornadaDisplay = `<span class="badge bg-secondary">${jornadaValue}</span>`;
+                            }
+                        } else {
+                            jornadaDisplay = '<span class="badge bg-secondary"><i class="fas fa-minus me-1"></i>Sin definir</span>';
+                        }
+
                         // Procesar campo Inclusión
-                        let inclusionDisplay = row[7] ?? "";
+                        let inclusionDisplay = row[8] ?? "";
                         if (inclusionDisplay && inclusionDisplay.toString().trim().toLowerCase() === "si") {
                             inclusionDisplay = '<span class="badge bg-success"><i class="fas fa-heart me-1"></i>Sí</span>';
                         } else if (inclusionDisplay && inclusionDisplay.toString().trim().toLowerCase() === "no") {
@@ -224,7 +244,7 @@
                         }
 
                         const rowHtml = `
-                            <tr data-row="${rowNumber}" data-inclusion="${row[7] ?? ""}">
+                            <tr data-row="${rowNumber}" data-jornada="${jornadaValue}" data-inclusion="${row[8] ?? ""}">
                                 <td>${row[0] ?? ""}</td>
                                 <td>${row[1] ?? ""}</td>
                                 <td>${row[2] ?? ""}</td>
@@ -232,6 +252,7 @@
                                 <td>${fechaDisplay}</td>
                                 <td>${row[5] ?? ""}</td>
                                 <td>${row[6] ?? ""}</td>
+                                <td>${jornadaDisplay}</td>
                                 <td>${inclusionDisplay}</td>
                             </tr>
                         `;
@@ -301,6 +322,26 @@
                     const fechaNacimiento = $row.find('td').eq(4).text().trim();
                     const grado = $row.find('td').eq(5).text().trim();
                     const grupo = $row.find('td').eq(6).text().trim();
+                    // Obtener el valor original de Jornada desde los datos del Excel
+                    const jornadaRaw = $row.data('jornada') || '';
+                    let jornadaValue = null; // Por defecto null
+                    
+                    if (jornadaRaw && jornadaRaw.toString().trim() !== '') {
+                        const jornadaStr = jornadaRaw.toString().trim();
+                        // Normalizar jornada: Mañana, Tarde, Noche
+                        const jornadaLower = jornadaStr.toLowerCase();
+                        if (jornadaLower === 'mañana' || jornadaLower === 'manana' || jornadaLower === 'mañana') {
+                            jornadaValue = 'Mañana';
+                        } else if (jornadaLower === 'tarde') {
+                            jornadaValue = 'Tarde';
+                        } else if (jornadaLower === 'noche') {
+                            jornadaValue = 'Noche';
+                        } else {
+                            // Si no coincide, usar el valor original capitalizado
+                            jornadaValue = jornadaStr.charAt(0).toUpperCase() + jornadaStr.slice(1).toLowerCase();
+                        }
+                    }
+                    
                     // Obtener el valor original de Inclusión desde los datos del Excel y normalizarlo
                     const inclusionRaw = $row.data('inclusion') || '';
                     let inclusionValue = null; // Por defecto null
@@ -398,6 +439,7 @@
                             fechaNacimiento, 
                             grado, 
                             grupo,
+                            jornada: jornadaValue,  // Jornada del estudiante (Mañana, Tarde, Noche)
                             inclusivo: inclusionValue  // Cambiado de 'inclusion' a 'inclusivo' para coincidir con la BD
                         });
                     }

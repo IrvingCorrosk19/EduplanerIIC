@@ -22,8 +22,14 @@ public partial class Group
     public Guid? UpdatedBy { get; set; }
 
     public string? Description { get; set; }
+    
+    public int? MaxCapacity { get; set; }
+    
+    public string? Shift { get; set; } // Jornada: Mañana, Tarde, Noche
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
+    
+    public virtual ICollection<Prematriculation> Prematriculations { get; set; } = new List<Prematriculation>();
 
     public virtual ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
 

@@ -318,6 +318,150 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
+        public async Task<bool> SendMatriculationConfirmationEmailAsync(Guid prematriculationId)
+        {
+            try
+            {
+                // Obtener datos de la prematrícula
+                var prematriculation = await _context.Prematriculations
+                    .Include(p => p.Student)
+                    .Include(p => p.Parent)
+                    .Include(p => p.Grade)
+                    .Include(p => p.Group)
+                    .Include(p => p.School)
+                    .Include(p => p.Payments.Where(pa => pa.PaymentStatus == "Confirmado"))
+                    .FirstOrDefaultAsync(p => p.Id == prematriculationId);
+
+                if (prematriculation == null)
+                {
+                    _logger.LogWarning("Prematrícula no encontrada: {PrematriculationId}", prematriculationId);
+                    return false;
+                }
+
+                // Obtener email del acudiente o estudiante
+                string? recipientEmail = null;
+                string? recipientName = null;
+
+                if (prematriculation.Parent != null)
+                {
+                    recipientEmail = prematriculation.Parent.Email;
+                    recipientName = $"{prematriculation.Parent.Name} {prematriculation.Parent.LastName}";
+                }
+                else if (prematriculation.Student != null)
+                {
+                    recipientEmail = prematriculation.Student.Email;
+                    recipientName = $"{prematriculation.Student.Name} {prematriculation.Student.LastName}";
+                }
+
+                if (string.IsNullOrEmpty(recipientEmail))
+                {
+                    _logger.LogWarning("No se encontró email del acudiente o estudiante para prematrícula {PrematriculationId}", prematriculationId);
+                    return false;
+                }
+
+                // Obtener configuración de email de la escuela
+                var emailConfig = await _emailConfigService.GetActiveBySchoolIdAsync(prematriculation.SchoolId);
+                if (emailConfig == null)
+                {
+                    _logger.LogWarning("No hay configuración de email activa para la escuela: {SchoolId}", prematriculation.SchoolId);
+                    return false;
+                }
+
+                // Preparar datos para el email
+                var studentName = prematriculation.Student != null ? 
+                    $"{prematriculation.Student.Name} {prematriculation.Student.LastName}" : "Estudiante";
+                var gradeName = prematriculation.Grade?.Name ?? "No asignado";
+                var groupName = prematriculation.Group?.Name ?? "No asignado";
+                var schoolName = prematriculation.School?.Name ?? "Institución Educativa";
+                var matriculationDate = prematriculation.MatriculationDate ?? DateTime.UtcNow;
+                var prematriculationCode = prematriculation.PrematriculationCode ?? "N/A";
+
+                // Obtener información del pago confirmado
+                var confirmedPayment = prematriculation.Payments.FirstOrDefault(p => p.PaymentStatus == "Confirmado");
+                var receiptNumber = confirmedPayment?.ReceiptNumber ?? "N/A";
+                var paymentAmount = confirmedPayment?.Amount ?? 0;
+                var paymentDate = confirmedPayment?.PaymentDate ?? DateTime.UtcNow;
+
+                var subject = $"✅ Confirmación de Matrícula - {studentName}";
+                var body = $@"
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; text-align: center; }}
+        .content {{ padding: 20px; background-color: #f8f9fa; border-radius: 10px; }}
+        .info-box {{ background-color: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #667eea; }}
+        .success-box {{ background-color: #d4edda; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #28a745; }}
+        .footer {{ background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 20px; font-size: 12px; text-align: center; }}
+        .highlight {{ font-weight: bold; color: #667eea; }}
+        .button {{ display: inline-block; padding: 12px 30px; background-color: #667eea; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class='header'>
+        <h1>🎓 Confirmación de Matrícula</h1>
+        <p style='margin: 0; font-size: 18px;'>Su matrícula ha sido confirmada exitosamente</p>
+    </div>
+    
+    <div class='content'>
+        <div class='success-box'>
+            <h2 style='margin-top: 0; color: #28a745;'>✅ Matrícula Confirmada</h2>
+            <p>Estimado/a <strong>{recipientName}</strong>,</p>
+            <p>Nos complace informarle que la matrícula de <strong>{studentName}</strong> ha sido confirmada exitosamente.</p>
+        </div>
+
+        <div class='info-box'>
+            <h3 style='margin-top: 0; color: #667eea;'>📋 Información de la Matrícula</h3>
+            <p><strong>Código de Prematrícula:</strong> <span class='highlight'>{prematriculationCode}</span></p>
+            <p><strong>Estudiante:</strong> {studentName}</p>
+            <p><strong>Grado:</strong> {gradeName}</p>
+            <p><strong>Grupo:</strong> {groupName}</p>
+            <p><strong>Fecha de Matrícula:</strong> {matriculationDate:dd/MM/yyyy HH:mm}</p>
+            <p><strong>Institución:</strong> {schoolName}</p>
+        </div>
+
+        <div class='info-box'>
+            <h3 style='margin-top: 0; color: #667eea;'>💳 Información de Pago</h3>
+            <p><strong>Número de Recibo:</strong> <span class='highlight'>{receiptNumber}</span></p>
+            <p><strong>Monto Pagado:</strong> {paymentAmount:C}</p>
+            <p><strong>Fecha de Pago:</strong> {paymentDate:dd/MM/yyyy}</p>
+            <p><strong>Estado del Pago:</strong> <span style='color: #28a745; font-weight: bold;'>Confirmado</span></p>
+        </div>
+
+        <div class='info-box' style='background-color: #fff3cd; border-left-color: #ffc107;'>
+            <h4 style='margin-top: 0;'>📝 Importante</h4>
+            <ul>
+                <li>Guarde este correo como comprobante de matrícula.</li>
+                <li>El código de prematrícula y número de recibo son únicos e importantes para futuras consultas.</li>
+                <li>Puede consultar el estado de la matrícula en cualquier momento desde la plataforma.</li>
+                <li>Para cualquier consulta, comuníquese con la institución educativa.</li>
+            </ul>
+        </div>
+
+        <div style='text-align: center;'>
+            <p>Puede acceder a la plataforma para ver más detalles de la matrícula.</p>
+            <a href='https://eduplaner.net' class='button'>Acceder a la Plataforma</a>
+        </div>
+    </div>
+    
+    <div class='footer'>
+        <p><strong>{schoolName}</strong></p>
+        <p>Este es un mensaje automático del sistema EduPlanner. Por favor, no responda a este email.</p>
+        <p>Para consultas, comuníquese con la institución educativa.</p>
+    </div>
+</body>
+</html>";
+
+                // Enviar email sin adjuntos
+                return await SendEmailWithAttachmentsAsync(recipientEmail, subject, body, new List<string>(), emailConfig);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al enviar email de confirmación de matrícula");
+                return false;
+            }
+        }
+
         public async Task<bool> SendEmailWithAttachmentsAsync(string toEmail, string subject, string body, List<string> attachmentPaths, EmailConfigurationDto emailConfig)
         {
             try
