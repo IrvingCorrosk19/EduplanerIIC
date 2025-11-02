@@ -174,14 +174,16 @@
                                 <label asp-for="PaymentMethod" class="form-label">Método de Pago *</label>
                                 <select asp-for="PaymentMethod" class="form-select" id="paymentMethodSelect" required>
                                     <option value="">Seleccione un método de pago</option>
-                                    <option value="Tarjeta">Tarjeta de Crédito/Débito (Confirmación automática)</option>
+                                    <option value="Tarjeta">Tarjeta de Crédito/Débito (Simulado - Confirmación automática)</option>
                                     <option value="Transferencia">Transferencia Bancaria</option>
                                     <option value="Depósito">Depósito Bancario</option>
                                     <option value="Yappy">Yappy</option>
                                     <option value="Efectivo">Efectivo</option>
                                 </select>
                                 <span asp-validation-for="PaymentMethod" class="text-danger"></span>
-                                <small class="form-text text-muted">Los métodos manuales (Transferencia, Depósito, Yappy) requieren adjuntar comprobante</small>
+                                <small class="form-text text-muted">
+                                    <strong>Nota:</strong> El pago con tarjeta está en modo simulado. Los métodos manuales (Transferencia, Depósito, Yappy) requieren adjuntar comprobante y serán verificados por contabilidad.
+                                </small>
                             </div>
 
                             <div class="mb-3" id="receiptImageDiv" style="display: none;">

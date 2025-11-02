@@ -22,7 +22,8 @@ Consulta estado de pagos de estudiantes de su grupo.
 1. Pago desde portal
 Acudiente selecciona concepto y estudiante.
 Métodos de pago:
-Tarjeta de crédito/débito → pago automático confirmado.
+⚠️ Tarjeta de crédito/débito → pago SIMULADO (confirmación automática sin procesamiento real).
+   NOTA: En producción se requiere integrar con pasarela de pagos real (Stripe, PayPal, Yappy, etc.).
 Transferencia, depósito o Yappy → solicita adjuntar imagen del comprobante.
 Pago queda en estado: Pendiente de verificación.
 Notificación automática al encargado de contabilidad sobre el pago pendiente.

@@ -228,9 +228,10 @@ public class PaymentController : Controller
         }
 
         // Generar número de recibo si es pago con tarjeta (automático)
+        // ⚠️ MODO SIMULADO: En producción, el número de recibo vendría de la pasarela de pagos
         if (string.IsNullOrEmpty(dto.ReceiptNumber) && dto.PaymentMethod == "Tarjeta")
         {
-            dto.ReceiptNumber = $"REC-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
+            dto.ReceiptNumber = $"REC-SIM-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
         }
 
         if (!ModelState.IsValid)
@@ -634,6 +635,41 @@ public class PaymentController : Controller
         return View(payment);
     }
 
+    // Vista para docente: seleccionar grupo para ver pagos
+    [Authorize(Roles = "teacher,docente")]
+    public async Task<IActionResult> SelectGroup()
+    {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser == null)
+            return Unauthorized();
+
+        // Obtener grupos asignados al docente a través de sus asignaciones académicas
+        var groups = await _context.TeacherAssignments
+            .Where(ta => ta.TeacherId == currentUser.Id)
+            .Include(ta => ta.SubjectAssignment)
+                .ThenInclude(sa => sa.Group)
+            .Include(ta => ta.SubjectAssignment)
+                .ThenInclude(sa => sa.GradeLevel)
+            .Select(ta => new
+            {
+                Group = ta.SubjectAssignment.Group,
+                GradeLevel = ta.SubjectAssignment.GradeLevel
+            })
+            .Where(x => x.Group != null)
+            .Distinct()
+            .Select(x => new
+            {
+                x.Group.Id,
+                GroupName = x.Group.Name,
+                GradeName = x.GradeLevel != null ? x.GradeLevel.Name : (x.Group.Grade ?? "Sin grado"),
+                DisplayName = (x.GradeLevel != null ? x.GradeLevel.Name : (x.Group.Grade ?? "Sin grado")) + " - " + x.Group.Name
+            })
+            .ToListAsync();
+
+        ViewBag.Groups = groups;
+        return View();
+    }
+
     // Vista para docente consultar pagos de su grupo
     [Authorize(Roles = "teacher,docente")]
     public async Task<IActionResult> ByGroup(Guid groupId)
@@ -656,7 +692,7 @@ public class PaymentController : Controller
                           ta.SubjectAssignment != null && 
                           ta.SubjectAssignment.GroupId == groupId);
 
-        if (!hasAccess && currentUser.Role?.ToLower() != "admin" && currentUser.Role?.ToLower() != "superadmin")
+        if (!hasAccess)
             return Forbid();
 
         var payments = await _paymentService.GetByGroupAsync(groupId);

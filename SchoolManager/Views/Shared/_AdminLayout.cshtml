@@ -206,12 +206,46 @@
                             </a>
                         </li>
                         }
-                        @if (userRole == "teacher") {
+                        @if (userRole == "teacher" || userRole == "docente") {
                         <li class="nav-item">
                             <a href="@Url.Action("Index", "TeacherGradebook")" class="nav-link">
                                 <i class="nav-icon fas fa-chalkboard-teacher"></i>
                                 <p>Portal Docente</p>
                             </a>
+                        </li>
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-user-graduate"></i>
+                                <p>
+                                    Prematrícula y Matrícula
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("SelectGroup", "Prematriculation")" class="nav-link">
+                                        <i class="fas fa-list-alt nav-icon"></i>
+                                        <p>Estudiantes por Grupo</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-money-bill-wave"></i>
+                                <p>
+                                    Pagos
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("SelectGroup", "Payment")" class="nav-link">
+                                        <i class="fas fa-list nav-icon"></i>
+                                        <p>Pagos por Grupo</p>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                         @if (currentUser?.Disciplina == true) {
                         <li class="nav-item">
@@ -300,6 +334,12 @@
                                     <a href="@Url.Action("Index", "Payment")" class="nav-link">
                                         <i class="fas fa-list nav-icon"></i>
                                         <p>Gestión de Pagos</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "PaymentConcept")" class="nav-link">
+                                        <i class="fas fa-money-check-alt nav-icon"></i>
+                                        <p>Conceptos de Pago</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">
@@ -423,12 +463,6 @@
                                     <a href="@Url.Action("Upload", "StudentAssignment")" class="nav-link">
                                         <i class="fas fa-file-upload nav-icon"></i>
                                         <p>Carga Asignaciones Estudiantes</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="@Url.Action("Index", "PaymentConcept")" class="nav-link">
-                                        <i class="fas fa-money-check-alt nav-icon"></i>
-                                        <p>Conceptos de Pago</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">

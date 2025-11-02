@@ -186,7 +186,9 @@ public class PaymentService : IPaymentService
         string initialStatus = "Pendiente";
         if (dto.PaymentMethod == "Tarjeta")
         {
-            // Tarjeta se confirma automáticamente
+            // ⚠️ MODO SIMULADO: Tarjeta se confirma automáticamente SIN procesamiento real
+            // En producción, aquí se integraría con una pasarela de pagos real (Stripe, PayPal, Yappy, etc.)
+            // y solo se confirmaría si la pasarela procesa exitosamente el pago
             initialStatus = "Confirmado";
         }
 

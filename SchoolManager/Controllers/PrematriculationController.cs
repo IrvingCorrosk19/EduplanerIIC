@@ -238,11 +238,72 @@ public class PrematriculationController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Vista para docentes: seleccionar grupo para ver prematrículas
+    [Authorize(Roles = "teacher,docente")]
+    public async Task<IActionResult> SelectGroup()
+    {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser == null)
+            return Unauthorized();
+
+        // Obtener grupos asignados al docente a través de sus asignaciones académicas
+        var groups = await _context.TeacherAssignments
+            .Where(ta => ta.TeacherId == currentUser.Id)
+            .Include(ta => ta.SubjectAssignment)
+                .ThenInclude(sa => sa.Group)
+            .Include(ta => ta.SubjectAssignment)
+                .ThenInclude(sa => sa.GradeLevel)
+            .Select(ta => new
+            {
+                Group = ta.SubjectAssignment.Group,
+                GradeLevel = ta.SubjectAssignment.GradeLevel
+            })
+            .Where(x => x.Group != null)
+            .Distinct()
+            .Select(x => new
+            {
+                x.Group.Id,
+                GroupName = x.Group.Name,
+                GradeName = x.GradeLevel != null ? x.GradeLevel.Name : (x.Group.Grade ?? "Sin grado"),
+                DisplayName = (x.GradeLevel != null ? x.GradeLevel.Name : (x.Group.Grade ?? "Sin grado")) + " - " + x.Group.Name
+            })
+            .ToListAsync();
+
+        ViewBag.Groups = groups;
+        return View();
+    }
+
     // Vista para docentes: ver estudiantes prematriculados/matriculados por grupo
-    [Authorize(Roles = "teacher,admin,superadmin")]
+    [Authorize(Roles = "teacher,docente,admin,superadmin")]
     public async Task<IActionResult> ByGroup(Guid groupId)
     {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser == null)
+            return Unauthorized();
+
+        var userRole = currentUser.Role?.ToLower() ?? "";
+        
+        // Si es docente, verificar que tenga acceso al grupo
+        if (userRole == "teacher" || userRole == "docente")
+        {
+            var hasAccess = await _context.TeacherAssignments
+                .Include(ta => ta.SubjectAssignment)
+                .AnyAsync(ta => ta.TeacherId == currentUser.Id && 
+                              ta.SubjectAssignment != null && 
+                              ta.SubjectAssignment.GroupId == groupId);
+
+            if (!hasAccess)
+                return Forbid();
+        }
+
+        var group = await _context.Groups
+            .FirstOrDefaultAsync(g => g.Id == groupId);
+
+        if (group == null)
+            return NotFound();
+
         var prematriculations = await _prematriculationService.GetByGroupAsync(groupId);
+        ViewBag.Group = group;
         return View(prematriculations);
     }
 
