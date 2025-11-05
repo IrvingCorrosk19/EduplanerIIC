@@ -21,6 +21,7 @@ namespace SchoolManager.Controllers
         private readonly ISubjectAssignmentService _subjectAssignmentService;
         private readonly IDateTimeHomologationService _dateTimeHomologationService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IShiftService _shiftService;
 
         public StudentAssignmentController(
             IUserService userService,
@@ -30,7 +31,8 @@ namespace SchoolManager.Controllers
             IStudentAssignmentService studentAssignmentService,
             ISubjectAssignmentService subjectAssignmentService,
             IDateTimeHomologationService dateTimeHomologationService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IShiftService shiftService)
         {
             _userService = userService;
             _subjectService = subjectService;
@@ -40,6 +42,7 @@ namespace SchoolManager.Controllers
             _subjectAssignmentService = subjectAssignmentService;
             _dateTimeHomologationService = dateTimeHomologationService;
             _currentUserService = currentUserService;
+            _shiftService = shiftService;
         }
 
         [HttpPost("/StudentAssignment/UpdateGroupAndGrade")]
@@ -80,12 +83,18 @@ namespace SchoolManager.Controllers
             var allGrades = await _gradeLevelService.GetAllAsync();
             var allGroups = await _groupService.GetAllAsync();
 
-            var result = combinations.Select(c => new
+            var result = combinations.Select(c => 
             {
-                GradeId = c.GradeLevelId,
-                GroupId = c.GroupId,
-                Display = $"{allGrades.FirstOrDefault(g => g.Id == c.GradeLevelId)?.Name ?? "-"} - {allGroups.FirstOrDefault(g => g.Id == c.GroupId)?.Name ?? "-"}"
-            }).OrderBy(x => x.Display).ToList();
+                var grade = allGrades.FirstOrDefault(g => g.Id == c.GradeLevelId);
+                var group = allGroups.FirstOrDefault(g => g.Id == c.GroupId);
+                var shift = !string.IsNullOrEmpty(group?.Shift) ? group.Shift : "Sin jornada";
+                return new
+                {
+                    gradeId = c.GradeLevelId,
+                    groupId = c.GroupId,
+                    display = $"{grade?.Name ?? "-"} - {group?.Name ?? "-"} ({shift})"
+                };
+            }).OrderBy(x => x.display).ToList();
 
             return Json(new { success = true, data = result });
         }
@@ -107,11 +116,12 @@ namespace SchoolManager.Controllers
             {
                 var grade = await _gradeLevelService.GetByIdAsync(a.GradeId);
                 var group = await _groupService.GetByIdAsync(a.GroupId);
+                var shift = !string.IsNullOrEmpty(group?.Shift) ? group.Shift : "Sin jornada";
 
                 results.Add(new
                 {
-                    Grado = grade?.Name ?? "(Sin grado)",
-                    Grupo = group?.Name ?? "(Sin grupo)"
+                    grado = grade?.Name ?? "(Sin grado)",
+                    grupo = $"{group?.Name ?? "(Sin grupo)"} ({shift})"
                 });
             }
 
@@ -152,6 +162,7 @@ namespace SchoolManager.Controllers
             var students = await _userService.GetAllStudentsAsync();
             var allGroups = await _groupService.GetAllAsync();
             var allGrades = await _gradeLevelService.GetAllAsync();
+            var allShifts = await _shiftService.GetAllAsync(); // Obtener jornadas del catálogo
 
             var viewModelList = new List<StudentAssignmentOverviewViewModel>();
 
@@ -163,8 +174,19 @@ namespace SchoolManager.Controllers
                     .Select(a =>
                     {
                         var gradeName = allGrades.FirstOrDefault(g => g.Id == a.GradeId)?.Name ?? "?";
-                        var groupName = allGroups.FirstOrDefault(g => g.Id == a.GroupId)?.Name ?? "?";
-                        return $"{gradeName} - {groupName}";
+                        var group = allGroups.FirstOrDefault(g => g.Id == a.GroupId);
+                        var groupName = group?.Name ?? "?";
+                        
+                        // Obtener jornada desde StudentAssignment.ShiftId (relación directa)
+                        var shift = allShifts.FirstOrDefault(s => s.Id == a.ShiftId);
+                        var shiftName = shift?.Name ?? 
+                                       // Si no hay jornada en StudentAssignment, intentar desde Group
+                                       (allShifts.FirstOrDefault(s => s.Id == group?.ShiftId)?.Name ?? 
+                                       // Si tampoco hay, usar el string legacy de Group
+                                       (!string.IsNullOrEmpty(group?.Shift) ? group.Shift : "Sin jornada"));
+                        
+                        // Formato: Grado - Grupo | Jornada: [Mañana/Tarde/Noche]
+                        return $"{gradeName} - {groupName} | Jornada: {shiftName}";
                     })
                     .Distinct()
                     .ToList();
@@ -375,15 +397,21 @@ namespace SchoolManager.Controllers
                     var grade = await _gradeLevelService.GetByNameAsync(item.Grado);
                     var group = await _groupService.GetByNameAndGradeAsync(item.Grupo);
                     
-                    // Si el grupo existe y se proporcionó jornada, actualizar la jornada del grupo
-                    if (group != null && !string.IsNullOrEmpty(item.Jornada))
+                    // Buscar o crear jornada si se proporcionó (similar a grado y grupo)
+                    Shift? shift = null;
+                    if (!string.IsNullOrEmpty(item.Jornada))
                     {
-                        if (string.IsNullOrEmpty(group.Shift))
+                        var jornadaNombre = item.Jornada.Trim();
+                        shift = await _shiftService.GetOrCreateAsync(jornadaNombre);
+                        
+                        // Si el grupo existe y no tiene jornada, asignarla al grupo
+                        if (group != null && (group.ShiftId == null || group.ShiftId != shift.Id))
                         {
-                            group.Shift = item.Jornada.Trim();
+                            group.ShiftId = shift.Id;
+                            group.Shift = shift.Name; // Mantener por compatibilidad
                             group.UpdatedAt = DateTime.UtcNow;
                             await _groupService.UpdateAsync(group);
-                            Console.WriteLine($"[SaveAssignments] Jornada {group.Shift} asignada al grupo {group.Name}");
+                            Console.WriteLine($"[SaveAssignments] Jornada '{shift.Name}' (ID: {shift.Id}) asignada al grupo {group.Name}");
                         }
                     }
 
@@ -393,7 +421,7 @@ namespace SchoolManager.Controllers
                         continue;
                     }
 
-                    Console.WriteLine($"[SaveAssignments] Verificando si existe asignación: StudentId={student.Id}, GradeId={grade.Id}, GroupId={group.Id}");
+                    Console.WriteLine($"[SaveAssignments] Verificando si existe asignación: StudentId={student.Id}, GradeId={grade.Id}, GroupId={group.Id}, ShiftId={shift?.Id}");
                     
                     bool exists = await _studentAssignmentService.ExistsAsync(student.Id, grade.Id, group.Id);
                     if (exists)
@@ -409,6 +437,7 @@ namespace SchoolManager.Controllers
                         StudentId = student.Id,
                         GradeId = grade.Id,
                         GroupId = group.Id,
+                        ShiftId = shift?.Id, // Asignar jornada directamente a la asignación (similar a grado y grupo)
                         CreatedAt = DateTime.UtcNow
                     };
 

@@ -25,7 +25,9 @@ public partial class Group
     
     public int? MaxCapacity { get; set; }
     
-    public string? Shift { get; set; } // Jornada: Mañana, Tarde, Noche
+    public string? Shift { get; set; } // Jornada: Mañana, Tarde, Noche (mantener por compatibilidad)
+    
+    public Guid? ShiftId { get; set; } // Referencia a la tabla de jornadas
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
     
@@ -38,6 +40,8 @@ public partial class Group
     public virtual ICollection<OrientationReport> OrientationReports { get; set; } = new List<OrientationReport>();
 
     public virtual School? School { get; set; }
+
+    public virtual Shift? ShiftNavigation { get; set; }
 
     public virtual ICollection<StudentAssignment> StudentAssignments { get; set; } = new List<StudentAssignment>();
 

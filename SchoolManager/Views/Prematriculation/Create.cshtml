@@ -149,13 +149,51 @@
                 }
             });
 
-            // Validar condición académica cuando se selecciona un estudiante
+            // Validar condición académica y actualizar grados disponibles cuando se selecciona un estudiante
             $('#StudentId').on('change', function() {
                 var studentId = $(this).val();
                 if (studentId) {
                     $('#academicValidation').show().html('<i class="fas fa-spinner fa-spin mr-2"></i>Validando condición académica...');
                     // La validación se hará en el servidor al enviar el formulario
                     $('#academicValidation').hide();
+                    
+                    // Actualizar grados disponibles según el estudiante seleccionado
+                    $.get('@Url.Action("GetAvailableGrades")', { studentId: studentId }, function(grades) {
+                        var $gradeSelect = $('#gradeSelect');
+                        var currentValue = $gradeSelect.val(); // Guardar valor actual
+                        $gradeSelect.empty();
+                        $gradeSelect.append('<option value="">Seleccione un grado</option>');
+                        
+                        grades.forEach(function(grade) {
+                            var $option = $('<option></option>')
+                                .attr('value', grade.id)
+                                .text(grade.name);
+                            $gradeSelect.append($option);
+                        });
+                        
+                        // Restaurar valor si todavía es válido
+                        if (currentValue) {
+                            var optionExists = grades.some(g => g.id === currentValue);
+                            if (optionExists) {
+                                $gradeSelect.val(currentValue);
+                            }
+                        }
+                    });
+                } else {
+                    // Si no hay estudiante seleccionado, cargar todos los grados
+                    var allGrades = @Html.Raw(Json.Serialize(ViewBag.AllGrades ?? ViewBag.Grades));
+                    var $gradeSelect = $('#gradeSelect');
+                    $gradeSelect.empty();
+                    $gradeSelect.append('<option value="">Seleccione un grado</option>');
+                    
+                    if (allGrades) {
+                        allGrades.forEach(function(grade) {
+                            var $option = $('<option></option>')
+                                .attr('value', grade.id)
+                                .text(grade.name);
+                            $gradeSelect.append($option);
+                        });
+                    }
                 }
             });
         });

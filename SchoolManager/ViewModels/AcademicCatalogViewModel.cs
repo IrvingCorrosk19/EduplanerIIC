@@ -12,5 +12,6 @@ namespace SchoolManager.ViewModels
         public IEnumerable<Specialty> Specialties { get; set; } = new List<Specialty>();
         public IEnumerable<Area> Areas { get; set; } = new List<Area>();
         public List<TrimesterDto> Trimestres { get; set; } = new List<TrimesterDto>();
+        public IEnumerable<Shift> Shifts { get; set; } = new List<Shift>();
     }
 }

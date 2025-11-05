@@ -17,6 +17,7 @@ namespace SchoolManager.Controllers
         private readonly ISubjectService _subjectService;
         private readonly IGradeLevelService _gradeLevelService;
         private readonly IGroupService _groupService;
+        private readonly IShiftService _shiftService;
         private readonly ICurrentUserService _currentUserService;
         private readonly ITrimesterService _trimesterService;
 
@@ -26,6 +27,7 @@ namespace SchoolManager.Controllers
             ISubjectService subjectService,
             IGradeLevelService gradeLevelService,
             IGroupService groupService,
+            IShiftService shiftService,
             ICurrentUserService currentUserService,
             ITrimesterService trimesterService)
         {
@@ -34,6 +36,7 @@ namespace SchoolManager.Controllers
             _subjectService = subjectService;
             _gradeLevelService = gradeLevelService;
             _groupService = groupService;
+            _shiftService = shiftService;
             _currentUserService = currentUserService;
             _trimesterService = trimesterService;
         }
@@ -47,6 +50,9 @@ namespace SchoolManager.Controllers
             var groups = await _groupService.GetAllAsync();
             var trimestres = await _trimesterService.GetAllAsync();
 
+            // Obtener jornadas de la tabla
+            var shifts = await _shiftService.GetAllAsync();
+
             var viewModel = new AcademicCatalogViewModel
             {
                 Specialties = specialties,
@@ -54,7 +60,8 @@ namespace SchoolManager.Controllers
                 Subjects = subjects,
                 GradesLevel = grades,
                 Groups = groups,
-                Trimestres = trimestres
+                Trimestres = trimestres,
+                Shifts = shifts
             };
 
             return View(viewModel);
@@ -313,6 +320,188 @@ namespace SchoolManager.Controllers
                 return BadRequest(new { success = false, message = ex.Message });
             }
         }
+
+        // ============================================
+        // Gestión de Jornadas
+        // ============================================
+
+        [HttpPost]
+        public async Task<IActionResult> CreateShift([FromBody] CreateShiftRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return BadRequest(new { success = false, message = "El nombre de la jornada es obligatorio." });
+                }
+
+                var shiftName = request.Name.Trim();
+                
+                // Validar que no exista ya
+                var existingShift = await _shiftService.GetByNameAsync(shiftName);
+                if (existingShift != null)
+                {
+                    return BadRequest(new { success = false, message = "La jornada ya existe en el sistema." });
+                }
+
+                var shift = new Shift
+                {
+                    Name = shiftName,
+                    Description = request.Description?.Trim(),
+                    IsActive = true,
+                    DisplayOrder = request.DisplayOrder ?? 0
+                };
+
+                var createdShift = await _shiftService.CreateAsync(shift);
+                return Ok(new { 
+                    success = true, 
+                    id = createdShift.Id,
+                    name = createdShift.Name,
+                    message = $"Jornada '{shiftName}' creada correctamente." 
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateShift([FromBody] UpdateShiftRequest request)
+        {
+            try
+            {
+                if (request == null || request.Id == Guid.Empty || string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return BadRequest(new { success = false, message = "Datos inválidos." });
+                }
+
+                var shift = await _shiftService.GetByIdAsync(request.Id);
+                if (shift == null)
+                {
+                    return NotFound(new { success = false, message = "Jornada no encontrada." });
+                }
+
+                // Validar que el nuevo nombre no exista en otra jornada
+                var existingShift = await _shiftService.GetByNameAsync(request.Name.Trim());
+                if (existingShift != null && existingShift.Id != request.Id)
+                {
+                    return BadRequest(new { success = false, message = "Ya existe otra jornada con ese nombre." });
+                }
+
+                shift.Name = request.Name.Trim();
+                shift.Description = request.Description?.Trim();
+                shift.DisplayOrder = request.DisplayOrder ?? shift.DisplayOrder;
+                shift.IsActive = request.IsActive ?? shift.IsActive;
+
+                await _shiftService.UpdateAsync(shift);
+
+                // Actualizar grupos que tienen esta jornada asignada
+                var groups = await _groupService.GetAllAsync();
+                var groupsToUpdate = groups.Where(g => g.ShiftId == request.Id).ToList();
+
+                foreach (var group in groupsToUpdate)
+                {
+                    // Actualizar también el campo Shift por compatibilidad
+                    group.Shift = shift.Name;
+                    await _groupService.UpdateAsync(group);
+                }
+
+                return Ok(new { 
+                    success = true, 
+                    message = $"Jornada actualizada correctamente. {groupsToUpdate.Count} grupo(s) actualizado(s)." 
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteShift([FromBody] DeleteShiftRequest request)
+        {
+            try
+            {
+                if (request == null || request.Id == Guid.Empty)
+                {
+                    return BadRequest(new { success = false, message = "Jornada inválida." });
+                }
+
+                var shift = await _shiftService.GetByIdAsync(request.Id);
+                if (shift == null)
+                {
+                    return NotFound(new { success = false, message = "Jornada no encontrada." });
+                }
+
+                // Eliminar jornada de todos los grupos que la tienen
+                var groups = await _groupService.GetAllAsync();
+                var groupsToUpdate = groups.Where(g => g.ShiftId == request.Id).ToList();
+
+                foreach (var group in groupsToUpdate)
+                {
+                    group.ShiftId = null;
+                    group.Shift = null; // Por compatibilidad
+                    await _groupService.UpdateAsync(group);
+                }
+
+                // Marcar jornada como inactiva (no se elimina físicamente)
+                await _shiftService.DeleteAsync(request.Id);
+
+                return Ok(new { 
+                    success = true, 
+                    message = $"Jornada eliminada correctamente. {groupsToUpdate.Count} grupo(s) actualizado(s)." 
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetShiftGroupsCount()
+        {
+            try
+            {
+                var groups = await _groupService.GetAllAsync();
+                var shifts = await _shiftService.GetAllAsync();
+                
+                var shiftCounts = shifts.Select(shift => new
+                {
+                    shiftId = shift.Id,
+                    shift = shift.Name,
+                    count = groups.Count(g => g.ShiftId == shift.Id)
+                }).ToList();
+
+                return Json(new { success = true, data = shiftCounts });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+    }
+
+    public class CreateShiftRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int? DisplayOrder { get; set; }
+    }
+
+    public class UpdateShiftRequest
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int? DisplayOrder { get; set; }
+        public bool? IsActive { get; set; }
+    }
+
+    public class DeleteShiftRequest
+    {
+        public Guid Id { get; set; }
     }
 
     public class TrimestreIdRequest

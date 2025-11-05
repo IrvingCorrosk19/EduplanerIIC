@@ -309,12 +309,28 @@ public class PaymentController : Controller
     [HttpGet]
     public async Task<IActionResult> Search()
     {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser?.SchoolId == null)
+            return Unauthorized();
+
+        // Obtener conceptos de pago activos para el dropdown
+        var paymentConcepts = await _paymentConceptService.GetActiveAsync(currentUser.SchoolId.Value);
+        ViewBag.PaymentConcepts = paymentConcepts;
+
         return View();
     }
 
     [HttpPost]
     public async Task<IActionResult> Search(string searchTerm)
     {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser?.SchoolId == null)
+            return Unauthorized();
+
+        // Cargar conceptos de pago activos una sola vez
+        var paymentConcepts = await _paymentConceptService.GetActiveAsync(currentUser.SchoolId.Value);
+        ViewBag.PaymentConcepts = paymentConcepts;
+
         if (string.IsNullOrWhiteSpace(searchTerm))
         {
             ModelState.AddModelError("", "Por favor ingrese un código de prematrícula o nombre de estudiante");

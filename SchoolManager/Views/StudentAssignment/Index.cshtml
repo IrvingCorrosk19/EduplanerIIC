@@ -188,7 +188,7 @@
                             <th>Identificación</th>
                             <th>Correo</th>
                             <th>Estado</th>
-                            <th>Grado/Grupo</th>
+                            <th>Grado/Grupo/Jornada</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -213,12 +213,41 @@
                                     {
                                         foreach (var pair in est.GradeGroupPairs)
                                         {
-                                            <div><strong>@pair</strong></div>
+                                            <div class="mb-2 p-2 bg-light rounded">
+                                                @{
+                                                    // Extraer información del formato: "Grado - Grupo | Jornada: Mañana"
+                                                    var parts = pair.Split('|');
+                                                    var gradoGrupo = parts.Length > 0 ? parts[0].Trim() : pair;
+                                                    var jornada = parts.Length > 1 ? parts[1].Replace("Jornada:", "").Trim() : "";
+                                                    
+                                                    // Determinar color del badge según jornada
+                                                    string badgeClass = "bg-secondary";
+                                                    string jornadaTexto = "Sin jornada";
+                                                    if (!string.IsNullOrEmpty(jornada))
+                                                    {
+                                                        jornadaTexto = jornada;
+                                                        jornada = jornada.ToLower();
+                                                        if (jornada.Contains("mañana")) badgeClass = "bg-info text-white";
+                                                        else if (jornada.Contains("tarde")) badgeClass = "bg-warning text-dark";
+                                                        else if (jornada.Contains("noche")) badgeClass = "bg-dark text-white";
+                                                        else if (jornada.Contains("sin")) badgeClass = "bg-secondary text-white";
+                                                    }
+                                                }
+                                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <i class="bi bi-mortarboard-fill text-primary"></i>
+                                                        <span class="fw-bold text-primary">@gradoGrupo</span>
+                                                    </div>
+                                                    <span class="badge @badgeClass px-3 py-2 fw-bold">
+                                                        <i class="bi bi-clock-fill me-1"></i>@jornadaTexto
+                                                    </span>
+                                                </div>
+                                            </div>
                                         }
                                     }
                                     else
                                     {
-                                        <em>Sin asignaciones</em>
+                                        <em class="text-muted">Sin asignaciones</em>
                                     }
                                 </td>
                                 <td>
@@ -344,11 +373,36 @@
             $.get(`/StudentAssignment/GetGradeGroupByStudent/${currentStudentId}`)
                 .done(function (res) {
                     if (res.success && res.data) {
-                        const actual = res.data.map(x => `
-                            <div class="badge bg-primary bg-opacity-10 text-primary p-2 m-1">
-                                ${x.grado} - ${x.grupo}
-                            </div>
-                        `).join('');
+                        const actual = res.data.map(x => {
+                            // Extraer jornada del formato: "Grupo (Jornada)"
+                            var jornada = "";
+                            var grupo = x.grupo;
+                            if (x.grupo.includes("(") && x.grupo.includes(")")) {
+                                var match = x.grupo.match(/\(([^)]+)\)/);
+                                if (match && match[1]) {
+                                    jornada = match[1];
+                                    grupo = x.grupo.replace(/\([^)]+\)/, "").trim();
+                                }
+                            }
+                            
+                            // Determinar color del badge según jornada
+                            var badgeClass = "bg-secondary text-white";
+                            if (jornada.toLowerCase().includes("mañana")) badgeClass = "bg-info text-white";
+                            else if (jornada.toLowerCase().includes("tarde")) badgeClass = "bg-warning text-dark";
+                            else if (jornada.toLowerCase().includes("noche")) badgeClass = "bg-dark text-white";
+                            
+                            return `
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-2 p-2 bg-light rounded">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-mortarboard-fill text-primary"></i>
+                                        <span class="fw-bold text-primary">${x.grado} - ${grupo}</span>
+                                    </div>
+                                    <span class="badge ${badgeClass} px-3 py-2 fw-bold">
+                                        <i class="bi bi-clock-fill me-1"></i>${jornada || "Sin jornada"}
+                                    </span>
+                                </div>
+                            `;
+                        }).join('');
                         infoContainer.html(actual);
                     } else {
                         infoContainer.html(`<em class="text-muted">Sin asignaciones</em>`);

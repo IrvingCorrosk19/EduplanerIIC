@@ -34,13 +34,17 @@
                             </td>
                             <td class="align-middle text-center">
                                 <span class="group-shift-text">
-                                    @if (!string.IsNullOrEmpty(group.Shift))
+                                    @{
+                                        // Usar ShiftNavigation (relación con catálogo) en lugar de Shift (string legacy)
+                                        var shiftName = group.ShiftNavigation?.Name ?? group.Shift ?? "";
+                                    }
+                                    @if (!string.IsNullOrEmpty(shiftName))
                                     {
                                         <span class="badge 
-                                            @(group.Shift.ToLower() == "mañana" || group.Shift.ToLower() == "manana" ? "bg-info" : 
-                                              group.Shift.ToLower() == "tarde" ? "bg-warning" : 
-                                              group.Shift.ToLower() == "noche" ? "bg-dark" : "bg-secondary")">
-                                            @group.Shift
+                                            @(shiftName.ToLower() == "mañana" || shiftName.ToLower() == "manana" ? "bg-info" : 
+                                              shiftName.ToLower() == "tarde" ? "bg-warning" : 
+                                              shiftName.ToLower() == "noche" ? "bg-dark" : "bg-secondary")">
+                                            @shiftName
                                         </span>
                                     }
                                     else
@@ -48,32 +52,9 @@
                                         <span class="badge bg-secondary">Sin definir</span>
                                     }
                                 </span>
-                                <select class="form-control d-none group-shift-input">
+                                <select class="form-control d-none group-shift-input" data-shift-id="@(group.ShiftId?.ToString() ?? "")">
                                     <option value="">Seleccione una jornada</option>
-                                    @if (group.Shift == "Mañana")
-                                    {
-                                        <option value="Mañana" selected>Mañana</option>
-                                    }
-                                    else
-                                    {
-                                        <option value="Mañana">Mañana</option>
-                                    }
-                                    @if (group.Shift == "Tarde")
-                                    {
-                                        <option value="Tarde" selected>Tarde</option>
-                                    }
-                                    else
-                                    {
-                                        <option value="Tarde">Tarde</option>
-                                    }
-                                    @if (group.Shift == "Noche")
-                                    {
-                                        <option value="Noche" selected>Noche</option>
-                                    }
-                                    else
-                                    {
-                                        <option value="Noche">Noche</option>
-                                    }
+                                    @* Las opciones se cargarán dinámicamente desde el catálogo de jornadas vía JavaScript *@
                                 </select>
                             </td>
                             <td class="align-middle text-center">

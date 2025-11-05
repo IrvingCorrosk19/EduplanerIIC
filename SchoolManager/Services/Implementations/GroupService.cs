@@ -44,7 +44,9 @@ public class GroupService : IGroupService
 
     public async Task<List<Group>> GetAllAsync()
     {
-        return await _context.Groups.ToListAsync();
+        return await _context.Groups
+            .Include(g => g.ShiftNavigation) // Incluir la relación con Shift
+            .ToListAsync();
     }
 
 

@@ -70,6 +70,7 @@ builder.Services.AddScoped<IAcademicAssignmentService, AcademicAssignmentService
 builder.Services.AddScoped<IStudentAssignmentService, StudentAssignmentService>();
 builder.Services.AddScoped<IAreaService, AreaService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
+builder.Services.AddScoped<IShiftService, ShiftService>();
 builder.Services.AddScoped<ISubjectAssignmentService, SubjectAssignmentService>();
 builder.Services.AddScoped<IDirectorService, DirectorService>();
 builder.Services.AddScoped<ISuperAdminService, SuperAdminService>();

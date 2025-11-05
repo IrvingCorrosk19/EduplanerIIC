@@ -1,13 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Models;
+using SchoolManager.Services.Interfaces;
 
 public class GroupController : Controller
 {
     private readonly IGroupService _groupService;
+    private readonly IShiftService _shiftService;
 
-    public GroupController(IGroupService groupService)
+    public GroupController(IGroupService groupService, IShiftService shiftService)
     {
         _groupService = groupService;
+        _shiftService = shiftService;
     }
 
     // Vista tradicional
@@ -68,7 +71,20 @@ public class GroupController : Controller
 
             existing.Name = group.Name;
             existing.Description = group.Description;
-            existing.Shift = group.Shift; // Actualizar jornada
+            
+            // Actualizar jornada usando ShiftId (relación con catálogo)
+            if (!string.IsNullOrEmpty(group.Shift))
+            {
+                var shift = await _shiftService.GetOrCreateAsync(group.Shift);
+                existing.ShiftId = shift.Id;
+                existing.Shift = shift.Name; // Mantener por compatibilidad
+            }
+            else
+            {
+                existing.ShiftId = null;
+                existing.Shift = null;
+            }
+            
             await _groupService.UpdateAsync(existing);
 
             return Json(new { success = true });

@@ -13,11 +13,15 @@ public partial class StudentAssignment
 
     public Guid GroupId { get; set; }
 
+    public Guid? ShiftId { get; set; } // Referencia a la tabla de jornadas
+
     public DateTime? CreatedAt { get; set; }
 
     public virtual GradeLevel Grade { get; set; } = null!;
 
     public virtual Group Group { get; set; } = null!;
+
+    public virtual Shift? Shift { get; set; } // Navegación a la jornada
 
     public virtual User Student { get; set; } = null!;
 }

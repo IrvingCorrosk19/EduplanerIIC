@@ -118,8 +118,73 @@ public class PrematriculationController : Controller
         }
         
         // Obtener grados disponibles
-        var grades = await _gradeLevelService.GetAllAsync();
-        ViewBag.Grades = grades;
+        var allGrades = await _gradeLevelService.GetAllAsync();
+        
+        // Si hay un estudiante seleccionado (o es estudiante), filtrar grados disponibles
+        List<GradeLevel> availableGrades = new List<GradeLevel>();
+        
+        // Función helper para extraer número del grado (ej: "5°" -> 5)
+        int? ExtractGradeNumber(string gradeName)
+        {
+            if (string.IsNullOrEmpty(gradeName))
+                return null;
+            
+            // Extraer número del nombre del grado (ej: "5°", "10°", "11°")
+            var match = System.Text.RegularExpressions.Regex.Match(gradeName, @"(\d+)");
+            if (match.Success && int.TryParse(match.Value, out int gradeNum))
+                return gradeNum;
+            
+            return null;
+        }
+        
+        // Si es estudiante, obtener su grado actual
+        if (userRole == "student" || userRole == "estudiante")
+        {
+            var currentStudentId = currentUser.Id;
+            var currentGrade = await _context.StudentAssignments
+                .Where(sa => sa.StudentId == currentStudentId)
+                .OrderByDescending(sa => sa.CreatedAt)
+                .Include(sa => sa.Grade)
+                .Select(sa => sa.Grade)
+                .FirstOrDefaultAsync();
+            
+            if (currentGrade != null)
+            {
+                var currentGradeNum = ExtractGradeNumber(currentGrade.Name);
+                if (currentGradeNum.HasValue)
+                {
+                    // Permitir solo el siguiente nivel (o el mismo si reprueba)
+                    // Por ejemplo: si está en 5°, solo puede elegir 6° o 5° (repetir)
+                    var allowedGrades = allGrades.Where(g => 
+                    {
+                        var gradeNum = ExtractGradeNumber(g.Name);
+                        return gradeNum.HasValue && 
+                               (gradeNum.Value == currentGradeNum.Value || // Repetir
+                                gradeNum.Value == currentGradeNum.Value + 1); // Siguiente
+                    }).ToList();
+                    
+                    availableGrades = allowedGrades;
+                }
+                else
+                {
+                    // Si no se puede extraer el número, mostrar todos los grados
+                    availableGrades = allGrades.ToList();
+                }
+            }
+            else
+            {
+                // Si no tiene grado actual, mostrar todos los grados (estudiante nuevo)
+                availableGrades = allGrades.ToList();
+            }
+        }
+        else
+        {
+            // Para acudientes, mostrar todos los grados (se validará cuando seleccionen estudiante)
+            availableGrades = allGrades.ToList();
+        }
+        
+        ViewBag.Grades = availableGrades;
+        ViewBag.AllGrades = allGrades; // Para comparación en el servidor
 
         return View();
     }
@@ -157,6 +222,61 @@ public class PrematriculationController : Controller
                 return View(dto);
             }
 
+            // Validar que el grado seleccionado sea válido para el estudiante
+            if (dto.GradeId.HasValue)
+            {
+                var studentCurrentGrade = await _context.StudentAssignments
+                    .Where(sa => sa.StudentId == dto.StudentId)
+                    .OrderByDescending(sa => sa.CreatedAt)
+                    .Include(sa => sa.Grade)
+                    .Select(sa => sa.Grade)
+                    .FirstOrDefaultAsync();
+
+                if (studentCurrentGrade != null)
+                {
+                    var selectedGrade = await _gradeLevelService.GetByIdAsync(dto.GradeId.Value);
+                    if (selectedGrade != null)
+                    {
+                        // Función helper para extraer número del grado
+                        int? ExtractGradeNumber(string gradeName)
+                        {
+                            if (string.IsNullOrEmpty(gradeName))
+                                return null;
+                            var match = System.Text.RegularExpressions.Regex.Match(gradeName, @"(\d+)");
+                            if (match.Success && int.TryParse(match.Value, out int gradeNum))
+                                return gradeNum;
+                            return null;
+                        }
+
+                        var currentGradeNum = ExtractGradeNumber(studentCurrentGrade.Name);
+                        var selectedGradeNum = ExtractGradeNumber(selectedGrade.Name);
+
+                        if (currentGradeNum.HasValue && selectedGradeNum.HasValue)
+                        {
+                            // Solo puede elegir el siguiente nivel o el mismo (repetir)
+                            if (selectedGradeNum.Value < currentGradeNum.Value)
+                            {
+                                ModelState.AddModelError("GradeId", 
+                                    $"El estudiante no puede retroceder de nivel. Actualmente está en {studentCurrentGrade.Name} y solo puede prematricularse para el siguiente nivel o repetir el mismo.");
+                                // Recargar datos necesarios para la vista
+                                var allGrades = await _gradeLevelService.GetAllAsync();
+                                ViewBag.Grades = allGrades;
+                                return View(dto);
+                            }
+                            else if (selectedGradeNum.Value > currentGradeNum.Value + 1)
+                            {
+                                ModelState.AddModelError("GradeId", 
+                                    $"El estudiante no puede saltar niveles. Actualmente está en {studentCurrentGrade.Name} y solo puede prematricularse para el siguiente nivel o repetir el mismo.");
+                                // Recargar datos necesarios para la vista
+                                var allGrades = await _gradeLevelService.GetAllAsync();
+                                ViewBag.Grades = allGrades;
+                                return View(dto);
+                            }
+                        }
+                    }
+                }
+            }
+
             // Si el usuario es estudiante y se prematricula a sí mismo, ParentId será null
             // Si es acudiente prematriculando a su hijo, usar currentUser.Id como parentId
             var userRole = currentUser.Role?.ToLower() ?? "";
@@ -185,6 +305,75 @@ public class PrematriculationController : Controller
             ModelState.AddModelError("", "Error al crear la prematrícula: " + ex.Message);
             return View(dto);
         }
+    }
+
+    // Obtener grados disponibles para un estudiante (AJAX)
+    [HttpGet]
+    [Authorize(Roles = "acudiente,parent,student,estudiante,admin,superadmin")]
+    public async Task<IActionResult> GetAvailableGrades(Guid? studentId)
+    {
+        if (!studentId.HasValue)
+            return Json(new List<object>());
+
+        var allGrades = await _gradeLevelService.GetAllAsync();
+        var availableGrades = new List<object>();
+
+        // Función helper para extraer número del grado
+        int? ExtractGradeNumber(string gradeName)
+        {
+            if (string.IsNullOrEmpty(gradeName))
+                return null;
+            var match = System.Text.RegularExpressions.Regex.Match(gradeName, @"(\d+)");
+            if (match.Success && int.TryParse(match.Value, out int gradeNum))
+                return gradeNum;
+            return null;
+        }
+
+        // Obtener grado actual del estudiante
+        var currentGrade = await _context.StudentAssignments
+            .Where(sa => sa.StudentId == studentId.Value)
+            .OrderByDescending(sa => sa.CreatedAt)
+            .Include(sa => sa.Grade)
+            .Select(sa => sa.Grade)
+            .FirstOrDefaultAsync();
+
+        if (currentGrade != null)
+        {
+            var currentGradeNum = ExtractGradeNumber(currentGrade.Name);
+            if (currentGradeNum.HasValue)
+            {
+                // Permitir solo el siguiente nivel (o el mismo si reprueba)
+                availableGrades = allGrades
+                    .Where(g =>
+                    {
+                        var gradeNum = ExtractGradeNumber(g.Name);
+                        return gradeNum.HasValue &&
+                               (gradeNum.Value == currentGradeNum.Value || // Repetir
+                                gradeNum.Value == currentGradeNum.Value + 1); // Siguiente
+                    })
+                    .Select(g => new { id = g.Id, name = g.Name })
+                    .Cast<object>()
+                    .ToList();
+            }
+            else
+            {
+                // Si no se puede extraer el número, mostrar todos los grados
+                availableGrades = allGrades
+                    .Select(g => new { id = g.Id, name = g.Name })
+                    .Cast<object>()
+                    .ToList();
+            }
+        }
+        else
+        {
+            // Si no tiene grado actual, mostrar todos los grados (estudiante nuevo)
+            availableGrades = allGrades
+                .Select(g => new { id = g.Id, name = g.Name })
+                .Cast<object>()
+                .ToList();
+        }
+
+        return Json(availableGrades);
     }
 
     // Obtener grupos disponibles para un grado (AJAX)

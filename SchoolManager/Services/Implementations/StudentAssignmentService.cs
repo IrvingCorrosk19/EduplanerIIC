@@ -70,6 +70,16 @@ namespace SchoolManager.Services.Implementations
         {
             return await _context.StudentAssignments
                 .Where(sa => sa.StudentId == studentId)
+                .Select(sa => new StudentAssignment
+                {
+                    Id = sa.Id,
+                    StudentId = sa.StudentId,
+                    GradeId = sa.GradeId,
+                    GroupId = sa.GroupId,
+                    ShiftId = sa.ShiftId,
+                    CreatedAt = sa.CreatedAt
+                })
+                .AsNoTracking()
                 .ToListAsync();
         }
 

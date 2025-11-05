@@ -111,8 +111,20 @@
 
                     // Validación de encabezados exactos
                     const headersEsperados = ["ESTUDIANTE (EMAIL)", "NOMBRE", "APELLIDO", "DOCUMENTO ID", "FECHA NACIMIENTO", "GRADO", "GRUPO", "JORNADA", "INCLUSIÓN"];
-                    const headersObtenidos = json[0]?.map(h => h?.toString().trim().toUpperCase());
-                    const headersValidados = headersEsperados.every((expected, i) =>
+                    // Normalizar los encabezados obtenidos: quitar espacios, convertir a mayúsculas y normalizar caracteres especiales
+                    const headersObtenidos = json[0]?.map(h => {
+                        let header = h?.toString().trim().toUpperCase() || "";
+                        // Normalizar caracteres especiales: Ó -> O (para comparación más flexible)
+                        header = header.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                        return header;
+                    });
+                    // Normalizar también los encabezados esperados para comparación
+                    const headersEsperadosNormalizados = headersEsperados.map(h => {
+                        let header = h.toUpperCase();
+                        header = header.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                        return header;
+                    });
+                    const headersValidados = headersEsperadosNormalizados.every((expected, i) =>
                         headersObtenidos[i] === expected
                     );
 

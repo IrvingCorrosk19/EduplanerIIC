@@ -192,6 +192,7 @@
     <ul class="nav nav-tabs" id="catalogTabs" role="tablist">
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#grades"><i class="bi bi-mortarboard"></i> Grados</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#groups"><i class="bi bi-people"></i> Grupos</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#shifts"><i class="bi bi-clock"></i> Jornadas</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#subjects"><i class="bi bi-book"></i> Materias</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#areas"><i class="bi bi-diagram-3"></i> Áreas</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#specialties"><i class="bi bi-award"></i> Especialidades</a></li>
@@ -204,6 +205,9 @@
         </div>
         <div class="tab-pane fade" id="groups">
             @await Html.PartialAsync("~/Views/Shared/Partials/_GroupsPartial.cshtml", Model.Groups ?? new List<Group>())
+        </div>
+        <div class="tab-pane fade" id="shifts">
+            @await Html.PartialAsync("~/Views/Shared/Partials/_ShiftsPartial.cshtml", Model.Shifts ?? new List<Shift>())
         </div>
         <div class="tab-pane fade" id="subjects">
             @await Html.PartialAsync("~/Views/Shared/Partials/_SubjectsPartial.cshtml", Model.Subjects ?? new List<Subject>())
@@ -814,6 +818,7 @@
 
     @await Html.PartialAsync("~/Views/Shared/Partials/_GradesScripts.cshtml")
     @await Html.PartialAsync("~/Views/Shared/Partials/_GroupsScripts.cshtml")
+    @await Html.PartialAsync("~/Views/Shared/Partials/_ShiftsScripts.cshtml")
     @await Html.PartialAsync("~/Views/Shared/Partials/_SubjectsScripts.cshtml")
     @await Html.PartialAsync("~/Views/Shared/Partials/_AreasScripts.cshtml")
     @await Html.PartialAsync("~/Views/Shared/Partials/_SpecialtiesScripts.cshtml")
