@@ -305,6 +305,111 @@ public class PaymentController : Controller
         }
     }
 
+    // Vista dedicada para pago inmediato con tarjeta tras la prematrícula
+    [Authorize(Roles = "acudiente,parent,student,estudiante")]
+    public async Task<IActionResult> PayWithCard(Guid prematriculationId)
+    {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser?.SchoolId == null)
+            return Unauthorized();
+
+        if (prematriculationId == Guid.Empty)
+            return RedirectToAction(nameof(MyPayments));
+
+        var prematriculation = await _prematriculationService.GetByIdAsync(prematriculationId);
+        if (prematriculation == null)
+        {
+            TempData["ErrorMessage"] = "Prematrícula no encontrada.";
+            return RedirectToAction(nameof(MyPayments));
+        }
+
+        var userRole = currentUser.Role?.ToLower() ?? "";
+        var isAuthorized = (userRole == "student" || userRole == "estudiante")
+            ? prematriculation.StudentId == currentUser.Id
+            : prematriculation.ParentId == currentUser.Id;
+
+        if (!isAuthorized)
+            return Forbid();
+
+        if (prematriculation.Status == "Matriculado")
+        {
+            TempData["InfoMessage"] = "Esta prematrícula ya está matriculada. No requiere pago adicional.";
+            return RedirectToAction(nameof(MyPayments));
+        }
+
+        var paymentConcepts = await _paymentConceptService.GetActiveAsync(currentUser.SchoolId.Value);
+        ViewBag.SelectedPrematriculation = prematriculation;
+        ViewBag.PaymentConcepts = paymentConcepts;
+
+        // Mostrar pagos previos por transparencia
+        var existingPayments = await _paymentService.GetByPrematriculationAsync(prematriculationId);
+        ViewBag.ExistingPayments = existingPayments;
+
+        TempData["InfoMessage"] ??= "Prematrícula creada exitosamente. Complete el pago con tarjeta para confirmar la matrícula.";
+
+        return View(new PaymentCreateDto
+        {
+            PrematriculationId = prematriculationId,
+            PaymentDate = DateTime.UtcNow
+        });
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "acudiente,parent,student,estudiante")]
+    public async Task<IActionResult> PayWithCard(PaymentCreateDto dto)
+    {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser == null)
+            return Unauthorized();
+
+        if (!dto.PrematriculationId.HasValue || dto.PrematriculationId == Guid.Empty)
+        {
+            TempData["ErrorMessage"] = "Debe especificar una prematrícula para procesar el pago.";
+            return RedirectToAction(nameof(MyPayments));
+        }
+
+        var prematriculation = await _prematriculationService.GetByIdAsync(dto.PrematriculationId.Value);
+        if (prematriculation == null)
+        {
+            TempData["ErrorMessage"] = "Prematrícula no encontrada.";
+            return RedirectToAction(nameof(MyPayments));
+        }
+
+        var userRole = currentUser.Role?.ToLower() ?? "";
+        var isAuthorized = (userRole == "student" || userRole == "estudiante")
+            ? prematriculation.StudentId == currentUser.Id
+            : prematriculation.ParentId == currentUser.Id;
+
+        if (!isAuthorized)
+            return Forbid();
+
+        if (dto.Amount <= 0)
+        {
+            TempData["ErrorMessage"] = "El monto debe ser mayor que cero.";
+            return RedirectToAction(nameof(PayWithCard), new { prematriculationId = dto.PrematriculationId });
+        }
+
+        // Forzar método Tarjeta y generar recibo simulado
+        dto.PaymentMethod = "Tarjeta";
+        if (string.IsNullOrEmpty(dto.ReceiptNumber))
+        {
+            dto.ReceiptNumber = $"REC-SIM-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
+        }
+
+        try
+        {
+            var payment = await _paymentService.CreateAsync(dto, currentUser.Id);
+            TempData["SuccessMessage"] = $"Pago con tarjeta confirmado. Recibo: {payment.ReceiptNumber}. La matrícula se activará automáticamente.";
+            return RedirectToAction(nameof(MyPayments));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al registrar pago inmediato con tarjeta");
+            TempData["ErrorMessage"] = "No se pudo procesar el pago con tarjeta: " + ex.Message;
+            return RedirectToAction(nameof(PayWithCard), new { prematriculationId = dto.PrematriculationId });
+        }
+    }
+
     // Buscar prematrícula por código o estudiante
     [HttpGet]
     public async Task<IActionResult> Search()

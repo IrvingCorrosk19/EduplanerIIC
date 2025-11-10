@@ -297,7 +297,7 @@ public class PrematriculationController : Controller
             var prematriculation = await _prematriculationService.CreatePrematriculationAsync(dto, parentId);
             
             TempData["SuccessMessage"] = $"Prematrícula creada exitosamente. Código: {prematriculation.PrematriculationCode}";
-            return RedirectToAction(nameof(MyPrematriculations));
+            return RedirectToAction("PayWithCard", "Payment", new { prematriculationId = prematriculation.Id });
         }
         catch (Exception ex)
         {

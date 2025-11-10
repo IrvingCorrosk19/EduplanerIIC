@@ -365,6 +365,9 @@
     .role-director {
         color: #7c3aed;
     }
+    .role-contable {
+        color: #0f766e;
+    }
 </style>
 
 <div class="container-fluid">
@@ -558,6 +561,7 @@
                         <option value="">Todos los roles</option>
                         <option value="Director">Director</option>
                         <option value="Teacher">Docente</option>
+                        <option value="Contable">Contable</option>
                         <option value="Estudiante">Estudiante</option>
                     </select>
                 </div>
@@ -1667,6 +1671,7 @@
         return role?.ToLower() switch
         {
             "admin" => "role-admin",
+            "contable" => "role-contable",
             "teacher" => "role-teacher",
             "student" => "role-student",
             "estudiante" => "role-student",
@@ -1682,6 +1687,7 @@
         return role?.ToLower() switch
         {
             "admin" => "Administrador",
+            "contable" => "Contable",
             "superadmin" => "Super Administrador",
             "teacher" => "Docente",
             "student" => "Estudiante",
