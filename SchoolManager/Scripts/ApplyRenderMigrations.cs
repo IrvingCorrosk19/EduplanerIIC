@@ -70,8 +70,13 @@ public static class ApplyRenderMigrations
             await ApplyGroupsColumns.ApplyAsync(context);
             Console.WriteLine("✅ Columnas de groups aplicadas\n");
 
-            // Paso 6: Verificar estado final
-            Console.WriteLine("🔍 Paso 6: Verificando estado final...");
+            // Paso 6: Crear tabla prematriculation_periods
+            Console.WriteLine("🔧 Paso 6: Creando tabla prematriculation_periods...");
+            await ApplyPrematriculationPeriodsTable.ApplyAsync(context);
+            Console.WriteLine("✅ Tabla prematriculation_periods creada\n");
+
+            // Paso 7: Verificar estado final
+            Console.WriteLine("🔍 Paso 7: Verificando estado final...");
             await TestRenderConnection.CheckMigrationStatusAsync();
 
             Console.WriteLine("\n═══════════════════════════════════════════════════");
