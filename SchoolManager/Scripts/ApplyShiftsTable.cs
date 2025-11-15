@@ -42,6 +42,21 @@ public static class ApplyShiftsTable
             else
             {
                 Console.WriteLine("   ✓ Tabla shifts ya existe");
+                
+                // Verificar y agregar columna display_order si no existe
+                var displayOrderSql = "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'shifts' AND column_name = 'display_order'";
+                var displayOrderResult = await context.Database.SqlQueryRaw<int>(displayOrderSql).ToListAsync();
+                var displayOrderExists = displayOrderResult.FirstOrDefault() > 0;
+
+                if (!displayOrderExists)
+                {
+                    Console.WriteLine("   ➕ Agregando columna display_order a shifts...");
+                    await context.Database.ExecuteSqlRawAsync(@"
+                        ALTER TABLE shifts 
+                        ADD COLUMN display_order integer NOT NULL DEFAULT 0;
+                    ");
+                    Console.WriteLine("   ✅ Columna display_order agregada");
+                }
             }
 
             // Verificar y crear índices
