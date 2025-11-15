@@ -427,16 +427,208 @@ public class PrematriculationService : IPrematriculationService
     {
         var prematriculation = await _context.Prematriculations
             .Include(p => p.Payments)
+            .Include(p => p.Student)
+            .Include(p => p.Grade)
+            .Include(p => p.Group)
+            .Include(p => p.PrematriculationPeriod)
             .FirstOrDefaultAsync(p => p.Id == prematriculationId);
 
         if (prematriculation == null)
             throw new Exception("Prematrícula no encontrada");
+
+        // Validar que el estado permita la confirmación de matrícula
+        if (prematriculation.Status == "Matriculado")
+            throw new Exception("La matrícula ya está confirmada");
+
+        if (prematriculation.Status == "Rechazado")
+            throw new Exception("No se puede confirmar una prematrícula rechazada");
+
+        if (prematriculation.Status == "Cancelado")
+            throw new Exception("No se puede confirmar una prematrícula cancelada");
+
+        // ASIGNACIÓN AUTOMÁTICA DE GRADO Y GRUPO si no están asignados
+
+        // Función helper para extraer número del grado (ej: "5°" -> 5)
+        int? ExtractGradeNumber(string? gradeName)
+        {
+            if (string.IsNullOrEmpty(gradeName))
+                return null;
+            
+            var match = System.Text.RegularExpressions.Regex.Match(gradeName, @"(\d+)");
+            if (match.Success && int.TryParse(match.Value, out int gradeNum))
+                return gradeNum;
+            
+            return null;
+        }
+
+        // Asignar grado automáticamente si no está asignado
+        if (!prematriculation.GradeId.HasValue)
+        {
+            // Obtener el grado actual del estudiante
+            var currentGrade = await _context.StudentAssignments
+                .Where(sa => sa.StudentId == prematriculation.StudentId)
+                .OrderByDescending(sa => sa.CreatedAt)
+                .Include(sa => sa.Grade)
+                .Select(sa => sa.Grade)
+                .FirstOrDefaultAsync();
+
+            if (currentGrade != null)
+            {
+                var currentGradeNum = ExtractGradeNumber(currentGrade.Name);
+                var allGrades = await _context.GradeLevels.ToListAsync();
+
+                if (currentGradeNum.HasValue)
+                {
+                    // Buscar el siguiente nivel o el mismo (repetir)
+                    var nextGrade = allGrades.FirstOrDefault(g =>
+                    {
+                        var gradeNum = ExtractGradeNumber(g.Name);
+                        return gradeNum.HasValue && gradeNum.Value == currentGradeNum.Value + 1; // Siguiente
+                    });
+
+                    if (nextGrade != null)
+                    {
+                        prematriculation.GradeId = nextGrade.Id;
+                        _logger.LogInformation("Grado {GradeName} asignado automáticamente al estudiante {StudentId} (siguiente nivel desde {CurrentGrade})",
+                            nextGrade.Name, prematriculation.StudentId, currentGrade.Name);
+                    }
+                    else
+                    {
+                        // Si no hay siguiente nivel, asignar el mismo (repetir)
+                        prematriculation.GradeId = currentGrade.Id;
+                        _logger.LogInformation("Grado {GradeName} asignado automáticamente al estudiante {StudentId} (repetir mismo grado)",
+                            currentGrade.Name, prematriculation.StudentId);
+                    }
+                }
+                else
+                {
+                    // Si no se puede extraer el número, usar el primer grado disponible
+                    var firstGrade = allGrades.FirstOrDefault();
+                    if (firstGrade != null)
+                    {
+                        prematriculation.GradeId = firstGrade.Id;
+                        _logger.LogWarning("No se pudo determinar el siguiente grado para {StudentId}, se asignó el primer grado disponible {GradeName}",
+                            prematriculation.StudentId, firstGrade.Name);
+                    }
+                }
+            }
+            else
+            {
+                // Si no tiene grado actual (estudiante nuevo), usar el primer grado disponible
+                var allGrades = await _context.GradeLevels.ToListAsync();
+                var firstGrade = allGrades.OrderBy(g =>
+                {
+                    var num = ExtractGradeNumber(g.Name);
+                    return num ?? int.MaxValue; // Ordenar por número, los que no tienen número al final
+                }).FirstOrDefault();
+
+                if (firstGrade != null)
+                {
+                    prematriculation.GradeId = firstGrade.Id;
+                    _logger.LogInformation("Grado {GradeName} asignado automáticamente al estudiante nuevo {StudentId}",
+                        firstGrade.Name, prematriculation.StudentId);
+                }
+            }
+
+            if (prematriculation.GradeId.HasValue)
+            {
+                prematriculation.UpdatedAt = DateTime.UtcNow;
+                _context.Prematriculations.Update(prematriculation);
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        // Validar que tenga grado asignado (después de intentar asignar automáticamente)
+        if (!prematriculation.GradeId.HasValue)
+            throw new Exception("No se puede confirmar la matrícula sin un grado asignado. No se pudo asignar un grado automáticamente.");
+
+        // Asignar grupo automáticamente si no está asignado
+        if (!prematriculation.GroupId.HasValue && prematriculation.GradeId.HasValue)
+        {
+            try
+            {
+                await AutoAssignGroupAsync(prematriculationId);
+                
+                // Recargar la prematrícula para obtener el grupo asignado
+                prematriculation = await _context.Prematriculations
+                    .Include(p => p.Payments)
+                    .Include(p => p.Student)
+                    .Include(p => p.Grade)
+                    .Include(p => p.Group)
+                    .Include(p => p.PrematriculationPeriod)
+                    .FirstOrDefaultAsync(p => p.Id == prematriculationId);
+                
+                _logger.LogInformation("Grupo asignado automáticamente a la prematrícula {PrematriculationId}",
+                    prematriculationId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al asignar grupo automáticamente para prematrícula {PrematriculationId}",
+                    prematriculationId);
+                throw new Exception($"No se puede confirmar la matrícula. No se pudo asignar un grupo automáticamente: {ex.Message}");
+            }
+        }
+
+        // Validar que tenga grupo asignado (después de intentar asignar automáticamente)
+        if (!prematriculation.GroupId.HasValue)
+            throw new Exception("No se puede confirmar la matrícula sin un grupo asignado. No se pudo asignar un grupo automáticamente.");
+
+        // Validar condición académica NUEVAMENTE antes de confirmar la matrícula
+        // (las notas pueden haber cambiado desde la creación de la prematrícula)
+        var failedSubjects = await GetFailedSubjectsCountAsync(prematriculation.StudentId);
+        var academicConditionValid = failedSubjects <= 3;
+
+        if (!academicConditionValid)
+        {
+            // Actualizar el registro de la prematrícula con la condición académica actualizada
+            prematriculation.FailedSubjectsCount = failedSubjects;
+            prematriculation.AcademicConditionValid = false;
+            prematriculation.Status = "Rechazado";
+            prematriculation.RejectionReason = $"El estudiante excede el límite de materias reprobadas ({failedSubjects} materias reprobadas, máximo permitido: 3)";
+            prematriculation.UpdatedAt = DateTime.UtcNow;
+            _context.Prematriculations.Update(prematriculation);
+            await _context.SaveChangesAsync();
+
+            throw new Exception($"No se puede confirmar la matrícula. El estudiante tiene {failedSubjects} materias reprobadas (máximo permitido: 3).");
+        }
+
+        // Actualizar el conteo de materias reprobadas en caso de que haya cambiado
+        prematriculation.FailedSubjectsCount = failedSubjects;
+        prematriculation.AcademicConditionValid = academicConditionValid;
 
         // Verificar que tenga un pago confirmado
         var hasConfirmedPayment = prematriculation.Payments.Any(p => p.PaymentStatus == "Confirmado");
 
         if (!hasConfirmedPayment)
             throw new Exception("No se puede confirmar la matrícula sin un pago confirmado");
+
+        // Validar que el grupo tenga cupos disponibles
+        var hasCapacity = await CheckGroupCapacityAsync(prematriculation.GroupId.Value);
+        if (!hasCapacity)
+        {
+            // Revisar si hay cupos considerando prematrículas reservadas
+            var group = await _context.Groups
+                .Include(g => g.StudentAssignments)
+                .FirstOrDefaultAsync(g => g.Id == prematriculation.GroupId.Value);
+
+            if (group != null)
+            {
+                var currentStudents = group.StudentAssignments?.Count ?? 0;
+                
+                // Contar prematrículas que reservan cupos (excluyendo la actual si no está matriculada)
+                var reservedSpots = await _context.Prematriculations
+                    .CountAsync(p => p.GroupId == prematriculation.GroupId.Value
+                        && p.Id != prematriculationId
+                        && (p.Status == "Prematriculado" || p.Status == "Pagado" || p.Status == "Matriculado"));
+
+                var totalOccupied = currentStudents + reservedSpots;
+                var maxCapacity = group.MaxCapacity ?? int.MaxValue;
+                var availableSpots = maxCapacity - totalOccupied;
+
+                if (availableSpots <= 0)
+                    throw new Exception("El grupo no tiene cupos disponibles para matricular al estudiante");
+            }
+        }
 
         // Actualizar estado a Matriculado
         prematriculation.Status = "Matriculado";

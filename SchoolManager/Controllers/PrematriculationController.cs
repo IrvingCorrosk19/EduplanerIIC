@@ -188,6 +188,21 @@ public class PrematriculationController : Controller
         // Proyectar a objetos simples para evitar ciclos de referencia en JSON
         ViewBag.AllGrades = allGrades.Select(g => new { id = g.Id, name = g.Name }).ToList();
 
+        // Logs de depuración
+        Console.WriteLine($"[DEBUG] Prematriculation/Create - Total grados: {allGrades.Count()}");
+        Console.WriteLine($"[DEBUG] Prematriculation/Create - Grados disponibles: {availableGrades.Count()}");
+        Console.WriteLine($"[DEBUG] Prematriculation/Create - ViewBag.Grades es null: {ViewBag.Grades == null}");
+        if (availableGrades != null && availableGrades.Any())
+        {
+            Console.WriteLine($"[DEBUG] Prematriculation/Create - Primer grado disponible: {availableGrades.First().Name} (ID: {availableGrades.First().Id})");
+        }
+        else
+        {
+            Console.WriteLine("[DEBUG] Prematriculation/Create - ¡NO HAY GRADOS DISPONIBLES!");
+            _logger.LogWarning("Prematriculation/Create - No hay grados disponibles para mostrar. Total grados en sistema: {TotalGrades}, Grados disponibles filtrados: {AvailableGrades}", 
+                allGrades.Count(), availableGrades?.Count() ?? 0);
+        }
+
         return View();
     }
 
