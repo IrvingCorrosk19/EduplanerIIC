@@ -565,6 +565,13 @@ public class PaymentController : Controller
             ModelState.AddModelError("ReceiptImage", "Los métodos de pago manuales requieren adjuntar un comprobante");
         }
 
+        // MEJORADO: Validar y corregir fecha de pago si no es válida
+        if (dto.PaymentDate == default(DateTime) || dto.PaymentDate == DateTime.MinValue || dto.PaymentDate.Year < 2000)
+        {
+            dto.PaymentDate = DateTime.UtcNow;
+            _logger.LogWarning("Fecha de pago inválida en formulario, usando fecha actual");
+        }
+
         if (!ModelState.IsValid)
         {
             if (prematriculation != null)

@@ -28,6 +28,22 @@ namespace SchoolManager.Services.Implementations
             _logger = logger;
         }
 
+        // Método auxiliar para verificar si una columna existe (compatibilidad hacia atrás)
+        private async Task<bool> ColumnExistsAsync(string tableName, string columnName)
+        {
+            try
+            {
+                var sql = "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = {0} AND column_name = {1}";
+                var result = await _context.Database.SqlQueryRaw<int>(sql, tableName.ToLower(), columnName.ToLower()).ToListAsync();
+                return result.FirstOrDefault() > 0;
+            }
+            catch
+            {
+                // Si falla la consulta, asumir que la columna no existe
+                return false;
+            }
+        }
+
         public async Task<StudentReportDto> GetReportByStudentIdAsync(Guid studentId)
         {
             try
@@ -87,8 +103,19 @@ namespace SchoolManager.Services.Implementations
                 // MEJORADO: Obtener año académico activo para filtrar notas
                 var activeAcademicYear = await _academicYearService.GetActiveAcademicYearAsync(studentUser.SchoolId);
 
-                var scoresQuery = _context.StudentActivityScores
-                    .Where(s => s.StudentId == studentId)
+                // MEJORADO: Verificar si la columna academic_year_id existe antes de usarla
+                var academicYearColumnExists = await ColumnExistsAsync("student_activity_scores", "academic_year_id");
+
+                var scoresBaseQuery = _context.StudentActivityScores
+                    .Where(s => s.StudentId == studentId);
+
+                // Filtrar por año académico solo si existe la columna y hay un año académico activo
+                if (activeAcademicYear != null && academicYearColumnExists)
+                {
+                    scoresBaseQuery = scoresBaseQuery.Where(s => s.AcademicYearId == activeAcademicYear.Id);
+                }
+
+                var scoresQuery = scoresBaseQuery
                     .Join(_context.Activities,
                           score => score.ActivityId,
                           activity => activity.Id,
@@ -102,16 +129,9 @@ namespace SchoolManager.Services.Implementations
                               activity.Trimester,
                               activity.TeacherId,
                               score.Score,
-                              score.AcademicYearId,
                               score.CreatedAt
                           })
                     .Where(a => a.Trimester == selectedTrimester);
-
-                // Filtrar por año académico si existe uno activo
-                if (activeAcademicYear != null)
-                {
-                    scoresQuery = scoresQuery.Where(a => a.AcademicYearId == activeAcademicYear.Id);
-                }
 
                 var studentScores = await scoresQuery
                     .GroupBy(a => new { a.ActivityId, a.SubjectId, a.TeacherId, a.Name })
@@ -341,9 +361,20 @@ namespace SchoolManager.Services.Implementations
                 ? await _academicYearService.GetActiveAcademicYearAsync(studentUser.SchoolId)
                 : null;
 
+            // MEJORADO: Verificar si la columna academic_year_id existe antes de usarla
+            var academicYearColumnExists = await ColumnExistsAsync("student_activity_scores", "academic_year_id");
+
+            var scoresBaseQuery = _context.StudentActivityScores
+                .Where(s => s.StudentId == studentId);
+
+            // Filtrar por año académico solo si existe la columna y hay un año académico activo
+            if (activeAcademicYear != null && academicYearColumnExists)
+            {
+                scoresBaseQuery = scoresBaseQuery.Where(s => s.AcademicYearId == activeAcademicYear.Id);
+            }
+
             // Obtener las actividades del estudiante con las calificaciones para el trimestre seleccionado
-            var scoresQuery = _context.StudentActivityScores
-                .Where(s => s.StudentId == studentId)
+            var scoresQuery = scoresBaseQuery
                 .Join(_context.Activities,
                       score => score.ActivityId,
                       activity => activity.Id,
@@ -362,16 +393,9 @@ namespace SchoolManager.Services.Implementations
                           activity.Subject,
                           activity.Teacher,
                           Score = score.Score,
-                          AcademicYearId = score.AcademicYearId,
                           ScoreCreatedAt = score.CreatedAt
                       })
                 .Where(a => a.Trimester.Trim().ToLower() == trimester.Trim().ToLower());
-
-            // Filtrar por año académico si existe uno activo
-            if (activeAcademicYear != null)
-            {
-                scoresQuery = scoresQuery.Where(a => a.AcademicYearId == activeAcademicYear.Id);
-            }
 
             var studentScores = await scoresQuery
                 .GroupBy(a => new { a.Id, a.SubjectId, a.TeacherId, a.Name })

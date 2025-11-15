@@ -126,9 +126,37 @@ Console.WriteLine($"Hash generado: {hash}");
 var app = builder.Build();
 
 // Script temporal para aplicar cambios a la base de datos
-// Ejecutar con: dotnet run -- --apply-db-changes o --apply-academic-year
+// Ejecutar con: 
+//   --apply-db-changes: Aplica cambios locales
+//   --apply-academic-year: Aplica cambios de año académico locales
+//   --test-render: Prueba conexión a Render
+//   --apply-render-all: Aplica todas las migraciones a Render
+//   --apply-render-prematriculation: Aplica solo prematriculación a Render
+//   --apply-render-academic-year: Aplica solo año académico a Render
 if (args.Length > 0)
 {
+    if (args[0] == "--test-render")
+    {
+        await SchoolManager.Scripts.TestRenderConnection.RunAsync();
+        return;
+    }
+    else if (args[0] == "--apply-render-all")
+    {
+        await SchoolManager.Scripts.ApplyRenderMigrations.ApplyAllMigrationsAsync();
+        return;
+    }
+    else if (args[0] == "--apply-render-prematriculation")
+    {
+        await SchoolManager.Scripts.ApplyRenderMigrations.ApplyPrematriculationOnlyAsync();
+        return;
+    }
+    else if (args[0] == "--apply-render-academic-year")
+    {
+        await SchoolManager.Scripts.ApplyRenderMigrations.ApplyAcademicYearOnlyAsync();
+        return;
+    }
+    
+    // Comandos locales (usando la conexión del appsettings.json)
     using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
     

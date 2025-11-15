@@ -192,6 +192,15 @@ public class PaymentService : IPaymentService
             initialStatus = "Confirmado";
         }
 
+        // MEJORADO: Validar y corregir fecha de pago si no es válida
+        var paymentDate = dto.PaymentDate;
+        if (paymentDate == default(DateTime) || paymentDate == DateTime.MinValue || paymentDate.Year < 2000)
+        {
+            // Si la fecha no es válida, usar la fecha actual
+            paymentDate = DateTime.UtcNow;
+            _logger.LogWarning("Fecha de pago inválida detectada, usando fecha actual: {PaymentDate}", paymentDate);
+        }
+
         // Crear el pago
         var payment = new Payment
         {
@@ -202,7 +211,7 @@ public class PaymentService : IPaymentService
             StudentId = studentId,
             RegisteredBy = registeredBy,
             Amount = dto.Amount,
-            PaymentDate = dto.PaymentDate,
+            PaymentDate = paymentDate,
             ReceiptNumber = dto.ReceiptNumber,
             PaymentMethod = dto.PaymentMethod,
             ReceiptImage = dto.ReceiptImage,

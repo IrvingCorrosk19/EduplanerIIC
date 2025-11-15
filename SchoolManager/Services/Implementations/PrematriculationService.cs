@@ -181,9 +181,7 @@ public class PrematriculationService : IPrematriculationService
                 .Any(sa => sa.GroupId == g.Id && sa.GradeLevelId == gradeId.Value));
         }
 
-        var groups = await query
-            .Include(g => g.StudentAssignments)
-            .ToListAsync();
+        var groups = await query.ToListAsync();
 
         var result = new List<AvailableGroupsDto>();
 
@@ -195,10 +193,19 @@ public class PrematriculationService : IPrematriculationService
             .GroupBy(p => p.GroupId)
             .ToDictionaryAsync(g => g.Key ?? Guid.Empty, g => g.Count());
 
+        // MEJORADO: Contar estudiantes activos directamente desde la BD sin Include
+        // Esto evita problemas cuando academic_year_id aún no existe
+        var activeStudentCounts = await _context.StudentAssignments
+            .Where(sa => groupIds.Contains(sa.GroupId) && sa.IsActive)
+            .GroupBy(sa => sa.GroupId)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+
         foreach (var group in groups)
         {
-            // Contar estudiantes activos
-            var currentStudents = group.StudentAssignments?.Count(sa => sa.IsActive) ?? 0;
+            // Contar estudiantes activos desde el diccionario
+            var currentStudents = activeStudentCounts.ContainsKey(group.Id) 
+                ? activeStudentCounts[group.Id] 
+                : 0;
 
             // Contar prematrículas que reservan cupos para este grupo
             var reservedSpots = reservedPrematriculations.ContainsKey(group.Id) 
@@ -715,13 +722,14 @@ public class PrematriculationService : IPrematriculationService
         {
             // Revisar si hay cupos considerando prematrículas reservadas
             var group = await _context.Groups
-                .Include(g => g.StudentAssignments)
                 .FirstOrDefaultAsync(g => g.Id == prematriculation.GroupId.Value);
 
             if (group != null)
             {
-                // MEJORADO: Contar solo estudiantes activos
-                var currentStudents = group.StudentAssignments?.Count(sa => sa.IsActive) ?? 0;
+                // MEJORADO: Contar solo estudiantes activos directamente desde la BD
+                // Esto evita problemas cuando academic_year_id aún no existe
+                var currentStudents = await _context.StudentAssignments
+                    .CountAsync(sa => sa.GroupId == group.Id && sa.IsActive);
                 
                 // Contar prematrículas que reservan cupos (excluyendo la actual si no está matriculada)
                 var reservedSpots = await _context.Prematriculations
