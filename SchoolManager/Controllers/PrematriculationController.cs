@@ -184,7 +184,9 @@ public class PrematriculationController : Controller
         }
         
         ViewBag.Grades = availableGrades;
-        ViewBag.AllGrades = allGrades; // Para comparación en el servidor
+        
+        // Proyectar a objetos simples para evitar ciclos de referencia en JSON
+        ViewBag.AllGrades = allGrades.Select(g => new { id = g.Id, name = g.Name }).ToList();
 
         return View();
     }
@@ -261,6 +263,8 @@ public class PrematriculationController : Controller
                                 // Recargar datos necesarios para la vista
                                 var allGrades = await _gradeLevelService.GetAllAsync();
                                 ViewBag.Grades = allGrades;
+                                // Proyectar a objetos simples para evitar ciclos de referencia en JSON
+                                ViewBag.AllGrades = allGrades.Select(g => new { id = g.Id, name = g.Name }).ToList();
                                 return View(dto);
                             }
                             else if (selectedGradeNum.Value > currentGradeNum.Value + 1)
@@ -270,6 +274,8 @@ public class PrematriculationController : Controller
                                 // Recargar datos necesarios para la vista
                                 var allGrades = await _gradeLevelService.GetAllAsync();
                                 ViewBag.Grades = allGrades;
+                                // Proyectar a objetos simples para evitar ciclos de referencia en JSON
+                                ViewBag.AllGrades = allGrades.Select(g => new { id = g.Id, name = g.Name }).ToList();
                                 return View(dto);
                             }
                         }

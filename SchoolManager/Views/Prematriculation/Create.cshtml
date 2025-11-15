@@ -130,20 +130,36 @@
                 var gradeId = $(this).val();
                 if (gradeId) {
                     // Obtener grupos disponibles
-                    $.get('@Url.Action("GetAvailableGroups")', { gradeId: gradeId }, function(groups) {
-                        var $groupSelect = $('#groupSelect');
-                        $groupSelect.empty();
-                        $groupSelect.append('<option value="">Seleccione un grupo (opcional)</option>');
-                        
-                        groups.forEach(function(group) {
-                            if (group.isAvailable) {
-                                var optionText = group.groupName + ' (Disponibles: ' + group.availableSpots + ')';
-                                $groupSelect.append('<option value="' + group.groupId + '">' + optionText + '</option>');
+                    $.get('@Url.Action("GetAvailableGroups")', { gradeId: gradeId })
+                        .done(function(groups) {
+                            var $groupSelect = $('#groupSelect');
+                            $groupSelect.empty();
+                            $groupSelect.append('<option value="">Seleccione un grupo (opcional)</option>');
+                            
+                            if (groups && groups.length > 0) {
+                                groups.forEach(function(group) {
+                                    // Manejar tanto camelCase como PascalCase
+                                    var isAvailable = group.isAvailable !== undefined ? group.isAvailable : group.IsAvailable;
+                                    var groupName = group.groupName || group.GroupName || '';
+                                    var availableSpots = group.availableSpots !== undefined ? group.availableSpots : group.AvailableSpots || 0;
+                                    var groupId = group.groupId || group.GroupId;
+                                    
+                                    if (isAvailable) {
+                                        var optionText = groupName + ' (Disponibles: ' + availableSpots + ')';
+                                        $groupSelect.append('<option value="' + groupId + '">' + optionText + '</option>');
+                                    }
+                                });
                             }
+                            
+                            $groupSelect.prop('disabled', false);
+                        })
+                        .fail(function(xhr, status, error) {
+                            console.error('Error al cargar grupos:', error);
+                            var $groupSelect = $('#groupSelect');
+                            $groupSelect.empty();
+                            $groupSelect.append('<option value="">Error al cargar grupos</option>');
+                            $groupSelect.prop('disabled', true);
                         });
-                        
-                        $groupSelect.prop('disabled', false);
-                    });
                 } else {
                     $('#groupSelect').prop('disabled', true).empty().append('<option value="">Primero seleccione un grado</option>');
                 }

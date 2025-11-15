@@ -33,6 +33,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.Converters.Add(new DateTimeJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new NullableDateTimeJsonConverter());
     })

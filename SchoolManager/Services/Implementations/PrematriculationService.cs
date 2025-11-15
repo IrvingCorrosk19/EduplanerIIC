@@ -186,9 +186,8 @@ public class PrematriculationService : IPrematriculationService
 
         foreach (var group in groups)
         {
-            // Contar estudiantes matriculados en el grupo
-            var currentStudents = await _context.StudentAssignments
-                .CountAsync(sa => sa.GroupId == group.Id);
+            // Usar los StudentAssignments ya cargados en memoria en lugar de hacer consultas adicionales
+            var currentStudents = group.StudentAssignments?.Count ?? 0;
 
             var availableSpots = (group.MaxCapacity ?? int.MaxValue) - currentStudents;
             
