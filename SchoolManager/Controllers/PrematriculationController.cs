@@ -5,6 +5,7 @@ using SchoolManager.Dtos;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Interfaces;
+using SchoolManager.Scripts;
 
 namespace SchoolManager.Controllers;
 
@@ -571,6 +572,35 @@ public class PrematriculationController : Controller
         };
 
         return View(dto);
+    }
+
+    // Endpoint temporal para aplicar cambios a la base de datos
+    // TODO: Remover después de aplicar los cambios
+    [Authorize(Roles = "admin,superadmin")]
+    [HttpPost]
+    [Route("/Prematriculation/ApplyDatabaseChanges")]
+    public async Task<IActionResult> ApplyDatabaseChanges()
+    {
+        try
+        {
+            await SchoolManager.Scripts.ApplyDatabaseChanges.ApplyPrematriculationChangesAsync(_context);
+            TempData["Success"] = "Cambios aplicados correctamente a la base de datos";
+            return Json(new { success = true, message = "Cambios aplicados correctamente" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al aplicar cambios a la base de datos");
+            TempData["Error"] = $"Error al aplicar cambios: {ex.Message}";
+            return Json(new { success = false, message = ex.Message });
+        }
+    }
+
+    [Authorize(Roles = "admin,superadmin")]
+    [HttpGet]
+    [Route("/Prematriculation/ApplyDatabaseChanges")]
+    public IActionResult ApplyDatabaseChangesPage()
+    {
+        return View("ApplyDatabaseChanges");
     }
 }
 

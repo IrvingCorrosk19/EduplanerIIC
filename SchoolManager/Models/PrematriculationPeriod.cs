@@ -18,6 +18,8 @@ public partial class PrematriculationPeriod
     
     public bool AutoAssignByShift { get; set; }
     
+    public decimal RequiredAmount { get; set; } // Monto total requerido para completar el pago
+    
     public DateTime CreatedAt { get; set; }
     
     public DateTime? UpdatedAt { get; set; }

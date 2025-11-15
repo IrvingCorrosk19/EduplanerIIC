@@ -16,6 +16,10 @@ public partial class StudentAssignment
     public Guid? ShiftId { get; set; } // Referencia a la tabla de jornadas
 
     public DateTime? CreatedAt { get; set; }
+    
+    public bool IsActive { get; set; } = true;
+    
+    public DateTime? EndDate { get; set; }
 
     public virtual GradeLevel Grade { get; set; } = null!;
 

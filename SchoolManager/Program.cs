@@ -124,6 +124,20 @@ Console.WriteLine($"Hash generado: {hash}");
 
 var app = builder.Build();
 
+// Script temporal para aplicar cambios a la base de datos
+// Ejecutar con: dotnet run -- --apply-db-changes
+// Ya aplicado - Comentado para no ejecutarse automáticamente
+/*
+if (args.Length > 0 && args[0] == "--apply-db-changes")
+{
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+    await SchoolManager.Scripts.ApplyDatabaseChanges.ApplyPrematriculationChangesAsync(context);
+    Console.WriteLine("✅ Cambios aplicados. Saliendo...");
+    return;
+}
+*/
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

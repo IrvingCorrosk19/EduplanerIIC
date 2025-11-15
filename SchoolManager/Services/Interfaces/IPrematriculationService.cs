@@ -16,8 +16,14 @@ public interface IPrematriculationService
     Task<Prematriculation> CreatePrematriculationAsync(PrematriculationCreateDto dto, Guid? parentId);
     Task<Prematriculation> AutoAssignGroupAsync(Guid prematriculationId);
     Task<bool> ValidateAcademicConditionAsync(Guid studentId);
-    Task<Prematriculation> ConfirmMatriculationAsync(Guid prematriculationId);
-    Task<bool> CheckGroupCapacityAsync(Guid groupId);
+    Task<Prematriculation> ConfirmMatriculationAsync(Guid prematriculationId, Guid? confirmedBy = null);
+    Task<bool> CheckGroupCapacityAsync(Guid groupId, Guid? excludePrematriculationId = null);
     Task<string> GeneratePrematriculationCodeAsync();
+    Task<bool> IsNewStudentAsync(Guid studentId);
+    Task<bool> ValidateRequiredDocumentsAsync(Guid studentId);
+    Task<bool> ValidateAgeForGradeAsync(Guid? gradeId, DateTime? dateOfBirth);
+    Task<bool> ValidateParentRequiredAsync(Guid studentId);
+    Task<Prematriculation> RejectPrematriculationAsync(Guid prematriculationId, string reason, Guid? rejectedBy = null);
+    Task<Prematriculation> CancelPrematriculationAsync(Guid prematriculationId, string? reason = null, Guid? cancelledBy = null);
 }
 

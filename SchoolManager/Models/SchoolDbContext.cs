@@ -75,6 +75,8 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<PaymentConcept> PaymentConcepts { get; set; }
 
+    public virtual DbSet<PrematriculationHistory> PrematriculationHistories { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // Configurar interceptor global para DateTime
@@ -899,6 +901,14 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.StudentId).HasColumnName("student_id");
             entity.Property(e => e.ShiftId).HasColumnName("shift_id");
 
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+
+            entity.Property(e => e.EndDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("end_date");
+
             entity.HasOne(d => d.Grade).WithMany(p => p.StudentAssignments)
                 .HasForeignKey(d => d.GradeId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -1587,6 +1597,11 @@ public partial class SchoolDbContext : DbContext
                 .HasDefaultValue(true)
                 .HasColumnName("auto_assign_by_shift");
 
+            entity.Property(e => e.RequiredAmount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0)
+                .HasColumnName("required_amount");
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp with time zone")
@@ -1687,6 +1702,15 @@ public partial class SchoolDbContext : DbContext
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("matriculation_date");
 
+            entity.Property(e => e.ConfirmedBy)
+                .HasColumnName("confirmed_by");
+
+            entity.Property(e => e.RejectedBy)
+                .HasColumnName("rejected_by");
+
+            entity.Property(e => e.CancelledBy)
+                .HasColumnName("cancelled_by");
+
             entity.HasOne(d => d.School)
                 .WithMany()
                 .HasForeignKey(d => d.SchoolId)
@@ -1719,6 +1743,24 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.PrematriculationPeriodId)
                 .HasConstraintName("prematriculations_period_id_fkey")
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.ConfirmedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.ConfirmedBy)
+                .HasConstraintName("prematriculations_confirmed_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.RejectedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.RejectedBy)
+                .HasConstraintName("prematriculations_rejected_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.CancelledByUser)
+                .WithMany()
+                .HasForeignKey(d => d.CancelledBy)
+                .HasConstraintName("prematriculations_cancelled_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Configuración de Payment
@@ -1886,6 +1928,60 @@ public partial class SchoolDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(d => d.UpdatedBy)
                 .HasConstraintName("payment_concepts_updated_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configuración de PrematriculationHistory
+        modelBuilder.Entity<PrematriculationHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("prematriculation_histories_pkey");
+            entity.ToTable("prematriculation_histories");
+
+            entity.HasIndex(e => e.PrematriculationId, "IX_prematriculation_histories_prematriculation_id");
+            entity.HasIndex(e => e.ChangedAt, "IX_prematriculation_histories_changed_at");
+            entity.HasIndex(e => e.ChangedBy, "IX_prematriculation_histories_changed_by");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.PrematriculationId)
+                .HasColumnName("prematriculation_id");
+
+            entity.Property(e => e.PreviousStatus)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasColumnName("previous_status");
+
+            entity.Property(e => e.NewStatus)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasColumnName("new_status");
+
+            entity.Property(e => e.ChangedBy)
+                .HasColumnName("changed_by");
+
+            entity.Property(e => e.Reason)
+                .HasColumnName("reason");
+
+            entity.Property(e => e.ChangedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("changed_at");
+
+            entity.Property(e => e.AdditionalInfo)
+                .HasColumnName("additional_info");
+
+            entity.HasOne(d => d.Prematriculation)
+                .WithMany()
+                .HasForeignKey(d => d.PrematriculationId)
+                .HasConstraintName("prematriculation_histories_prematriculation_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.ChangedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.ChangedBy)
+                .HasConstraintName("prematriculation_histories_changed_by_fkey")
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

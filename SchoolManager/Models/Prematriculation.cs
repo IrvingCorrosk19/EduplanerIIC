@@ -36,6 +36,12 @@ public partial class Prematriculation
     
     public DateTime? MatriculationDate { get; set; }
     
+    public Guid? ConfirmedBy { get; set; }
+    
+    public Guid? RejectedBy { get; set; }
+    
+    public Guid? CancelledBy { get; set; }
+    
     public virtual School School { get; set; } = null!;
     
     public virtual User Student { get; set; } = null!;
@@ -47,6 +53,12 @@ public partial class Prematriculation
     public virtual Group? Group { get; set; }
     
     public virtual PrematriculationPeriod PrematriculationPeriod { get; set; } = null!;
+    
+    public virtual User? ConfirmedByUser { get; set; }
+    
+    public virtual User? RejectedByUser { get; set; }
+    
+    public virtual User? CancelledByUser { get; set; }
     
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }
