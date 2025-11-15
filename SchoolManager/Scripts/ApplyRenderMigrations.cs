@@ -60,8 +60,13 @@ public static class ApplyRenderMigrations
             await ApplyAcademicYearChanges.ApplyAsync(context);
             Console.WriteLine("✅ Cambios de año académico aplicados\n");
 
-            // Paso 4: Verificar estado final
-            Console.WriteLine("🔍 Paso 4: Verificando estado final...");
+            // Paso 4: Aplicar columna shift a users
+            Console.WriteLine("🔧 Paso 4: Aplicando columna shift a users...");
+            await ApplyUserShiftColumn.ApplyAsync(context);
+            Console.WriteLine("✅ Columna shift aplicada\n");
+
+            // Paso 5: Verificar estado final
+            Console.WriteLine("🔍 Paso 5: Verificando estado final...");
             await TestRenderConnection.CheckMigrationStatusAsync();
 
             Console.WriteLine("\n═══════════════════════════════════════════════════");
