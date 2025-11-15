@@ -65,28 +65,33 @@ public static class ApplyRenderMigrations
             await ApplyUserShiftColumn.ApplyAsync(context);
             Console.WriteLine("✅ Columna shift aplicada\n");
 
-            // Paso 5: Aplicar columnas faltantes a groups
-            Console.WriteLine("🔧 Paso 5: Aplicando columnas faltantes a groups...");
+            // Paso 5: Crear tabla shifts
+            Console.WriteLine("🔧 Paso 5: Creando tabla shifts...");
+            await ApplyShiftsTable.ApplyAsync(context);
+            Console.WriteLine("✅ Tabla shifts creada\n");
+
+            // Paso 6: Aplicar columnas faltantes a groups
+            Console.WriteLine("🔧 Paso 6: Aplicando columnas faltantes a groups...");
             await ApplyGroupsColumns.ApplyAsync(context);
             Console.WriteLine("✅ Columnas de groups aplicadas\n");
 
-            // Paso 6: Crear tabla prematriculation_periods
-            Console.WriteLine("🔧 Paso 6: Creando tabla prematriculation_periods...");
+            // Paso 7: Crear tabla prematriculation_periods
+            Console.WriteLine("🔧 Paso 7: Creando tabla prematriculation_periods...");
             await ApplyPrematriculationPeriodsTable.ApplyAsync(context);
             Console.WriteLine("✅ Tabla prematriculation_periods creada\n");
 
-            // Paso 7: Crear tabla prematriculations
-            Console.WriteLine("🔧 Paso 7: Creando tabla prematriculations...");
+            // Paso 8: Crear tabla prematriculations
+            Console.WriteLine("🔧 Paso 8: Creando tabla prematriculations...");
             await ApplyPrematriculationsTable.ApplyAsync(context);
             Console.WriteLine("✅ Tabla prematriculations creada\n");
 
-            // Paso 8: Completar módulo de matrícula/prematrícula
-            Console.WriteLine("🔧 Paso 8: Completando módulo de matrícula/prematrícula...");
+            // Paso 9: Completar módulo de matrícula/prematrícula
+            Console.WriteLine("🔧 Paso 9: Completando módulo de matrícula/prematrícula...");
             await ApplyCompletePrematriculationModule.ApplyAsync(context);
             Console.WriteLine("✅ Módulo completado\n");
 
-            // Paso 9: Verificar estado final
-            Console.WriteLine("🔍 Paso 9: Verificando estado final...");
+            // Paso 10: Verificar estado final
+            Console.WriteLine("🔍 Paso 10: Verificando estado final...");
             await TestRenderConnection.CheckMigrationStatusAsync();
 
             Console.WriteLine("\n═══════════════════════════════════════════════════");

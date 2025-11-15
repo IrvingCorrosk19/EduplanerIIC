@@ -88,7 +88,7 @@ public static class ApplyGroupsColumns
             }
             else
             {
-                Console.WriteLine("⚠️  Tabla shifts no existe, omitiendo foreign key (se agregará cuando shifts sea creada)");
+                Console.WriteLine("⚠️  Tabla shifts no existe aún, la foreign key se creará cuando shifts sea creada");
             }
 
             Console.WriteLine("✅ Todos los cambios de groups aplicados correctamente!");
