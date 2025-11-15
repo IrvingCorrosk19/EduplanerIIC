@@ -65,6 +65,8 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<Trimester> Trimesters { get; set; }
 
+    public virtual DbSet<AcademicYear> AcademicYears { get; set; }
+
     public virtual DbSet<User> Users { get; set; }
 
     public virtual DbSet<PrematriculationPeriod> PrematriculationPeriods { get; set; }
@@ -873,6 +875,15 @@ public partial class SchoolDbContext : DbContext
             entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId);
             entity.HasOne(d => d.CreatedByUser).WithMany().HasForeignKey(d => d.CreatedBy);
             entity.HasOne(d => d.UpdatedByUser).WithMany().HasForeignKey(d => d.UpdatedBy);
+
+            entity.Property(e => e.AcademicYearId).HasColumnName("academic_year_id");
+            entity.HasIndex(e => e.AcademicYearId, "IX_student_activity_scores_academic_year_id");
+            entity.HasIndex(e => new { e.StudentId, e.AcademicYearId }, "IX_student_activity_scores_student_academic_year");
+
+            entity.HasOne(d => d.AcademicYear).WithMany(p => p.StudentActivityScores)
+                .HasForeignKey(d => d.AcademicYearId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("student_activity_scores_academic_year_id_fkey");
         });
 
         modelBuilder.Entity<StudentAssignment>(entity =>
@@ -928,6 +939,16 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.StudentId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_student");
+
+            entity.Property(e => e.AcademicYearId).HasColumnName("academic_year_id");
+            entity.HasIndex(e => e.AcademicYearId, "IX_student_assignments_academic_year_id");
+            entity.HasIndex(e => new { e.StudentId, e.IsActive }, "IX_student_assignments_student_active");
+            entity.HasIndex(e => new { e.StudentId, e.AcademicYearId }, "IX_student_assignments_student_academic_year");
+
+            entity.HasOne(d => d.AcademicYear).WithMany(p => p.StudentAssignments)
+                .HasForeignKey(d => d.AcademicYearId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("student_assignments_academic_year_id_fkey");
         });
 
         modelBuilder.Entity<Subject>(entity =>
@@ -1107,6 +1128,84 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.SchoolId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("trimester_school_id_fkey");
+
+            entity.Property(e => e.AcademicYearId).HasColumnName("academic_year_id");
+            entity.HasIndex(e => e.AcademicYearId, "IX_trimester_academic_year_id");
+
+            entity.HasOne(d => d.AcademicYear).WithMany(p => p.Trimesters)
+                .HasForeignKey(d => d.AcademicYearId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("trimester_academic_year_id_fkey");
+        });
+
+        // Configuración de AcademicYear
+        modelBuilder.Entity<AcademicYear>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("academic_years_pkey");
+
+            entity.ToTable("academic_years");
+
+            entity.HasIndex(e => e.SchoolId, "IX_academic_years_school_id");
+            entity.HasIndex(e => e.IsActive, "IX_academic_years_is_active");
+            entity.HasIndex(e => new { e.SchoolId, e.IsActive }, "IX_academic_years_school_active");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("gen_random_uuid()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SchoolId)
+                .IsRequired()
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("name");
+
+            entity.Property(e => e.Description)
+                .HasColumnName("description");
+
+            entity.Property(e => e.StartDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("start_date");
+
+            entity.Property(e => e.EndDate)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("end_date");
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(false)
+                .HasColumnName("is_active");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.Property(e => e.CreatedBy)
+                .HasColumnName("created_by");
+
+            entity.Property(e => e.UpdatedBy)
+                .HasColumnName("updated_by");
+
+            entity.HasOne(d => d.School).WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("academic_years_school_id_fkey");
+
+            entity.HasOne(d => d.CreatedByUser).WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("academic_years_created_by_fkey");
+
+            entity.HasOne(d => d.UpdatedByUser).WithMany()
+                .HasForeignKey(d => d.UpdatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("academic_years_updated_by_fkey");
         });
 
         modelBuilder.Entity<User>(entity =>

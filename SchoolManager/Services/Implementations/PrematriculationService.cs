@@ -12,16 +12,19 @@ public class PrematriculationService : IPrematriculationService
     private readonly ILogger<PrematriculationService> _logger;
     private readonly IEmailService? _emailService;
     private readonly IMessagingService? _messagingService;
+    private readonly IAcademicYearService _academicYearService;
     private const decimal NOTA_MINIMA_APROBACION = 3.0m;
 
     public PrematriculationService(
         SchoolDbContext context,
         ILogger<PrematriculationService> logger,
+        IAcademicYearService academicYearService,
         IEmailService? emailService = null,
         IMessagingService? messagingService = null)
     {
         _context = context;
         _logger = logger;
+        _academicYearService = academicYearService;
         _emailService = emailService;
         _messagingService = messagingService;
     }
@@ -717,7 +720,8 @@ public class PrematriculationService : IPrematriculationService
 
             if (group != null)
             {
-                var currentStudents = group.StudentAssignments?.Count ?? 0;
+                // MEJORADO: Contar solo estudiantes activos
+                var currentStudents = group.StudentAssignments?.Count(sa => sa.IsActive) ?? 0;
                 
                 // Contar prematrículas que reservan cupos (excluyendo la actual si no está matriculada)
                 var reservedSpots = await _context.Prematriculations
@@ -765,6 +769,9 @@ public class PrematriculationService : IPrematriculationService
                 var group = await _context.Groups
                     .FirstOrDefaultAsync(g => g.Id == prematriculation.GroupId.Value);
 
+                // MEJORADO: Obtener año académico activo para la nueva asignación
+                var activeAcademicYear = await _academicYearService.GetActiveAcademicYearAsync(prematriculation.SchoolId);
+
                 var assignment = new StudentAssignment
                 {
                     Id = Guid.NewGuid(),
@@ -773,6 +780,7 @@ public class PrematriculationService : IPrematriculationService
                     GroupId = prematriculation.GroupId.Value,
                     ShiftId = group?.ShiftId,
                     IsActive = true,
+                    AcademicYearId = activeAcademicYear?.Id, // Asignar año académico si existe
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.StudentAssignments.Add(assignment);

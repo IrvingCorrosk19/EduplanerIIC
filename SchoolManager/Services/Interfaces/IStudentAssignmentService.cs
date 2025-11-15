@@ -2,7 +2,7 @@
 
 public interface IStudentAssignmentService
 {
-    Task<List<StudentAssignment>> GetAssignmentsByStudentIdAsync(Guid studentId);
+    Task<List<StudentAssignment>> GetAssignmentsByStudentIdAsync(Guid studentId, bool activeOnly = true);
 
     Task AssignAsync(Guid studentId, List<(Guid SubjectId, Guid GradeId, Guid GroupId)> assignments);
 

@@ -602,5 +602,35 @@ public class PrematriculationController : Controller
     {
         return View("ApplyDatabaseChanges");
     }
+
+    // Endpoint para aplicar cambios de Año Académico
+    [Authorize(Roles = "admin,superadmin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Route("/Prematriculation/ApplyAcademicYearChanges")]
+    public async Task<IActionResult> ApplyAcademicYearChanges()
+    {
+        try
+        {
+            _logger.LogInformation("Aplicando cambios de Año Académico desde la interfaz web");
+            await SchoolManager.Scripts.ApplyAcademicYearChanges.ApplyAsync(_context);
+            TempData["Success"] = "Cambios de Año Académico aplicados correctamente a la base de datos";
+            return Json(new { success = true, message = "Cambios de Año Académico aplicados correctamente" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al aplicar cambios de Año Académico");
+            TempData["Error"] = $"Error al aplicar cambios: {ex.Message}";
+            return Json(new { success = false, message = ex.Message });
+        }
+    }
+
+    [Authorize(Roles = "admin,superadmin")]
+    [HttpGet]
+    [Route("/Prematriculation/ApplyAcademicYearChanges")]
+    public IActionResult ApplyAcademicYearChangesPage()
+    {
+        return View("ApplyAcademicYearChanges");
+    }
 }
 

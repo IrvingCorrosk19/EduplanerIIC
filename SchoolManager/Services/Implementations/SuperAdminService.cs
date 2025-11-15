@@ -701,15 +701,21 @@ public class SuperAdminService : ISuperAdminService
     {
         Console.WriteLine($"     🔍 [SuperAdminService] Buscando relaciones para usuario: {user.Name}");
 
-        // Eliminar asignaciones de estudiantes
+        // MEJORADO: Inactivar asignaciones de estudiantes (preserva historial)
+        // Nota: Si realmente necesitas eliminar permanentemente, usa DeleteAssignmentsPermanentlyAsync
         var studentAssignments = await _context.StudentAssignments
-            .Where(sa => sa.StudentId == user.Id)
+            .Where(sa => sa.StudentId == user.Id && sa.IsActive)
             .ToListAsync();
         
         if (studentAssignments.Count > 0)
         {
-            Console.WriteLine($"     🗑️ [SuperAdminService] Eliminando {studentAssignments.Count} asignaciones de estudiantes");
-            _context.StudentAssignments.RemoveRange(studentAssignments);
+            Console.WriteLine($"     🗑️ [SuperAdminService] Inactivando {studentAssignments.Count} asignaciones de estudiantes");
+            foreach (var assignment in studentAssignments)
+            {
+                assignment.IsActive = false;
+                assignment.EndDate = DateTime.UtcNow;
+            }
+            _context.StudentAssignments.UpdateRange(studentAssignments);
         }
 
         // Eliminar asignaciones de profesores

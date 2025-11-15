@@ -721,10 +721,11 @@ namespace SchoolManager.Services.Implementations
                 
                 // Obtener todas las combinaciones únicas de grade_id + group_id desde student_assignments
                 // que pertenezcan a estudiantes de la escuela específica, con JOIN a grade_levels y groups
-                // EXCLUYENDO las que ya tienen consejero asignado (por combinación específica o por grupo)
+                // MEJORADO: EXCLUYENDO las que ya tienen consejero asignado (por combinación específica o por grupo)
+                // Solo considerar asignaciones activas de estudiantes
                 var combinations = await _context.StudentAssignments
                     .Include(sa => sa.Student)
-                    .Where(sa => sa.Student != null && sa.Student.SchoolId == schoolId)
+                    .Where(sa => sa.Student != null && sa.Student.SchoolId == schoolId && sa.IsActive)
                     .GroupBy(sa => new { sa.GradeId, sa.GroupId })
                     .Where(g => !_context.CounselorAssignments
                         .Any(ca => (ca.GradeId == g.Key.GradeId && ca.GroupId == g.Key.GroupId) || 
@@ -770,10 +771,11 @@ namespace SchoolManager.Services.Implementations
                 // Obtener todas las combinaciones únicas de grade_id + group_id desde student_assignments
                 // que pertenezcan a estudiantes de la escuela específica, con JOIN a grade_levels y groups
                 // EXCLUYENDO las que ya tienen consejero asignado (por combinación específica o por grupo)
-                // excepto la que estamos editando
+                // MEJORADO: excepto la que estamos editando
+                // Solo considerar asignaciones activas de estudiantes
                 var combinations = await _context.StudentAssignments
                     .Include(sa => sa.Student)
-                    .Where(sa => sa.Student != null && sa.Student.SchoolId == schoolId)
+                    .Where(sa => sa.Student != null && sa.Student.SchoolId == schoolId && sa.IsActive)
                     .GroupBy(sa => new { sa.GradeId, sa.GroupId })
                     .Where(g => !_context.CounselorAssignments
                         .Any(ca => ((ca.GradeId == g.Key.GradeId && ca.GroupId == g.Key.GroupId) || 

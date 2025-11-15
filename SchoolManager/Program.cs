@@ -86,6 +86,7 @@ builder.Services.AddScoped<IPrematriculationPeriodService, PrematriculationPerio
 builder.Services.AddScoped<IPrematriculationService, PrematriculationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentConceptService, PaymentConceptService>();
+builder.Services.AddScoped<IAcademicYearService, AcademicYearService>();
 
 // Cloudinary para almacenamiento persistente de archivos en la nube
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
@@ -125,18 +126,25 @@ Console.WriteLine($"Hash generado: {hash}");
 var app = builder.Build();
 
 // Script temporal para aplicar cambios a la base de datos
-// Ejecutar con: dotnet run -- --apply-db-changes
-// Ya aplicado - Comentado para no ejecutarse automáticamente
-/*
-if (args.Length > 0 && args[0] == "--apply-db-changes")
+// Ejecutar con: dotnet run -- --apply-db-changes o --apply-academic-year
+if (args.Length > 0)
 {
     using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
-    await SchoolManager.Scripts.ApplyDatabaseChanges.ApplyPrematriculationChangesAsync(context);
-    Console.WriteLine("✅ Cambios aplicados. Saliendo...");
-    return;
+    
+    if (args[0] == "--apply-db-changes")
+    {
+        await SchoolManager.Scripts.ApplyDatabaseChanges.ApplyPrematriculationChangesAsync(context);
+        Console.WriteLine("✅ Cambios de prematriculación aplicados. Saliendo...");
+        return;
+    }
+    else if (args[0] == "--apply-academic-year")
+    {
+        await SchoolManager.Scripts.ApplyAcademicYearChanges.ApplyAsync(context);
+        Console.WriteLine("✅ Cambios de año académico aplicados. Saliendo...");
+        return;
+    }
 }
-*/
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

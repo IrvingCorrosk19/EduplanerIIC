@@ -83,7 +83,7 @@ public class StudentReportController : Controller
             _logger.LogInformation("Trimestres disponibles: {Trimesters}", string.Join(", ", availableTrimesters));
             Console.WriteLine($"Trimestres disponibles: {string.Join(", ", availableTrimesters)}");
 
-            string selectedTrimester = availableTrimesters.Contains("1T") ? "1T" : availableTrimesters.FirstOrDefault();
+            string selectedTrimester = availableTrimesters.Contains("1T") ? "1T" : availableTrimesters.FirstOrDefault() ?? "1T";
             _logger.LogInformation("Trimestre seleccionado: {SelectedTrimester}", selectedTrimester);
             Console.WriteLine($"Trimestre seleccionado: {selectedTrimester}");
 

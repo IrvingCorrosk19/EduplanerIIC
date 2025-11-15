@@ -23,11 +23,15 @@ public partial class StudentActivityScore
 
     public Guid? UpdatedBy { get; set; }
 
+    public Guid? AcademicYearId { get; set; }
+
     public virtual Activity Activity { get; set; } = null!;
 
     public virtual School? School { get; set; }
 
     public virtual User Student { get; set; } = null!;
+
+    public virtual AcademicYear? AcademicYear { get; set; }
 
     public virtual User? CreatedByUser { get; set; }
 

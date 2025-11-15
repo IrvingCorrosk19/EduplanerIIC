@@ -16,13 +16,15 @@ namespace SchoolManager.Services.Implementations
         private readonly SchoolDbContext _context;
         private readonly IDisciplineReportService _disciplineReportService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IAcademicYearService _academicYearService;
         private readonly ILogger<StudentReportService> _logger;
 
-        public StudentReportService(SchoolDbContext context, IDisciplineReportService disciplineReportService, ICurrentUserService currentUserService, ILogger<StudentReportService> logger)
+        public StudentReportService(SchoolDbContext context, IDisciplineReportService disciplineReportService, ICurrentUserService currentUserService, IAcademicYearService academicYearService, ILogger<StudentReportService> logger)
         {
             _context = context;
             _disciplineReportService = disciplineReportService;
             _currentUserService = currentUserService;
+            _academicYearService = academicYearService;
             _logger = logger;
         }
 
@@ -82,7 +84,10 @@ namespace SchoolManager.Services.Implementations
                 _logger.LogInformation("Buscando calificaciones para StudentId: {StudentId}, Trimester: {Trimester}", studentId, selectedTrimester);
                 Console.WriteLine($"Buscando calificaciones para StudentId: {studentId}, Trimester: {selectedTrimester}");
 
-                var studentScores = await _context.StudentActivityScores
+                // MEJORADO: Obtener año académico activo para filtrar notas
+                var activeAcademicYear = await _academicYearService.GetActiveAcademicYearAsync(studentUser.SchoolId);
+
+                var scoresQuery = _context.StudentActivityScores
                     .Where(s => s.StudentId == studentId)
                     .Join(_context.Activities,
                           score => score.ActivityId,
@@ -97,9 +102,18 @@ namespace SchoolManager.Services.Implementations
                               activity.Trimester,
                               activity.TeacherId,
                               score.Score,
+                              score.AcademicYearId,
                               score.CreatedAt
                           })
-                    .Where(a => a.Trimester == selectedTrimester)
+                    .Where(a => a.Trimester == selectedTrimester);
+
+                // Filtrar por año académico si existe uno activo
+                if (activeAcademicYear != null)
+                {
+                    scoresQuery = scoresQuery.Where(a => a.AcademicYearId == activeAcademicYear.Id);
+                }
+
+                var studentScores = await scoresQuery
                     .GroupBy(a => new { a.ActivityId, a.SubjectId, a.TeacherId, a.Name })
                     .Select(g => g.OrderByDescending(x => x.CreatedAt).First())
                     .ToListAsync();
@@ -316,8 +330,19 @@ namespace SchoolManager.Services.Implementations
 
         public async Task<StudentReportDto> GetReportByStudentIdAndTrimesterAsync(Guid studentId, string trimester)
         {
+            // Obtener la escuela del estudiante
+            var studentUser = await _context.Users
+                .Where(u => u.Id == studentId)
+                .Select(u => new { u.SchoolId })
+                .FirstOrDefaultAsync();
+
+            // MEJORADO: Obtener año académico activo para filtrar notas
+            var activeAcademicYear = studentUser?.SchoolId.HasValue == true
+                ? await _academicYearService.GetActiveAcademicYearAsync(studentUser.SchoolId)
+                : null;
+
             // Obtener las actividades del estudiante con las calificaciones para el trimestre seleccionado
-            var studentScores = await _context.StudentActivityScores
+            var scoresQuery = _context.StudentActivityScores
                 .Where(s => s.StudentId == studentId)
                 .Join(_context.Activities,
                       score => score.ActivityId,
@@ -337,9 +362,18 @@ namespace SchoolManager.Services.Implementations
                           activity.Subject,
                           activity.Teacher,
                           Score = score.Score,
+                          AcademicYearId = score.AcademicYearId,
                           ScoreCreatedAt = score.CreatedAt
                       })
-                .Where(a => a.Trimester.Trim().ToLower() == trimester.Trim().ToLower())
+                .Where(a => a.Trimester.Trim().ToLower() == trimester.Trim().ToLower());
+
+            // Filtrar por año académico si existe uno activo
+            if (activeAcademicYear != null)
+            {
+                scoresQuery = scoresQuery.Where(a => a.AcademicYearId == activeAcademicYear.Id);
+            }
+
+            var studentScores = await scoresQuery
                 .GroupBy(a => new { a.Id, a.SubjectId, a.TeacherId, a.Name })
                 .Select(g => g.OrderByDescending(x => x.ScoreCreatedAt).First())
                 .ToListAsync();

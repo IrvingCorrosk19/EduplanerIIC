@@ -138,9 +138,9 @@ namespace SchoolManager.Services.Implementations
         {
             _logger.LogInformation("Calculando estadísticas para grupo {GrupoId}, trimestre {Trimestre}", grupoId, trimestre);
             
-            // Obtener todos los estudiantes del grupo
+            // MEJORADO: Obtener solo estudiantes activos del grupo
             var estudiantesDelGrupo = await _context.StudentAssignments
-                .Where(sa => sa.GroupId == grupoId)
+                .Where(sa => sa.GroupId == grupoId && sa.IsActive)
                 .Select(sa => sa.StudentId)
                 .Distinct()
                 .ToListAsync();

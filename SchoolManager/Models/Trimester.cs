@@ -25,7 +25,11 @@ public partial class Trimester
 
     public DateTime? UpdatedAt { get; set; }
 
+    public Guid? AcademicYearId { get; set; }
+
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
     public virtual School? School { get; set; }
+
+    public virtual AcademicYear? AcademicYear { get; set; }
 }

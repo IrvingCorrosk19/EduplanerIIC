@@ -16,12 +16,14 @@ namespace SchoolManager.Services
         private readonly SchoolDbContext _context;
         private readonly ITrimesterService _trimesterService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IAcademicYearService _academicYearService;
 
-        public StudentActivityScoreService(SchoolDbContext context, ITrimesterService trimesterService, ICurrentUserService currentUserService)
+        public StudentActivityScoreService(SchoolDbContext context, ITrimesterService trimesterService, ICurrentUserService currentUserService, IAcademicYearService academicYearService)
         {
             _context = context;
             _trimesterService = trimesterService;
             _currentUserService = currentUserService;
+            _academicYearService = academicYearService;
         }
 
         /* ------------ 1. Guardar / actualizar notas ------------ */
@@ -38,12 +40,19 @@ namespace SchoolManager.Services
 
                 if (entity is null)
                 {
+                    // MEJORADO: Obtener año académico activo para la nueva nota
+                    var currentUserSchool = await _currentUserService.GetCurrentUserSchoolAsync();
+                    var activeAcademicYear = currentUserSchool != null
+                        ? await _academicYearService.GetActiveAcademicYearAsync(currentUserSchool.Id)
+                        : null;
+
                     var newScore = new StudentActivityScore
                     {
                         Id = Guid.NewGuid(),
                         StudentId = dto.StudentId,
                         ActivityId = dto.ActivityId,
-                        Score = dto.Score
+                        Score = dto.Score,
+                        AcademicYearId = activeAcademicYear?.Id // Asignar año académico si existe
                     };
                     
                     // Configurar campos de auditoría y SchoolId
@@ -181,6 +190,12 @@ namespace SchoolManager.Services
 
                     if (existing == null)
                     {
+                        // MEJORADO: Obtener año académico activo para la nueva nota
+                        var currentUserSchool = await _currentUserService.GetCurrentUserSchoolAsync();
+                        var activeAcademicYear = currentUserSchool != null
+                            ? await _academicYearService.GetActiveAcademicYearAsync(currentUserSchool.Id)
+                            : null;
+
                         // Si no existe, lo añadimos (incluso si la nota es nula)
                         _context.StudentActivityScores.Add(new StudentActivityScore
                         {
@@ -188,6 +203,7 @@ namespace SchoolManager.Services
                             StudentId = dto.StudentId,
                             ActivityId = activity.Id,
                             Score = dto.Score, // Puede ser nulo
+                            AcademicYearId = activeAcademicYear?.Id, // Asignar año académico si existe
                             CreatedAt = DateTime.UtcNow
                         });
                     }

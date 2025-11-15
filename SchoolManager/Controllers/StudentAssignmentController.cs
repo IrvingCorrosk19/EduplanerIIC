@@ -58,7 +58,7 @@ namespace SchoolManager.Controllers
                 return Json(new { success = false, message = "Solo el director tiene autorización para realizar cambios de turno." });
             }
 
-            // 1. Eliminar todas las asignaciones existentes de este estudiante
+            // 1. Inactivar todas las asignaciones existentes de este estudiante (preserva historial)
             await _studentAssignmentService.RemoveAssignmentsAsync(studentId);
 
             // 2. Crear la nueva asignación

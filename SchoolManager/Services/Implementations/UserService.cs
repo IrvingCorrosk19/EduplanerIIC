@@ -357,10 +357,20 @@ public async Task DeleteAsync(Guid id)
         {
             case UserRole.Student:
             case UserRole.Estudiante:
+                // MEJORADO: Inactivar asignaciones en lugar de eliminarlas (preserva historial)
                 var studentAssignments = await _context.StudentAssignments
-                    .Where(sa => sa.StudentId == id)
+                    .Where(sa => sa.StudentId == id && sa.IsActive)
                     .ToListAsync();
-                _context.StudentAssignments.RemoveRange(studentAssignments);
+                
+                if (studentAssignments.Any())
+                {
+                    foreach (var assignment in studentAssignments)
+                    {
+                        assignment.IsActive = false;
+                        assignment.EndDate = DateTime.UtcNow;
+                    }
+                    _context.StudentAssignments.UpdateRange(studentAssignments);
+                }
                 break;
 
             case UserRole.Teacher:

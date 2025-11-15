@@ -21,6 +21,8 @@ public partial class StudentAssignment
     
     public DateTime? EndDate { get; set; }
 
+    public Guid? AcademicYearId { get; set; }
+
     public virtual GradeLevel Grade { get; set; } = null!;
 
     public virtual Group Group { get; set; } = null!;
@@ -28,4 +30,6 @@ public partial class StudentAssignment
     public virtual Shift? Shift { get; set; } // Navegación a la jornada
 
     public virtual User Student { get; set; } = null!;
+
+    public virtual AcademicYear? AcademicYear { get; set; }
 }

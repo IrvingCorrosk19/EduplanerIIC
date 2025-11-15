@@ -56,6 +56,7 @@ namespace SchoolManager.Services
 
         public async Task<IEnumerable<StudentBasicDto>> GetByGroupAndGradeAsync(Guid groupId, Guid gradeId)
         {
+            // MEJORADO: Filtrar solo estudiantes con asignaciones activas
             var result = await (from sa in _context.StudentAssignments
                                 join student in _context.Users on sa.StudentId equals student.Id
                                 join grade in _context.GradeLevels on sa.GradeId equals grade.Id
@@ -63,6 +64,7 @@ namespace SchoolManager.Services
                                 where (student.Role == "estudiante" || student.Role == "student" || student.Role == "alumno")
                                       && sa.GroupId == groupId
                                       && sa.GradeId == gradeId
+                                      && sa.IsActive // Solo asignaciones activas
                                 orderby student.LastName, student.Name
                                 select new StudentBasicDto
                                 {
@@ -78,6 +80,7 @@ namespace SchoolManager.Services
 
         public async Task<IEnumerable<StudentBasicDto>> GetBySubjectGroupAndGradeAsync(Guid subjectId, Guid groupId, Guid gradeId)
         {
+            // MEJORADO: Filtrar solo estudiantes con asignaciones activas
             var result = await (from sa in _context.StudentAssignments
                                 join student in _context.Users on sa.StudentId equals student.Id
                                 join grade in _context.GradeLevels on sa.GradeId equals grade.Id
@@ -86,6 +89,7 @@ namespace SchoolManager.Services
                                 where (student.Role == "estudiante" || student.Role == "student" || student.Role == "alumno")
                                       && sa.GroupId == groupId
                                       && sa.GradeId == gradeId
+                                      && sa.IsActive // Solo asignaciones activas
                                       && subjectAssign.SubjectId == subjectId
                                 orderby student.LastName, student.Name
                                 select new StudentBasicDto
