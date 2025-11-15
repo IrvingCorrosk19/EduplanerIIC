@@ -65,8 +65,13 @@ public static class ApplyRenderMigrations
             await ApplyUserShiftColumn.ApplyAsync(context);
             Console.WriteLine("✅ Columna shift aplicada\n");
 
-            // Paso 5: Verificar estado final
-            Console.WriteLine("🔍 Paso 5: Verificando estado final...");
+            // Paso 5: Aplicar columnas faltantes a groups
+            Console.WriteLine("🔧 Paso 5: Aplicando columnas faltantes a groups...");
+            await ApplyGroupsColumns.ApplyAsync(context);
+            Console.WriteLine("✅ Columnas de groups aplicadas\n");
+
+            // Paso 6: Verificar estado final
+            Console.WriteLine("🔍 Paso 6: Verificando estado final...");
             await TestRenderConnection.CheckMigrationStatusAsync();
 
             Console.WriteLine("\n═══════════════════════════════════════════════════");
