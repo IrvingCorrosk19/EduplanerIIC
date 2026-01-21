@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
@@ -279,6 +279,10 @@ namespace SchoolManager.Controllers
                 {
                     return BadRequest(new { success = false, message = "Formato de fechas inválido." });
                 }
+
+                // Convertir fechas a UTC para consistencia
+                startDate = DateTime.SpecifyKind(startDate, DateTimeKind.Unspecified).ToUniversalTime();
+                endDate = DateTime.SpecifyKind(endDate, DateTimeKind.Unspecified).ToUniversalTime();
 
                 var dto = new TrimesterDto
                 {

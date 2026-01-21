@@ -411,8 +411,9 @@ public class OrientationReportController : Controller
         {
             var teacherId = GetTeacherId();
             
-            // Obtener asistencias para el grupo específico
-            var asistencias = await _attendanceService.GetAttendancesByDateAsync(request.GroupId, request.GradeLevelId, DateOnly.FromDateTime(DateTime.Now));
+            // Obtener asistencias para el grupo específico (usar fecha UTC para consistencia)
+            var fechaActual = DateOnly.FromDateTime(DateTime.UtcNow);
+            var asistencias = await _attendanceService.GetAttendancesByDateAsync(request.GroupId, request.GradeLevelId, fechaActual);
             
             return Json(new { success = true, data = asistencias });
         }

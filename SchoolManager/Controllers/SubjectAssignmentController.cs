@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Dtos;
 using SchoolManager.Models;
@@ -691,8 +691,12 @@ namespace SchoolManager.Controllers
                             continue;
                         }
 
-                        // Validar que la fecha no sea futura
-                        if (fechaNac > DateTime.Now)
+                        // Especificar que es fecha local y convertir a UTC para consistencia
+                        fechaNac = DateTime.SpecifyKind(fechaNac, DateTimeKind.Unspecified).ToUniversalTime();
+
+                        // Validar que la fecha no sea futura (usar UTC para consistencia)
+                        var fechaActual = DateTime.UtcNow;
+                        if (fechaNac > fechaActual)
                         {
                             errores.Add($"Fecha de nacimiento no puede ser futura para {item.Estudiante}");
                             erroresValidacion++;
@@ -700,7 +704,9 @@ namespace SchoolManager.Controllers
                         }
 
                         // Validar que la edad sea razonable (entre 5 y 25 años)
-                        var edad = DateTime.Now.Year - fechaNac.Year;
+                        // Calcular edad correctamente considerando mes y día
+                        var edad = fechaActual.Year - fechaNac.Year;
+                        if (fechaNac.Date > fechaActual.Date.AddYears(-edad)) edad--;
                         if (edad < 5 || edad > 25)
                         {
                             errores.Add($"Edad no válida para {item.Estudiante} ({edad} años). Debe estar entre 5 y 25 años");

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Dtos;
 using System;
@@ -246,7 +246,8 @@ public class StudentReportController : Controller
             var htmlContent = GenerateDisciplineReportHtml(studentName, grade, disciplineReports);
 
             // Convertir HTML a PDF (usando un enfoque simple con HTML)
-            var fileName = $"Expediente_Disciplina_{studentName?.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.html";
+            // Usar UTC para nombres de archivo para consistencia
+            var fileName = $"Expediente_Disciplina_{studentName?.Replace(" ", "_")}_{DateTime.UtcNow:yyyyMMdd}.html";
             
             _logger.LogInformation("=== FIN ExportDisciplinePdf - Archivo generado: {FileName} ===", fileName);
             Console.WriteLine($"=== FIN ExportDisciplinePdf - Archivo generado: {fileName} ===");
@@ -299,7 +300,9 @@ public class StudentReportController : Controller
         html.AppendLine("    <div class='info'>");
         html.AppendLine("        <p><strong>Estudiante:</strong> " + (studentName ?? "N/A") + "</p>");
         html.AppendLine("        <p><strong>Grado:</strong> " + (grade ?? "N/A") + "</p>");
-        html.AppendLine("        <p><strong>Fecha de Generación:</strong> " + DateTime.Now.ToString("dd/MM/yyyy HH:mm") + "</p>");
+        // Convertir UTC a hora local para mostrar al usuario
+        var fechaGeneracion = DateTime.UtcNow.ToLocalTime();
+        html.AppendLine("        <p><strong>Fecha de Generación:</strong> " + fechaGeneracion.ToString("dd/MM/yyyy HH:mm") + "</p>");
         html.AppendLine("    </div>");
         
         // Tabla de reportes

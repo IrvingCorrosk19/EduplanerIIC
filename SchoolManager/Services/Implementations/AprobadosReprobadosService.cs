@@ -101,8 +101,9 @@ namespace SchoolManager.Services.Implementations
                 // Calcular totales generales
                 var totales = CalcularTotalesGenerales(estadisticas);
 
-                // Obtener año lectivo actual
-                var anoLectivo = DateTime.Now.Year.ToString();
+                // Obtener año lectivo actual (usar UTC para consistencia)
+                var fechaActual = DateTime.UtcNow;
+                var anoLectivo = fechaActual.Year.ToString();
 
                 var reporte = new AprobadosReprobadosReportViewModel
                 {
@@ -112,7 +113,7 @@ namespace SchoolManager.Services.Implementations
                     Trimestre = trimestre,
                     AnoLectivo = anoLectivo,
                     NivelEducativo = nivelEducativo,
-                    FechaGeneracion = DateTime.Now,
+                    FechaGeneracion = fechaActual,
                     Estadisticas = estadisticas.OrderBy(e => e.Grado).ThenBy(e => e.Grupo).ToList(),
                     TotalesGenerales = totales,
                     TrimestresDisponibles = await ObtenerTrimestresDisponiblesAsync(schoolId),
