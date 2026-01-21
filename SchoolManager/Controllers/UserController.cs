@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using SchoolManager.Enums;
@@ -183,11 +183,12 @@ public class UserController : Controller
         return View(user);
     }
 
-    [HttpPost]
+    [HttpPost, ActionName("Delete")]
     public async Task<IActionResult> DeleteConfirmed(Guid id)
     {
         await _userService.DeleteAsync(id);
-        return Ok();
+        TempData["SuccessMessage"] = "Usuario eliminado exitosamente.";
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]

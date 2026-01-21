@@ -6,6 +6,7 @@ using BCrypt.Net;
 
 namespace SchoolManager.Controllers
 {
+    [Route("api/auth")]
     public class AuthController : Controller
     {
         private readonly IAuthService _authService;
@@ -77,6 +78,38 @@ namespace SchoolManager.Controllers
             return View();
         }
 
+        // API endpoint para login desde app móvil (devuelve token simple)
+        [HttpPost("login")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ApiLogin([FromBody] LoginApiRequest request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
+            {
+                return BadRequest(new { message = "Email y contraseña son requeridos" });
+            }
+
+            var (success, message, user) = await _authService.LoginAsync(request.Email, request.Password);
+
+            if (!success)
+            {
+                return Unauthorized(new { message = message });
+            }
+
+            // Generar token simple (GUID + timestamp en base64)
+            // En producción, usar JWT real con System.IdentityModel.Tokens.Jwt
+            var tokenData = $"{user.Id}:{user.Email}:{DateTime.UtcNow:yyyyMMddHHmmss}";
+            var tokenBytes = System.Text.Encoding.UTF8.GetBytes(tokenData);
+            var token = Convert.ToBase64String(tokenBytes);
+
+            return Ok(new { 
+                token = token,
+                userId = user.Id,
+                email = user.Email,
+                name = user.Name,
+                role = user.Role
+            });
+        }
+
         // Método temporal para arreglar contraseñas no hasheadas
         [HttpGet]
         [AllowAnonymous]
@@ -114,5 +147,11 @@ namespace SchoolManager.Controllers
                 });
             }
         }
+    }
+
+    public class LoginApiRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 } 

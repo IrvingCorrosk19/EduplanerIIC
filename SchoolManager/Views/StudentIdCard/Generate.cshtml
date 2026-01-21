@@ -1,0 +1,143 @@
+@model SchoolManager.Dtos.StudentIdCardDto
+@{
+    ViewData["Title"] = "Carnet Estudiantil - " + Model.FullName;
+    Layout = "_AdminLayout";
+}
+
+<style>
+    .id-card {
+        width: 350px;
+        max-width: 100%;
+        margin: 0 auto;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 2rem;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .id-card-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    .id-card-header img {
+        max-width: 120px;
+        height: auto;
+        background: white;
+        padding: 10px;
+        border-radius: 10px;
+    }
+    .id-card-body {
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        padding: 1.5rem;
+        backdrop-filter: blur(10px);
+    }
+    .id-card-name {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    .id-card-info {
+        margin-bottom: 0.75rem;
+        font-size: 1rem;
+    }
+    .id-card-info strong {
+        display: inline-block;
+        width: 80px;
+    }
+    .id-card-qr {
+        text-align: center;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 10px;
+    }
+    .id-card-qr img {
+        max-width: 150px;
+        height: auto;
+    }
+    .print-actions {
+        text-align: center;
+        margin-top: 2rem;
+    }
+    @@media print {
+        body * {
+            visibility: hidden;
+        }
+        .id-card, .id-card * {
+            visibility: visible;
+        }
+        .id-card {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        .print-actions {
+            display: none;
+        }
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 text-center mb-3">
+            <h2><i class="fas fa-id-card"></i> Carnet Estudiantil</h2>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="id-card" id="idCard">
+                <div class="id-card-header">
+                    <img src="/images/logo.png" alt="Logo" onerror="this.style.display='none'" />
+                    <h4 style="margin-top: 1rem;">SchoolManager</h4>
+                </div>
+                <div class="id-card-body">
+                    <div class="id-card-name">@Model.FullName</div>
+                    <div class="id-card-info">
+                        <strong>Grado:</strong> @Model.Grade
+                    </div>
+                    <div class="id-card-info">
+                        <strong>Grupo:</strong> @Model.Group
+                    </div>
+                    <div class="id-card-info">
+                        <strong>Jornada:</strong> @Model.Shift
+                    </div>
+                    <div class="id-card-info">
+                        <strong>Carnet:</strong> @Model.CardNumber
+                    </div>
+                    <div class="id-card-qr">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=@Model.QrToken" alt="QR Code" />
+                        <div style="margin-top: 0.5rem; color: #333; font-size: 0.8rem;">Escanea para validar</div>
+                    </div>
+                </div>
+            </div>
+            <div class="print-actions">
+                <a href="/StudentIdCard/ui/print/@Model.StudentId" class="btn btn-primary btn-lg" target="_blank">
+                    <i class="fas fa-file-pdf"></i> Descargar PDF
+                </a>
+                <button class="btn btn-success btn-lg" onclick="window.print()">
+                    <i class="fas fa-print"></i> Imprimir Carnet
+                </button>
+                <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Asegurar que la imagen del logo se cargue correctamente
+    document.addEventListener('DOMContentLoaded', function() {
+        const logo = document.querySelector('.id-card-header img');
+        if (logo) {
+            logo.onerror = function() {
+                this.style.display = 'none';
+            };
+        }
+    });
+</script>
+}

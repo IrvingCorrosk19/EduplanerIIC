@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SchoolManager.Models;
@@ -11,9 +12,11 @@ using SchoolManager.Models;
 namespace SchoolManager.Migrations
 {
     [DbContext(typeof(SchoolDbContext))]
-    partial class SchoolDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260117093532_AddStudentIdModule")]
+    partial class AddStudentIdModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -906,84 +909,6 @@ namespace SchoolManager.Migrations
                     b.ToTable("groups", (string)null);
                 });
 
-            modelBuilder.Entity("SchoolManager.Models.IdCardTemplateField", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("uuid_generate_v4()");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("FieldKey")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("field_key");
-
-                    b.Property<decimal>("FontSize")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(4,2)")
-                        .HasDefaultValue(10m)
-                        .HasColumnName("font_size");
-
-                    b.Property<string>("FontWeight")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Normal")
-                        .HasColumnName("font_weight");
-
-                    b.Property<decimal>("HMm")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(6,2)")
-                        .HasDefaultValue(0m)
-                        .HasColumnName("h_mm");
-
-                    b.Property<bool>("IsEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_enabled");
-
-                    b.Property<Guid>("SchoolId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("school_id");
-
-                    b.Property<decimal>("WMm")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(6,2)")
-                        .HasDefaultValue(0m)
-                        .HasColumnName("w_mm");
-
-                    b.Property<decimal>("XMm")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(6,2)")
-                        .HasDefaultValue(0m)
-                        .HasColumnName("x_mm");
-
-                    b.Property<decimal>("YMm")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(6,2)")
-                        .HasDefaultValue(0m)
-                        .HasColumnName("y_mm");
-
-                    b.HasKey("Id")
-                        .HasName("id_card_template_fields_pkey");
-
-                    b.HasIndex(new[] { "FieldKey" }, "ix_id_card_template_fields_field");
-
-                    b.HasIndex(new[] { "SchoolId" }, "ix_id_card_template_fields_school");
-
-                    b.ToTable("id_card_template_fields", (string)null);
-                });
-
             modelBuilder.Entity("SchoolManager.Models.Message", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1708,101 +1633,6 @@ namespace SchoolManager.Migrations
                     b.HasIndex(new[] { "AdminId" }, "idx_schools_admin_id");
 
                     b.ToTable("schools", (string)null);
-                });
-
-            modelBuilder.Entity("SchoolManager.Models.SchoolIdCardSetting", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("uuid_generate_v4()");
-
-                    b.Property<string>("BackgroundColor")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("#FFFFFF")
-                        .HasColumnName("background_color");
-
-                    b.Property<int>("BleedMm")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("bleed_mm");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<int>("PageHeightMm")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(86)
-                        .HasColumnName("page_height_mm");
-
-                    b.Property<int>("PageWidthMm")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(54)
-                        .HasColumnName("page_width_mm");
-
-                    b.Property<string>("PrimaryColor")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("#0D6EFD")
-                        .HasColumnName("primary_color");
-
-                    b.Property<Guid>("SchoolId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("school_id");
-
-                    b.Property<bool>("ShowPhoto")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("show_photo");
-
-                    b.Property<bool>("ShowQr")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("show_qr");
-
-                    b.Property<string>("TemplateKey")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasDefaultValue("default_v1")
-                        .HasColumnName("template_key");
-
-                    b.Property<string>("TextColor")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("#111111")
-                        .HasColumnName("text_color");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.HasKey("Id")
-                        .HasName("school_id_card_settings_pkey");
-
-                    b.HasIndex(new[] { "SchoolId" }, "IX_school_id_card_settings_school_id")
-                        .IsUnique();
-
-                    b.ToTable("school_id_card_settings", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManager.Models.SecuritySetting", b =>
@@ -3048,18 +2878,6 @@ namespace SchoolManager.Migrations
                     b.Navigation("UpdatedByUser");
                 });
 
-            modelBuilder.Entity("SchoolManager.Models.IdCardTemplateField", b =>
-                {
-                    b.HasOne("SchoolManager.Models.School", "School")
-                        .WithMany()
-                        .HasForeignKey("SchoolId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("id_card_template_fields_school_id_fkey");
-
-                    b.Navigation("School");
-                });
-
             modelBuilder.Entity("SchoolManager.Models.Message", b =>
                 {
                     b.HasOne("SchoolManager.Models.Group", "Group")
@@ -3373,18 +3191,6 @@ namespace SchoolManager.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Admin");
-                });
-
-            modelBuilder.Entity("SchoolManager.Models.SchoolIdCardSetting", b =>
-                {
-                    b.HasOne("SchoolManager.Models.School", "School")
-                        .WithMany()
-                        .HasForeignKey("SchoolId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("school_id_card_settings_school_id_fkey");
-
-                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("SchoolManager.Models.SecuritySetting", b =>

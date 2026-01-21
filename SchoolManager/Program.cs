@@ -87,6 +87,11 @@ builder.Services.AddScoped<IPrematriculationService, PrematriculationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentConceptService, PaymentConceptService>();
 builder.Services.AddScoped<IAcademicYearService, AcademicYearService>();
+builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
+builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
+
+// HttpClient para descargar imágenes
+builder.Services.AddHttpClient();
 
 // Cloudinary para almacenamiento persistente de archivos en la nube
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();

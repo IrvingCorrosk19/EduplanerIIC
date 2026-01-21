@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -78,6 +78,16 @@ public partial class SchoolDbContext : DbContext
     public virtual DbSet<PaymentConcept> PaymentConcepts { get; set; }
 
     public virtual DbSet<PrematriculationHistory> PrematriculationHistories { get; set; }
+
+    public virtual DbSet<StudentIdCard> StudentIdCards { get; set; }
+
+    public virtual DbSet<StudentQrToken> StudentQrTokens { get; set; }
+
+    public virtual DbSet<ScanLog> ScanLogs { get; set; }
+
+    public virtual DbSet<SchoolIdCardSetting> SchoolIdCardSettings { get; set; }
+
+    public virtual DbSet<IdCardTemplateField> IdCardTemplateFields { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -2082,6 +2092,281 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.ChangedBy)
                 .HasConstraintName("prematriculation_histories_changed_by_fkey")
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configuración de StudentIdCard
+        modelBuilder.Entity<StudentIdCard>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("student_id_cards_pkey");
+
+            entity.ToTable("student_id_cards");
+
+            entity.HasIndex(e => e.CardNumber, "IX_student_id_cards_card_number").IsUnique();
+
+            entity.HasIndex(e => e.StudentId, "IX_student_id_cards_student_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.StudentId)
+                .HasColumnName("student_id");
+
+            entity.Property(e => e.CardNumber)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("card_number");
+
+            entity.Property(e => e.IssuedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("issued_at");
+
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("expires_at");
+
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("active")
+                .HasColumnName("status");
+
+            entity.HasOne(d => d.Student)
+                .WithMany()
+                .HasForeignKey(d => d.StudentId)
+                .HasConstraintName("student_id_cards_student_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configuración de StudentQrToken
+        modelBuilder.Entity<StudentQrToken>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("student_qr_tokens_pkey");
+
+            entity.ToTable("student_qr_tokens");
+
+            entity.HasIndex(e => e.Token, "IX_student_qr_tokens_token").IsUnique();
+
+            entity.HasIndex(e => e.StudentId, "IX_student_qr_tokens_student_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.StudentId)
+                .HasColumnName("student_id");
+
+            entity.Property(e => e.Token)
+                .IsRequired()
+                .HasMaxLength(500)
+                .HasColumnName("token");
+
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("expires_at");
+
+            entity.Property(e => e.IsRevoked)
+                .HasDefaultValue(false)
+                .HasColumnName("is_revoked");
+
+            entity.HasOne(d => d.Student)
+                .WithMany()
+                .HasForeignKey(d => d.StudentId)
+                .HasConstraintName("student_qr_tokens_student_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configuración de ScanLog
+        modelBuilder.Entity<ScanLog>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("scan_logs_pkey");
+
+            entity.ToTable("scan_logs");
+
+            entity.HasIndex(e => e.StudentId, "IX_scan_logs_student_id");
+
+            entity.HasIndex(e => e.ScannedAt, "IX_scan_logs_scanned_at");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.StudentId)
+                .HasColumnName("student_id");
+
+            entity.Property(e => e.ScanType)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("scan_type");
+
+            entity.Property(e => e.Result)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("result");
+
+            entity.Property(e => e.ScannedBy)
+                .HasColumnName("scanned_by");
+
+            entity.Property(e => e.ScannedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("scanned_at");
+
+            entity.HasOne(d => d.Student)
+                .WithMany()
+                .HasForeignKey(d => d.StudentId)
+                .HasConstraintName("scan_logs_student_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configuración de SchoolIdCardSetting
+        modelBuilder.Entity<SchoolIdCardSetting>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("school_id_card_settings_pkey");
+
+            entity.ToTable("school_id_card_settings");
+
+            entity.HasIndex(e => e.SchoolId, "IX_school_id_card_settings_school_id").IsUnique();
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SchoolId)
+                .IsRequired()
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.TemplateKey)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasDefaultValue("default_v1")
+                .HasColumnName("template_key");
+
+            entity.Property(e => e.PageWidthMm)
+                .HasDefaultValue(54)
+                .HasColumnName("page_width_mm");
+
+            entity.Property(e => e.PageHeightMm)
+                .HasDefaultValue(86)
+                .HasColumnName("page_height_mm");
+
+            entity.Property(e => e.BleedMm)
+                .HasDefaultValue(0)
+                .HasColumnName("bleed_mm");
+
+            entity.Property(e => e.BackgroundColor)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("#FFFFFF")
+                .HasColumnName("background_color");
+
+            entity.Property(e => e.PrimaryColor)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("#0D6EFD")
+                .HasColumnName("primary_color");
+
+            entity.Property(e => e.TextColor)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("#111111")
+                .HasColumnName("text_color");
+
+            entity.Property(e => e.ShowQr)
+                .HasDefaultValue(true)
+                .HasColumnName("show_qr");
+
+            entity.Property(e => e.ShowPhoto)
+                .HasDefaultValue(true)
+                .HasColumnName("show_photo");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .HasConstraintName("school_id_card_settings_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configuración de IdCardTemplateField
+        modelBuilder.Entity<IdCardTemplateField>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("id_card_template_fields_pkey");
+
+            entity.ToTable("id_card_template_fields");
+
+            entity.HasIndex(e => e.SchoolId, "ix_id_card_template_fields_school");
+
+            entity.HasIndex(e => e.FieldKey, "ix_id_card_template_fields_field");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.SchoolId)
+                .IsRequired()
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.FieldKey)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("field_key");
+
+            entity.Property(e => e.IsEnabled)
+                .HasDefaultValue(true)
+                .HasColumnName("is_enabled");
+
+            entity.Property(e => e.XMm)
+                .HasDefaultValue(0)
+                .HasColumnType("decimal(6,2)")
+                .HasColumnName("x_mm");
+
+            entity.Property(e => e.YMm)
+                .HasDefaultValue(0)
+                .HasColumnType("decimal(6,2)")
+                .HasColumnName("y_mm");
+
+            entity.Property(e => e.WMm)
+                .HasDefaultValue(0)
+                .HasColumnType("decimal(6,2)")
+                .HasColumnName("w_mm");
+
+            entity.Property(e => e.HMm)
+                .HasDefaultValue(0)
+                .HasColumnType("decimal(6,2)")
+                .HasColumnName("h_mm");
+
+            entity.Property(e => e.FontSize)
+                .HasDefaultValue(10)
+                .HasColumnType("decimal(4,2)")
+                .HasColumnName("font_size");
+
+            entity.Property(e => e.FontWeight)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("Normal")
+                .HasColumnName("font_weight");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .HasConstraintName("id_card_template_fields_school_id_fkey")
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

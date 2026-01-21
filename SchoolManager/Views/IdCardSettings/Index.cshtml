@@ -1,0 +1,161 @@
+@model SchoolManager.Models.SchoolIdCardSetting
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Configuración de Carnet";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-cog"></i> Configuración del Carnet Estudiantil
+                    </h3>
+                </div>
+                <div class="card-body">
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> @TempData["Success"]
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    }
+
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> @TempData["Error"]
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    }
+
+                    <form method="post" action="/id-card/settings/save">
+                        <input type="hidden" asp-for="SchoolId" />
+                        <input type="hidden" asp-for="Id" />
+                        <input type="hidden" asp-for="TemplateKey" />
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><i class="fas fa-palette"></i> Color Primario</label>
+                                    <input type="color" asp-for="PrimaryColor" class="form-control form-control-color" style="height: 50px;" />
+                                    <small class="form-text text-muted">Color principal del carnet (barra superior, acentos)</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><i class="fas fa-font"></i> Color de Texto</label>
+                                    <input type="color" asp-for="TextColor" class="form-control form-control-color" style="height: 50px;" />
+                                    <small class="form-text text-muted">Color del texto principal</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><i class="fas fa-fill"></i> Color de Fondo</label>
+                                    <input type="color" asp-for="BackgroundColor" class="form-control form-control-color" style="height: 50px;" />
+                                    <small class="form-text text-muted">Color de fondo del carnet</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><i class="fas fa-arrows-alt-h"></i> Ancho (mm)</label>
+                                    <input type="number" asp-for="PageWidthMm" class="form-control" min="30" max="100" />
+                                    <small class="form-text text-muted">Ancho del carnet en milímetros</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><i class="fas fa-arrows-alt-v"></i> Alto (mm)</label>
+                                    <input type="number" asp-for="PageHeightMm" class="form-control" min="50" max="150" />
+                                    <small class="form-text text-muted">Alto del carnet en milímetros</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><i class="fas fa-crop"></i> Sangrado (mm)</label>
+                                    <input type="number" asp-for="BleedMm" class="form-control" min="0" max="5" />
+                                    <small class="form-text text-muted">Margen de seguridad para impresión</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><i class="fas fa-tag"></i> Clave de Plantilla</label>
+                                    <input type="text" asp-for="TemplateKey" class="form-control" readonly />
+                                    <small class="form-text text-muted">Identificador de la plantilla</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        <input type="checkbox" asp-for="ShowQr" class="form-check-input" />
+                                        <label class="form-check-label" asp-for="ShowQr">
+                                            <i class="fas fa-qrcode"></i> Mostrar Código QR
+                                        </label>
+                                        <small class="form-text text-muted d-block">Incluir código QR para validación</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        <input type="checkbox" asp-for="ShowPhoto" class="form-check-input" />
+                                        <label class="form-check-label" asp-for="ShowPhoto">
+                                            <i class="fas fa-user-circle"></i> Mostrar Foto del Estudiante
+                                        </label>
+                                        <small class="form-text text-muted d-block">Incluir foto del estudiante (cuando esté disponible)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save"></i> Guardar Configuración
+                                </button>
+                                <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg">
+                                    <i class="fas fa-arrow-left"></i> Volver a Carnets
+                                </a>
+                                <a href="/StudentIdCard/ui" class="btn btn-info btn-lg">
+                                    <i class="fas fa-eye"></i> Vista Previa
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Preview en tiempo real de colores
+    document.addEventListener('DOMContentLoaded', function() {
+        const colorInputs = document.querySelectorAll('input[type="color"]');
+        colorInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                // Opcional: mostrar preview del color seleccionado
+                console.log(`${input.previousElementSibling.textContent}: ${input.value}`);
+            });
+        });
+    });
+</script>
+}

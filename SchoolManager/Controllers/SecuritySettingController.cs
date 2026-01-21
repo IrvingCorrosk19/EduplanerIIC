@@ -1,13 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Models;
+using SchoolManager.Services.Interfaces;
 
 public class SecuritySettingController : Controller
 {
     private readonly ISecuritySettingService _securitySettingService;
+    private readonly ISchoolService _schoolService;
 
-    public SecuritySettingController(ISecuritySettingService securitySettingService)
+    public SecuritySettingController(ISecuritySettingService securitySettingService, ISchoolService schoolService)
     {
         _securitySettingService = securitySettingService;
+        _schoolService = schoolService;
     }
 
     public async Task<IActionResult> Index()
@@ -23,7 +26,13 @@ public class SecuritySettingController : Controller
         return View(setting);
     }
 
-    public IActionResult Create() => View();
+    public async Task<IActionResult> Create()
+    {
+        // Obtener lista de escuelas para el dropdown
+        var schools = await _schoolService.GetAllAsync();
+        ViewBag.Schools = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(schools, "Id", "Name");
+        return View();
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create(SecuritySetting setting)
@@ -31,8 +40,11 @@ public class SecuritySettingController : Controller
         if (ModelState.IsValid)
         {
             await _securitySettingService.CreateAsync(setting);
+            TempData["SuccessMessage"] = "Configuración de seguridad creada exitosamente.";
             return RedirectToAction(nameof(Index));
         }
+        var schools = await _schoolService.GetAllAsync();
+        ViewBag.Schools = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(schools, "Id", "Name");
         return View(setting);
     }
 
