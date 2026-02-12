@@ -491,7 +491,21 @@
                                     </a>
                                 </li>
                                 }
+                                <li class="nav-item">
+                                    <a href="/StudentIdCard/ui" class="nav-link">
+                                        <i class="fas fa-id-card nav-icon"></i>
+                                        <p>Carnet Estudiantil</p>
+                                    </a>
+                                </li>
                             </ul>
+                        </li>
+                        }
+                        @if (userRole == "director" || userRole == "superadmin") {
+                        <li class="nav-item">
+                            <a href="/StudentIdCard/ui" class="nav-link">
+                                <i class="nav-icon fas fa-id-card"></i>
+                                <p>Carnet Estudiantil</p>
+                            </a>
                         </li>
                         }
                     </ul>

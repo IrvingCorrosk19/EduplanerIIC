@@ -6,7 +6,7 @@ using SchoolManager.Services.Interfaces;
 
 namespace SchoolManager.Controllers;
 
-[Authorize(Roles = "SuperAdmin,Admin,Director")]
+[Authorize(Roles = "SuperAdmin,superadmin,Admin,admin,Director,director")]
 [Route("id-card/settings")]
 public class IdCardSettingsController : Controller
 {

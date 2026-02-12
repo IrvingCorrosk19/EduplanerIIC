@@ -99,8 +99,22 @@ namespace SchoolManager.Services.Implementations
                             Icon = "fas fa-file-upload",
                             Url = "/StudentAssignment/Upload",
                             RequiredRoles = new[] { "admin" }
+                        },
+                        new MenuItem 
+                        { 
+                            Title = "Carnet Estudiantil", 
+                            Icon = "fas fa-id-card",
+                            Url = "/StudentIdCard/ui",
+                            RequiredRoles = new[] { "admin" }
                         }
                     }
+                },
+                new MenuItem 
+                { 
+                    Title = "Carnet Estudiantil", 
+                    Icon = "fas fa-id-card",
+                    Url = "/StudentIdCard/ui",
+                    RequiredRoles = new[] { "director", "superadmin" }
                 }
             };
 

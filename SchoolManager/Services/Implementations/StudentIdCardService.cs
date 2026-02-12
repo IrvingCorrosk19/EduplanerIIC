@@ -107,7 +107,7 @@ public class StudentIdCardService : IStudentIdCardService
         {
             _context.ScanLogs.Add(new ScanLog
             {
-                StudentId = Guid.Empty, // No se conoce el estudiante
+                StudentId = null, // No se conoce el estudiante (token inválido)
                 ScanType = request.ScanType,
                 Result = "denied",
                 ScannedBy = request.ScannedBy

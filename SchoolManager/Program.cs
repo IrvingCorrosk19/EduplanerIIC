@@ -132,6 +132,13 @@ builder.Services.AddScoped<ITimeZoneService, TimeZoneService>();
 
 var app = builder.Build();
 
+// Asegurar que existan las tablas del módulo de carnets (por si la migración no se aplicó)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+    await SchoolManager.Scripts.EnsureIdCardTables.EnsureAsync(db);
+}
+
 // Script temporal para aplicar cambios a la base de datos
 // Ejecutar con: 
 //   --apply-db-changes: Aplica cambios locales
@@ -200,6 +207,7 @@ app.UseAuthorization();
 // Usar el método de extensión para el middleware
 // app.UseSessionValidation();
 
+app.MapControllers(); // Rutas por atributos (ej. StudentIdCard/ui)
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Auth}/{action=Login}/{id?}");
