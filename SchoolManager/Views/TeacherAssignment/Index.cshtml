@@ -1,4 +1,4 @@
-﻿@model SchoolManager.ViewModels.TeacherAssignmentViewModel
+@model SchoolManager.ViewModels.TeacherAssignmentViewModel
 
 @{
     Layout = "_AdminLayout";
@@ -168,7 +168,7 @@
                 <h3 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Asignación de Docentes</h3>
             </div>
             <div class="text-end">
-                <small class="opacity-75">@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy")</small>
+                <small class="opacity-75">@TimeZoneService.GetTodayLongString()</small>
             </div>
         </div>
     </div>

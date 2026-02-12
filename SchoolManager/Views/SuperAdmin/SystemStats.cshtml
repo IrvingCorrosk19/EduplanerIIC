@@ -128,7 +128,7 @@
                     <p><strong>Total de Calificaciones:</strong> @Model.TotalCalificaciones.ToString("N0")</p>
                     <p><strong>Usuarios Activos:</strong> @Model.UsuariosActivos</p>
                     <p><strong>Usuarios Inactivos:</strong> @Model.UsuariosInactivos</p>
-                    <p><strong>Última Actividad:</strong> @Model.FechaUltimaActividad.ToString("dd/MM/yyyy HH:mm")</p>
+                    <p><strong>Última Actividad:</strong> @TimeZoneService.ToLocalDisplayString(Model.FechaUltimaActividad, "dd/MM/yyyy HH:mm")</p>
                 </div>
             </div>
         </div>

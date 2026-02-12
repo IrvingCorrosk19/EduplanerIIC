@@ -59,8 +59,8 @@
                                 @foreach (var period in Model)
                                 {
                                     <tr>
-                                        <td>@period.StartDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                        <td>@period.EndDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>@TimeZoneService.ToLocalDisplayString(period.StartDate, "dd/MM/yyyy HH:mm")</td>
+                                        <td>@TimeZoneService.ToLocalDisplayString(period.EndDate, "dd/MM/yyyy HH:mm")</td>
                                         <td>
                                             @if (period.IsActive)
                                             {

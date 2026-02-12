@@ -1,4 +1,4 @@
-﻿@model SchoolManager.ViewModels.TeacherGradebookViewModel
+@model SchoolManager.ViewModels.TeacherGradebookViewModel
 
 
 @{
@@ -493,7 +493,7 @@
                 <small>@Model.Teacher.FullName – @Model.Teacher.Email</small>
             </div>
             <div class="text-end">
-                <p class="mb-0 opacity-75">@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy")</p>
+                <p class="mb-0 opacity-75">@TimeZoneService.GetTodayLongString()</p>
             </div>
         </div>
     </div>
@@ -734,7 +734,7 @@
                                 <div class="col-md-6 col-lg-3 mb-3">
                                     <label for="fecha" class="form-label">Fecha</label>
                                     <div class="input-group">
-                                        <input type="date" class="form-control" id="fecha" value="@DateTime.Now.ToString("yyyy-MM-dd")">
+                                        <input type="date" class="form-control" id="fecha" value="@TimeZoneService.GetTodayForDateInput()">
                                         <span class="input-group-text bg-white">
                                             <i class="bi bi-calendar3"></i>
                                         </span>
@@ -770,7 +770,7 @@
 
                             <!-- Información de asistencia -->
                             <div class="info-alert mb-4">
-                                <h5 class="mb-1"><i class="bi bi-calendar-event me-2"></i>Asistencia para: @DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy")</h5>
+                                <h5 class="mb-1"><i class="bi bi-calendar-event me-2"></i>Asistencia para: @TimeZoneService.GetTodayLongString()</h5>
                                 <p class="mb-0 text-muted">Todos los estudiantes están marcados como presentes por defecto. Solo marque ausencias o tardanzas.</p>
                             </div>
 
@@ -871,7 +871,7 @@
                                     <select id="trimestreEstadisticas" class="form-select">
                                         @foreach (var t in Model.Trimesters)
                                         {
-                                            <option value="@t.Name" data-inicio="@t.StartDate.ToString("yyyy-MM-dd")" data-fin="@t.EndDate.ToString("yyyy-MM-dd")">@t.Name</option>
+                                            <option value="@t.Name" data-inicio="@TimeZoneService.ToLocalDisplayString(t.StartDate, "yyyy-MM-dd")" data-fin="@TimeZoneService.ToLocalDisplayString(t.EndDate, "yyyy-MM-dd")">@t.Name</option>
                                         }
                                     </select>
                                 </div>

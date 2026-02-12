@@ -1,4 +1,4 @@
-﻿no corras un escript solamente manejalo de forma visually@model List<SchoolManager.ViewModels.StudentAssignmentOverviewViewModel>
+no corras un escript solamente manejalo de forma visually@model List<SchoolManager.ViewModels.StudentAssignmentOverviewViewModel>
 
 @{
     Layout = "_AdminLayout";
@@ -161,7 +161,7 @@
                 <h3 class="mb-0"><i class="bi bi-mortarboard-fill me-2"></i>Asignación de Estudiantes</h3>
             </div>
             <div class="text-end">
-                <small class="opacity-75">@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy")</small>
+                <small class="opacity-75">@TimeZoneService.GetTodayLongString()</small>
             </div>
         </div>
     </div>

@@ -6,7 +6,6 @@ using BCrypt.Net;
 
 namespace SchoolManager.Controllers
 {
-    [Route("api/auth")]
     public class AuthController : Controller
     {
         private readonly IAuthService _authService;
@@ -79,7 +78,7 @@ namespace SchoolManager.Controllers
         }
 
         // API endpoint para login desde app móvil (devuelve token simple)
-        [HttpPost("login")]
+        [HttpPost("api/auth/login")]
         [AllowAnonymous]
         public async Task<IActionResult> ApiLogin([FromBody] LoginApiRequest request)
         {

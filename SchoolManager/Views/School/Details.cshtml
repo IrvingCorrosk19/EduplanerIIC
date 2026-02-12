@@ -44,7 +44,7 @@
                         </dd>
 
                         <dt class="col-sm-4">Fecha de Creación:</dt>
-                        <dd class="col-sm-8">@(Model.CreatedAt?.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</dd>
+                        <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.CreatedAt, "dd/MM/yyyy HH:mm")</dd>
 
                         <dt class="col-sm-4">ID:</dt>
                         <dd class="col-sm-8"><code>@Model.Id</code></dd>

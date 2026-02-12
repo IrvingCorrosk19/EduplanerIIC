@@ -67,7 +67,7 @@
                                                     @(config.IsActive ? "Activo" : "Inactivo")
                                                 </span>
                                             </td>
-                                            <td>@config.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(config.UpdatedAt, "dd/MM/yyyy HH:mm")</td>
                                             <td>
                                                 <div class="btn-group" role="group">
                                                     <a asp-action="Details" asp-route-id="@config.Id" class="btn btn-sm btn-info" title="Ver detalles">

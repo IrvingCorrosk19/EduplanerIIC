@@ -162,8 +162,8 @@
                 @foreach (var t in Model.TrimestresDisponibles)
                 {
                     var selected = Model.TrimestreSeleccionado == t.Name ? "selected=\"selected\"" : "";
-                    var fechaInicio = t.StartDate.ToString("dd/MM/yyyy");
-                    var fechaFin = t.EndDate.ToString("dd/MM/yyyy");
+                    var fechaInicio = TimeZoneService.ToLocalDisplayString(t.StartDate, "dd/MM/yyyy");
+                    var fechaFin = TimeZoneService.ToLocalDisplayString(t.EndDate, "dd/MM/yyyy");
                     var optionText = $"{t.Name} ({fechaInicio} - {fechaFin})";
                     @Html.Raw($"<option value=\"{t.Name}\" {selected}>{optionText}</option>")
                 }

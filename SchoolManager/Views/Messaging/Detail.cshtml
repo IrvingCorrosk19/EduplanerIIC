@@ -29,7 +29,7 @@
                 </div>
                 <div class="col-md-4 text-end">
                     <small class="text-muted">
-                        <i class="bi bi-clock"></i> @Model.SentAt.ToString("dd/MM/yyyy HH:mm")
+                        <i class="bi bi-clock"></i> @TimeZoneService.ToLocalDisplayString(Model.SentAt, "dd/MM/yyyy HH:mm")
                     </small>
                     <br />
                     @switch (Model.Priority)
@@ -120,7 +120,7 @@
                                     <span class="badge bg-secondary ms-2">@reply.SenderRole</span>
                                 </div>
                                 <small class="text-muted">
-                                    <i class="bi bi-clock"></i> @reply.SentAt.ToString("dd/MM/yyyy HH:mm")
+                                    <i class="bi bi-clock"></i> @TimeZoneService.ToLocalDisplayString(reply.SentAt, "dd/MM/yyyy HH:mm")
                                 </small>
                             </div>
                             <div style="white-space: pre-wrap;">

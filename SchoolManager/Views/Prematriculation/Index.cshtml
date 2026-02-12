@@ -109,7 +109,7 @@
                                                     <span class="badge bg-secondary">N/A</span>
                                                 }
                                             </td>
-                                            <td>@item.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(item.CreatedAt, "dd/MM/yyyy")</td>
                                             <td>
                                                 <a href="@Url.Action("Details", new { id = item.Id })" class="btn btn-sm btn-info" title="Ver detalles">
                                                     <i class="fas fa-eye"></i>

@@ -69,7 +69,7 @@
                                                 </span>
                                             </td>
                                             <td>@(activity.Trimester ?? "N/A")</td>
-                                            <td>@(activity.DueDate?.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(activity.DueDate, "dd/MM/yyyy")</td>
                                             <td>@(activity.Subject?.Name ?? "N/A")</td>
                                             <td>@(activity.Group?.Name ?? "N/A")</td>
                                             <td>

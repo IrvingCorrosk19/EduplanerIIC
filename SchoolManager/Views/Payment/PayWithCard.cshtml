@@ -78,7 +78,7 @@
                                             break;
                                     }
                                 </p>
-                                <p><strong>Fecha de reserva:</strong> @selectedPrematriculation.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                                <p><strong>Fecha de reserva:</strong> @TimeZoneService.ToLocalDisplayString(selectedPrematriculation.CreatedAt, "dd/MM/yyyy HH:mm")</p>
                             </div>
                         </div>
                     </div>
@@ -111,7 +111,7 @@
                                             <tr>
                                                 <td><code>@payment.ReceiptNumber</code></td>
                                                 <td>@payment.Amount.ToString("C")</td>
-                                                <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@TimeZoneService.ToLocalDisplayString(payment.PaymentDate, "dd/MM/yyyy")</td>
                                                 <td>
                                                     @if (payment.PaymentStatus == "Confirmado")
                                                     {

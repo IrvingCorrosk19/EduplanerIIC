@@ -1,4 +1,4 @@
-﻿@inject SchoolManager.Services.Interfaces.ICurrentUserService CurrentUserService
+@inject SchoolManager.Services.Interfaces.ICurrentUserService CurrentUserService
 @{
     ViewData["Title"] = "Dashboard";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
@@ -63,7 +63,7 @@
                                         {
                                             <tr>
                                                 <td><strong>Último Login:</strong></td>
-                                                <td>@currentUser.LastLogin.Value.ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td>@TimeZoneService.ToLocalDisplayString(currentUser.LastLogin, "dd/MM/yyyy HH:mm")</td>
                                             </tr>
                                         }
                                     </table>

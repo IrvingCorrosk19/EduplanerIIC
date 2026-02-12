@@ -50,10 +50,10 @@
                         <dd class="col-sm-8">@(Model.CellphonePrimary ?? "N/A")</dd>
 
                         <dt class="col-sm-4">Último Login:</dt>
-                        <dd class="col-sm-8">@(Model.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "Nunca")</dd>
+                        <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.LastLogin, "dd/MM/yyyy HH:mm", "Nunca")</dd>
 
                         <dt class="col-sm-4">Fecha de Creación:</dt>
-                        <dd class="col-sm-8">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
+                        <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.CreatedAt, "dd/MM/yyyy HH:mm")</dd>
                     </dl>
 
                     <div class="mt-4">

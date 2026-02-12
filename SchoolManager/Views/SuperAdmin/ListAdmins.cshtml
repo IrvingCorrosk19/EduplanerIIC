@@ -69,7 +69,7 @@
                                     <span class="badge bg-@(admin.Status == "active" ? "success" : "warning")">
                                         @(admin.Status == "active" ? "Activo" : "Inactivo")
                                     </span>
-                                    <small class="text-muted">Creado: @admin.CreatedAt.ToString("dd/MM/yyyy")</small>
+                                    <small class="text-muted">Creado: @TimeZoneService.ToLocalDisplayString(admin.CreatedAt, "dd/MM/yyyy")</small>
                                 </div>
                             </div>
                         </div>

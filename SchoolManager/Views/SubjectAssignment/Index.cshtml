@@ -1,4 +1,4 @@
-﻿@model IEnumerable<SchoolManager.Models.ViewModels.SubjectAssignmentViewModel>
+@model IEnumerable<SchoolManager.Models.ViewModels.SubjectAssignmentViewModel>
 
 @{
     Layout = "_AdminLayout";
@@ -122,7 +122,7 @@
             <h3 class="mb-0">Catálogo de Materias</h3>
         </div>
         <div class="text-end">
-            <small>@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy")</small>
+            <small>@TimeZoneService.GetTodayLongString()</small>
         </div>
     </div>
 

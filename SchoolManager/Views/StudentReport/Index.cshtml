@@ -1,4 +1,4 @@
-﻿@model SchoolManager.Dtos.StudentReportDto
+@model SchoolManager.Dtos.StudentReportDto
 @{
     ViewData["Title"] = "Reporte del Estudiante";
     Layout = "_AdminLayout";
@@ -142,7 +142,7 @@
             <h3 class="mb-0">Portal para Padres</h3>
         </div>
         <div class="text-end">
-            <small>@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy")</small>
+            <small>@TimeZoneService.GetTodayLongString()</small>
         </div>
     </div>
 
@@ -420,7 +420,7 @@
                                     <tr>
                                         <td>@activity.SubjectName</td>
                                         <td>@activity.Name</td>
-                                        <td>@activity.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                        <td>@TimeZoneService.ToLocalDisplayString(activity.CreatedAt, "dd/MM/yyyy")</td>
                                         <td>@activity.TeacherName</td>
                                         <td class="text-center">
                                             @if (!string.IsNullOrEmpty(activity.FileUrl))
@@ -541,7 +541,7 @@
                                 foreach (var report in Model.DisciplineReports)
                                 {
                                     <tr>
-                                        <td>@report.Date.ToString("dd/MM/yyyy")</td>
+                                        <td>@TimeZoneService.ToLocalDisplayString(report.Date, "dd/MM/yyyy")</td>
                                         <td>@report.Time</td>
                                         <td>@report.Type</td>
                                         <td>@report.Status</td>

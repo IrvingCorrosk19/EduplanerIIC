@@ -187,7 +187,7 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Fecha de Matrícula:</span>
-                    <span class="info-value">@(Model.MatriculationDate?.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</span>
+                    <span class="info-value">@TimeZoneService.ToLocalDisplayString(Model.MatriculationDate, "dd/MM/yyyy HH:mm")</span>
                 </div>
             </div>
             
@@ -263,7 +263,7 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Fecha de Pago:</span>
-                        <span class="info-value">@(confirmedPayment?.PaymentDate.ToString("dd/MM/yyyy") ?? "N/A")</span>
+                        <span class="info-value">@TimeZoneService.ToLocalDisplayString(confirmedPayment?.PaymentDate, "dd/MM/yyyy")</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Estado del Pago:</span>
@@ -282,7 +282,7 @@
             </p>
             <p style="color: #666; font-size: 14px;">
                 Este documento es un comprobante oficial de matrícula.<br>
-                Generado el @DateTime.Now.ToString("dd/MM/yyyy HH:mm")
+                Generado el @TimeZoneService.GetTodayLongString()
             </p>
             <div class="signature">
                 <div class="signature-line">

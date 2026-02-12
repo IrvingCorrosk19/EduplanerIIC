@@ -61,7 +61,7 @@
                                                 }
                                             </td>
                                             <td><code>@item.PrematriculationCode</code></td>
-                                            <td>@item.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(item.CreatedAt, "dd/MM/yyyy")</td>
                                         </tr>
                                     }
                                 </tbody>

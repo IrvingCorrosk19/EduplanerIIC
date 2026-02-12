@@ -82,7 +82,7 @@
                                                     <span class="text-muted">Sin logo</span>
                                                 }
                                             </td>
-                                            <td>@(school.CreatedAt?.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(school.CreatedAt, "dd/MM/yyyy")</td>
                                             <td>
                                                 <a href="@Url.Action("Details", new { id = school.Id })" class="btn btn-sm btn-info" title="Ver detalles">
                                                     <i class="fas fa-eye"></i>

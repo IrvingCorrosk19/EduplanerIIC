@@ -13,8 +13,14 @@ using BCrypt.Net;
 using SchoolManager.Middleware;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Cultura oficial del sistema (estándar corporativo de fechas)
+var culture = new CultureInfo("es-PA");
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -122,11 +128,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IMenuService, MenuService>();
-
-// Código temporal para generar hash de contraseña
-var password = "Admin123!";
-var hash = BCrypt.Net.BCrypt.HashPassword(password);
-Console.WriteLine($"Hash generado: {hash}");
+builder.Services.AddScoped<ITimeZoneService, TimeZoneService>();
 
 var app = builder.Build();
 

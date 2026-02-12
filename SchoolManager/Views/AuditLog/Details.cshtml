@@ -26,7 +26,7 @@
                         <dd class="col-sm-8"><code>@Model.Id</code></dd>
 
                         <dt class="col-sm-4">Fecha/Hora:</dt>
-                        <dd class="col-sm-8">@(Model.Timestamp?.ToString("dd/MM/yyyy HH:mm:ss") ?? "N/A")</dd>
+                        <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.Timestamp, "dd/MM/yyyy HH:mm:ss")</dd>
 
                         <dt class="col-sm-4">Usuario:</dt>
                         <dd class="col-sm-8"><strong>@(Model.UserName ?? "N/A")</strong></dd>

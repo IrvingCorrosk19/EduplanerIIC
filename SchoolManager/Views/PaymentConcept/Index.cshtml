@@ -95,7 +95,7 @@
                                                 }
                                             </td>
                                             <td>@(concept.CreatedByName ?? "N/A")</td>
-                                            <td>@concept.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(concept.CreatedAt, "dd/MM/yyyy")</td>
                                             <td>
                                                 <a href="@Url.Action("Edit", new { id = concept.Id })" class="btn btn-sm btn-warning" title="Editar">
                                                     <i class="fas fa-edit"></i>

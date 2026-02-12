@@ -91,7 +91,7 @@
                                             <tr>
                                                 <td><code>@payment.ReceiptNumber</code></td>
                                                 <td>@payment.Amount.ToString("C")</td>
-                                                <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@TimeZoneService.ToLocalDisplayString(payment.PaymentDate, "dd/MM/yyyy")</td>
                                                 <td>
                                                     @if (payment.PaymentStatus == "Confirmado")
                                                     {

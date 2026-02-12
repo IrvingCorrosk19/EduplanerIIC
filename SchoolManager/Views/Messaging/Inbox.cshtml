@@ -200,7 +200,7 @@
                                         }
                                     </td>
                                     <td>
-                                        <small>@message.SentAt.ToString("dd/MM/yyyy HH:mm")</small>
+                                        <small>@TimeZoneService.ToLocalDisplayString(message.SentAt, "dd/MM/yyyy HH:mm")</small>
                                     </td>
                                     <td class="text-center">
                                         <a href="@Url.Action("Detail", "Messaging", new { id = message.Id })" 

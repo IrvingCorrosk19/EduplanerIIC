@@ -36,7 +36,7 @@
                         <dd class="col-sm-8">@(Model.Trimester ?? "N/A")</dd>
 
                         <dt class="col-sm-4">Fecha de Entrega:</dt>
-                        <dd class="col-sm-8">@(Model.DueDate?.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</dd>
+                        <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.DueDate, "dd/MM/yyyy HH:mm")</dd>
 
                         <dt class="col-sm-4">Materia:</dt>
                         <dd class="col-sm-8">@(Model.Subject?.Name ?? "N/A")</dd>

@@ -1,4 +1,4 @@
-﻿@model SchoolManager.ViewModels.AcademicCatalogViewModel
+@model SchoolManager.ViewModels.AcademicCatalogViewModel
 
 @{
     ViewData["Title"] = "Catálogo Académico";
@@ -183,7 +183,7 @@
         <div class="card-header d-flex align-items-center gap-2" style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white;">
             <i class="bi bi-journal-bookmark text-white fs-3 me-2"></i>
             <h4 class="mb-0 flex-grow-1">Catálogo Académico</h4>
-            <span class="opacity-75">@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy")</span>
+            <span class="opacity-75">@TimeZoneService.GetTodayLongString()</span>
         </div>
     </div>
 </div>
@@ -348,8 +348,8 @@
                                             <tr>
                                                 <td></td>
                                                 <td>@t.Name</td>
-                                                <td class="fecha-inicio">@t.StartDate.ToString("dd/MM/yyyy")</td>
-                                                <td class="fecha-fin">@t.EndDate.ToString("dd/MM/yyyy")</td>
+                                                <td class="fecha-inicio">@TimeZoneService.ToLocalDisplayString(t.StartDate, "dd/MM/yyyy")</td>
+                                                <td class="fecha-fin">@TimeZoneService.ToLocalDisplayString(t.EndDate, "dd/MM/yyyy")</td>
                                                 <td>
                                                     @if (t.IsActive)
                                                     {

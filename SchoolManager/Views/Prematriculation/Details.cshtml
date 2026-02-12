@@ -100,18 +100,18 @@
                         }
 
                         <dt class="col-sm-4">Fecha de Creación:</dt>
-                        <dd class="col-sm-8">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
+                        <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.CreatedAt, "dd/MM/yyyy HH:mm")</dd>
 
                         @if (Model.PaymentDate.HasValue)
                         {
                             <dt class="col-sm-4">Fecha de Pago:</dt>
-                            <dd class="col-sm-8">@Model.PaymentDate.Value.ToString("dd/MM/yyyy HH:mm")</dd>
+                            <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.PaymentDate, "dd/MM/yyyy HH:mm")</dd>
                         }
 
                         @if (Model.MatriculationDate.HasValue)
                         {
                             <dt class="col-sm-4">Fecha de Matrícula:</dt>
-                            <dd class="col-sm-8">@Model.MatriculationDate.Value.ToString("dd/MM/yyyy HH:mm")</dd>
+                            <dd class="col-sm-8">@TimeZoneService.ToLocalDisplayString(Model.MatriculationDate, "dd/MM/yyyy HH:mm")</dd>
                         }
                     </dl>
 
@@ -134,7 +134,7 @@
                                         <tr>
                                             <td>@payment.ReceiptNumber</td>
                                             <td>@payment.Amount.ToString("C")</td>
-                                            <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(payment.PaymentDate, "dd/MM/yyyy")</td>
                                             <td>
                                                 @if (payment.PaymentStatus == "Confirmado")
                                                 {

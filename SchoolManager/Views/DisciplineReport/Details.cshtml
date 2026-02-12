@@ -23,7 +23,7 @@
                 <div class="card-body">
                     <dl class="row">
                         <dt class="col-sm-4">Fecha:</dt>
-                        <dd class="col-sm-8"><strong>@Model.Date.ToString("dd/MM/yyyy HH:mm")</strong></dd>
+                        <dd class="col-sm-8"><strong>@TimeZoneService.ToLocalDisplayString(Model.Date, "dd/MM/yyyy HH:mm")</strong></dd>
 
                         <dt class="col-sm-4">Estudiante:</dt>
                         <dd class="col-sm-8">@(Model.Student?.Name ?? "N/A")</dd>

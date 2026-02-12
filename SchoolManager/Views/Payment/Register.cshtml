@@ -91,7 +91,7 @@
                                             <tr>
                                                 <td><code>@payment.ReceiptNumber</code></td>
                                                 <td>@payment.Amount.ToString("C")</td>
-                                                <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@TimeZoneService.ToLocalDisplayString(payment.PaymentDate, "dd/MM/yyyy")</td>
                                                 <td>
                                                     @if (payment.PaymentStatus == "Confirmado")
                                                     {
@@ -179,7 +179,7 @@
                             <div class="mb-3">
                                 <label asp-for="PaymentDate" class="form-label">Fecha de Pago *</label>
                                 <input asp-for="PaymentDate" type="datetime-local" class="form-control" required 
-                                       value="@(Model.PaymentDate != default(DateTime) && Model.PaymentDate.Year >= 2000 ? Model.PaymentDate.ToString("yyyy-MM-ddTHH:mm") : DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm"))" />
+                                       value="@(Model.PaymentDate != default(DateTime) && Model.PaymentDate.Year >= 2000 ? TimeZoneService.ToLocalDisplayString(Model.PaymentDate, "yyyy-MM-ddTHH:mm", null) : TimeZoneService.GetNowForDisplayInput())" />
                                 <span asp-validation-for="PaymentDate" class="text-danger"></span>
                                 <small class="form-text text-muted">Seleccione la fecha y hora del pago</small>
                             </div>

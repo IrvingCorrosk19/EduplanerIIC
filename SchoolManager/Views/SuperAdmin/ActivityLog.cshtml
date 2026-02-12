@@ -55,8 +55,8 @@
                                 <tr>
                                     <td>
                                         <small>
-                                            @log.Timestamp?.ToString("dd/MM/yyyy")<br>
-                                            @log.Timestamp?.ToString("HH:mm:ss")
+                                            @TimeZoneService.ToLocalDisplayString(log.Timestamp, "dd/MM/yyyy")<br>
+                                            @TimeZoneService.ToLocalDisplayString(log.Timestamp, "HH:mm:ss")
                                         </small>
                                     </td>
                                     <td>

@@ -237,7 +237,7 @@
                                                         }
                                                     </td>
                                                     <td>
-                                                        <small>@assignment.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
+                                                        <small>@TimeZoneService.ToLocalDisplayString(assignment.CreatedAt, "dd/MM/yyyy HH:mm")</small>
                                                     </td>
                                                     <td class="text-center">
                                                         <div class="btn-group" role="group">

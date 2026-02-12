@@ -115,7 +115,7 @@
                                                     <span class="text-muted">-</span>
                                                 }
                                             </td>
-                                            <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@TimeZoneService.ToLocalDisplayString(payment.PaymentDate, "dd/MM/yyyy")</td>
                                             <td>
                                                 @if (payment.PaymentStatus == "Confirmado")
                                                 {
@@ -129,7 +129,7 @@
                                             <td>
                                                 @if (payment.ConfirmedAt.HasValue)
                                                 {
-                                                    @payment.ConfirmedAt.Value.ToString("dd/MM/yyyy HH:mm")
+                                                    @TimeZoneService.ToLocalDisplayString(payment.ConfirmedAt, "dd/MM/yyyy HH:mm")
                                                 }
                                                 else
                                                 {

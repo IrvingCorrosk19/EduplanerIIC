@@ -149,11 +149,11 @@
             {
                 <p><strong>Método de Pago:</strong> @payment.PaymentMethod</p>
             }
-            <p><strong>Fecha de Pago:</strong> @payment.PaymentDate.ToString("dd/MM/yyyy HH:mm")</p>
+            <p><strong>Fecha de Pago:</strong> @TimeZoneService.ToLocalDisplayString(payment.PaymentDate, "dd/MM/yyyy HH:mm")</p>
             <p><strong>Estado:</strong> <span class="badge bg-success">@payment.PaymentStatus</span></p>
             @if (payment.ConfirmedAt.HasValue)
             {
-                <p><strong>Fecha de Confirmación:</strong> @payment.ConfirmedAt.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                <p><strong>Fecha de Confirmación:</strong> @TimeZoneService.ToLocalDisplayString(payment.ConfirmedAt, "dd/MM/yyyy HH:mm")</p>
             }
         </div>
 
@@ -179,7 +179,7 @@
             <div class="signature-line"></div>
             <p class="signature-text">Firma del Encargado de Contabilidad</p>
             <p>Este recibo certifica el pago realizado para el período académico actual.</p>
-            <p>Generado el @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</p>
+            <p>Generado el @TimeZoneService.GetTodayLongString()</p>
         </div>
     </div>
 

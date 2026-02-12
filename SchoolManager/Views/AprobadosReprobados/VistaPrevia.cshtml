@@ -246,7 +246,7 @@
             <!-- Pie del reporte -->
             <div class="row mt-5">
                 <div class="col-md-12">
-                    <p class="text-end"><strong>Fecha:</strong> @Model.FechaGeneracion.ToString("dd/MM/yyyy")</p>
+                    <p class="text-end"><strong>Fecha:</strong> @TimeZoneService.ToLocalDisplayString(Model.FechaGeneracion, "dd/MM/yyyy")</p>
                 </div>
             </div>
 
