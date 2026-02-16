@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Application.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
@@ -11,6 +12,7 @@ using BCrypt.Net;
 
 namespace SchoolManager.Controllers
 {
+    [Authorize(Roles = "admin,secretaria")]
     public class StudentAssignmentController : Controller
     {
         private readonly IUserService _userService;

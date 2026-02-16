@@ -137,6 +137,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
     await SchoolManager.Scripts.EnsureIdCardTables.EnsureAsync(db);
+    await SchoolManager.Scripts.EnsureUsersRoleCheck.EnsureAsync(db);
 }
 
 // Script temporal para aplicar cambios a la base de datos

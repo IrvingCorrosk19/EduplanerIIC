@@ -1,4 +1,4 @@
-﻿using SchoolManager.Models;
+using SchoolManager.Models;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Enums;
 using BCrypt.Net;
@@ -382,6 +382,7 @@ public async Task DeleteAsync(Guid id)
 
             case UserRole.Admin:
             case UserRole.Director:
+            case UserRole.Secretaria:
                 // No asignaciones específicas
                 break;
 

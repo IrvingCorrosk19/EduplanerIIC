@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Dtos;
 using SchoolManager.Models;
@@ -8,6 +9,7 @@ using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
 using Microsoft.EntityFrameworkCore;
 
+[Authorize(Roles = "admin,secretaria")]
 public class TeacherAssignmentController : Controller
 {
     private readonly ITeacherAssignmentService _teacherAssignmentService;

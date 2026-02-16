@@ -388,6 +388,43 @@
                             </ul>
                         </li>
                         }
+                        @if (userRole == "secretaria") {
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-user-secret"></i>
+                                <p>
+                                    Secretaría
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "TeacherAssignment")" class="nav-link">
+                                        <i class="fas fa-tasks nav-icon"></i>
+                                        <p>Asignar Docentes</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "StudentAssignment")" class="nav-link">
+                                        <i class="fas fa-tasks nav-icon"></i>
+                                        <p>Asignar Estudiantes</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Upload", "AcademicAssignment")" class="nav-link">
+                                        <i class="fas fa-file-upload nav-icon"></i>
+                                        <p>Carga Asignaciones Docentes</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Upload", "StudentAssignment")" class="nav-link">
+                                        <i class="fas fa-file-upload nav-icon"></i>
+                                        <p>Carga Asignaciones Estudiantes</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        }
                         @if (userRole == "acudiente" || userRole == "parent" || userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">

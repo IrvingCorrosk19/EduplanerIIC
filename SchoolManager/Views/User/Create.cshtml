@@ -64,11 +64,13 @@
                                     <label asp-for="Role" class="form-label">Rol *</label>
                                     <select asp-for="Role" class="form-select" required>
                                         <option value="">Seleccione un rol</option>
-                                        <option value="admin">Administrador</option>
-                                        <option value="teacher">Docente</option>
-                                        <option value="student">Estudiante</option>
-                                        <option value="parent">Padre/Madre</option>
-                                        <option value="director">Director</option>
+                                        @if (ViewBag.Roles != null)
+                                        {
+                                            @foreach (var item in (IEnumerable<SelectListItem>)ViewBag.Roles)
+                                            {
+                                                <option value="@item.Value">@item.Text</option>
+                                            }
+                                        }
                                     </select>
                                     <span asp-validation-for="Role" class="text-danger"></span>
                                 </div>

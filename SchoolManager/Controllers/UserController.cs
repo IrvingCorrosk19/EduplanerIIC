@@ -64,6 +64,14 @@ public class UserController : Controller
             return BadRequest(new { message = "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial" });
         }
 
+        // Validar que el rol sea uno permitido (coherente con el enum y la BD)
+        var roleLower = model.Role?.Trim().ToLower() ?? "";
+        var allowedRoles = new[] { "director", "teacher", "contable", "secretaria", "estudiante", "acudiente", "contabilidad", "parent" };
+        if (string.IsNullOrEmpty(roleLower) || !allowedRoles.Contains(roleLower))
+        {
+            return BadRequest(new { message = "El rol seleccionado no es válido." });
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -71,7 +79,7 @@ public class UserController : Controller
             LastName = model.LastName,
             Email = model.Email,
             DocumentId = model.DocumentId,
-            Role = model.Role.ToLower(),
+            Role = roleLower,
             Status = model.Status,
             CreatedAt = DateTime.UtcNow,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash ?? "123456"),
@@ -146,7 +154,15 @@ public class UserController : Controller
         return View(user);
     }
 
-    public IActionResult Create() => View();
+    public IActionResult Create()
+    {
+        ViewBag.Roles = Enum.GetValues(typeof(UserRole))
+            .Cast<UserRole>()
+            .Where(r => r != UserRole.Superadmin && r != UserRole.Admin && r != UserRole.Student && r != UserRole.Estudiante)
+            .Select(r => new SelectListItem(r.ToString(), r.ToString().ToLower()))
+            .ToList();
+        return View();
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create(User user)
@@ -162,6 +178,11 @@ public class UserController : Controller
     {
         var user = await _userService.GetByIdAsync(id);
         if (user == null) return NotFound();
+        ViewBag.Roles = Enum.GetValues(typeof(UserRole))
+            .Cast<UserRole>()
+            .Where(r => r != UserRole.Superadmin && r != UserRole.Admin && r != UserRole.Student && r != UserRole.Estudiante)
+            .Select(r => new SelectListItem(r.ToString(), r.ToString().ToLower()))
+            .ToList();
         return View(user);
     }
 
@@ -308,11 +329,18 @@ public class UserController : Controller
             Console.WriteLine($"Usuario encontrado: {existingUser.Name} {existingUser.LastName}");
             Console.WriteLine("Actualizando campos del usuario...");
 
+            var roleLower = model.Role?.Trim().ToLower() ?? "";
+            var allowedRoles = new[] { "director", "teacher", "contable", "secretaria", "estudiante", "acudiente", "contabilidad", "parent", "admin" };
+            if (string.IsNullOrEmpty(roleLower) || !allowedRoles.Contains(roleLower))
+            {
+                return BadRequest(new { message = "El rol seleccionado no es válido." });
+            }
+
             existingUser.Name = model.Name;
             existingUser.LastName = model.LastName;
             existingUser.Email = model.Email;
             existingUser.DocumentId = model.DocumentId;
-            existingUser.Role = model.Role.ToLower();
+            existingUser.Role = roleLower;
             existingUser.Status = model.Status;
             existingUser.DateOfBirth = model.DateOfBirth?.ToUniversalTime();
             existingUser.CellphonePrimary = model.CellphonePrimary;
@@ -579,7 +607,11 @@ public class UserController : Controller
             "student" => "Estudiante",
             "estudiante" => "Estudiante",
             "parent" => "Padre/Madre",
+            "acudiente" => "Acudiente",
             "director" => "Director",
+            "contable" => "Contable",
+            "contabilidad" => "Contabilidad",
+            "secretaria" => "Secretaria",
             _ => role ?? "Sin rol"
         };
     }

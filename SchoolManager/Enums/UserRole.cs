@@ -1,4 +1,4 @@
-﻿namespace SchoolManager.Enums
+namespace SchoolManager.Enums
 {
     public enum UserRole
     {
@@ -7,7 +7,8 @@
         Director,
         Teacher,
         Contable,
-       // Parent,
+        Secretaria,
+        // Parent,
         Student,
         Estudiante
     }

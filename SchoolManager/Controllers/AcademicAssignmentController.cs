@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Application.Interfaces;
 using SchoolManager.Infrastructure.Services;
 using SchoolManager.Models;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using BCrypt.Net;
 
+[Authorize(Roles = "admin,secretaria")]
 public class AcademicAssignmentController : Controller
 {
     private readonly ITeacherAssignmentService _teacherAssignmentService;
