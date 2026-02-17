@@ -391,145 +391,218 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
+        #region PDF institucional – solo capa visual (read-only, sin lógica de negocio)
+
+        private const string PdfColorInstitutional = "#1f4e79";
+        private const string PdfColorTotalRow = "#1a3a52";
+        private const string PdfColorAprobados = "#1b5e20";
+        private const string PdfColorReprobados = "#b71c1c";
+        private const float PdfMarginCm = 2f;
+        private const float PdfLogoSizePt = 52f;
+        private const float PdfHeaderLinePt = 0.5f;
+
+        /// <summary>
+        /// Genera el PDF del reporte. Solo representación visual; no altera estado ni datos.
+        /// </summary>
         public async Task<byte[]> ExportarAPdfAsync(AprobadosReprobadosReportViewModel reporte)
         {
             QuestPDF.Settings.License = LicenseType.Community;
-            byte[]? logoBytes = null;
-            if (!string.IsNullOrWhiteSpace(reporte.LogoUrl) && (reporte.LogoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || reporte.LogoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
-            {
-                try
-                {
-                    var http = _httpClientFactory.CreateClient();
-                    logoBytes = await http.GetByteArrayAsync(reporte.LogoUrl);
-                }
-                catch { /* logo opcional */ }
-            }
+            byte[]? logoBytes = await TryDownloadLogoAsync(reporte.LogoUrl);
 
             var doc = Document.Create(container =>
             {
                 container.Page(page =>
                 {
                     page.Size(PageSizes.A4);
-                    page.Margin(1.5f, Unit.Centimetre);
+                    page.Margin(PdfMarginCm, Unit.Centimetre);
                     page.PageColor(Colors.White);
-                    page.DefaultTextStyle(x => x.FontSize(9));
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
 
-                    page.Header().Element(c => ComposeHeader(c, reporte, logoBytes));
-                    page.Content().Element(c => ComposeContent(c, reporte));
-                    page.Footer().Element(c => ComposeFooter(c, reporte));
+                    page.Header().Element(c => PdfComposeHeader(c, reporte, logoBytes));
+                    page.Content().Element(c => PdfComposeContent(c, reporte));
+                    page.Footer().Element(c => PdfComposeFooter(c, reporte));
                 });
             });
             return doc.GeneratePdf();
         }
 
-        private static void ComposeHeader(IContainer container, AprobadosReprobadosReportViewModel reporte, byte[]? logoBytes)
+        private async Task<byte[]?> TryDownloadLogoAsync(string? logoUrl)
+        {
+            if (string.IsNullOrWhiteSpace(logoUrl) || (!logoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !logoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                return null;
+            try
+            {
+                var http = _httpClientFactory.CreateClient();
+                return await http.GetByteArrayAsync(logoUrl);
+            }
+            catch { return null; }
+        }
+
+        /// <summary>Encabezado: logo izquierda, nombre institución centrado, línea, título del reporte.</summary>
+        private static void PdfComposeHeader(IContainer container, AprobadosReprobadosReportViewModel reporte, byte[]? logoBytes)
         {
             container.Column(col =>
             {
-                col.Item().PaddingBottom(8).Row(r =>
+                col.Item().PaddingBottom(10).Row(r =>
                 {
                     if (logoBytes != null)
-                        r.ConstantItem(50).Height(50).Image(logoBytes);
+                        r.ConstantItem(PdfLogoSizePt).Height(PdfLogoSizePt).Image(logoBytes);
                     r.RelativeItem().AlignCenter().Column(c =>
                     {
-                        c.Item().Text(reporte.InstitutoNombre).FontSize(14).Bold().FontColor(Colors.Blue.Darken2);
-                        c.Item().Text("CUADRO DE APROBADOS Y REPROBADOS POR GRADO DEL TRIMESTRE").FontSize(11).SemiBold();
+                        c.Item().PaddingBottom(4).Text(reporte.InstitutoNombre).FontSize(16).Bold().FontColor(PdfColorInstitutional);
+                        c.Item().Text("Cuadro de Aprobados y Reprobados por Grado").FontSize(11).FontColor(Colors.Grey.Darken2);
                     });
                 });
-                col.Item().PaddingBottom(4).Text($"Profesor(a) Coordinador(a): {reporte.ProfesorCoordinador}").FontSize(10);
-                col.Item().Text($"Trimestre: {reporte.Trimestre} | Año Lectivo: {reporte.AnoLectivo} | Nivel: {reporte.NivelEducativo}").FontSize(10);
-                col.Item().PaddingBottom(6).LineHorizontal(1).LineColor(Colors.Blue.Darken2);
+                col.Item().LineHorizontal(PdfHeaderLinePt).LineColor(PdfColorInstitutional);
+                col.Item().PaddingBottom(8);
             });
         }
 
-        private static void ComposeContent(IContainer container, AprobadosReprobadosReportViewModel reporte)
+        /// <summary>Metadatos: coordinador, trimestre, año, nivel, fecha generación.</summary>
+        private static void PdfComposeMetadata(IContainer container, AprobadosReprobadosReportViewModel reporte)
         {
+            container.Background(Colors.Grey.Lighten4).Padding(12).Column(col =>
+            {
+                col.Item().PaddingBottom(6).Text("Coordinador(a):").FontSize(8).FontColor(Colors.Grey.Darken1);
+                col.Item().PaddingBottom(8).Text(reporte.ProfesorCoordinador).FontSize(10).Bold();
+                col.Item().Row(r =>
+                {
+                    r.RelativeItem().Column(c => { c.Item().Text("Trimestre").FontSize(8).FontColor(Colors.Grey.Darken1); c.Item().Text(reporte.Trimestre).FontSize(10); });
+                    r.RelativeItem().Column(c => { c.Item().Text("Año lectivo").FontSize(8).FontColor(Colors.Grey.Darken1); c.Item().Text(reporte.AnoLectivo).FontSize(10); });
+                    r.RelativeItem().Column(c => { c.Item().Text("Nivel").FontSize(8).FontColor(Colors.Grey.Darken1); c.Item().Text(reporte.NivelEducativo).FontSize(10); });
+                });
+                col.Item().PaddingTop(4).Text($"Fecha de generación: {reporte.FechaGeneracion:dd/MM/yyyy HH:mm}").FontSize(9).FontColor(Colors.Grey.Medium);
+            });
+        }
+
+        /// <summary>Resumen en tarjetas: total estudiantes, aprobados, reprobados, % aprobación general.</summary>
+        private static void PdfComposeSummaryCards(IContainer container, TotalesGeneralesDto totales)
+        {
+            var pctGeneral = totales.TotalEstudiantes > 0
+                ? Math.Round(totales.TotalAprobados * 100m / totales.TotalEstudiantes, 2)
+                : 0m;
+            container.PaddingBottom(14).Background(Colors.Grey.Lighten4).Padding(12).Column(col =>
+            {
+                col.Item().PaddingBottom(8).Text("Resumen general").FontSize(11).Bold().FontColor(Colors.Grey.Darken2);
+                col.Item().Row(r =>
+                {
+                    r.RelativeItem().Background(Colors.White).Padding(10).AlignCenter().Column(c =>
+                    {
+                        c.Item().Text("Total estudiantes").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        c.Item().Text(totales.TotalEstudiantes.ToString()).FontSize(14).Bold().FontColor(PdfColorInstitutional);
+                    });
+                    r.ConstantItem(8);
+                    r.RelativeItem().Background(Colors.White).Padding(10).AlignCenter().Column(c =>
+                    {
+                        c.Item().Text("Aprobados").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        c.Item().Text($"{totales.TotalAprobados} ({totales.PorcentajeAprobados:F2}%)").FontSize(11).Bold().FontColor(PdfColorAprobados);
+                    });
+                    r.ConstantItem(8);
+                    r.RelativeItem().Background(Colors.White).Padding(10).AlignCenter().Column(c =>
+                    {
+                        c.Item().Text("Reprobados").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        c.Item().Text($"{totales.TotalReprobados} ({totales.PorcentajeReprobados:F2}%)").FontSize(11).Bold().FontColor(PdfColorReprobados);
+                    });
+                    r.ConstantItem(8);
+                    r.RelativeItem().Background(Colors.White).Padding(10).AlignCenter().Column(c =>
+                    {
+                        c.Item().Text("% Aprobación general").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        c.Item().Text($"{pctGeneral:F2}%").FontSize(14).Bold().FontColor(PdfColorInstitutional);
+                    });
+                });
+            });
+        }
+
+        /// <summary>Tabla: encabezados cortos, número y % unificados por concepto, filas alternadas, total destacado.</summary>
+        private static void PdfComposeTable(IContainer container, List<GradoEstadisticaDto> stats, TotalesGeneralesDto totales)
+        {
+            container.Table(table =>
+            {
+                table.ColumnsDefinition(def =>
+                {
+                    def.ConstantColumn(28);
+                    def.ConstantColumn(28);
+                    def.ConstantColumn(32);
+                    def.ConstantColumn(44);
+                    def.ConstantColumn(44);
+                    def.ConstantColumn(44);
+                    def.ConstantColumn(44);
+                    def.ConstantColumn(44);
+                });
+                table.Header(header =>
+                {
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Grado").FontSize(9).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Grupo").FontSize(9).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Total").FontSize(9).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Aprobados").FontSize(9).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Reprobados").FontSize(9).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Rep. hasta fecha").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Sin calif.").FontSize(9).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Retirados").FontSize(9).Bold().FontColor(Colors.White);
+                });
+                int rowIndex = 0;
+                string? lastGrado = null;
+                foreach (var e in stats)
+                {
+                    if (lastGrado != null && lastGrado != e.Grado)
+                        _ = table.Cell().ColumnSpan(8).Height(4).Background(Colors.White);
+                    lastGrado = e.Grado;
+                    var rowBg = rowIndex % 2 == 0 ? Colors.White : Colors.Grey.Lighten4;
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.Grado).FontSize(9);
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.Grupo).FontSize(9);
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.TotalEstudiantes.ToString()).FontSize(9);
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text($"{e.Aprobados} ({e.PorcentajeAprobados:F2}%)").FontSize(9).FontColor(PdfColorAprobados);
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text($"{e.Reprobados} ({e.PorcentajeReprobados:F2}%)").FontSize(9).FontColor(PdfColorReprobados);
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text($"{e.ReprobadosHastaLaFecha} ({e.PorcentajeReprobadosHastaLaFecha:F2}%)").FontSize(9);
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text($"{e.SinCalificaciones} ({e.PorcentajeSinCalificaciones:F2}%)").FontSize(9).FontColor(Colors.Grey.Darken1);
+                    table.Cell().Background(rowBg).PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text($"{e.Retirados} ({e.PorcentajeRetirados:F2}%)").FontSize(9);
+                    rowIndex++;
+                }
+                table.Cell().ColumnSpan(2).Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("TOTALES").FontSize(10).Bold().FontColor(Colors.White);
+                table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text(totales.TotalEstudiantes.ToString()).FontSize(10).Bold().FontColor(Colors.White);
+                table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text($"{totales.TotalAprobados} ({totales.PorcentajeAprobados:F2}%)").FontSize(10).Bold().FontColor("#a5d6a7");
+                table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text($"{totales.TotalReprobados} ({totales.PorcentajeReprobados:F2}%)").FontSize(10).Bold().FontColor("#ef9a9a");
+                table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text($"{totales.TotalReprobadosHastaLaFecha} ({totales.PorcentajeReprobadosHastaLaFecha:F2}%)").FontSize(10).Bold().FontColor(Colors.White);
+                table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text($"{totales.TotalSinCalificaciones} ({totales.PorcentajeSinCalificaciones:F2}%)").FontSize(10).Bold().FontColor(Colors.White);
+                table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text($"{totales.TotalRetirados} ({totales.PorcentajeRetirados:F2}%)").FontSize(10).Bold().FontColor(Colors.White);
+            });
+        }
+
+        /// <summary>Pie: Generado por SchoolManager, fecha/hora, página X de Y, institución.</summary>
+        private static void PdfComposeFooter(IContainer container, AprobadosReprobadosReportViewModel reporte)
+        {
+            container.PaddingTop(6).BorderTop(0.5f).BorderColor(Colors.Grey.Lighten1).Row(r =>
+            {
+                r.RelativeItem().AlignLeft().DefaultTextStyle(x => x.FontSize(7).FontColor(Colors.Grey.Medium)).Column(c =>
+                {
+                    c.Item().Text("Generado por SchoolManager");
+                    c.Item().Text(reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm"));
+                    c.Item().Text(reporte.InstitutoNombre);
+                });
+                r.RelativeItem().AlignCenter().DefaultTextStyle(x => x.FontSize(8).FontColor(Colors.Grey.Darken1)).Text(t => t.CurrentPageNumber().Format(n => $"Página {n}"));
+                r.RelativeItem().AlignRight().DefaultTextStyle(x => x.FontSize(8).FontColor(Colors.Grey.Darken1)).Text(t => t.TotalPages().Format(n => $"de {n}"));
+            });
+        }
+
+        private static void PdfComposeContent(IContainer container, AprobadosReprobadosReportViewModel reporte)
+        {
+            var stats = reporte.Estadisticas ?? new List<GradoEstadisticaDto>();
+            var totales = reporte.TotalesGenerales ?? new TotalesGeneralesDto();
+
             container.Column(col =>
             {
-                var stats = reporte.Estadisticas ?? new List<GradoEstadisticaDto>();
-                var totales = reporte.TotalesGenerales ?? new TotalesGeneralesDto();
-
+                col.Item().PaddingBottom(12).Element(c => PdfComposeMetadata(c, reporte));
                 if (stats.Count == 0)
                 {
-                    col.Item().PaddingTop(20).AlignCenter().Text("No hay datos para los filtros seleccionados.").FontSize(10).FontColor(Colors.Grey.Darken1);
+                    col.Item().PaddingTop(16).AlignCenter().Text("No hay datos para los filtros seleccionados.").FontSize(11).FontColor(Colors.Grey.Darken1);
                     return;
                 }
-
-                col.Item().Table(table =>
-                {
-                    table.ColumnsDefinition(def =>
-                    {
-                        def.ConstantColumn(32);  // Grado
-                        def.ConstantColumn(32); // Grupo
-                        def.ConstantColumn(38); // Total
-                        def.ConstantColumn(28); // Aprob T
-                        def.ConstantColumn(24); // Aprob %
-                        def.ConstantColumn(28); // Rep T
-                        def.ConstantColumn(24); // Rep %
-                        def.ConstantColumn(32); // Rep hasta T
-                        def.ConstantColumn(24); // %
-                        def.ConstantColumn(32); // Sin calif T
-                        def.ConstantColumn(24); // %
-                        def.ConstantColumn(28); // Ret T
-                        def.ConstantColumn(24); // %
-                    });
-                    table.Header(header =>
-                    {
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Grado").FontSize(8).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Grupo").FontSize(8).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Total").FontSize(8).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Aprob.T").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Aprob.%").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Rep.T").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Rep.%").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Rep.H.T").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Rep.H.%").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("SinC.T").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("SinC.%").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Ret.T").FontSize(7).Bold();
-                        header.Cell().Background(Colors.Grey.Lighten3).AlignCenter().Text("Ret.%").FontSize(7).Bold();
-                    });
-                    foreach (var e in stats)
-                    {
-                        table.Cell().AlignCenter().Text(e.Grado).FontSize(8);
-                        table.Cell().AlignCenter().Text(e.Grupo).FontSize(8);
-                        table.Cell().AlignCenter().Text(e.TotalEstudiantes.ToString()).FontSize(8);
-                        table.Cell().AlignCenter().Text(e.Aprobados.ToString()).FontSize(8).FontColor(Colors.Green.Darken2);
-                        table.Cell().AlignCenter().Text($"{e.PorcentajeAprobados:F2}%").FontSize(8);
-                        table.Cell().AlignCenter().Text(e.Reprobados.ToString()).FontSize(8).FontColor(Colors.Red.Darken2);
-                        table.Cell().AlignCenter().Text($"{e.PorcentajeReprobados:F2}%").FontSize(8);
-                        table.Cell().AlignCenter().Text(e.ReprobadosHastaLaFecha.ToString()).FontSize(8);
-                        table.Cell().AlignCenter().Text($"{e.PorcentajeReprobadosHastaLaFecha:F2}%").FontSize(8);
-                        table.Cell().AlignCenter().Text(e.SinCalificaciones.ToString()).FontSize(8);
-                        table.Cell().AlignCenter().Text($"{e.PorcentajeSinCalificaciones:F2}%").FontSize(8);
-                        table.Cell().AlignCenter().Text(e.Retirados.ToString()).FontSize(8);
-                        table.Cell().AlignCenter().Text($"{e.PorcentajeRetirados:F2}%").FontSize(8);
-                    }
-                    table.Cell().ColumnSpan(2).Background(Colors.Blue.Lighten4).AlignCenter().Text("TOTALES").FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text(totales.TotalEstudiantes.ToString()).FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text(totales.TotalAprobados.ToString()).FontSize(9).Bold().FontColor(Colors.Green.Darken2);
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text($"{totales.PorcentajeAprobados:F2}%").FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text(totales.TotalReprobados.ToString()).FontSize(9).Bold().FontColor(Colors.Red.Darken2);
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text($"{totales.PorcentajeReprobados:F2}%").FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text(totales.TotalReprobadosHastaLaFecha.ToString()).FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text($"{totales.PorcentajeReprobadosHastaLaFecha:F2}%").FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text(totales.TotalSinCalificaciones.ToString()).FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text($"{totales.PorcentajeSinCalificaciones:F2}%").FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text(totales.TotalRetirados.ToString()).FontSize(9).Bold();
-                    table.Cell().Background(Colors.Blue.Lighten4).AlignCenter().Text($"{totales.PorcentajeRetirados:F2}%").FontSize(9).Bold();
-                });
+                col.Item().Element(c => PdfComposeSummaryCards(c, totales));
+                col.Item().Element(c => PdfComposeTable(c, stats, totales));
             });
         }
 
-        private static void ComposeFooter(IContainer container, AprobadosReprobadosReportViewModel reporte)
-        {
-            container.Row(r =>
-            {
-                r.RelativeItem().AlignLeft().Text(x => { x.Span("Fecha de generación: "); x.Span(reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")).FontColor(Colors.Grey.Darken1).FontSize(8); });
-                r.RelativeItem().AlignCenter().DefaultTextStyle(x => x.FontSize(9)).Text(text => text.CurrentPageNumber().Format(n => $"Pág. {n}"));
-                r.RelativeItem().AlignRight().DefaultTextStyle(x => x.FontSize(9)).Text(text => text.TotalPages().Format(n => $"de {n}"));
-            });
-        }
+        #endregion
 
         public async Task<byte[]> ExportarAExcelAsync(AprobadosReprobadosReportViewModel reporte)
         {
