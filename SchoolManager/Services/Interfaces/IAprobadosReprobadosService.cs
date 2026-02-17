@@ -46,9 +46,9 @@ namespace SchoolManager.Services.Interfaces
         Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null);
 
         /// <summary>
-        /// Exportar el reporte a PDF
+        /// Exportar el reporte a PDF. Si logoBytes no es null, se usa en lugar de descargar por URL.
         /// </summary>
-        Task<byte[]> ExportarAPdfAsync(AprobadosReprobadosReportViewModel reporte);
+        Task<byte[]> ExportarAPdfAsync(AprobadosReprobadosReportViewModel reporte, byte[]? logoBytes = null);
 
         /// <summary>
         /// Exportar el reporte a Excel

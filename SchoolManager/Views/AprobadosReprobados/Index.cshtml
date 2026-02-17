@@ -144,12 +144,6 @@
                         <button type="button" class="btn btn-outline-secondary btn-lg" id="btn-limpiar">
                             <i class="bi bi-arrow-clockwise"></i> Limpiar
                         </button>
-                        @if (currentUser?.Role != null && (currentUser.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) || currentUser.Role.Equals("Director", StringComparison.OrdinalIgnoreCase)))
-                        {
-                            <button type="button" class="btn btn-outline-info btn-lg" id="btn-preparar-datos" title="Asocia actividades al 3T y asigna grados a grupos para que el reporte muestre filas">
-                                <i class="bi bi-database-gear"></i> Preparar datos de prueba
-                            </button>
-                        }
                     </div>
                 </div>
             </form>
@@ -294,25 +288,6 @@
                 $('#gradoEspecifico').html('<option value="">Todos los grados</option>');
                 $('#materiaId').html('<option value="">Todas las materias</option>');
                 $('#reporte-container').slideUp();
-            });
-
-            // Preparar datos de prueba (solo visible para Admin/Director)
-            $(document).on('click', '#btn-preparar-datos', function () {
-                $.ajax({
-                    url: '@Url.Action("PrepararDatosParaReporte", "AprobadosReprobados")',
-                    type: 'POST',
-                    data: { __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val() },
-                    success: function (response) {
-                        if (response.success) {
-                            Swal.fire('Listo', response.message, 'success').then(function () { location.reload(); });
-                        } else {
-                            Swal.fire('Aviso', response.message, 'warning');
-                        }
-                    },
-                    error: function () {
-                        Swal.fire('Error', 'No se pudo preparar los datos', 'error');
-                    }
-                });
             });
 
             // Vista previa completa

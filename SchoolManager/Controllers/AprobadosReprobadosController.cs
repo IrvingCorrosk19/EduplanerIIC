@@ -11,15 +11,18 @@ namespace SchoolManager.Controllers
     {
         private readonly IAprobadosReprobadosService _aprobadosReprobadosService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ISuperAdminService _superAdminService;
         private readonly ILogger<AprobadosReprobadosController> _logger;
 
         public AprobadosReprobadosController(
             IAprobadosReprobadosService aprobadosReprobadosService,
             ICurrentUserService currentUserService,
+            ISuperAdminService superAdminService,
             ILogger<AprobadosReprobadosController> logger)
         {
             _aprobadosReprobadosService = aprobadosReprobadosService;
             _currentUserService = currentUserService;
+            _superAdminService = superAdminService;
             _logger = logger;
         }
 
@@ -199,7 +202,13 @@ namespace SchoolManager.Controllers
 
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
 
-                var pdfBytes = await _aprobadosReprobadosService.ExportarAPdfAsync(reporte);
+                // Logo: si es ruta relativa, obtener bytes en el servidor para no fallar al exportar (evita llamada HTTP sin cookies)
+                byte[]? logoBytes = null;
+                if (!string.IsNullOrWhiteSpace(reporte.LogoUrl) && !reporte.LogoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !reporte.LogoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    logoBytes = await _superAdminService.GetLogoAsync(reporte.LogoUrl);
+                // Si es URL (ej. Cloudinary), ExportarAPdfAsync descargará con HttpClient
+
+                var pdfBytes = await _aprobadosReprobadosService.ExportarAPdfAsync(reporte, logoBytes);
 
                 return File(pdfBytes, "application/pdf", $"Reporte_Aprobados_Reprobados_{trimestre}_{nivelEducativo}.pdf");
             }

@@ -395,17 +395,22 @@ namespace SchoolManager.Services.Implementations
 
         private const string PdfColorInstitutional = "#1f4e79";
         private const string PdfColorTotalRow = "#1a3a52";
+        private const string PdfColorAprobacionFuerte = "#153a5e";
         private const string PdfColorAprobados = "#2e7d32";
         private const string PdfColorReprobados = "#c62828";
         private const float PdfMarginCm = 1.5f;
-        private const float PdfLogoSizePt = 52f;
-        private const float PdfHeaderLinePt = 0.75f;
+        private const float PdfLogoHeightPt = 60f;
+        private const float PdfHeaderLinePt = 2f;
+        private const float PdfFontSizeTablePt = 11.5f;
 
-        /// <summary>Genera el PDF del reporte. Solo representación visual; no altera estado ni datos.</summary>
-        public async Task<byte[]> ExportarAPdfAsync(AprobadosReprobadosReportViewModel reporte)
+        /// <summary>Genera el PDF del reporte. Solo representación visual; no altera estado ni datos. Si logoBytes se pasa, se usa en lugar de descargar por URL.</summary>
+        public async Task<byte[]> ExportarAPdfAsync(AprobadosReprobadosReportViewModel reporte, byte[]? logoBytes = null)
         {
             QuestPDF.Settings.License = LicenseType.Community;
-            byte[]? logoBytes = await TryDownloadLogoAsync(reporte.LogoUrl);
+            if (logoBytes == null)
+                logoBytes = await TryDownloadLogoAsync(reporte.LogoUrl);
+            if (logoBytes != null && !IsValidImageBytes(logoBytes))
+                logoBytes = null;
             var doc = Document.Create(container =>
             {
                 container.Page(page =>
@@ -434,23 +439,35 @@ namespace SchoolManager.Services.Implementations
             catch { return null; }
         }
 
-        /// <summary>Encabezado institucional: logo izquierda, nombre en azul, subtítulo gris, línea horizontal elegante.</summary>
+        private static bool IsValidImageBytes(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length < 4) return false;
+            // PNG
+            if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return true;
+            // JPEG
+            if (bytes[0] == 0xFF && bytes[1] == 0xD8) return true;
+            // GIF
+            if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) return true;
+            return false;
+        }
+
+        /// <summary>Encabezado institucional: logo arriba izquierda (max 60px), título 22pt, subtítulo 13pt gris, línea 2px, más espacio vertical.</summary>
         private static void BuildHeader(IContainer container, AprobadosReprobadosReportViewModel reporte, byte[]? logoBytes)
         {
             container.Column(col =>
             {
-                col.Item().PaddingBottom(10).Row(r =>
+                col.Item().PaddingTop(4).PaddingBottom(14).Row(r =>
                 {
                     if (logoBytes != null)
-                        r.ConstantItem(PdfLogoSizePt).Height(PdfLogoSizePt).Image(logoBytes);
-                    r.RelativeItem().PaddingLeft(logoBytes != null ? 10 : 0).AlignLeft().Column(c =>
+                        r.ConstantItem(PdfLogoHeightPt).Height(PdfLogoHeightPt).Image(logoBytes);
+                    r.RelativeItem().PaddingLeft(logoBytes != null ? 12 : 0).AlignLeft().AlignMiddle().Column(c =>
                     {
-                        c.Item().PaddingBottom(4).Text(reporte.InstitutoNombre).FontSize(16).Bold().FontColor(PdfColorInstitutional);
-                        c.Item().Text("Cuadro de Aprobados y Reprobados por Grado").FontSize(9).FontColor(Colors.Grey.Darken2);
+                        c.Item().PaddingBottom(6).Text(reporte.InstitutoNombre).FontSize(22).Bold().FontColor(PdfColorInstitutional);
+                        c.Item().Text("Cuadro de Aprobados y Reprobados por Grado").FontSize(13).FontColor(Colors.Grey.Darken2);
                     });
                 });
                 col.Item().LineHorizontal(PdfHeaderLinePt).LineColor(PdfColorInstitutional);
-                col.Item().PaddingBottom(8);
+                col.Item().PaddingBottom(12);
             });
         }
 
@@ -467,34 +484,34 @@ namespace SchoolManager.Services.Implementations
             });
         }
 
-        /// <summary>Resumen general: 4 tarjetas con bordes suaves, fondo blanco, números grandes; verde/rojo/azul institucional.</summary>
+        /// <summary>Resumen ejecutivo: Total estudiantes bloque dominante, % aprobación azul fuerte, números 28-32pt.</summary>
         private static void BuildSummary(IContainer container, TotalesGeneralesDto totales)
         {
             var pctGeneral = totales.TotalEstudiantes > 0 ? Math.Round(totales.TotalAprobados * 100m / totales.TotalEstudiantes, 2) : 0m;
-            container.PaddingBottom(14).Row(r =>
+            container.PaddingBottom(16).Row(r =>
             {
-                r.RelativeItem().Background(Colors.White).Border(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(12).AlignCenter().Column(c =>
+                r.RelativeItem(2.2f).Background(Colors.White).Border(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(14).AlignCenter().Column(c =>
                 {
-                    c.Item().Text("Total estudiantes").FontSize(8).FontColor(Colors.Grey.Darken2);
-                    c.Item().PaddingTop(4).Text(totales.TotalEstudiantes.ToString()).FontSize(20).Bold().FontColor(PdfColorInstitutional);
+                    c.Item().Text("Total estudiantes").FontSize(9).FontColor(Colors.Grey.Darken2);
+                    c.Item().PaddingTop(6).Text(totales.TotalEstudiantes.ToString()).FontSize(30).Bold().FontColor(PdfColorInstitutional);
                 });
-                r.ConstantItem(8);
+                r.ConstantItem(10);
                 r.RelativeItem().Background(Colors.White).Border(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(12).AlignCenter().Column(c =>
                 {
                     c.Item().Text("Aprobados").FontSize(8).FontColor(Colors.Grey.Darken2);
-                    c.Item().PaddingTop(4).Text(totales.TotalAprobados.ToString()).FontSize(16).Bold().FontColor(PdfColorAprobados);
+                    c.Item().PaddingTop(4).Text(totales.TotalAprobados.ToString()).FontSize(28).Bold().FontColor(PdfColorAprobados);
                 });
-                r.ConstantItem(8);
+                r.ConstantItem(10);
                 r.RelativeItem().Background(Colors.White).Border(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(12).AlignCenter().Column(c =>
                 {
                     c.Item().Text("Reprobados").FontSize(8).FontColor(Colors.Grey.Darken2);
-                    c.Item().PaddingTop(4).Text(totales.TotalReprobados.ToString()).FontSize(16).Bold().FontColor(PdfColorReprobados);
+                    c.Item().PaddingTop(4).Text(totales.TotalReprobados.ToString()).FontSize(28).Bold().FontColor(PdfColorReprobados);
                 });
-                r.ConstantItem(8);
-                r.RelativeItem().Background(PdfColorInstitutional).Border(0.5f).BorderColor(Colors.Grey.Lighten1).Padding(12).AlignCenter().Column(c =>
+                r.ConstantItem(10);
+                r.RelativeItem(1.4f).Background(PdfColorAprobacionFuerte).Border(0.5f).BorderColor(Colors.Grey.Lighten1).Padding(14).AlignCenter().Column(c =>
                 {
-                    c.Item().Text("% Aprobación general").FontSize(8).FontColor(Colors.White);
-                    c.Item().PaddingTop(4).Text($"{pctGeneral:F1}%").FontSize(20).Bold().FontColor(Colors.White);
+                    c.Item().Text("% Aprobación general").FontSize(9).FontColor(Colors.White);
+                    c.Item().PaddingTop(6).Text($"{pctGeneral:F1}%").FontSize(30).Bold().FontColor(Colors.White);
                 });
             });
         }
@@ -554,15 +571,16 @@ namespace SchoolManager.Services.Implementations
             });
         }
 
-        /// <summary>Pie de página: fecha generación, SchoolManager, Página X de Y, código de reporte opcional.</summary>
+        /// <summary>Pie de página auditable: línea separadora sutil, Sistema, fecha completa, Página X de Y, código de validación.</summary>
         private static void BuildFooter(IContainer container, AprobadosReprobadosReportViewModel reporte)
         {
-            var codigoReporte = $"R-{reporte.FechaGeneracion:yyyyMMdd-HHmm}";
-            container.PaddingTop(6).BorderTop(0.5f).BorderColor(Colors.Grey.Lighten2).Row(r =>
+            var codigoValidacion = $"REP-APR-{reporte.FechaGeneracion:yyyy}-{reporte.Trimestre}-{reporte.FechaGeneracion:HHmm}";
+            var fechaCompleta = reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm");
+            container.PaddingTop(8).BorderTop(1f).BorderColor(Colors.Grey.Lighten2).Row(r =>
             {
-                r.RelativeItem().AlignLeft().DefaultTextStyle(x => x.FontSize(7).FontColor(Colors.Grey.Medium))
-                    .Text($"Sistema: SchoolManager · {reporte.FechaGeneracion:dd/MM/yyyy HH:mm} · {codigoReporte}");
-                r.RelativeItem().AlignRight().DefaultTextStyle(x => x.FontSize(7).FontColor(Colors.Grey.Medium))
+                r.RelativeItem().AlignLeft().DefaultTextStyle(x => x.FontSize(8).FontColor(Colors.Grey.Darken1))
+                    .Text($"Sistema: SchoolManager · {fechaCompleta} · Cód. validación: {codigoValidacion}");
+                r.RelativeItem().AlignRight().DefaultTextStyle(x => x.FontSize(8).FontColor(Colors.Grey.Darken1))
                     .Text(t => { t.CurrentPageNumber().Format(n => $"Página {n} de "); t.TotalPages().Format(n => $"{n}"); });
             });
         }
