@@ -240,6 +240,11 @@ if (args.Length > 0)
         Console.WriteLine("✅ Cambios de año académico aplicados. Saliendo...");
         return;
     }
+    else if (args[0] == "--check-users")
+    {
+        await SchoolManager.Scripts.CheckUsers.RunAsync(context);
+        return;
+    }
 }
 
 // Configure the HTTP request pipeline.

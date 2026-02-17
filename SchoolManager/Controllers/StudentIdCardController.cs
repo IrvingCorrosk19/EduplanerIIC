@@ -15,15 +15,18 @@ public class StudentIdCardController : Controller
     private readonly IStudentIdCardService _service;
     private readonly IStudentIdCardPdfService _pdfService;
     private readonly SchoolDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
     public StudentIdCardController(
         IStudentIdCardService service, 
         IStudentIdCardPdfService pdfService,
-        SchoolDbContext context)
+        SchoolDbContext context,
+        ICurrentUserService currentUserService)
     {
         _service = service;
         _pdfService = pdfService;
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     [HttpGet("ui")]
@@ -117,8 +120,16 @@ public class StudentIdCardController : Controller
     [HttpGet("api/list-json")]
     public async Task<IActionResult> ListJson()
     {
-        var students = await _context.Users
-            .Where(u => u.Role == "student" || u.Role == "estudiante")
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        var schoolId = currentUser?.SchoolId;
+
+        var query = _context.Users
+            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"));
+
+        if (schoolId.HasValue)
+            query = query.Where(u => u.SchoolId == schoolId.Value);
+
+        var students = await query
             .Include(u => u.StudentAssignments.Where(sa => sa.IsActive))
                 .ThenInclude(sa => sa.Grade)
             .Include(u => u.StudentAssignments.Where(sa => sa.IsActive))
@@ -127,11 +138,11 @@ public class StudentIdCardController : Controller
             {
                 id = u.Id,
                 fullName = $"{u.Name} {u.LastName}",
-                grade = u.StudentAssignments.FirstOrDefault(sa => sa.IsActive) != null 
-                    ? u.StudentAssignments.FirstOrDefault(sa => sa.IsActive)!.Grade.Name 
+                grade = u.StudentAssignments.FirstOrDefault(sa => sa.IsActive) != null
+                    ? u.StudentAssignments.FirstOrDefault(sa => sa.IsActive)!.Grade.Name
                     : "Sin asignar",
-                group = u.StudentAssignments.FirstOrDefault(sa => sa.IsActive) != null 
-                    ? u.StudentAssignments.FirstOrDefault(sa => sa.IsActive)!.Group.Name 
+                group = u.StudentAssignments.FirstOrDefault(sa => sa.IsActive) != null
+                    ? u.StudentAssignments.FirstOrDefault(sa => sa.IsActive)!.Group.Name
                     : "Sin asignar"
             })
             .ToListAsync();
