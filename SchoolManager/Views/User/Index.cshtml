@@ -499,6 +499,27 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Foto del usuario (visible al editar; se usa en el carnet) -->
+                <div class="row mb-3" id="userPhotoSection" style="display: none;">
+                    <div class="col-12">
+                        <label class="form-label">Foto del usuario</label>
+                        <p class="text-muted small mb-2">Se usará en el carnet estudiantil si es estudiante. JPEG o PNG, máx. 2 MB.</p>
+                        <div class="d-flex align-items-start gap-3 flex-wrap">
+                            <div id="userPhotoPreview" class="rounded shadow-sm bg-light d-flex align-items-center justify-content-center text-muted" style="width:100px;height:100px;">
+                                <i class="fas fa-user-circle fa-3x"></i>
+                            </div>
+                            <img id="userPhotoImg" src="" alt="Foto" class="rounded shadow-sm" style="width:100px;height:100px;object-fit:cover;display:none;" onerror="this.style.display='none'; document.getElementById('userPhotoPreview').style.display='flex';" />
+                            <div>
+                                <input type="file" id="userPhotoInput" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="form-control form-control-sm mb-1" style="max-width:240px;" />
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <button type="button" id="btnUploadUserPhoto" class="btn btn-sm btn-primary"><i class="fas fa-upload me-1"></i>Subir foto</button>
+                                    <button type="button" id="btnRemoveUserPhoto" class="btn btn-sm btn-outline-danger" style="display:none;"><i class="fas fa-trash me-1"></i>Eliminar foto</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Campo Inclusivo para estudiantes - Solo visible para rol student -->
  @*                <div class="row mb-3" id="inclusivoSection" style="display: none;">
@@ -1225,7 +1246,22 @@
 
                     $('#btnUpdateUser').prop('disabled', false);
                     $('#btnCreateUser').prop('disabled', true);
-                    
+
+                    // Mostrar sección de foto y actualizar vista
+                    $('#userPhotoSection').show();
+                    $('#userPhotoInput').val('');
+                    if (user.photoUrl) {
+                        $('#userPhotoImg').attr('src', user.photoUrl).show().off('error').on('error', function() {
+                            $(this).hide();
+                            $('#userPhotoPreview').css('display', 'flex');
+                        });
+                        $('#userPhotoPreview').hide();
+                        $('#btnRemoveUserPhoto').show();
+                    } else {
+                        $('#userPhotoImg').attr('src', '').hide();
+                        $('#userPhotoPreview').css('display', 'flex').show();
+                        $('#btnRemoveUserPhoto').hide();
+                    }
                 })
                 .fail(function(xhr, status, error) {
                 });
@@ -1259,6 +1295,85 @@
                             Swal.fire('Error', message, 'error');
                         });
                     }
+                });
+            });
+
+            // Subir foto del usuario (desde Index)
+            $('#btnUploadUserPhoto').on('click', function() {
+                var userId = $('#UserId').val();
+                if (!userId) return;
+                var fileInput = document.getElementById('userPhotoInput');
+                if (!fileInput.files || !fileInput.files.length) {
+                    Swal.fire({ icon: 'warning', title: 'Sin archivo', text: 'Seleccione una imagen (JPEG o PNG, máx. 2 MB).' });
+                    return;
+                }
+                var formData = new FormData();
+                formData.append('id', userId);
+                formData.append('photo', fileInput.files[0]);
+                formData.append('__RequestVerificationToken', $('input[name="__RequestVerificationToken"]').val());
+                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Subiendo...');
+                $.ajax({
+                    url: '/User/UpdatePhoto/' + userId,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .done(function(res) {
+                    if (res.success && res.photoUrl) {
+                        $('#userPhotoImg').attr('src', res.photoUrl).show();
+                        $('#userPhotoPreview').hide();
+                        $('#btnRemoveUserPhoto').show();
+                        $('#userPhotoInput').val('');
+                        Swal.fire({ icon: 'success', title: 'Foto actualizada', text: 'Se usará en el carnet.' });
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo subir la foto.' });
+                    }
+                })
+                .fail(function(xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'No se pudo actualizar la foto.';
+                    Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                })
+                .always(function() {
+                    btn.prop('disabled', false).html('<i class="fas fa-upload me-1"></i>Subir foto');
+                });
+            });
+
+            // Eliminar foto del usuario (desde Index)
+            $('#btnRemoveUserPhoto').on('click', function() {
+                var userId = $('#UserId').val();
+                if (!userId) return;
+                Swal.fire({
+                    title: '¿Eliminar la foto?',
+                    text: 'Dejará de mostrarse en el carnet.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Sí, eliminar'
+                }).then(function(result) {
+                    if (!result.isConfirmed) return;
+                    $.ajax({
+                        url: '/User/RemovePhoto/' + userId,
+                        type: 'POST',
+                        data: { __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val() },
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .done(function(res) {
+                        if (res.success) {
+                            $('#userPhotoImg').attr('src', '').hide();
+                            $('#userPhotoPreview').css('display', 'flex').show();
+                            $('#btnRemoveUserPhoto').hide();
+                            Swal.fire({ icon: 'success', title: 'Foto eliminada' });
+                        } else {
+                            Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo eliminar.' });
+                        }
+                    })
+                    .fail(function(xhr) {
+                        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'No se pudo eliminar la foto.';
+                        Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                    });
                 });
             });
 
@@ -1583,6 +1698,11 @@
                 $('#btnUpdateUser').prop('disabled', true);
                 $('#btnCreateUser').prop('disabled', false);
                 form.find('input, select').removeClass('is-invalid');
+                $('#userPhotoSection').hide();
+                $('#userPhotoImg').attr('src', '').hide();
+                $('#userPhotoPreview').css('display', 'flex').show();
+                $('#userPhotoInput').val('');
+                $('#btnRemoveUserPhoto').hide();
             }
         });
         

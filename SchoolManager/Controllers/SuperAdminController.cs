@@ -13,15 +13,18 @@ namespace SchoolManager.Controllers;
 public class SuperAdminController : Controller
 {
     private readonly ISuperAdminService _superAdminService;
+    private readonly IUserPhotoService _userPhotoService;
     private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly ILogger<SuperAdminController> _logger;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
+        IUserPhotoService userPhotoService,
         IWebHostEnvironment webHostEnvironment,
         ILogger<SuperAdminController> logger)
     {
         _superAdminService = superAdminService;
+        _userPhotoService = userPhotoService;
         _webHostEnvironment = webHostEnvironment;
         _logger = logger;
     }
@@ -253,6 +256,49 @@ public class SuperAdminController : Controller
         return View(model);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> UpdateUserPhoto(Guid id, IFormFile? photo)
+    {
+        if (photo == null || photo.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Seleccione una imagen (JPEG o PNG, máx. 2 MB).";
+            return RedirectToAction(nameof(EditUser), new { id });
+        }
+        try
+        {
+            await _userPhotoService.UpdatePhotoAsync(id, photo);
+            TempData["SuccessMessage"] = "Foto actualizada correctamente.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error actualizando foto del usuario {UserId}", id);
+            TempData["ErrorMessage"] = "No se pudo actualizar la foto. Verifique que sea JPEG o PNG y no supere 2 MB.";
+        }
+        return RedirectToAction(nameof(EditUser), new { id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveUserPhoto(Guid id)
+    {
+        try
+        {
+            await _userPhotoService.RemovePhotoAsync(id);
+            TempData["SuccessMessage"] = "Foto eliminada.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error eliminando foto del usuario {UserId}", id);
+            TempData["ErrorMessage"] = "No se pudo eliminar la foto.";
+        }
+        return RedirectToAction(nameof(EditUser), new { id });
+    }
 
 
     // Método para diagnosticar problemas de eliminación

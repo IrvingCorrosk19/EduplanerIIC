@@ -1310,6 +1310,10 @@ public partial class SchoolDbContext : DbContext
                 .HasMaxLength(20)
                 .HasColumnName("shift");
 
+            entity.Property(e => e.PhotoUrl)
+                .HasMaxLength(500)
+                .HasColumnName("photo_url");
+
             entity.HasOne(d => d.SchoolNavigation).WithMany(p => p.Users)
                 .HasForeignKey(d => d.SchoolId)
                 .OnDelete(DeleteBehavior.SetNull)

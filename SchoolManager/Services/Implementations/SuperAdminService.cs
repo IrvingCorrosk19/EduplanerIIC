@@ -395,7 +395,8 @@ public class SuperAdminService : ISuperAdminService
             LastName = user.LastName,
             Email = user.Email,
             Role = user.Role,
-            Status = user.Status
+            Status = user.Status,
+            PhotoUrl = user.PhotoUrl
         };
 
         Console.WriteLine($"✅ [SuperAdminService] ViewModel creado para usuario: {user.Name}");

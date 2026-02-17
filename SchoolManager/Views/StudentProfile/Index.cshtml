@@ -158,6 +158,41 @@
                 </div>
             </div>
 
+            <!-- Foto del perfil (identidad visual / carnet) -->
+            <div class="info-section mt-3">
+                <h5><i class="bi bi-camera me-2"></i>Mi foto</h5>
+                <p class="text-muted small mb-2">Se usará en tu perfil y en el carnet estudiantil. JPEG o PNG, máx. 2 MB.</p>
+                <div class="d-flex align-items-start gap-3">
+                    <div class="position-relative">
+                        @if (!string.IsNullOrEmpty(Model.PhotoUrl))
+                        {
+                            <img id="photoPreview" src="@(string.IsNullOrEmpty(Model.PhotoUrl) ? "" : Model.PhotoUrl)" alt="Foto" class="rounded shadow-sm" style="width:120px;height:120px;object-fit:cover;" onerror="this.style.display='none'; document.getElementById('photoPlaceholder').style.display='block';" />
+                            <div id="photoPlaceholder" class="rounded bg-light d-flex align-items-center justify-content-center text-muted" style="width:120px;height:120px;display:none;"><i class="bi bi-person-circle" style="font-size:3rem;"></i></div>
+                        }
+                        else
+                        {
+                            <img id="photoPreview" src="" alt="" class="rounded shadow-sm" style="width:120px;height:120px;object-fit:cover;display:none;" />
+                            <div id="photoPlaceholder" class="rounded bg-light d-flex align-items-center justify-content-center text-muted" style="width:120px;height:120px;"><i class="bi bi-person-circle" style="font-size:3rem;"></i></div>
+                        }
+                    </div>
+                    <div class="flex-grow-1">
+                        <form asp-action="UpdatePhoto" method="post" enctype="multipart/form-data" class="mb-2">
+                            @Html.AntiForgeryToken()
+                            <input type="file" name="photo" id="photoInput" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="form-control form-control-sm mb-1" />
+                            <small class="text-muted d-block mb-1">Máx. 2 MB</small>
+                            <button type="submit" class="btn btn-primary btn-sm" id="btnUploadPhoto"><i class="bi bi-upload me-1"></i>Subir foto</button>
+                        </form>
+                        @if (!string.IsNullOrEmpty(Model.PhotoUrl))
+                        {
+                            <form asp-action="RemovePhoto" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('¿Eliminar tu foto?');"><i class="bi bi-trash me-1"></i>Eliminar</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
                 <strong>Nota:</strong> Solo puedes modificar tu información personal. 
@@ -322,6 +357,23 @@
                             });
                     }, 500);
                 }
+            });
+
+            // Preview instantáneo de la foto al seleccionar archivo
+            $('#photoInput').on('change', function() {
+                var file = this.files && this.files[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('El archivo no debe superar 2 MB.');
+                    this.value = '';
+                    return;
+                }
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#photoPreview').attr('src', e.target.result).show();
+                    $('#photoPlaceholder').hide();
+                };
+                reader.readAsDataURL(file);
             });
 
             // Confirmación al guardar

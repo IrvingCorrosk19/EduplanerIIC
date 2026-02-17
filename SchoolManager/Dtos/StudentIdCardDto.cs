@@ -9,4 +9,6 @@ public class StudentIdCardDto
     public string Group { get; set; } = null!;
     public string Shift { get; set; } = null!;
     public string QrToken { get; set; } = null!;
+    /// <summary>URL o path de la foto del estudiante (para vista y PDF).</summary>
+    public string? PhotoUrl { get; set; }
 }

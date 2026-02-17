@@ -8,14 +8,24 @@ namespace SchoolManager.Services.Implementations;
 public class StudentIdCardService : IStudentIdCardService
 {
     private readonly SchoolDbContext _context;
+    private readonly ILogger<StudentIdCardService> _logger;
 
-    public StudentIdCardService(SchoolDbContext context)
+    public StudentIdCardService(SchoolDbContext context, ILogger<StudentIdCardService> logger)
     {
         _context = context;
+        _logger = logger;
+    }
+
+    /// <summary>Genera un número de carnet único (evita duplicados con carnets revocados en la misma fecha).</summary>
+    private static string GenerateUniqueCardNumber(Guid studentId)
+    {
+        return $"SM-{DateTime.UtcNow:yyyyMMdd}-{studentId.ToString("N")[..8].ToUpper()}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
     }
 
     public async Task<StudentIdCardDto> GenerateAsync(Guid studentId, Guid createdBy)
     {
+        _logger.LogInformation("[StudentIdCard] GenerateAsync inicio StudentId={StudentId} CreatedBy={CreatedBy}", studentId, createdBy);
+
         var student = await _context.Users
             .Include(x => x.StudentAssignments)
                 .ThenInclude(x => x.Grade)
@@ -26,11 +36,17 @@ public class StudentIdCardService : IStudentIdCardService
             .FirstOrDefaultAsync(x => x.Id == studentId && (x.Role == "student" || x.Role == "estudiante"));
 
         if (student == null)
+        {
+            _logger.LogWarning("[StudentIdCard] GenerateAsync estudiante no encontrado StudentId={StudentId}", studentId);
             throw new Exception("Estudiante no encontrado");
+        }
 
         var activeAssignment = student.StudentAssignments.FirstOrDefault(x => x.IsActive);
         if (activeAssignment == null)
+        {
+            _logger.LogWarning("[StudentIdCard] GenerateAsync estudiante sin asignación activa StudentId={StudentId}", studentId);
             throw new Exception("Estudiante sin asignación activa");
+        }
 
         // Verificar si ya tiene un carnet activo
         var existingCard = await _context.StudentIdCards
@@ -38,7 +54,7 @@ public class StudentIdCardService : IStudentIdCardService
 
         if (existingCard != null)
         {
-            // Revocar carnet anterior
+            _logger.LogInformation("[StudentIdCard] Revocando carnet anterior Id={CardId} CardNumber={CardNumber}", existingCard.Id, existingCard.CardNumber);
             existingCard.Status = "revoked";
             _context.StudentIdCards.Update(existingCard);
         }
@@ -53,7 +69,8 @@ public class StudentIdCardService : IStudentIdCardService
             existingToken.IsRevoked = true;
         }
 
-        var cardNumber = $"SM-{DateTime.UtcNow:yyyyMMdd}-{studentId.ToString()[..8].ToUpper()}";
+        var cardNumber = GenerateUniqueCardNumber(studentId);
+        _logger.LogInformation("[StudentIdCard] Nuevo carnet CardNumber={CardNumber} StudentId={StudentId}", cardNumber, studentId);
 
         var card = new StudentIdCard
         {
@@ -79,6 +96,7 @@ public class StudentIdCardService : IStudentIdCardService
         }
         
         await _context.SaveChangesAsync();
+        _logger.LogInformation("[StudentIdCard] GenerateAsync OK StudentId={StudentId} CardNumber={CardNumber}", studentId, cardNumber);
 
         return new StudentIdCardDto
         {
@@ -88,7 +106,8 @@ public class StudentIdCardService : IStudentIdCardService
             Grade = activeAssignment.Grade.Name,
             Group = activeAssignment.Group.Name,
             Shift = activeAssignment.Shift?.Name ?? "N/A",
-            QrToken = newToken.Token
+            QrToken = newToken.Token,
+            PhotoUrl = student.PhotoUrl
         };
     }
 

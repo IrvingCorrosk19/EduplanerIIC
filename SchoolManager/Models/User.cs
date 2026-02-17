@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SchoolManager.Models;
@@ -50,6 +50,15 @@ public partial class User
     public bool? Inclusivo { get; set; }
     
     public string? Shift { get; set; } // Jornada actual del estudiante: Mañana, Tarde, Noche
+
+    /// <summary>URL o path de la foto del usuario (solo asignable vía dominio).</summary>
+    public string? PhotoUrl { get; private set; }
+
+    /// <summary>Actualiza la foto del usuario (comportamiento de dominio).</summary>
+    public void UpdatePhoto(string? photoUrl)
+    {
+        PhotoUrl = photoUrl;
+    }
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 

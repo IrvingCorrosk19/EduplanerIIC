@@ -12,23 +12,43 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 {
     private readonly SchoolDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IFileStorageService _fileStorage;
     private readonly HttpClient _http;
+    private readonly ILogger<StudentIdCardPdfService> _logger;
 
     public StudentIdCardPdfService(
         SchoolDbContext context,
         ICurrentUserService currentUserService,
-        IHttpClientFactory httpClientFactory)
+        IFileStorageService fileStorage,
+        IHttpClientFactory httpClientFactory,
+        ILogger<StudentIdCardPdfService> logger)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _fileStorage = fileStorage;
         _http = httpClientFactory.CreateClient();
+        _logger = logger;
+    }
+
+    /// <summary>Genera un número de carnet único (evita duplicados con carnets revocados).</summary>
+    private static string GenerateUniqueCardNumber(Guid studentId)
+    {
+        return $"SM-{DateTime.UtcNow:yyyyMMdd}-{studentId.ToString("N")[..8].ToUpper()}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
     }
 
     public async Task<byte[]> GenerateCardPdfAsync(Guid studentId, Guid createdBy)
     {
+        try
+        {
+        _logger.LogInformation("[StudentIdCardPdf] GenerateCardPdfAsync inicio StudentId={StudentId} CreatedBy={CreatedBy}", studentId, createdBy);
+
         // 1) Datos escuela (multi-escuela correcto)
         var school = await _currentUserService.GetCurrentUserSchoolAsync();
-        if (school == null) throw new Exception("No se pudo determinar la escuela del usuario actual.");
+        if (school == null)
+        {
+            _logger.LogWarning("[StudentIdCardPdf] No se pudo determinar la escuela del usuario actual");
+            throw new Exception("No se pudo determinar la escuela del usuario actual.");
+        }
 
         // 2) Settings de carnet
         var settings = await _context.Set<SchoolIdCardSetting>()
@@ -45,7 +65,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             PrimaryColor = "#0D6EFD",
             TextColor = "#111111",
             ShowQr = true,
-            ShowPhoto = false // Por ahora false hasta que agreguemos PhotoUrl
+            ShowPhoto = true
         };
 
         // 3) Campos configurables
@@ -57,12 +77,14 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         // 4) Asegurar carnet + token
         var dto = await BuildStudentCardDtoAsync(studentId, createdBy, school.Name);
 
-        // 5) Descargar logo/foto (si tienes URL)
+        // 5) Logo y foto del estudiante (solo URL en BD; archivo vía almacenamiento)
         byte[]? logoBytes = null;
         if (!string.IsNullOrWhiteSpace(school.LogoUrl))
             logoBytes = await SafeDownloadBytesAsync(school.LogoUrl);
 
-        byte[]? photoBytes = null; // no existe aún
+        byte[]? photoBytes = null;
+        if (settings.ShowPhoto && !string.IsNullOrWhiteSpace(dto.PhotoUrl))
+            photoBytes = await _fileStorage.GetUserPhotoBytesAsync(dto.PhotoUrl);
 
         // 6) Generar PDF - Diseño referencia: CarnetQR Platform (horizontal 85.6x54 mm, header, cuerpo foto+info, reverso con QR)
         QuestPDF.Settings.License = LicenseType.Community;
@@ -95,7 +117,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 {
                     page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
                     page.Margin(0);
-                    page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, dto, settings));
+                    page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings));
                 });
 
                 if (settings.ShowQr)
@@ -110,7 +132,14 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             }
         }).GeneratePdf();
 
+        _logger.LogInformation("[StudentIdCardPdf] GenerateCardPdfAsync OK StudentId={StudentId} SchoolId={SchoolId}", studentId, school.Id);
         return pdf;
+        }
+        catch (Exception ex)
+    {
+        _logger.LogError(ex, "[StudentIdCardPdf] GenerateCardPdfAsync error StudentId={StudentId}: {Message}", studentId, ex.Message);
+        throw;
+    }
     }
 
     private IContainer RenderField(IContainer container, IdCardTemplateField f, StudentCardRenderDto dto, string schoolName,
@@ -135,8 +164,10 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 break;
 
             case "Photo":
-                // No hay fotos aún, se deja vacío o placeholder
-                positioned.Border(1).Padding(2).AlignCenter().AlignMiddle().Text("FOTO");
+                if (photoBytes != null && photoBytes.Length > 0)
+                    positioned.Border(1).Padding(2).AlignCenter().AlignMiddle().Image(photoBytes);
+                else
+                    positioned.Border(1).Padding(2).AlignCenter().AlignMiddle().Text("FOTO");
                 break;
 
             case "FullName":
@@ -174,7 +205,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
     /// <summary>Frente del carnet - diseño CarnetQR: header (logo + escuela), cuerpo (foto izq + datos), footer.</summary>
     private IContainer RenderCarnetQrFront(IContainer container, string schoolName, byte[]? logoBytes,
-        StudentCardRenderDto dto, SchoolIdCardSetting settings)
+        byte[]? photoBytes, StudentCardRenderDto dto, SchoolIdCardSetting settings)
     {
         const float paddingMm = 4f;
         const float headerHeightMm = 10f;
@@ -203,10 +234,13 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             {
                 if (settings.ShowPhoto)
                 {
-                    r.ConstantItem(photoW).Height(photoH)
+                    var photoBlock = r.ConstantItem(photoW).Height(photoH)
                         .Border(1).BorderColor(ParseColor(settings.PrimaryColor))
-                        .Padding(2).AlignCenter().AlignMiddle()
-                        .Text("FOTO").FontSize(6).FontColor(ParseColor(settings.TextColor));
+                        .Padding(2);
+                    if (photoBytes != null && photoBytes.Length > 0)
+                        photoBlock.AlignCenter().AlignMiddle().Image(photoBytes);
+                    else
+                        photoBlock.AlignCenter().AlignMiddle().Text("FOTO").FontSize(6).FontColor(ParseColor(settings.TextColor));
                     r.ConstantItem(3);
                 }
 
@@ -285,6 +319,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
     private async Task<StudentCardRenderDto> BuildStudentCardDtoAsync(Guid studentId, Guid createdBy, string schoolName)
     {
+        _logger.LogInformation("[StudentIdCardPdf] BuildStudentCardDtoAsync StudentId={StudentId}", studentId);
+
         var student = await _context.Users
             .Include(u => u.StudentAssignments)
                 .ThenInclude(a => a.Grade)
@@ -296,26 +332,38 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             .FirstOrDefaultAsync(u => u.Id == studentId);
 
         if (student == null)
+        {
+            _logger.LogWarning("[StudentIdCardPdf] BuildStudentCardDtoAsync estudiante no encontrado StudentId={StudentId}", studentId);
             throw new Exception("Estudiante no encontrado.");
+        }
 
         var assignment = student.StudentAssignments.FirstOrDefault(a => a.IsActive);
         if (assignment == null)
+        {
+            _logger.LogWarning("[StudentIdCardPdf] BuildStudentCardDtoAsync estudiante sin asignación activa StudentId={StudentId}", studentId);
             throw new Exception("El estudiante no tiene asignación activa.");
+        }
 
         var card = await _context.StudentIdCards
             .FirstOrDefaultAsync(c => c.StudentId == studentId && c.Status == "active");
 
         if (card == null)
         {
+            var newCardNumber = GenerateUniqueCardNumber(studentId);
+            _logger.LogInformation("[StudentIdCardPdf] Creando carnet nuevo CardNumber={CardNumber} StudentId={StudentId}", newCardNumber, studentId);
             card = new StudentIdCard
             {
                 StudentId = studentId,
-                CardNumber = $"SM-{DateTime.UtcNow:yyyyMMdd}-{studentId.ToString()[..8]}",
+                CardNumber = newCardNumber,
                 IssuedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddYears(1),
                 Status = "active"
             };
             _context.StudentIdCards.Add(card);
+        }
+        else
+        {
+            _logger.LogInformation("[StudentIdCardPdf] Usando carnet existente CardNumber={CardNumber} StudentId={StudentId}", card.CardNumber, studentId);
         }
 
         var token = await _context.StudentQrTokens
@@ -346,7 +394,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             Shift = assignment.Shift?.Name ?? "",
             CardNumber = card.CardNumber,
             QrToken = token.Token,
-            PhotoUrl = null                         // no hay foto aún
+            PhotoUrl = student.PhotoUrl
         };
     }
 

@@ -14,6 +14,14 @@
                     </h3>
                 </div>
                 <div class="card-body">
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show">@TempData["SuccessMessage"]<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+                    }
+                    @if (TempData["ErrorMessage"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show">@TempData["ErrorMessage"]<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+                    }
                     <form asp-action="EditUser" method="post">
                         <input type="hidden" asp-for="Id" />
                         
@@ -46,6 +54,35 @@
                                 <option value="student">Estudiante</option>
                             </select>
                             <span asp-validation-for="Role" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Foto del usuario</label>
+                            <div class="d-flex align-items-start gap-3">
+                                @if (!string.IsNullOrEmpty(Model.PhotoUrl))
+                                {
+                                    <img src="@Model.PhotoUrl" alt="Foto" class="rounded shadow-sm" style="width:80px;height:80px;object-fit:cover;" onerror="this.style.display='none'" />
+                                }
+                                else
+                                {
+                                    <div class="rounded bg-light d-flex align-items-center justify-content-center text-muted" style="width:80px;height:80px;"><i class="fas fa-user-circle fa-2x"></i></div>
+                                }
+                                <div>
+                                    <form asp-action="UpdateUserPhoto" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="file" name="photo" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="form-control form-control-sm mb-1" style="max-width:220px;" />
+                                        <small class="text-muted d-block mb-1">JPEG o PNG, máx. 2 MB</small>
+                                        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-upload me-1"></i>Subir foto</button>
+                                    </form>
+                                    @if (!string.IsNullOrEmpty(Model.PhotoUrl))
+                                    {
+                                        <form asp-action="RemoveUserPhoto" asp-route-id="@Model.Id" method="post" class="d-inline ms-1">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar la foto de este usuario?');"><i class="fas fa-trash me-1"></i>Eliminar</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mb-3">

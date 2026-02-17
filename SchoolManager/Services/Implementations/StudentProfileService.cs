@@ -38,7 +38,8 @@ namespace SchoolManager.Services.Implementations
                         u.CellphonePrimary,
                         u.CellphoneSecondary,
                         u.Role,
-                        u.SchoolId
+                        u.SchoolId,
+                        u.PhotoUrl
                     })
                     .FirstOrDefaultAsync();
 
@@ -82,7 +83,8 @@ namespace SchoolManager.Services.Implementations
                     Role = user.Role,
                     Grade = assignment?.GradeName,
                     GroupName = assignment?.GroupName,
-                    SchoolName = school
+                    SchoolName = school,
+                    PhotoUrl = user.PhotoUrl
                 };
 
                 _logger.LogInformation("✅ Perfil obtenido correctamente para: {Name} {LastName}", user.Name, user.LastName);

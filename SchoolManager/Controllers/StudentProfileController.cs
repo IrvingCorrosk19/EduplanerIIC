@@ -12,15 +12,18 @@ namespace SchoolManager.Controllers
     public class StudentProfileController : Controller
     {
         private readonly IStudentProfileService _profileService;
+        private readonly IUserPhotoService _userPhotoService;
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<StudentProfileController> _logger;
 
         public StudentProfileController(
             IStudentProfileService profileService,
+            IUserPhotoService userPhotoService,
             ICurrentUserService currentUserService,
             ILogger<StudentProfileController> logger)
         {
             _profileService = profileService;
+            _userPhotoService = userPhotoService;
             _currentUserService = currentUserService;
             _logger = logger;
         }
@@ -198,6 +201,67 @@ namespace SchoolManager.Controllers
                 _logger.LogError(ex, "❌ Error verificando disponibilidad de documento");
                 return Json(new { available = false });
             }
+        }
+
+        /// <summary>
+        /// Actualiza la foto del estudiante (solo el propio usuario).
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(2 * 1024 * 1024)]
+        public async Task<IActionResult> UpdatePhoto(IFormFile? photo)
+        {
+            var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue)
+                return Unauthorized();
+
+            if (photo == null || photo.Length == 0)
+            {
+                TempData["Error"] = "Seleccione una imagen (JPEG o PNG, máx. 2 MB).";
+                return RedirectToAction("Index");
+            }
+
+            try
+            {
+                await _userPhotoService.UpdatePhotoAsync(currentUserId.Value, photo);
+                TempData["Success"] = "Foto actualizada correctamente.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error actualizando foto del estudiante");
+                TempData["Error"] = "No se pudo actualizar la foto. Verifique que sea JPEG o PNG y no supere 2 MB.";
+            }
+
+            return RedirectToAction("Index");
+        }
+
+        /// <summary>
+        /// Elimina la foto del estudiante.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemovePhoto()
+        {
+            var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue)
+                return Unauthorized();
+
+            try
+            {
+                await _userPhotoService.RemovePhotoAsync(currentUserId.Value);
+                TempData["Success"] = "Foto eliminada.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error eliminando foto del estudiante");
+                TempData["Error"] = "No se pudo eliminar la foto.";
+            }
+
+            return RedirectToAction("Index");
         }
     }
 }

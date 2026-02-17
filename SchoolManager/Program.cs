@@ -116,6 +116,10 @@ builder.Services.AddScoped<IScheduleConfigurationService, ScheduleConfigurationS
 builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
 builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
 
+// Identidad visual del usuario (foto): almacenamiento desacoplado + servicio de aplicación
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddScoped<IUserPhotoService, UserPhotoService>();
+
 // HttpClient para descargar imágenes
 builder.Services.AddHttpClient();
 
@@ -221,6 +225,11 @@ if (args.Length > 0)
     else if (args[0] == "--apply-render-academic-year")
     {
         await SchoolManager.Scripts.ApplyRenderMigrations.ApplyAcademicYearOnlyAsync();
+        return;
+    }
+    else if (args[0] == "--compare-db-schemas")
+    {
+        await SchoolManager.Scripts.CompareDbSchemas.RunAsync();
         return;
     }
     

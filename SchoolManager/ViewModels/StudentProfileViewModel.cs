@@ -54,6 +54,10 @@ namespace SchoolManager.ViewModels
         public string? SchoolName { get; set; }
 
         public string? Role { get; set; }
+
+        /// <summary>URL o path de la foto del estudiante (solo lectura desde vista).</summary>
+        [Display(Name = "Foto")]
+        public string? PhotoUrl { get; set; }
     }
 }
 

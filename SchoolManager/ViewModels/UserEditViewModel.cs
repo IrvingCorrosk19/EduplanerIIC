@@ -34,4 +34,7 @@ public class UserEditViewModel
     [Phone(ErrorMessage = "El formato del celular secundario no es válido")]
     [Display(Name = "Celular Secundario")]
     public string? CellphoneSecondary { get; set; }
+
+    [Display(Name = "Foto")]
+    public string? PhotoUrl { get; set; }
 } 

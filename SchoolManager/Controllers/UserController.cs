@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 public class UserController : Controller
 {
     private readonly IUserService _userService;
+    private readonly IUserPhotoService _userPhotoService;
     private readonly ISubjectService _subjectService;
     private readonly IGroupService _groupService;
     private readonly IMapper _mapper;
@@ -23,6 +24,7 @@ public class UserController : Controller
 
     public UserController(
         IUserService userService,
+        IUserPhotoService userPhotoService,
         ISubjectService subjectService,
         IGroupService groupService,
         IMapper mapper,
@@ -31,6 +33,7 @@ public class UserController : Controller
         ILogger<UserController> logger)
     {
         _userService = userService;
+        _userPhotoService = userPhotoService;
         _subjectService = subjectService;
         _groupService = groupService;
         _mapper = mapper;
@@ -197,6 +200,80 @@ public class UserController : Controller
         return View(user);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> UpdatePhoto(Guid id, IFormFile? photo)
+    {
+        var user = await _userService.GetByIdAsync(id);
+        if (user == null) return NotFound();
+        var school = await _currentUserService.GetCurrentUserSchoolAsync();
+        if (school != null && user.SchoolId != school.Id)
+        {
+            TempData["Error"] = "No puede modificar la foto de un usuario de otra escuela.";
+            return RedirectToAction(nameof(Edit), new { id });
+        }
+        if (photo == null || photo.Length == 0)
+        {
+            TempData["Error"] = "Seleccione una imagen (JPEG o PNG, máx. 2 MB).";
+            return RedirectToAction(nameof(Edit), new { id });
+        }
+        try
+        {
+            await _userPhotoService.UpdatePhotoAsync(id, photo);
+            TempData["SuccessMessage"] = "Foto actualizada correctamente.";
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                var updated = await _userService.GetByIdAsync(id);
+                return Json(new { success = true, photoUrl = updated?.PhotoUrl });
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return Json(new { success = false, message = ex.Message });
+            TempData["Error"] = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error actualizando foto del usuario {UserId}", id);
+            var errMsg = "No se pudo actualizar la foto. Verifique que sea JPEG o PNG y no supere 2 MB.";
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return Json(new { success = false, message = errMsg });
+            TempData["Error"] = errMsg;
+        }
+        return RedirectToAction(nameof(Edit), new { id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemovePhoto(Guid id)
+    {
+        var user = await _userService.GetByIdAsync(id);
+        if (user == null) return NotFound();
+        var school = await _currentUserService.GetCurrentUserSchoolAsync();
+        if (school != null && user.SchoolId != school.Id)
+        {
+            TempData["Error"] = "No puede modificar la foto de un usuario de otra escuela.";
+            return RedirectToAction(nameof(Edit), new { id });
+        }
+        try
+        {
+            await _userPhotoService.RemovePhotoAsync(id);
+            TempData["SuccessMessage"] = "Foto eliminada.";
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return Json(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error eliminando foto del usuario {UserId}", id);
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return Json(new { success = false, message = "No se pudo eliminar la foto." });
+            TempData["Error"] = "No se pudo eliminar la foto.";
+        }
+        return RedirectToAction(nameof(Edit), new { id });
+    }
+
     public async Task<IActionResult> Delete(Guid id)
     {
         var user = await _userService.GetByIdAsync(id);
@@ -253,6 +330,7 @@ public class UserController : Controller
             user.Inclusion,
             user.Orientacion,
             user.Inclusivo,
+            user.PhotoUrl,
             Subjects = user.Subjects.Select(s => s.Id),
             Groups = user.Groups.Select(g => g.Id)
         };

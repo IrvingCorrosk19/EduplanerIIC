@@ -62,6 +62,7 @@ public class StudentIdCardController : Controller
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "[StudentIdCard] GenerateView error StudentId={StudentId} UserId={UserId}: {Message}", studentId, userId, ex.Message);
             TempData["Error"] = ex.Message;
             return RedirectToAction("Index");
         }
@@ -86,6 +87,7 @@ public class StudentIdCardController : Controller
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "[StudentIdCard] Print/PDF error StudentId={StudentId} UserId={UserId}: {Message}", studentId, userId, ex.Message);
             TempData["Error"] = ex.Message;
             return RedirectToAction("Index");
         }
