@@ -22,10 +22,13 @@ public class IdCardSettingsController : Controller
     [HttpGet("")]
     public async Task<IActionResult> Index()
     {
+        // No mostrar en esta página errores de otras secciones (ej. "Estudiante no encontrado" de Carnet)
+        TempData.Remove("Error");
+
         var school = await _currentUserService.GetCurrentUserSchoolAsync();
         if (school == null)
         {
-            TempData["Error"] = "No se pudo determinar la escuela del usuario actual.";
+            TempData["IdCardSettings.Error"] = "No se pudo determinar la escuela del usuario actual.";
             return RedirectToAction("Index", "Home");
         }
 
@@ -54,7 +57,7 @@ public class IdCardSettingsController : Controller
         var school = await _currentUserService.GetCurrentUserSchoolAsync();
         if (school == null)
         {
-            TempData["Error"] = "No se pudo determinar la escuela del usuario actual.";
+            TempData["IdCardSettings.Error"] = "No se pudo determinar la escuela del usuario actual.";
             return RedirectToAction("Index");
         }
 
