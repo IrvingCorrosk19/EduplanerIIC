@@ -23,6 +23,7 @@ public static class EnsureScheduleTables
             if (exists.Count > 0)
                 return;
 
+            Console.WriteLine("[EnsureScheduleTables] Creando time_slots y schedule_entries...");
             await context.Database.ExecuteSqlRawAsync(@"
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS ""uuid-ossp"";
@@ -75,7 +76,7 @@ CREATE UNIQUE INDEX IX_schedule_entries_unique_slot ON schedule_entries (teacher
         }
         catch (Exception ex)
         {
-            // No fallar el arranque; solo registrar
+            Console.WriteLine($"[EnsureScheduleTables] Error: {ex.Message}");
             System.Diagnostics.Debug.WriteLine($"[EnsureScheduleTables] Error: {ex.Message}");
         }
     }

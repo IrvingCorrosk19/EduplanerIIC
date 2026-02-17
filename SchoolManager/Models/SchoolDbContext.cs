@@ -97,21 +97,13 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<TeacherWorkPlan> TeacherWorkPlans { get; set; }
     public virtual DbSet<TeacherWorkPlanDetail> TeacherWorkPlanDetails { get; set; }
+    public virtual DbSet<TeacherWorkPlanReviewLog> TeacherWorkPlanReviewLogs { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // Configurar interceptor global para DateTime
         optionsBuilder.AddInterceptors(new DateTimeInterceptor());
-
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-
-    // Conexión LOCAL (desarrollo) - Comentada
-    //=> optionsBuilder.UseNpgsql("Host=localhost;Database=schoolmanagement;Username=postgres;Password=Panama2020$");
-    
-    // Conexión RENDER (producción) - ACTIVA
-    => optionsBuilder.UseNpgsql("Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
-
-
+        if (optionsBuilder.IsConfigured) return;
+        optionsBuilder.UseNpgsql("Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true");
     }
 
 
@@ -2547,6 +2539,14 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasColumnType("timestamp with time zone").HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnType("timestamp with time zone").HasColumnName("updated_at");
             entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.SubmittedAt).HasColumnType("timestamp with time zone").HasColumnName("submitted_at");
+            entity.Property(e => e.ApprovedAt).HasColumnType("timestamp with time zone").HasColumnName("approved_at");
+            entity.Property(e => e.ApprovedByUserId).HasColumnName("approved_by_user_id");
+            entity.Property(e => e.RejectedAt).HasColumnType("timestamp with time zone").HasColumnName("rejected_at");
+            entity.Property(e => e.RejectedByUserId).HasColumnName("rejected_by_user_id");
+            entity.Property(e => e.ReviewComment).HasColumnName("review_comment");
+            entity.HasOne(d => d.ApprovedByUser).WithMany().HasForeignKey(d => d.ApprovedByUserId).OnDelete(DeleteBehavior.SetNull).HasConstraintName("teacher_work_plans_approved_by_fkey");
+            entity.HasOne(d => d.RejectedByUser).WithMany().HasForeignKey(d => d.RejectedByUserId).OnDelete(DeleteBehavior.SetNull).HasConstraintName("teacher_work_plans_rejected_by_fkey");
             entity.HasOne(d => d.Teacher).WithMany().HasForeignKey(d => d.TeacherId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_teacher_id_fkey");
             entity.HasOne(d => d.Subject).WithMany().HasForeignKey(d => d.SubjectId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_subject_id_fkey");
             entity.HasOne(d => d.GradeLevel).WithMany().HasForeignKey(d => d.GradeLevelId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_grade_level_id_fkey");
@@ -2570,6 +2570,21 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.AchievementIndicators).HasColumnName("achievement_indicators");
             entity.Property(e => e.DisplayOrder).HasColumnName("display_order");
             entity.HasOne(d => d.TeacherWorkPlan).WithMany(p => p.Details).HasForeignKey(d => d.TeacherWorkPlanId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("teacher_work_plan_details_plan_id_fkey");
+        });
+
+        modelBuilder.Entity<TeacherWorkPlanReviewLog>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("teacher_work_plan_review_logs_pkey");
+            entity.ToTable("teacher_work_plan_review_logs");
+            entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()").HasColumnName("id");
+            entity.Property(e => e.TeacherWorkPlanId).HasColumnName("teacher_work_plan_id");
+            entity.Property(e => e.Action).HasMaxLength(50).HasColumnName("action");
+            entity.Property(e => e.PerformedByUserId).HasColumnName("performed_by_user_id");
+            entity.Property(e => e.PerformedAt).HasColumnType("timestamp with time zone").HasColumnName("performed_at");
+            entity.Property(e => e.Comment).HasColumnName("comment");
+            entity.Property(e => e.Summary).HasMaxLength(500).HasColumnName("summary");
+            entity.HasOne(d => d.TeacherWorkPlan).WithMany().HasForeignKey(d => d.TeacherWorkPlanId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("teacher_work_plan_review_logs_plan_id_fkey");
+            entity.HasOne(d => d.PerformedByUser).WithMany().HasForeignKey(d => d.PerformedByUserId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plan_review_logs_user_fkey");
         });
     }
 

@@ -249,7 +249,17 @@ public class TeacherWorkPlanService : ITeacherWorkPlanService
         if (plan == null) throw new InvalidOperationException("Plan no encontrado.");
         if (plan.TeacherId != teacherId) throw new UnauthorizedAccessException("No puede enviar el plan de otro docente.");
         plan.Status = "Submitted";
+        plan.SubmittedAt = DateTime.UtcNow;
         plan.UpdatedAt = DateTime.UtcNow;
+        _context.TeacherWorkPlanReviewLogs.Add(new TeacherWorkPlanReviewLog
+        {
+            Id = Guid.NewGuid(),
+            TeacherWorkPlanId = plan.Id,
+            Action = "Submitted",
+            PerformedByUserId = teacherId,
+            PerformedAt = DateTime.UtcNow,
+            Summary = "Enviado a revisión por el docente"
+        });
         await _context.SaveChangesAsync();
     }
 

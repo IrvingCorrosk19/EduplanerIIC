@@ -21,11 +21,11 @@ public static class EnsureSchoolScheduleConfigurationTable
 
             if (exists.Count > 0)
             {
-                // Asegurar que existan las columnas de tarde (por si la tabla se creó sin ellas)
                 await EnsureAfternoonColumnsAsync(context);
                 return;
             }
 
+            Console.WriteLine("[EnsureSchoolScheduleConfigurationTable] Creando school_schedule_configurations...");
             await context.Database.ExecuteSqlRawAsync(@"
 CREATE TABLE school_schedule_configurations (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -49,6 +49,7 @@ CREATE UNIQUE INDEX IX_school_schedule_configurations_school_id
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[EnsureSchoolScheduleConfigurationTable] Error: {ex.Message}");
             System.Diagnostics.Debug.WriteLine($"[EnsureSchoolScheduleConfigurationTable] Error: {ex.Message}");
         }
     }

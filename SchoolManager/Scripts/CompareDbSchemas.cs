@@ -9,10 +9,23 @@ namespace SchoolManager.Scripts;
 /// </summary>
 public static class CompareDbSchemas
 {
-    private const string LocalConnectionString =
+    /// <summary>Usada por CompareDbSchemas y por --homologate-local para garantizar misma BD.</summary>
+    public const string LocalConnectionString =
         "Host=localhost;Database=schoolmanagement;Username=postgres;Password=Panama2020$;Port=5432";
     private const string RenderConnectionString =
         "Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true";
+
+    public static async Task ListLocalTablesAsync()
+    {
+        var tables = await GetTablesAndColumnsAsync(LocalConnectionString, "LOCAL");
+        Console.WriteLine("Tablas en LOCAL (localhost/schoolmanagement):");
+        foreach (var t in tables.Keys.OrderBy(x => x))
+            Console.WriteLine("  - " + t);
+        var expected = new[] { "teacher_work_plans", "teacher_work_plan_details", "teacher_work_plan_review_logs", "time_slots", "schedule_entries", "school_schedule_configurations" };
+        var missing = expected.Where(e => !tables.ContainsKey(e)).ToList();
+        if (missing.Count > 0)
+            Console.WriteLine("\nFaltan: " + string.Join(", ", missing));
+    }
 
     public static async Task RunAsync()
     {

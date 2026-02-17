@@ -40,6 +40,37 @@ if (args.Length > 0 && args[0] == "--apply-teacher-work-plan-tables")
     return;
 }
 
+// Columnas gobernanza + tabla teacher_work_plan_review_logs (Dirección Académica)
+if (args.Length > 0 && args[0] == "--apply-director-work-plan-governance")
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.ApplyDirectorWorkPlanGovernance.RunAsync(ctx);
+    return;
+}
+
+// Homologar BD LOCAL con Render. Usa la misma conexión que CompareDbSchemas (localhost/schoolmanagement).
+if (args.Length > 0 && args[0] == "--homologate-local")
+{
+    var connStr = SchoolManager.Scripts.CompareDbSchemas.LocalConnectionString;
+    Console.WriteLine("═══════════════════════════════════════════════════");
+    Console.WriteLine("   HOMOLOGANDO BD LOCAL (localhost/schoolmanagement)");
+    Console.WriteLine("═══════════════════════════════════════════════════\n");
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    Console.WriteLine("0/7 Aplicando schools.is_active..."); await SchoolManager.Scripts.ApplySchoolIsActive.RunAsync(ctx);
+    Console.WriteLine("1/7 Aplicando tabla shifts..."); await SchoolManager.Scripts.ApplyShiftsTable.ApplyAsync(ctx);
+    Console.WriteLine("2/7 Aplicando columnas groups (shift_id)..."); await SchoolManager.Scripts.ApplyGroupsColumns.ApplyAsync(ctx);
+    Console.WriteLine("3/7 Asegurando time_slots y schedule_entries..."); await SchoolManager.Scripts.EnsureScheduleTables.EnsureAsync(ctx);
+    Console.WriteLine("4/7 Asegurando school_schedule_configurations..."); await SchoolManager.Scripts.EnsureSchoolScheduleConfigurationTable.EnsureAsync(ctx);
+    Console.WriteLine("5/7 Aplicando teacher_work_plans..."); await SchoolManager.Scripts.ApplyTeacherWorkPlanTables.RunAsync(ctx);
+    Console.WriteLine("6/7 Aplicando director work plan governance..."); await SchoolManager.Scripts.ApplyDirectorWorkPlanGovernance.RunAsync(ctx);
+    Console.WriteLine("\n✅ Homologación local completada.");
+    return;
+}
+
 // Cultura oficial del sistema (estándar corporativo de fechas)
 var culture = new CultureInfo("es-PA");
 CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -128,6 +159,7 @@ builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
 builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
 builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
 builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService>();
+builder.Services.AddScoped<IDirectorWorkPlanService, DirectorWorkPlanService>();
 
 // Identidad visual del usuario (foto): almacenamiento desacoplado + servicio de aplicación
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
@@ -243,6 +275,11 @@ if (args.Length > 0)
     else if (args[0] == "--compare-db-schemas")
     {
         await SchoolManager.Scripts.CompareDbSchemas.RunAsync();
+        return;
+    }
+    else if (args[0] == "--list-local-tables")
+    {
+        await SchoolManager.Scripts.CompareDbSchemas.ListLocalTablesAsync();
         return;
     }
     
