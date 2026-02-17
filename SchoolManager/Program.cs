@@ -29,6 +29,17 @@ if (args.Length > 0 && args[0] == "--apply-school-is-active")
     return;
 }
 
+// Crear tablas Plan de Trabajo Trimestral (teacher_work_plans, teacher_work_plan_details)
+if (args.Length > 0 && args[0] == "--apply-teacher-work-plan-tables")
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.ApplyTeacherWorkPlanTables.RunAsync(ctx);
+    return;
+}
+
 // Cultura oficial del sistema (estándar corporativo de fechas)
 var culture = new CultureInfo("es-PA");
 CultureInfo.DefaultThreadCurrentCulture = culture;

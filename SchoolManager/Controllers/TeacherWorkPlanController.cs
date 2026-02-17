@@ -5,7 +5,7 @@ using SchoolManager.Services.Interfaces;
 
 namespace SchoolManager.Controllers;
 
-[Authorize(Roles = "Admin,Teacher")]
+[Authorize(Roles = "Admin,Teacher,admin,teacher,docente")]
 public class TeacherWorkPlanController : Controller
 {
     private readonly ITeacherWorkPlanService _workPlanService;
