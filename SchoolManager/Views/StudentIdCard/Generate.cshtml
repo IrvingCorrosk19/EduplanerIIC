@@ -2,81 +2,185 @@
 @{
     ViewData["Title"] = "Carnet Estudiantil - " + Model.FullName;
     Layout = "_AdminLayout";
+    var schoolName = ViewBag.SchoolName as string ?? "SchoolManager";
+    var schoolLogoUrl = ViewBag.SchoolLogoUrl as string;
+    // Diseño de referencia: CarnetQR Platform (header, cuerpo foto+info, footer, colores profesionales)
+    var primaryColor = "#1e3a8a";
+    var backgroundColor = "#ffffff";
+    var textColor = "#1f2937";
+    var borderColor = "#e5e7eb";
 }
 
 <style>
-    .id-card {
-        width: 350px;
-        max-width: 100%;
-        margin: 0 auto;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 15px;
+    @@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    .carnet-preview-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 400px;
         padding: 2rem;
+        background: #f5f5f5;
+    }
+
+    /* Contenedor del carnet - proporción estándar tipo CarnetQR (85.6 x 54 mm) */
+    .carnet-container {
+        width: 342px;
+        max-width: 100%;
+        aspect-ratio: 85.6 / 54;
+        max-height: 216px;
+        background: @backgroundColor;
+        border-radius: 5px;
+        padding: 6px;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid @borderColor;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        color: @textColor;
+        font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .carnet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        padding-bottom: 3px;
+        border-bottom: 1px solid @borderColor;
+        min-height: 28px;
+    }
+
+    .carnet-logo {
+        max-width: 60px;
+        max-height: 22px;
+        object-fit: contain;
+    }
+
+    .carnet-institution-name {
+        font-size: 9pt;
+        font-weight: 700;
+        color: @textColor;
+        flex: 1;
+        margin-left: 6px;
+    }
+
+    .carnet-body {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .carnet-photo {
+        flex-shrink: 0;
+        width: 60px;
+        height: 72px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: 2px solid @primaryColor;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         color: white;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    }
-    .id-card-header {
-        text-align: center;
-        margin-bottom: 1.5rem;
-    }
-    .id-card-header img {
-        max-width: 120px;
-        height: auto;
-        background: white;
-        padding: 10px;
-        border-radius: 10px;
-    }
-    .id-card-body {
-        background: rgba(255,255,255,0.1);
-        border-radius: 10px;
-        padding: 1.5rem;
-        backdrop-filter: blur(10px);
-    }
-    .id-card-name {
-        font-size: 1.5rem;
+        font-size: 8pt;
         font-weight: bold;
-        margin-bottom: 1rem;
-        text-align: center;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
     }
-    .id-card-info {
-        margin-bottom: 0.75rem;
-        font-size: 1rem;
+
+    .carnet-photo svg {
+        width: 24px;
+        height: 24px;
+        opacity: 0.9;
+        margin-bottom: 2px;
     }
-    .id-card-info strong {
-        display: inline-block;
-        width: 80px;
+
+    .carnet-info {
+        flex: 1;
+        min-width: 0;
     }
-    .id-card-qr {
-        text-align: center;
-        margin-top: 1.5rem;
-        padding: 1rem;
+
+    .carnet-user-name {
+        font-size: 11pt;
+        font-weight: 700;
+        color: @textColor;
+        margin-bottom: 3px;
+        line-height: 1.25;
+    }
+
+    .carnet-card-number {
+        font-size: 9pt;
+        color: @primaryColor;
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+
+    .carnet-details {
+        font-size: 8pt;
+        color: @textColor;
+        line-height: 1.5;
+        opacity: 0.95;
+    }
+
+    .carnet-detail-item {
+        margin-bottom: 1px;
+    }
+
+    .carnet-qr-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+        margin-top: 4px;
+    }
+
+    .carnet-qr-label {
+        font-size: 7pt;
+        color: @textColor;
+        opacity: 0.8;
+    }
+
+    .carnet-qr img {
+        width: 44px;
+        height: 44px;
+        border: 2px solid @primaryColor;
+        border-radius: 4px;
+        padding: 2px;
         background: white;
-        border-radius: 10px;
     }
-    .id-card-qr img {
-        max-width: 150px;
-        height: auto;
+
+    .carnet-footer {
+        margin-top: auto;
+        padding-top: 3px;
+        border-top: 1px solid @borderColor;
+        font-size: 7pt;
+        color: @textColor;
+        opacity: 0.7;
     }
+
     .print-actions {
         text-align: center;
         margin-top: 2rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
     }
+
     @@media print {
-        body * {
-            visibility: hidden;
-        }
-        .id-card, .id-card * {
-            visibility: visible;
-        }
-        .id-card {
+        body * { visibility: hidden; }
+        .carnet-preview-wrap, .carnet-preview-wrap * { visibility: visible; }
+        .carnet-preview-wrap {
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%;
+            padding: 0;
+            background: white;
         }
-        .print-actions {
-            display: none;
-        }
+        .print-actions { display: none !important; }
     }
 </style>
 
@@ -87,29 +191,39 @@
         </div>
     </div>
     <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="id-card" id="idCard">
-                <div class="id-card-header">
-                    <img src="/images/logo.png" alt="Logo" onerror="this.style.display='none'" />
-                    <h4 style="margin-top: 1rem;">SchoolManager</h4>
-                </div>
-                <div class="id-card-body">
-                    <div class="id-card-name">@Model.FullName</div>
-                    <div class="id-card-info">
-                        <strong>Grado:</strong> @Model.Grade
+        <div class="col-md-8">
+            <div class="carnet-preview-wrap">
+                <div class="carnet-container" id="idCard">
+                    <div class="carnet-header">
+                        @if (!string.IsNullOrEmpty(schoolLogoUrl))
+                        {
+                            <img src="@schoolLogoUrl" alt="Logo" class="carnet-logo" onerror="this.style.display='none'" />
+                        }
+                        <div class="carnet-institution-name">@schoolName</div>
                     </div>
-                    <div class="id-card-info">
-                        <strong>Grupo:</strong> @Model.Group
+                    <div class="carnet-body">
+                        <div class="carnet-photo">
+                            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                            <span>Sin Foto</span>
+                        </div>
+                        <div class="carnet-info">
+                            <div class="carnet-user-name">@Model.FullName</div>
+                            <div class="carnet-card-number">Carnet: @Model.CardNumber</div>
+                            <div class="carnet-details">
+                                <div class="carnet-detail-item"><strong>Grado:</strong> @Model.Grade</div>
+                                <div class="carnet-detail-item"><strong>Grupo:</strong> @Model.Group</div>
+                                <div class="carnet-detail-item"><strong>Jornada:</strong> @Model.Shift</div>
+                            </div>
+                            <div class="carnet-qr-row">
+                                <span class="carnet-qr-label">Escanea para verificar</span>
+                                <div class="carnet-qr">
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=@Uri.EscapeDataString(Model.QrToken)" alt="QR" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="id-card-info">
-                        <strong>Jornada:</strong> @Model.Shift
-                    </div>
-                    <div class="id-card-info">
-                        <strong>Carnet:</strong> @Model.CardNumber
-                    </div>
-                    <div class="id-card-qr">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=@Model.QrToken" alt="QR Code" />
-                        <div style="margin-top: 0.5rem; color: #333; font-size: 0.8rem;">Escanea para validar</div>
+                    <div class="carnet-footer">
+                        Emitido: @DateTime.UtcNow.ToString("dd/MM/yyyy")
                     </div>
                 </div>
             </div>
@@ -117,7 +231,7 @@
                 <a href="/StudentIdCard/ui/print/@Model.StudentId" class="btn btn-primary btn-lg" target="_blank">
                     <i class="fas fa-file-pdf"></i> Descargar PDF
                 </a>
-                <button class="btn btn-success btn-lg" onclick="window.print()">
+                <button type="button" class="btn btn-success btn-lg" onclick="window.print()">
                     <i class="fas fa-print"></i> Imprimir Carnet
                 </button>
                 <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg">
@@ -127,17 +241,3 @@
         </div>
     </div>
 </div>
-
-@section Scripts {
-<script>
-    // Asegurar que la imagen del logo se cargue correctamente
-    document.addEventListener('DOMContentLoaded', function() {
-        const logo = document.querySelector('.id-card-header img');
-        if (logo) {
-            logo.onerror = function() {
-                this.style.display = 'none';
-            };
-        }
-    });
-</script>
-}

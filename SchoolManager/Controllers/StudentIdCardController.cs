@@ -47,6 +47,17 @@ public class StudentIdCardController : Controller
         try
         {
             var dto = await _service.GenerateAsync(studentId, userId);
+            var school = await _currentUserService.GetCurrentUserSchoolAsync();
+            if (school != null)
+            {
+                ViewBag.SchoolName = school.Name;
+                ViewBag.SchoolLogoUrl = school.LogoUrl;
+            }
+            else
+            {
+                ViewBag.SchoolName = "SchoolManager";
+                ViewBag.SchoolLogoUrl = (string?)null;
+            }
             return View("Generate", dto);
         }
         catch (Exception ex)

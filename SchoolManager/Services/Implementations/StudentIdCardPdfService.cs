@@ -64,75 +64,50 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
         byte[]? photoBytes = null; // no existe aún
 
-        // 6) Generar PDF
+        // 6) Generar PDF - Diseño referencia: CarnetQR Platform (horizontal 85.6x54 mm, header, cuerpo foto+info, reverso con QR)
         QuestPDF.Settings.License = LicenseType.Community;
 
         var pdf = Document.Create(container =>
         {
-            container.Page(page =>
+            if (fields.Any())
             {
-                page.Size(settings.PageWidthMm, settings.PageHeightMm, Unit.Millimetre);
-                page.Margin(0);
-
-                page.Content().Layers(layers =>
+                // Con campos personalizados: usar tamaño de settings y layout por posiciones
+                container.Page(page =>
                 {
-                    // Fondo
-                    layers.Layer().Background(ParseColor(settings.BackgroundColor));
-
-                    // Barra superior con color primario
-                    layers.Layer().Unconstrained()
-                        .TranslateX(0, Unit.Millimetre)
-                        .TranslateY(0, Unit.Millimetre)
-                        .Width(settings.PageWidthMm, Unit.Millimetre)
-                        .Height(12, Unit.Millimetre)
-                        .Background(ParseColor(settings.PrimaryColor));
-
-                    // Render basado en campos configurados (si no hay campos, cae a layout default)
-                    if (fields.Any())
+                    page.Size(settings.PageWidthMm, settings.PageHeightMm, Unit.Millimetre);
+                    page.Margin(0);
+                    page.Content().Layers(layers =>
                     {
+                        layers.Layer().Background(ParseColor(settings.BackgroundColor));
+                        layers.Layer().Unconstrained()
+                            .TranslateX(0, Unit.Millimetre).TranslateY(0, Unit.Millimetre)
+                            .Width(settings.PageWidthMm, Unit.Millimetre).Height(12, Unit.Millimetre)
+                            .Background(ParseColor(settings.PrimaryColor));
                         foreach (var f in fields)
                             layers.Layer().Element(e => RenderField(e, f, dto, school.Name, logoBytes, photoBytes, settings));
-                    }
-                    else
-                    {
-                        // Layout default simple (sirve mientras configuras campos)
-                        layers.Layer().Padding(6).Column(col =>
-                        {
-                            col.Item().Row(r =>
-                            {
-                                r.RelativeItem().Text(school.Name).FontSize(10).FontColor(Colors.White);
-                                if (logoBytes != null)
-                                    r.ConstantItem(18).Height(18).Image(logoBytes);
-                            });
-
-                            col.Item().PaddingTop(6).Row(r =>
-                            {
-                                if (settings.ShowPhoto)
-                                {
-                                    r.ConstantItem(22).Height(28).Border(1).Padding(2).AlignCenter().AlignMiddle().Text("FOTO").FontSize(8);
-                                }
-
-                                r.RelativeItem().PaddingLeft(6).Column(info =>
-                                {
-                                    info.Item().Text(dto.FullName).FontSize(11).Bold().FontColor(ParseColor(settings.TextColor));
-                                    info.Item().Text($"{dto.Grade} - {dto.Group}").FontSize(10).FontColor(ParseColor(settings.TextColor));
-                                    info.Item().Text(dto.Shift).FontSize(9).FontColor(ParseColor(settings.TextColor));
-                                    info.Item().Text(dto.CardNumber).FontSize(8).FontColor(ParseColor(settings.TextColor));
-                                });
-                            });
-
-                            if (settings.ShowQr)
-                            {
-                                col.Item().PaddingTop(6).Row(r =>
-                                {
-                                    r.RelativeItem().Text("Escanee para ver ficha").FontSize(8).FontColor(ParseColor(settings.TextColor));
-                                    r.ConstantItem(22).Height(22).Image(QrHelper.GenerateQrPng(dto.QrToken));
-                                });
-                            }
-                        });
-                    }
+                    });
                 });
-            });
+            }
+            else
+            {
+                // Layout estilo CarnetQR: frente (header + cuerpo + footer) y reverso con QR
+                container.Page(page =>
+                {
+                    page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
+                    page.Margin(0);
+                    page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, dto, settings));
+                });
+
+                if (settings.ShowQr)
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
+                        page.Margin(0);
+                        page.Content().Element(c => RenderCarnetQrBack(c, school.Name, dto, settings));
+                    });
+                }
+            }
         }).GeneratePdf();
 
         return pdf;
@@ -195,6 +170,87 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         }
         
         return positioned;
+    }
+
+    /// <summary>Frente del carnet - diseño CarnetQR: header (logo + escuela), cuerpo (foto izq + datos), footer.</summary>
+    private IContainer RenderCarnetQrFront(IContainer container, string schoolName, byte[]? logoBytes,
+        StudentCardRenderDto dto, SchoolIdCardSetting settings)
+    {
+        const float paddingMm = 4f;
+        const float headerHeightMm = 10f;
+        const float photoW = 22f;
+        const float photoH = 28f;
+        const float qrSizeMm = 18f;
+
+        container.Layers(layers =>
+        {
+            layers.Layer().Background(ParseColor(settings.BackgroundColor));
+
+            // Header con color primario (logo + nombre institución)
+            layers.Layer().Background(ParseColor(settings.PrimaryColor)).Padding(paddingMm).Height(headerHeightMm).Row(r =>
+            {
+                if (logoBytes != null)
+                {
+                    r.ConstantItem(24).Height(8).AlignLeft().AlignMiddle().Image(logoBytes);
+                    r.ConstantItem(2);
+                }
+                r.RelativeItem().AlignLeft().AlignMiddle().Text(schoolName)
+                    .FontSize(8).FontColor(Colors.White).Bold();
+            });
+
+            // Cuerpo: foto a la izquierda, datos a la derecha (como CarnetQR)
+            layers.Layer().Padding(paddingMm).PaddingTop(headerHeightMm + 2).Row(r =>
+            {
+                if (settings.ShowPhoto)
+                {
+                    r.ConstantItem(photoW).Height(photoH)
+                        .Border(1).BorderColor(ParseColor(settings.PrimaryColor))
+                        .Padding(2).AlignCenter().AlignMiddle()
+                        .Text("FOTO").FontSize(6).FontColor(ParseColor(settings.TextColor));
+                    r.ConstantItem(3);
+                }
+
+                r.RelativeItem().Column(col =>
+                {
+                    col.Item().Text(dto.FullName).FontSize(9).Bold().FontColor(ParseColor(settings.TextColor));
+                    col.Item().Text($"Carnet: {dto.CardNumber}").FontSize(7).FontColor(ParseColor(settings.PrimaryColor)).SemiBold();
+                    col.Item().Text($"{dto.Grade} - {dto.Group}").FontSize(7).FontColor(ParseColor(settings.TextColor));
+                    col.Item().Text(dto.Shift).FontSize(6).FontColor(ParseColor(settings.TextColor));
+
+                    if (settings.ShowQr)
+                    {
+                        col.Item().PaddingTop(2).Row(qrRow =>
+                        {
+                            qrRow.RelativeItem().AlignMiddle().Text("Escanea para verificar").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                            qrRow.ConstantItem(qrSizeMm).Height(qrSizeMm).Image(QrHelper.GenerateQrPng(dto.QrToken));
+                        });
+                    }
+                });
+            });
+
+            // Footer sutil
+            layers.Layer().Padding(paddingMm).PaddingTop(CardHeightMm - 8).BorderTop(0.5f).BorderColor(ParseColor("#e5e7eb"))
+                .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+        });
+        return container;
+    }
+
+    private const float CardWidthMm = 85.6f;
+    private const float CardHeightMm = 54f;
+
+    /// <summary>Reverso del carnet - QR centrado e instrucciones (estilo CarnetQR).</summary>
+    private IContainer RenderCarnetQrBack(IContainer container, string schoolName, StudentCardRenderDto dto, SchoolIdCardSetting settings)
+    {
+        const float qrBackSizeMm = 28f;
+
+        container.Background(ParseColor(settings.BackgroundColor)).Padding(6).Column(col =>
+        {
+            col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre).AlignCenter().Image(QrHelper.GenerateQrPng(dto.QrToken));
+            col.Item().PaddingTop(3).AlignCenter().Text(schoolName).FontSize(8).Bold().FontColor(ParseColor(settings.TextColor));
+            col.Item().AlignCenter().Text("Escanea el código QR para verificar la información del carnet").FontSize(6).FontColor(ParseColor(settings.TextColor));
+            col.Item().AlignCenter().Text($"Carnet: {dto.CardNumber}").FontSize(6).FontColor(ParseColor(settings.TextColor));
+        });
+        return container;
     }
 
     private string ParseColor(string colorHex)
