@@ -144,6 +144,12 @@
                         <button type="button" class="btn btn-outline-secondary btn-lg" id="btn-limpiar">
                             <i class="bi bi-arrow-clockwise"></i> Limpiar
                         </button>
+                        @if (currentUser?.Role != null && (currentUser.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) || currentUser.Role.Equals("Director", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            <button type="button" class="btn btn-outline-info btn-lg" id="btn-preparar-datos" title="Asocia actividades al 3T y asigna grados a grupos para que el reporte muestre filas">
+                                <i class="bi bi-database-gear"></i> Preparar datos de prueba
+                            </button>
+                        }
                     </div>
                 </div>
             </form>
@@ -159,6 +165,9 @@
                     <button type="button" class="btn btn-light btn-sm" onclick="window.print()">
                         <i class="bi bi-printer"></i> Imprimir
                     </button>
+                    <a href="#" id="btn-exportar-pdf" class="btn btn-light btn-sm" title="Descargar reporte en PDF">
+                        <i class="bi bi-file-pdf"></i> Exportar PDF
+                    </a>
                     <button type="button" class="btn btn-light btn-sm" id="btn-vista-previa">
                         <i class="bi bi-eye"></i> Vista Completa
                     </button>
@@ -249,6 +258,7 @@
                 $.ajax({
                     url: '@Url.Action("GenerarReporte", "AprobadosReprobados")',
                     type: 'POST',
+                    timeout: 90000,
                     data: {
                         Trimestre: trimestre,
                         NivelEducativo: nivelEducativo,
@@ -260,7 +270,6 @@
                     },
                     success: function (response) {
                         Swal.close();
-                        
                         if (response.success) {
                             mostrarReporte(response.data);
                             $('#reporte-container').slideDown();
@@ -268,9 +277,13 @@
                             Swal.fire('Error', response.message, 'error');
                         }
                     },
-                    error: function () {
+                    error: function (xhr, status) {
                         Swal.close();
-                        Swal.fire('Error', 'No se pudo generar el reporte', 'error');
+                        if (status === 'timeout') {
+                            Swal.fire('Tiempo agotado', 'El reporte está tardando demasiado. Intente de nuevo o filtre por un grado o grupo específico.', 'warning');
+                        } else {
+                            Swal.fire('Error', 'No se pudo generar el reporte', 'error');
+                        }
                     }
                 });
             });
@@ -281,6 +294,25 @@
                 $('#gradoEspecifico').html('<option value="">Todos los grados</option>');
                 $('#materiaId').html('<option value="">Todas las materias</option>');
                 $('#reporte-container').slideUp();
+            });
+
+            // Preparar datos de prueba (solo visible para Admin/Director)
+            $(document).on('click', '#btn-preparar-datos', function () {
+                $.ajax({
+                    url: '@Url.Action("PrepararDatosParaReporte", "AprobadosReprobados")',
+                    type: 'POST',
+                    data: { __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val() },
+                    success: function (response) {
+                        if (response.success) {
+                            Swal.fire('Listo', response.message, 'success').then(function () { location.reload(); });
+                        } else {
+                            Swal.fire('Aviso', response.message, 'warning');
+                        }
+                    },
+                    error: function () {
+                        Swal.fire('Error', 'No se pudo preparar los datos', 'error');
+                    }
+                });
             });
 
             // Vista previa completa
@@ -302,6 +334,29 @@
                 if (materiaId) url += '&materiaId=' + encodeURIComponent(materiaId);
                 
                 window.open(url, '_blank');
+            });
+
+            // Exportar PDF (mismos filtros que el reporte generado)
+            $(document).on('click', '#btn-exportar-pdf', function (e) {
+                e.preventDefault();
+                const trimestre = $('#trimestre').val();
+                const nivelEducativo = $('#nivelEducativo').val();
+                if (!trimestre || !nivelEducativo) {
+                    Swal.fire('Aviso', 'Seleccione trimestre y nivel educativo antes de exportar.', 'warning');
+                    return;
+                }
+                let url = '@Url.Action("ExportarPdf", "AprobadosReprobados")' +
+                    '?trimestre=' + encodeURIComponent(trimestre) +
+                    '&nivelEducativo=' + encodeURIComponent(nivelEducativo);
+                const gradoEspecifico = $('#gradoEspecifico').val();
+                const especialidadId = $('#especialidadId').val();
+                const areaId = $('#areaId').val();
+                const materiaId = $('#materiaId').val();
+                if (gradoEspecifico) url += '&grado=' + encodeURIComponent(gradoEspecifico);
+                if (especialidadId) url += '&especialidadId=' + encodeURIComponent(especialidadId);
+                if (areaId) url += '&areaId=' + encodeURIComponent(areaId);
+                if (materiaId) url += '&materiaId=' + encodeURIComponent(materiaId);
+                window.location.href = url;
             });
 
             function mostrarReporte(data) {
@@ -342,7 +397,18 @@
                             <tbody>
                 `;
                 
-                data.estadisticas.forEach(function(est) {
+                if (!data.estadisticas || data.estadisticas.length === 0) {
+                    html += `
+                        <tr>
+                            <td colspan="13" class="text-center py-4 text-muted">
+                                <p class="mb-0"><strong>No hay datos para los filtros seleccionados.</strong></p>
+                                <p class="mb-0 small">Para que aparezcan filas: los grupos deben tener <strong>grado</strong> asignado (Media: 10°, 11°, 12°; Premedia: 7°, 8°, 9°) y las actividades deben estar asociadas al trimestre elegido (ej. 3T).</p>
+                                <p class="mb-0 small">Si usa la base de datos en la nube, ejecute el script <code>Scripts/FixDatosParaReporteAprobados.sql</code> en esa base (ajustando el <code>school_id</code> si es distinto).</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+                (data.estadisticas || []).forEach(function(est) {
                     html += `
                         <tr>
                             <td class="text-center"><strong>${est.grado}</strong></td>

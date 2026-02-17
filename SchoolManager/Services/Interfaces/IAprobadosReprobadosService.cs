@@ -54,6 +54,11 @@ namespace SchoolManager.Services.Interfaces
         /// Exportar el reporte a Excel
         /// </summary>
         Task<byte[]> ExportarAExcelAsync(AprobadosReprobadosReportViewModel reporte);
+
+        /// <summary>
+        /// Prepara datos para que el reporte muestre filas: asocia actividades al 3T y asigna grados a grupos (solo Admin/Director).
+        /// </summary>
+        Task<(bool Success, string Message)> PrepararDatosParaReporteAsync(Guid schoolId);
     }
 }
 

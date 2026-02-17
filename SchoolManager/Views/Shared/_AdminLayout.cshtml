@@ -161,6 +161,7 @@
                                 </li>
                             </ul>
                         </li>
+                        @* Oculto por el momento - Prematrícula (acudiente/parent/student)
                         @if (userRole == "acudiente" || userRole == "parent" || userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
@@ -186,6 +187,7 @@
                             </ul>
                         </li>
                         }
+                        *@
                         @if (userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item">
                                 <a href="@Url.Action("Index", "StudentReport")" class="nav-link">
@@ -205,6 +207,12 @@
                                 <p>Orientación Escolar</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                                <a href="@Url.Action("MySchedule", "StudentSchedule")" class="nav-link">
+                                <i class="nav-icon fas fa-calendar-alt"></i>
+                                <p>Mi horario</p>
+                            </a>
+                        </li>
                         }
                         @if (userRole == "teacher" || userRole == "docente") {
                         <li class="nav-item">
@@ -213,6 +221,7 @@
                                 <p>Portal Docente</p>
                             </a>
                         </li>
+                        @* Oculto por el momento - Prematrícula y Matrícula (docente)
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
                                 <i class="nav-icon fas fa-user-graduate"></i>
@@ -230,6 +239,8 @@
                                 </li>
                             </ul>
                         </li>
+                        *@
+                        @* Oculto por el momento - Pagos (docente)
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
                                 <i class="nav-icon fas fa-money-bill-wave"></i>
@@ -247,6 +258,7 @@
                                 </li>
                             </ul>
                         </li>
+                        *@
                         @if (currentUser?.Disciplina == true) {
                         <li class="nav-item">
                             <a href="@Url.Action("Index", "TeacherGradebookDuplicate")" class="nav-link">
@@ -337,6 +349,7 @@
                         </li>
                         }
                         }
+                        @* Oculto por el momento - Prematrícula y Pagos (admin/superadmin)
                         @if (userRole == "admin" || userRole == "superadmin") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
@@ -397,6 +410,8 @@
                             </ul>
                         </li>
                         }
+                        *@
+                        @* Oculto por el momento - Pagos (contabilidad)
                         @if (userRole == "contabilidad" || userRole == "contable") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
@@ -428,6 +443,7 @@
                             </ul>
                         </li>
                         }
+                        *@
                         @if (userRole == "secretaria") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
@@ -465,6 +481,7 @@
                             </ul>
                         </li>
                         }
+                        @* Oculto por el momento - Pagos (acudiente/parent/student)
                         @if (userRole == "acudiente" || userRole == "parent" || userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">
@@ -490,6 +507,7 @@
                             </ul>
                         </li>
                         }
+                        *@
                         @if (userRole == "admin") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">

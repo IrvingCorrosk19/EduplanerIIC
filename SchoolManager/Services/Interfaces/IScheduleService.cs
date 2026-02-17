@@ -28,4 +28,11 @@ public interface IScheduleService
     /// Obtiene las entradas de horario de un grupo para un año académico.
     /// </summary>
     Task<List<ScheduleEntry>> GetByGroupAsync(Guid groupId, Guid academicYearId);
+
+    /// <summary>
+    /// Obtiene las entradas de horario del estudiante (User) para un año académico.
+    /// Resuelve GroupId vía StudentAssignment activa; valida que el grupo pertenezca a la escuela del usuario.
+    /// Solo lectura; no modifica datos.
+    /// </summary>
+    Task<List<ScheduleEntry>> GetByStudentUserAsync(Guid studentUserId, Guid academicYearId);
 }

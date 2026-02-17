@@ -166,4 +166,38 @@ public class ScheduleService : IScheduleService
             .ToListAsync(CancellationToken.None)
             .ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public async Task<List<ScheduleEntry>> GetByStudentUserAsync(Guid studentUserId, Guid academicYearId)
+    {
+        var userSchoolId = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == studentUserId)
+            .Select(u => u.SchoolId)
+            .FirstOrDefaultAsync(CancellationToken.None)
+            .ConfigureAwait(false);
+
+        if (userSchoolId == null || userSchoolId == Guid.Empty)
+            return new List<ScheduleEntry>();
+
+        var assignment = await _context.StudentAssignments
+            .AsNoTracking()
+            .Include(sa => sa.Group)
+            .Where(sa =>
+                sa.StudentId == studentUserId &&
+                sa.IsActive &&
+                (sa.AcademicYearId == academicYearId || sa.AcademicYearId == null))
+            .OrderByDescending(sa => sa.AcademicYearId != null)
+            .ThenByDescending(sa => sa.CreatedAt)
+            .FirstOrDefaultAsync(CancellationToken.None)
+            .ConfigureAwait(false);
+
+        if (assignment == null || assignment.Group == null)
+            return new List<ScheduleEntry>();
+
+        if (assignment.Group.SchoolId != userSchoolId)
+            return new List<ScheduleEntry>();
+
+        return await GetByGroupAsync(assignment.GroupId, academicYearId).ConfigureAwait(false);
+    }
 }

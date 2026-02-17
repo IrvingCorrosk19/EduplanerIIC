@@ -112,6 +112,30 @@ namespace SchoolManager.Controllers
             }
         }
 
+        /// <summary>
+        /// Prepara datos para que el reporte muestre filas (actividades 3T + grados en grupos). Solo Admin/Director.
+        /// </summary>
+        [HttpPost]
+        [Authorize(Roles = "Admin,Director,admin,director")]
+        public async Task<IActionResult> PrepararDatosParaReporte()
+        {
+            try
+            {
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                if (currentUser?.SchoolId == null)
+                {
+                    return Json(new { success = false, message = "No se pudo obtener la información de la escuela." });
+                }
+                var (success, message) = await _aprobadosReprobadosService.PrepararDatosParaReporteAsync(currentUser.SchoolId.Value);
+                return Json(new { success, message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error preparando datos para reporte");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
         // GET: AprobadosReprobados/VistaPrevia
         [HttpGet]
         public async Task<IActionResult> VistaPrevia(string trimestre, string nivelEducativo, string? grado = null, string? grupo = null, 
@@ -178,11 +202,6 @@ namespace SchoolManager.Controllers
                 var pdfBytes = await _aprobadosReprobadosService.ExportarAPdfAsync(reporte);
 
                 return File(pdfBytes, "application/pdf", $"Reporte_Aprobados_Reprobados_{trimestre}_{nivelEducativo}.pdf");
-            }
-            catch (NotImplementedException)
-            {
-                TempData["Error"] = "La exportación a PDF aún no está disponible. Use la función de imprimir del navegador.";
-                return RedirectToAction("VistaPrevia", new { trimestre, nivelEducativo, grado, grupo, especialidadId, areaId, materiaId });
             }
             catch (Exception ex)
             {
