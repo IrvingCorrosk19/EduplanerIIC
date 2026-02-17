@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Models;
@@ -50,6 +51,16 @@ public class ScheduleConfigurationController : Controller
             return RedirectToAction("Index", "Home");
 
         model.SchoolId = user.SchoolId.Value;
+
+        // Asegurar parseo en formato 24 h (HH:mm) desde los inputs de texto
+        var morningStr = Request.Form["MorningStartTime"].ToString().Trim();
+        if (!string.IsNullOrEmpty(morningStr) && TimeOnly.TryParse(morningStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out var morningTime))
+            model.MorningStartTime = morningTime;
+        var afternoonStr = Request.Form["AfternoonStartTime"].ToString().Trim();
+        if (!string.IsNullOrEmpty(afternoonStr) && TimeOnly.TryParse(afternoonStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out var afternoonTime))
+            model.AfternoonStartTime = afternoonTime;
+        else if (string.IsNullOrEmpty(afternoonStr))
+            model.AfternoonStartTime = null;
 
         var (success, message) = await _configService.SaveAndGenerateBlocksAsync(model, user.SchoolId.Value, forceRegenerate);
         if (success)
