@@ -80,6 +80,29 @@ LIMIT 5;";
                     }
             }
 
+            Console.WriteLine("\n=== Admin/Prof. Jaime Ramos - school_id ===\n");
+
+            cmd.CommandText = @"
+SELECT id, name, last_name, email, role, school_id
+FROM users
+WHERE LOWER(name) LIKE '%jaime%' AND LOWER(last_name) LIKE '%ramos%'
+   OR role IN ('admin', 'superadmin', 'director')
+ORDER BY role
+LIMIT 10;";
+            if (cmd is NpgsqlCommand npg4) npg4.Parameters.Clear();
+
+            using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                if (!reader.HasRows)
+                    Console.WriteLine("  (ningún admin encontrado con ese nombre)");
+                else
+                    while (await reader.ReadAsync())
+                    {
+                        var schoolId = reader.IsDBNull(5) ? "NULL" : reader.GetGuid(5).ToString();
+                        Console.WriteLine($"  {reader.GetString(1)} {reader.GetString(2)}  |  role='{reader.GetString(4)}'  |  school_id={schoolId}");
+                    }
+            }
+
             Console.WriteLine("\n=== Fin ===\n");
         }
         finally

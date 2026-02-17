@@ -16,17 +16,20 @@ public class StudentIdCardController : Controller
     private readonly IStudentIdCardPdfService _pdfService;
     private readonly SchoolDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<StudentIdCardController> _logger;
 
     public StudentIdCardController(
         IStudentIdCardService service, 
         IStudentIdCardPdfService pdfService,
         SchoolDbContext context,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<StudentIdCardController> logger)
     {
         _service = service;
         _pdfService = pdfService;
         _context = context;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     [HttpGet("ui")]
@@ -123,6 +126,9 @@ public class StudentIdCardController : Controller
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
 
+        _logger.LogInformation("[StudentIdCard/ListJson] Usuario={UserId} Nombre={Name} SchoolId={SchoolId}",
+            currentUser?.Id, currentUser != null ? $"{currentUser.Name} {currentUser.LastName}" : "null", schoolId);
+
         var query = _context.Users
             .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"));
 
@@ -147,6 +153,7 @@ public class StudentIdCardController : Controller
             })
             .ToListAsync();
 
-        return Json(students);
+        _logger.LogInformation("[StudentIdCard/ListJson] Retornando {Count} estudiantes para SchoolId={SchoolId}", students.Count, schoolId);
+        return Json(new { data = students });
     }
 }

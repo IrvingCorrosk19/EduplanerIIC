@@ -41,7 +41,12 @@
 <script>
 $(function(){
     $('#studentsTable').DataTable({
-        ajax: '/StudentIdCard/api/list-json',
+        ajax: {
+            url: '/StudentIdCard/api/list-json',
+            dataSrc: 'data',
+            xhrFields: { withCredentials: true },
+            error: function(xhr, err, msg) { console.error('[StudentIdCard] Ajax error:', xhr.status, msg, xhr.responseText?.substring(0,200)); }
+        },
         columns: [
             { data: 'fullName', title: 'Estudiante' },
             { data: 'grade', title: 'Grado' },
