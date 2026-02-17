@@ -32,6 +32,7 @@ namespace SchoolManager.Controllers
 
         [HttpPost]
         [AllowAnonymous]
+        [IgnoreAntiforgeryToken]  // Evita fallo en Render: Data Protection keys no persisten en contenedor
         public async Task<IActionResult> Login(LoginViewModel model, string returnUrl = null)
         {
             if (!ModelState.IsValid)

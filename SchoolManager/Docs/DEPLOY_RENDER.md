@@ -79,6 +79,16 @@ En `C:\src\schoolmanager_id_scanner\lib\services\id_card_api.dart`:
 
 ---
 
+## Data Protection / Antiforgery en contenedores
+
+En Render, las claves de Data Protection no persisten entre reinicios del contenedor. Para evitar fallos en el login:
+
+- El `Login` POST tiene `[IgnoreAntiforgeryToken]` para que funcione sin las claves.
+- Si tras un deploy no puedes entrar: borra las cookies de `eduplaner.net` y recarga.
+- (Opcional) Para persistir claves: añade un Disco persistente en Render y configura Data Protection para usarlo.
+
+---
+
 ## Puerto 8080
 
 Render asigna un puerto dinámico mediante la variable `PORT`. El código ya usa:
