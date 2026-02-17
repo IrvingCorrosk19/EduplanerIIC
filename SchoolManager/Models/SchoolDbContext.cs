@@ -95,6 +95,9 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<SchoolScheduleConfiguration> SchoolScheduleConfigurations { get; set; }
 
+    public virtual DbSet<TeacherWorkPlan> TeacherWorkPlans { get; set; }
+    public virtual DbSet<TeacherWorkPlanDetail> TeacherWorkPlanDetails { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // Configurar interceptor global para DateTime
@@ -2522,6 +2525,51 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.SchoolId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("school_schedule_configurations_school_id_fkey");
+        });
+
+        // Plan de trabajo trimestral (docente)
+        modelBuilder.Entity<TeacherWorkPlan>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("teacher_work_plans_pkey");
+            entity.ToTable("teacher_work_plans");
+            entity.HasIndex(e => new { e.TeacherId, e.AcademicYearId, e.Trimester, e.SubjectId, e.GroupId })
+                .IsUnique()
+                .HasDatabaseName("ix_teacher_work_plans_teacher_year_trim_subj_group");
+            entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()").HasColumnName("id");
+            entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
+            entity.Property(e => e.SubjectId).HasColumnName("subject_id");
+            entity.Property(e => e.GradeLevelId).HasColumnName("grade_level_id");
+            entity.Property(e => e.GroupId).HasColumnName("group_id");
+            entity.Property(e => e.AcademicYearId).HasColumnName("academic_year_id");
+            entity.Property(e => e.Trimester).HasColumnName("trimester");
+            entity.Property(e => e.Objectives).HasColumnName("objectives");
+            entity.Property(e => e.Status).HasMaxLength(20).HasColumnName("status");
+            entity.Property(e => e.CreatedAt).HasColumnType("timestamp with time zone").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp with time zone").HasColumnName("updated_at");
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.HasOne(d => d.Teacher).WithMany().HasForeignKey(d => d.TeacherId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_teacher_id_fkey");
+            entity.HasOne(d => d.Subject).WithMany().HasForeignKey(d => d.SubjectId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_subject_id_fkey");
+            entity.HasOne(d => d.GradeLevel).WithMany().HasForeignKey(d => d.GradeLevelId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_grade_level_id_fkey");
+            entity.HasOne(d => d.Group).WithMany().HasForeignKey(d => d.GroupId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_group_id_fkey");
+            entity.HasOne(d => d.AcademicYear).WithMany().HasForeignKey(d => d.AcademicYearId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("teacher_work_plans_academic_year_id_fkey");
+            entity.HasOne(d => d.School).WithMany().HasForeignKey(d => d.SchoolId).OnDelete(DeleteBehavior.SetNull).HasConstraintName("teacher_work_plans_school_id_fkey");
+        });
+
+        modelBuilder.Entity<TeacherWorkPlanDetail>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("teacher_work_plan_details_pkey");
+            entity.ToTable("teacher_work_plan_details");
+            entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()").HasColumnName("id");
+            entity.Property(e => e.TeacherWorkPlanId).HasColumnName("teacher_work_plan_id");
+            entity.Property(e => e.WeeksRange).HasMaxLength(20).HasColumnName("weeks_range");
+            entity.Property(e => e.Topic).HasColumnName("topic");
+            entity.Property(e => e.ConceptualContent).HasColumnName("conceptual_content");
+            entity.Property(e => e.ProceduralContent).HasColumnName("procedural_content");
+            entity.Property(e => e.AttitudinalContent).HasColumnName("attitudinal_content");
+            entity.Property(e => e.BasicCompetencies).HasColumnName("basic_competencies");
+            entity.Property(e => e.AchievementIndicators).HasColumnName("achievement_indicators");
+            entity.Property(e => e.DisplayOrder).HasColumnName("display_order");
+            entity.HasOne(d => d.TeacherWorkPlan).WithMany(p => p.Details).HasForeignKey(d => d.TeacherWorkPlanId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("teacher_work_plan_details_plan_id_fkey");
         });
     }
 

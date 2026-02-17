@@ -38,6 +38,13 @@ namespace SchoolManager.Services.Implementations
                 },
                 new MenuItem 
                 { 
+                    Title = "Plan de Trabajo Trimestral", 
+                    Icon = "fas fa-clipboard-list",
+                    Url = "/TeacherWorkPlan/Index",
+                    RequiredRoles = new[] { "teacher", "admin" }
+                },
+                new MenuItem 
+                { 
                     Title = "Portal Director", 
                     Icon = "fas fa-user-tie",
                     Url = "/Director/Index",
@@ -105,6 +112,13 @@ namespace SchoolManager.Services.Implementations
                             Title = "Carnet Estudiantil", 
                             Icon = "fas fa-id-card",
                             Url = "/StudentIdCard/ui",
+                            RequiredRoles = new[] { "admin" }
+                        },
+                        new MenuItem 
+                        { 
+                            Title = "Planes de Trabajo (Docentes)", 
+                            Icon = "fas fa-clipboard-list",
+                            Url = "/TeacherWorkPlan/Index",
                             RequiredRoles = new[] { "admin" }
                         }
                     }

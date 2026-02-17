@@ -221,6 +221,16 @@
                                 <p>Portal Docente</p>
                             </a>
                         </li>
+                        }
+                        @if (userRole == "teacher" || userRole == "docente" || userRole == "admin") {
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "TeacherWorkPlan")" class="nav-link">
+                                <i class="nav-icon fas fa-clipboard-list"></i>
+                                <p>Plan de Trabajo Trimestral</p>
+                            </a>
+                        </li>
+                        }
+                        @if (userRole == "teacher" || userRole == "docente") {
                         @* Oculto por el momento - Prematrícula y Matrícula (docente)
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">

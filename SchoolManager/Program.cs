@@ -115,6 +115,8 @@ builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IScheduleConfigurationService, ScheduleConfigurationService>();
 builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
 builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
+builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
+builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService>();
 
 // Identidad visual del usuario (foto): almacenamiento desacoplado + servicio de aplicación
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
