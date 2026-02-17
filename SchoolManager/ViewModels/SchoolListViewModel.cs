@@ -33,4 +33,7 @@ public class SchoolListViewModel
 
     [Display(Name = "Fecha de Creación")]
     public DateTime? CreatedAt { get; set; }
+
+    [Display(Name = "Activa")]
+    public bool IsActive { get; set; } = true;
 } 

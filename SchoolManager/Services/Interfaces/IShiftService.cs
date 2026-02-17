@@ -12,6 +12,9 @@ namespace SchoolManager.Services.Interfaces
         Task UpdateAsync(Shift shift);
         Task DeleteAsync(Guid id);
         Task<Shift> GetOrCreateAsync(string name);
+
+        /// <summary>Obtiene o crea una jornada por escuela y nombre (ej. Mañana, Tarde).</summary>
+        Task<Shift> GetOrCreateBySchoolAndNameAsync(Guid schoolId, string name);
     }
 }
 

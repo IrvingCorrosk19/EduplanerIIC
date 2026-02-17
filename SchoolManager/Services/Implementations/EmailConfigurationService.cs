@@ -23,7 +23,7 @@ namespace SchoolManager.Services.Implementations
         {
             var configurations = await _context.EmailConfigurations
                 .Include(ec => ec.School)
-                .OrderBy(ec => ec.School.Name)
+                .OrderBy(ec => ec.SchoolId)
                 .ThenBy(ec => ec.CreatedAt)
                 .ToListAsync();
 

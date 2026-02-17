@@ -89,6 +89,12 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<IdCardTemplateField> IdCardTemplateFields { get; set; }
 
+    public virtual DbSet<TimeSlot> TimeSlots { get; set; }
+
+    public virtual DbSet<ScheduleEntry> ScheduleEntries { get; set; }
+
+    public virtual DbSet<SchoolScheduleConfiguration> SchoolScheduleConfigurations { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // Configurar interceptor global para DateTime
@@ -645,11 +651,16 @@ public partial class SchoolDbContext : DbContext
 
             entity.ToTable("schools");
 
+            entity.HasQueryFilter(s => s.IsActive);
+
             entity.HasIndex(e => e.AdminId, "idx_schools_admin_id"); // Sin .IsUnique() - múltiples admins permitidos
 
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
             entity.Property(e => e.Address)
                 .HasMaxLength(200)
                 .HasDefaultValueSql("''::character varying")
@@ -2367,6 +2378,146 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.SchoolId)
                 .HasConstraintName("id_card_template_fields_school_id_fkey")
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Módulo Horarios: TimeSlot
+        modelBuilder.Entity<TimeSlot>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("time_slots_pkey");
+
+            entity.ToTable("time_slots");
+
+            entity.HasIndex(e => e.SchoolId, "IX_time_slots_school_id");
+            entity.HasIndex(e => e.ShiftId, "IX_time_slots_shift_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("gen_random_uuid()")
+                .HasColumnName("id");
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+            entity.Property(e => e.ShiftId)
+                .HasColumnName("shift_id");
+            entity.Property(e => e.Name)
+                .HasMaxLength(50)
+                .HasColumnName("name");
+            entity.Property(e => e.StartTime)
+                .HasColumnType("time")
+                .HasColumnName("start_time");
+            entity.Property(e => e.EndTime)
+                .HasColumnType("time")
+                .HasColumnName("end_time");
+            entity.Property(e => e.DisplayOrder)
+                .HasDefaultValue(0)
+                .HasColumnName("display_order");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("time_slots_school_id_fkey");
+
+            entity.HasOne(d => d.Shift)
+                .WithMany()
+                .HasForeignKey(d => d.ShiftId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("time_slots_shift_id_fkey");
+        });
+
+        // Módulo Horarios: ScheduleEntry
+        modelBuilder.Entity<ScheduleEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("schedule_entries_pkey");
+
+            entity.ToTable("schedule_entries");
+
+            entity.HasIndex(e => e.TeacherAssignmentId, "IX_schedule_entries_teacher_assignment_id");
+            entity.HasIndex(e => e.TimeSlotId, "IX_schedule_entries_time_slot_id");
+            entity.HasIndex(e => e.AcademicYearId, "IX_schedule_entries_academic_year_id");
+            entity.HasIndex(e => e.CreatedBy, "IX_schedule_entries_created_by");
+            entity.HasIndex(e => new { e.TeacherAssignmentId, e.AcademicYearId, e.TimeSlotId, e.DayOfWeek }, "IX_schedule_entries_unique_slot")
+                .IsUnique();
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("gen_random_uuid()")
+                .HasColumnName("id");
+            entity.Property(e => e.TeacherAssignmentId)
+                .HasColumnName("teacher_assignment_id");
+            entity.Property(e => e.TimeSlotId)
+                .HasColumnName("time_slot_id");
+            entity.Property(e => e.DayOfWeek)
+                .HasColumnName("day_of_week");
+            entity.Property(e => e.AcademicYearId)
+                .HasColumnName("academic_year_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.CreatedBy)
+                .HasColumnName("created_by");
+
+            entity.HasOne(d => d.AcademicYear)
+                .WithMany()
+                .HasForeignKey(d => d.AcademicYearId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("schedule_entries_academic_year_id_fkey");
+
+            entity.HasOne(d => d.TeacherAssignment)
+                .WithMany()
+                .HasForeignKey(d => d.TeacherAssignmentId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("schedule_entries_teacher_assignment_id_fkey");
+
+            entity.HasOne(d => d.TimeSlot)
+                .WithMany(p => p.ScheduleEntries)
+                .HasForeignKey(d => d.TimeSlotId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("schedule_entries_time_slot_id_fkey");
+
+            entity.HasOne(d => d.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("schedule_entries_created_by_fkey");
+        });
+
+        // Configuración de jornada escolar (una por escuela)
+        modelBuilder.Entity<SchoolScheduleConfiguration>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("school_schedule_configurations_pkey");
+            entity.ToTable("school_schedule_configurations");
+            entity.HasIndex(e => e.SchoolId).IsUnique();
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("gen_random_uuid()")
+                .HasColumnName("id");
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.MorningStartTime)
+                .HasColumnType("time")
+                .HasColumnName("morning_start_time");
+            entity.Property(e => e.MorningBlockDurationMinutes).HasColumnName("morning_block_duration_minutes");
+            entity.Property(e => e.MorningBlockCount).HasColumnName("morning_block_count");
+            entity.Property(e => e.AfternoonStartTime)
+                .HasColumnType("time")
+                .HasColumnName("afternoon_start_time");
+            entity.Property(e => e.AfternoonBlockDurationMinutes).HasColumnName("afternoon_block_duration_minutes");
+            entity.Property(e => e.AfternoonBlockCount).HasColumnName("afternoon_block_count");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("school_schedule_configurations_school_id_fkey");
         });
     }
 

@@ -19,9 +19,11 @@ namespace SchoolManager.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public IActionResult Login(string returnUrl = null)
+        public IActionResult Login(string returnUrl = null, string schoolInactive = null)
         {
             ViewData["ReturnUrl"] = returnUrl;
+            if (!string.IsNullOrEmpty(schoolInactive))
+                TempData["Error"] = "La institución se encuentra inactiva. Contacte al administrador.";
             return View();
         }
 

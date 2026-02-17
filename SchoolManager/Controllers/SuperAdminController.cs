@@ -112,13 +112,13 @@ public class SuperAdminController : Controller
             
             if (success)
             {
-                Console.WriteLine($"✅ [DeleteSchool] Escuela eliminada exitosamente");
-                TempData["SuccessMessage"] = "Escuela eliminada exitosamente.";
+                Console.WriteLine($"✅ [DeleteSchool] Institución desactivada correctamente");
+                TempData["SuccessMessage"] = "Institución desactivada correctamente.";
             }
             else
             {
-                Console.WriteLine($"❌ [DeleteSchool] No se pudo eliminar la escuela");
-                TempData["ErrorMessage"] = "No se pudo eliminar la escuela.";
+                Console.WriteLine($"❌ [DeleteSchool] No se pudo desactivar la institución");
+                TempData["ErrorMessage"] = "No se pudo desactivar la institución.";
             }
         }
         catch (Exception ex)

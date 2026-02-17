@@ -1,3 +1,6 @@
+# Windows reserved device name (Git cannot index)
+SchoolManager/nul
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

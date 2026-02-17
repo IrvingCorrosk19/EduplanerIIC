@@ -113,5 +113,34 @@ public class AcademicYearService : IAcademicYearService
 
         return academicYear;
     }
+
+    public async Task EnsureDefaultAcademicYearForSchoolAsync(Guid schoolId)
+    {
+        try
+        {
+            var existing = await GetAllBySchoolAsync(schoolId);
+            if (existing.Count > 0)
+                return;
+
+            var year = DateTime.UtcNow.Year;
+            var defaultYear = new AcademicYear
+            {
+                SchoolId = schoolId,
+                Name = year.ToString(),
+                StartDate = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                EndDate = new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+                IsActive = true
+            };
+            await CreateAsync(defaultYear);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            // Tabla academic_years no existe; no romper flujo de creación de escuela
+        }
+        catch (Exception)
+        {
+            throw; // Re-lanzar para que el llamador decida (transacción puede hacer rollback)
+        }
+    }
 }
 

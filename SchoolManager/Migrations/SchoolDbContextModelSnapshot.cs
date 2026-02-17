@@ -1643,7 +1643,7 @@ namespace SchoolManager.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("scanned_by");
 
-                    b.Property<Guid>("StudentId")
+                    b.Property<Guid?>("StudentId")
                         .HasColumnType("uuid")
                         .HasColumnName("student_id");
 
@@ -1655,6 +1655,57 @@ namespace SchoolManager.Migrations
                     b.HasIndex(new[] { "StudentId" }, "IX_scan_logs_student_id");
 
                     b.ToTable("scan_logs", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.ScheduleEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("AcademicYearId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("academic_year_id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<byte>("DayOfWeek")
+                        .HasColumnType("smallint")
+                        .HasColumnName("day_of_week");
+
+                    b.Property<Guid>("TeacherAssignmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("teacher_assignment_id");
+
+                    b.Property<Guid>("TimeSlotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("time_slot_id");
+
+                    b.HasKey("Id")
+                        .HasName("schedule_entries_pkey");
+
+                    b.HasIndex(new[] { "AcademicYearId" }, "IX_schedule_entries_academic_year_id");
+
+                    b.HasIndex(new[] { "CreatedBy" }, "IX_schedule_entries_created_by");
+
+                    b.HasIndex(new[] { "TeacherAssignmentId" }, "IX_schedule_entries_teacher_assignment_id");
+
+                    b.HasIndex(new[] { "TimeSlotId" }, "IX_schedule_entries_time_slot_id");
+
+                    b.HasIndex(new[] { "TeacherAssignmentId", "AcademicYearId", "TimeSlotId", "DayOfWeek" }, "IX_schedule_entries_unique_slot")
+                        .IsUnique();
+
+                    b.ToTable("schedule_entries", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManager.Models.School", b =>
@@ -1682,6 +1733,12 @@ namespace SchoolManager.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
 
                     b.Property<string>("LogoUrl")
                         .HasMaxLength(500)
@@ -1803,6 +1860,59 @@ namespace SchoolManager.Migrations
                         .IsUnique();
 
                     b.ToTable("school_id_card_settings", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.SchoolScheduleConfiguration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int?>("AfternoonBlockCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("afternoon_block_count");
+
+                    b.Property<int?>("AfternoonBlockDurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("afternoon_block_duration_minutes");
+
+                    b.Property<TimeOnly?>("AfternoonStartTime")
+                        .HasColumnType("time")
+                        .HasColumnName("afternoon_start_time");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("MorningBlockCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("morning_block_count");
+
+                    b.Property<int>("MorningBlockDurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("morning_block_duration_minutes");
+
+                    b.Property<TimeOnly>("MorningStartTime")
+                        .HasColumnType("time")
+                        .HasColumnName("morning_start_time");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("school_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("school_schedule_configurations_pkey");
+
+                    b.HasIndex("SchoolId")
+                        .IsUnique();
+
+                    b.ToTable("school_schedule_configurations", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManager.Models.SecuritySetting", b =>
@@ -2435,6 +2545,64 @@ namespace SchoolManager.Migrations
                         .IsUnique();
 
                     b.ToTable("teacher_assignments", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.TimeSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("display_order");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time")
+                        .HasColumnName("end_time");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("school_id");
+
+                    b.Property<Guid?>("ShiftId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shift_id");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time")
+                        .HasColumnName("start_time");
+
+                    b.HasKey("Id")
+                        .HasName("time_slots_pkey");
+
+                    b.HasIndex(new[] { "SchoolId" }, "IX_time_slots_school_id");
+
+                    b.HasIndex(new[] { "ShiftId" }, "IX_time_slots_shift_id");
+
+                    b.ToTable("time_slots", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManager.Models.Trimester", b =>
@@ -3359,10 +3527,47 @@ namespace SchoolManager.Migrations
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("scan_logs_student_id_fkey");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.ScheduleEntry", b =>
+                {
+                    b.HasOne("SchoolManager.Models.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("schedule_entries_academic_year_id_fkey");
+
+                    b.HasOne("SchoolManager.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("schedule_entries_created_by_fkey");
+
+                    b.HasOne("SchoolManager.Models.TeacherAssignment", "TeacherAssignment")
+                        .WithMany()
+                        .HasForeignKey("TeacherAssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("schedule_entries_teacher_assignment_id_fkey");
+
+                    b.HasOne("SchoolManager.Models.TimeSlot", "TimeSlot")
+                        .WithMany("ScheduleEntries")
+                        .HasForeignKey("TimeSlotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("schedule_entries_time_slot_id_fkey");
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("TeacherAssignment");
+
+                    b.Navigation("TimeSlot");
                 });
 
             modelBuilder.Entity("SchoolManager.Models.School", b =>
@@ -3383,6 +3588,18 @@ namespace SchoolManager.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("school_id_card_settings_school_id_fkey");
+
+                    b.Navigation("School");
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.SchoolScheduleConfiguration", b =>
+                {
+                    b.HasOne("SchoolManager.Models.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("school_schedule_configurations_school_id_fkey");
 
                     b.Navigation("School");
                 });
@@ -3670,6 +3887,26 @@ namespace SchoolManager.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("SchoolManager.Models.TimeSlot", b =>
+                {
+                    b.HasOne("SchoolManager.Models.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("time_slots_school_id_fkey");
+
+                    b.HasOne("SchoolManager.Models.Shift", "Shift")
+                        .WithMany()
+                        .HasForeignKey("ShiftId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("time_slots_shift_id_fkey");
+
+                    b.Navigation("School");
+
+                    b.Navigation("Shift");
+                });
+
             modelBuilder.Entity("SchoolManager.Models.Trimester", b =>
                 {
                     b.HasOne("SchoolManager.Models.AcademicYear", "AcademicYear")
@@ -3882,6 +4119,11 @@ namespace SchoolManager.Migrations
             modelBuilder.Entity("SchoolManager.Models.SubjectAssignment", b =>
                 {
                     b.Navigation("TeacherAssignments");
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.TimeSlot", b =>
+                {
+                    b.Navigation("ScheduleEntries");
                 });
 
             modelBuilder.Entity("SchoolManager.Models.Trimester", b =>

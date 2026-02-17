@@ -9,7 +9,7 @@ using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
 using Microsoft.EntityFrameworkCore;
 
-[Authorize(Roles = "admin,secretaria")]
+[Authorize(Roles = "admin,secretaria,teacher,docente,director,Admin,Secretaria,Teacher,Docente,Director")]
 public class TeacherAssignmentController : Controller
 {
     private readonly ITeacherAssignmentService _teacherAssignmentService;
@@ -20,6 +20,7 @@ public class TeacherAssignmentController : Controller
     private readonly ISpecialtyService _specialtyService;
     private readonly IGradeLevelService _gradeLevelService;
     private readonly ISubjectAssignmentService _subjectAssignmentService;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
 
     public TeacherAssignmentController(
@@ -31,7 +32,8 @@ public class TeacherAssignmentController : Controller
         ISpecialtyService specialtyService,
         IGradeLevelService gradeLevelService,
         IMapper mapper,
-        ISubjectAssignmentService subjectAssignmentService)
+        ISubjectAssignmentService subjectAssignmentService,
+        ICurrentUserService currentUserService)
     {
         _teacherAssignmentService = teacherAssignmentService;
         _userService = userService;
@@ -42,6 +44,7 @@ public class TeacherAssignmentController : Controller
         _gradeLevelService = gradeLevelService;
         _mapper = mapper;
         _subjectAssignmentService = subjectAssignmentService;
+        _currentUserService = currentUserService;
     }
 
     [HttpPost("SaveAssignments")]
@@ -237,51 +240,62 @@ public class TeacherAssignmentController : Controller
     [HttpGet]
     public async Task<IActionResult> GetAssignmentsByTeacher(Guid id)
     {
-        var assignments = await _teacherAssignmentService.GetAssignmentsForModalByTeacherIdAsync(id);
-        var assignmentsAll = await _subjectAssignmentService.GetAllSubjectAssignments();
-
-        var subjects = await _subjectService.GetAllAsync();
-        var groups = await _groupService.GetAllAsync();
-        var areas = await _areaService.GetAllAsync();
-        var specialties = await _specialtyService.GetAllAsync();
-        var gradeLevels = await _gradeLevelService.GetAllAsync();
-
-        var currentAssignments = assignments.Select(a => new
+        try
         {
-            teacherAssignmentId = a.Id,
-            subjectAssignmentId = a.SubjectAssignmentId,
-            specialtyId = a.SubjectAssignment.SpecialtyId,
-            specialty = a.SubjectAssignment.Specialty?.Name,
-            areaId = a.SubjectAssignment.AreaId,
-            area = a.SubjectAssignment.Area?.Name,
-            subjectId = a.SubjectAssignment.SubjectId,
-            subject = a.SubjectAssignment.Subject?.Name,
-            gradeLevelId = a.SubjectAssignment.GradeLevelId,
-            grade = a.SubjectAssignment.GradeLevel?.Name,
-            groupId = a.SubjectAssignment.GroupId,
-            group = a.SubjectAssignment.Group?.Name
-        });
+            if (id == Guid.Empty)
+                return Json(new { currentAssignments = Array.Empty<object>(), allPossibleAssignments = Array.Empty<object>() });
 
-        var allPossibleAssignments = assignmentsAll.Select(a => new
-        {
-            id = a.Id,
-            specialtyId = a.SpecialtyId,
-            specialtyName = a.Specialty?.Name,
-            areaId = a.AreaId,
-            areaName = a.Area?.Name,
-            subjectId = a.SubjectId,
-            subjectName = a.Subject?.Name,
-            gradeLevelId = a.GradeLevelId,
-            gradeLevelName = a.GradeLevel?.Name,
-            groupId = a.GroupId,
-            groupName = a.Group?.Name
-        });
+            // Seguridad: Teacher/Docente solo puede consultar sus propias asignaciones
+            var role = await _currentUserService.GetCurrentUserRoleAsync();
+            var isTeacher = string.Equals(role, "teacher", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(role, "docente", StringComparison.OrdinalIgnoreCase);
+            if (isTeacher)
+            {
+                var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+                if (currentUserId == null || id != currentUserId.Value)
+                    return Json(new { currentAssignments = Array.Empty<object>(), allPossibleAssignments = Array.Empty<object>(), error = "Solo puede consultar sus propias asignaciones." });
+            }
 
-        return Json(new
+            var assignments = await _teacherAssignmentService.GetAssignmentsForModalByTeacherIdAsync(id);
+            var assignmentsAll = await _subjectAssignmentService.GetAllSubjectAssignments();
+
+            var currentAssignments = assignments.Select(a => new
+            {
+                teacherAssignmentId = a.Id,
+                subjectAssignmentId = a.SubjectAssignmentId,
+                specialtyId = a.SubjectAssignment?.SpecialtyId,
+                specialty = a.SubjectAssignment?.Specialty?.Name,
+                areaId = a.SubjectAssignment?.AreaId,
+                area = a.SubjectAssignment?.Area?.Name,
+                subjectId = a.SubjectAssignment?.SubjectId,
+                subject = a.SubjectAssignment?.Subject?.Name,
+                gradeLevelId = a.SubjectAssignment?.GradeLevelId,
+                grade = a.SubjectAssignment?.GradeLevel?.Name,
+                groupId = a.SubjectAssignment?.GroupId,
+                group = a.SubjectAssignment?.Group?.Name
+            });
+
+            var allPossibleAssignments = assignmentsAll.Select(a => new
+            {
+                id = a.Id,
+                specialtyId = a.SpecialtyId,
+                specialtyName = a.Specialty?.Name,
+                areaId = a.AreaId,
+                areaName = a.Area?.Name,
+                subjectId = a.SubjectId,
+                subjectName = a.Subject?.Name,
+                gradeLevelId = a.GradeLevelId,
+                gradeLevelName = a.GradeLevel?.Name,
+                groupId = a.GroupId,
+                groupName = a.Group?.Name
+            });
+
+            return Json(new { currentAssignments, allPossibleAssignments });
+        }
+        catch (Exception ex)
         {
-            currentAssignments,
-            allPossibleAssignments
-        });
+            return Json(new { currentAssignments = Array.Empty<object>(), allPossibleAssignments = Array.Empty<object>(), error = ex.Message });
+        }
     }
 
     [HttpPost]

@@ -1,0 +1,164 @@
+@model SchoolManager.Models.SchoolScheduleConfiguration
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Configuración de jornada escolar";
+}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <h1>Configuración de jornada escolar</h1>
+            <p class="text-muted small mb-0">Defina la jornada y el sistema generará automáticamente los bloques horarios. No se puede regenerar si ya hay horarios asignados a bloques.</p>
+            <p class="text-muted small mb-0">Las horas usan <strong>formato 24 h</strong> (07:00, 13:00), estándar en la aplicación.</p>
+        </div>
+    </section>
+    <section class="content">
+        <div class="container-fluid">
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show">
+                    @TempData["Success"]
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @TempData["Error"]
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                </div>
+            }
+            <div class="card card-outline card-primary">
+                <div class="card-header">
+                    <h3 class="card-title">Jornada</h3>
+                </div>
+                <div class="card-body">
+                    <form asp-action="SaveConfiguration" method="post">
+                        <input type="hidden" asp-for="SchoolId" />
+                        <input type="hidden" asp-for="Id" />
+                        <div asp-validation-summary="All" class="text-danger"></div>
+
+                        <h5 class="mb-3">Mañana</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label asp-for="MorningStartTime" class="control-label">Hora de inicio</label>
+                                    <input asp-for="MorningStartTime" type="time" class="form-control" value="@(Model.MorningStartTime.ToString("HH:mm"))" />
+                                    <span asp-validation-for="MorningStartTime" class="text-danger"></span>
+                                    <small class="form-text text-muted">Formato 24 h (07:00, 13:00)</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label asp-for="MorningBlockDurationMinutes" class="control-label">Duración (min)</label>
+                                    <input asp-for="MorningBlockDurationMinutes" type="number" min="1" max="120" class="form-control" placeholder="45" />
+                                    <span asp-validation-for="MorningBlockDurationMinutes" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label asp-for="MorningBlockCount" class="control-label">Cantidad de bloques</label>
+                                    <input asp-for="MorningBlockCount" type="number" min="1" max="20" class="form-control" placeholder="8" />
+                                    <span asp-validation-for="MorningBlockCount" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-muted small">Ej: 07:00, 35 min, 8 bloques → 07:00–07:35, 07:35–08:10, …</p>
+                        <div id="morningCalc" class="alert alert-info py-2 small mb-0 mt-2"></div>
+
+                        <hr class="my-4" />
+                        <h5 class="mb-3">Tarde (opcional)</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label asp-for="AfternoonStartTime" class="control-label">Hora de inicio</label>
+                                    <input asp-for="AfternoonStartTime" type="time" class="form-control" value="@(Model.AfternoonStartTime?.ToString("HH:mm"))" />
+                                    <span asp-validation-for="AfternoonStartTime" class="text-danger"></span>
+                                    <small class="form-text text-muted">24 h (ej. 13:00)</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label asp-for="AfternoonBlockDurationMinutes" class="control-label">Duración (min)</label>
+                                    <input asp-for="AfternoonBlockDurationMinutes" type="number" min="1" max="120" class="form-control" placeholder="45" />
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label asp-for="AfternoonBlockCount" class="control-label">Cantidad de bloques</label>
+                                    <input asp-for="AfternoonBlockCount" type="number" min="0" max="20" class="form-control" placeholder="0" />
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-muted small">Deje vacío o 0 si solo usa jornada de mañana. La tarde debe empezar después del último bloque de mañana.</p>
+                        <div id="afternoonCalc" class="alert alert-secondary py-2 small mb-0 mt-2"></div>
+
+                        <hr class="my-4" />
+                        <div class="form-group">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="forceRegenerate" name="forceRegenerate" value="true" />
+                                <label class="form-check-label" for="forceRegenerate">
+                                    Forzar regeneración: eliminar todas las asignaciones de horario y regenerar bloques (los docentes tendrán que volver a asignar materias).
+                                </label>
+                            </div>
+                            <small class="text-muted">Marque solo si ya hay horarios asignados y desea cambiar la configuración de bloques.</small>
+                        </div>
+
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary">Guardar y generar bloques</button>
+                            <a href="@Url.Action("Index", "TimeSlot")" class="btn btn-secondary">Ver bloques horarios</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <script>
+        (function () {
+            function parseTime(str) {
+                if (!str || typeof str !== 'string') return null;
+                var parts = str.trim().match(/^(\d{1,2}):(\d{2})/);
+                if (!parts) return null;
+                return parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
+            }
+            function formatMinutes(min) {
+                if (min == null || isNaN(min)) return '--:--';
+                var h = Math.floor(min / 60) % 24;
+                var m = min % 60;
+                return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+            }
+            function updateCalc() {
+                var startInput = document.querySelector('input[name="MorningStartTime"]');
+                var durationInput = document.querySelector('input[name="MorningBlockDurationMinutes"]');
+                var countInput = document.querySelector('input[name="MorningBlockCount"]');
+                var morningDiv = document.getElementById('morningCalc');
+                var afternoonDiv = document.getElementById('afternoonCalc');
+                if (!startInput || !durationInput || !countInput || !morningDiv) return;
+                var startMin = parseTime(startInput.value);
+                var duration = parseInt(durationInput.value, 10) || 0;
+                var count = parseInt(countInput.value, 10) || 0;
+                if (startMin == null || duration < 1 || count < 1) {
+                    morningDiv.innerHTML = 'Ingrese hora de inicio, duración y cantidad de bloques para ver el cálculo.';
+                    afternoonDiv.innerHTML = '';
+                    return;
+                }
+                var totalMin = duration * count;
+                var endMin = startMin + totalMin;
+                var endTime = formatMinutes(endMin);
+                morningDiv.innerHTML = '<strong>Cálculo:</strong> ' + (startInput.value || '--:--') + ' + ' + count + ' bloques × ' + duration + ' min = <strong>la jornada matutina termina a las ' + endTime + '</strong>.';
+                var suggestedAfternoon = formatMinutes(endMin);
+                var suggestedBreak = formatMinutes(endMin + 30);
+                afternoonDiv.innerHTML = 'La tarde puede comenzar a las <strong>' + suggestedAfternoon + '</strong> (justo después) o a las <strong>' + suggestedBreak + '</strong> (con 30 min de recreo).';
+            }
+            document.querySelectorAll('input[name="MorningStartTime"], input[name="MorningBlockDurationMinutes"], input[name="MorningBlockCount"]').forEach(function (el) {
+                el.addEventListener('change', updateCalc);
+                el.addEventListener('input', updateCalc);
+            });
+            updateCalc();
+        })();
+    </script>
+}

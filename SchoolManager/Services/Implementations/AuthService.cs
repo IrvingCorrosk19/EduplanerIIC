@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using System.Security.Claims;
@@ -12,11 +13,13 @@ namespace SchoolManager.Services.Implementations
     {
         private readonly IUserService _userService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly SchoolDbContext _context;
 
-        public AuthService(IUserService userService, IHttpContextAccessor httpContextAccessor)
+        public AuthService(IUserService userService, IHttpContextAccessor httpContextAccessor, SchoolDbContext context)
         {
             _userService = userService;
             _httpContextAccessor = httpContextAccessor;
+            _context = context;
         }
 
         public async Task<(bool success, string message, User? user)> LoginAsync(string email, string password)
@@ -57,6 +60,17 @@ namespace SchoolManager.Services.Implementations
             if (user.Status?.ToLower() != "active")
             {
                 return (false, "Usuario inactivo", null);
+            }
+
+            if (user.SchoolId.HasValue)
+            {
+                var school = await _context.Schools
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(s => s.Id == user.SchoolId.Value);
+                if (school != null && !school.IsActive)
+                {
+                    return (false, "La institución se encuentra inactiva. Contacte al administrador.", null);
+                }
             }
 
             // Actualizar último login

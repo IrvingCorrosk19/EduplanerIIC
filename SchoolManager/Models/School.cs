@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SchoolManager.Models;
@@ -16,6 +16,9 @@ public partial class School
     public string? LogoUrl { get; set; }
 
     public DateTime? CreatedAt { get; set; }
+
+    /// <summary>Soft delete: false cuando la institución está desactivada (no se borra físicamente).</summary>
+    public bool IsActive { get; set; } = true;
 
     public Guid? AdminId { get; set; }
 

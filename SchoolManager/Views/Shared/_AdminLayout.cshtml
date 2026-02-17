@@ -297,6 +297,46 @@
                             </ul>
                         </li>
                         }
+                        @if (userRole == "admin" || userRole == "director" || userRole == "teacher") {
+                        @if (userRole == "admin" || userRole == "director") {
+                        <li class="nav-item has-treeview">
+                            <a href="#" class="nav-link">
+                                <i class="nav-icon fas fa-calendar-alt"></i>
+                                <p>
+                                    Horarios
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("ByTeacher", "Schedule")" class="nav-link">
+                                        <i class="fas fa-table nav-icon"></i>
+                                        <p>Ver horario por docente</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "ScheduleConfiguration")" class="nav-link">
+                                        <i class="fas fa-cog nav-icon"></i>
+                                        <p>Configuración de jornada</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Manage", "TimeSlot")" class="nav-link">
+                                        <i class="fas fa-clock nav-icon"></i>
+                                        <p>Ajustar bloques horarios</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        } else {
+                        <li class="nav-item">
+                            <a href="@Url.Action("ByTeacher", "Schedule")" class="nav-link">
+                                <i class="nav-icon fas fa-calendar-alt"></i>
+                                <p>Horarios</p>
+                            </a>
+                        </li>
+                        }
+                        }
                         @if (userRole == "admin" || userRole == "superadmin") {
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">

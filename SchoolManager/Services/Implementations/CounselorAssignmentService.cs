@@ -34,7 +34,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -78,7 +78,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -131,7 +131,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -176,7 +176,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -221,7 +221,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -266,7 +266,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -311,7 +311,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -366,7 +366,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -421,7 +421,7 @@ namespace SchoolManager.Services.Implementations
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School.Name,
+                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
@@ -680,7 +680,7 @@ namespace SchoolManager.Services.Implementations
                         {
                             Id = a.Id,
                             SchoolId = a.SchoolId,
-                            SchoolName = a.School.Name,
+                            SchoolName = a.School != null ? a.School.Name : "N/A",
                             UserId = a.UserId,
                             UserName = a.User.Name,
                             UserLastName = a.User.LastName,

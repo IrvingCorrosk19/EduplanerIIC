@@ -12,14 +12,17 @@ public class SuperAdminService : ISuperAdminService
     private readonly SchoolDbContext _context;
     private readonly ILogger<SuperAdminService> _logger;
     private readonly ICloudinaryService? _cloudinaryService;
+    private readonly IAcademicYearService _academicYearService;
 
     public SuperAdminService(
-        SchoolDbContext context, 
+        SchoolDbContext context,
         ILogger<SuperAdminService> logger,
+        IAcademicYearService academicYearService,
         ICloudinaryService? cloudinaryService = null)
     {
         _context = context;
         _logger = logger;
+        _academicYearService = academicYearService;
         _cloudinaryService = cloudinaryService;
     }
 
@@ -29,7 +32,7 @@ public class SuperAdminService : ISuperAdminService
     {
         Console.WriteLine($"🏫 [SuperAdminService] Obteniendo lista de escuelas con filtro: '{searchString}'");
         
-        var query = from s in _context.Schools
+        var query = from s in _context.Schools.IgnoreQueryFilters()
                    join u in _context.Users on s.AdminId equals u.Id into adminJoin
                    from admin in adminJoin.DefaultIfEmpty()
                    select new SchoolListViewModel
@@ -39,6 +42,7 @@ public class SuperAdminService : ISuperAdminService
                        SchoolAddress = s.Address,
                        SchoolPhone = s.Phone,
                        SchoolLogoUrl = s.LogoUrl,
+                       IsActive = s.IsActive,
                        AdminId = admin != null ? admin.Id : Guid.Empty,
                        AdminName = admin != null ? admin.Name : "",
                        AdminLastName = admin != null ? admin.LastName : "",
@@ -71,6 +75,7 @@ public class SuperAdminService : ISuperAdminService
         Console.WriteLine($"🔍 [SuperAdminService] Buscando escuela con ID: {id}");
         
         var school = await _context.Schools
+            .IgnoreQueryFilters()
             .Include(s => s.Users)
             .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -91,6 +96,7 @@ public class SuperAdminService : ISuperAdminService
         Console.WriteLine($"🔍 [SuperAdminService] Obteniendo escuela para edición con ID: {id}");
         
         var school = await _context.Schools
+            .IgnoreQueryFilters()
             .Include(s => s.Users)
             .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -173,6 +179,26 @@ public class SuperAdminService : ISuperAdminService
             _context.Schools.Update(school);
             await _context.SaveChangesAsync();
 
+            // Garantizar que la escuela tenga al menos un año académico activo
+            try
+            {
+                await _academicYearService.EnsureDefaultAcademicYearForSchoolAsync(school.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo crear año académico por defecto para la escuela {SchoolId}. La escuela se creó correctamente.", school.Id);
+            }
+
+            // Garantizar 8 bloques horarios por defecto (35 min desde 07:00) si la escuela no tiene ninguno
+            try
+            {
+                await SchoolManager.Scripts.EnsureDefaultTimeSlots.EnsureForSchoolAsync(_context, school.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudieron crear bloques horarios por defecto para la escuela {SchoolId}. La escuela se creó correctamente.", school.Id);
+            }
+
             await transaction.CommitAsync();
 
             Console.WriteLine($"✅ [SuperAdminService] Escuela y admin creados exitosamente");
@@ -248,14 +274,12 @@ public class SuperAdminService : ISuperAdminService
 
     public async Task<bool> DeleteSchoolAsync(Guid id)
     {
-        Console.WriteLine($"🗑️ [SuperAdminService] Iniciando eliminación de escuela con ID: {id}");
+        Console.WriteLine($"🗑️ [SuperAdminService] Desactivando escuela (soft delete) con ID: {id}");
         
         try
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            
             var school = await _context.Schools
-                .Include(s => s.Users)
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (school == null)
@@ -264,51 +288,17 @@ public class SuperAdminService : ISuperAdminService
                 return false;
             }
 
-            Console.WriteLine($"✅ [SuperAdminService] Escuela encontrada: {school.Name}");
-            Console.WriteLine($"👥 [SuperAdminService] Usuarios asociados: {school.Users.Count}");
-
-            // Eliminar usuarios asociados primero
-            if (school.Users.Count > 0)
-            {
-                Console.WriteLine($"🗑️ [SuperAdminService] Eliminando usuarios asociados...");
-                
-                var usersToDelete = school.Users.ToList();
-                
-                foreach (var user in usersToDelete)
-                {
-                    Console.WriteLine($"   - Eliminando usuario: {user.Name} {user.LastName} ({user.Email})");
-                    
-                    // Eliminar relaciones del usuario
-                    await DeleteUserRelationsAsync(user);
-                    
-                    // Eliminar el usuario
-                    _context.Users.Remove(user);
-                    Console.WriteLine($"     ✅ [SuperAdminService] Relaciones eliminadas para: {user.Name}");
-                }
-            }
-
-            // Eliminar entidades de la escuela
-            await DeleteSchoolEntitiesAsync(school);
-
-            // Eliminar relaciones muchos a muchos
-            await DeleteManyToManyRelationsAsync(school);
-
-            // Guardar cambios y eliminar la escuela
-            await _context.SaveChangesAsync();
-            Console.WriteLine($"✅ [SuperAdminService] Relaciones de la escuela eliminadas");
-
-            _context.Schools.Remove(school);
+            school.IsActive = false;
+            _context.Schools.Update(school);
             await _context.SaveChangesAsync();
             
-            await transaction.CommitAsync();
-            Console.WriteLine($"✅ [SuperAdminService] Escuela eliminada exitosamente: {school.Name}");
-            
+            Console.WriteLine($"✅ [SuperAdminService] Escuela desactivada correctamente: {school.Name}");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ [SuperAdminService] Error eliminando escuela: {ex.Message}");
-            _logger.LogError(ex, "Error eliminando escuela");
+            Console.WriteLine($"❌ [SuperAdminService] Error desactivando escuela: {ex.Message}");
+            _logger.LogError(ex, "Error desactivando escuela");
             return false;
         }
     }
@@ -318,6 +308,7 @@ public class SuperAdminService : ISuperAdminService
         Console.WriteLine($"🔍 [SuperAdminService] Obteniendo escuela para edición con admin, ID: {id}");
         
         var school = await _context.Schools
+            .IgnoreQueryFilters()
             .Include(s => s.Users)
             .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -501,6 +492,7 @@ public class SuperAdminService : ISuperAdminService
         Console.WriteLine($"🔍 [SuperAdminService] Diagnosticando escuela con ID: {id}");
         
         var school = await _context.Schools
+            .IgnoreQueryFilters()
             .Include(s => s.Users)
             .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -718,11 +710,30 @@ public class SuperAdminService : ISuperAdminService
             _context.StudentAssignments.UpdateRange(studentAssignments);
         }
 
+        // Eliminar entradas de horario asociadas a las asignaciones del docente (FK: schedule_entries → teacher_assignments)
+        var teacherAssignmentIds = await _context.TeacherAssignments
+            .Where(ta => ta.TeacherId == user.Id)
+            .Select(ta => ta.Id)
+            .ToListAsync();
+
+        if (teacherAssignmentIds.Count > 0)
+        {
+            var scheduleEntries = await _context.ScheduleEntries
+                .Where(se => teacherAssignmentIds.Contains(se.TeacherAssignmentId))
+                .ToListAsync();
+
+            if (scheduleEntries.Count > 0)
+            {
+                Console.WriteLine($"     🗑️ [SuperAdminService] Eliminando {scheduleEntries.Count} entradas de horario del docente");
+                _context.ScheduleEntries.RemoveRange(scheduleEntries);
+            }
+        }
+
         // Eliminar asignaciones de profesores
         var teacherAssignments = await _context.TeacherAssignments
             .Where(ta => ta.TeacherId == user.Id)
             .ToListAsync();
-        
+
         if (teacherAssignments.Count > 0)
         {
             Console.WriteLine($"     🗑️ [SuperAdminService] Eliminando {teacherAssignments.Count} asignaciones de profesores");

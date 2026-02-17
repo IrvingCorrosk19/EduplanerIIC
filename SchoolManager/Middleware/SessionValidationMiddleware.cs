@@ -41,6 +41,17 @@ namespace SchoolManager.Middleware
                 return;
             }
 
+            if (user.SchoolId.HasValue)
+            {
+                var school = await currentUserService.GetCurrentUserSchoolAsync();
+                if (school != null && !school.IsActive)
+                {
+                    await context.SignOutAsync();
+                    context.Response.Redirect("/Auth/Login?schoolInactive=1");
+                    return;
+                }
+            }
+
             await _next(context);
         }
     }

@@ -70,6 +70,29 @@ namespace SchoolManager.Services.Implementations
             return shift;
         }
 
+        public async Task<Shift> GetOrCreateBySchoolAndNameAsync(Guid schoolId, string name)
+        {
+            name = name.Trim();
+            var shift = await _context.Shifts
+                .FirstOrDefaultAsync(s => s.SchoolId == schoolId && s.Name.ToLower() == name.ToLower());
+
+            if (shift == null)
+            {
+                shift = new Shift
+                {
+                    Id = Guid.NewGuid(),
+                    SchoolId = schoolId,
+                    Name = name,
+                    IsActive = true,
+                    DisplayOrder = 0
+                };
+                await AuditHelper.SetAuditFieldsForCreateAsync(shift, _currentUserService);
+                _context.Shifts.Add(shift);
+                await _context.SaveChangesAsync();
+            }
+            return shift;
+        }
+
         public async Task<Shift> CreateAsync(Shift shift)
         {
             try

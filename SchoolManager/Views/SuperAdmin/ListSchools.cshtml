@@ -59,7 +59,17 @@
                     <div class="card h-100 shadow-sm">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5 class="card-title mb-0">@school.SchoolName</h5>
+                                <h5 class="card-title mb-0">
+                                    @school.SchoolName
+                                    @if (school.IsActive)
+                                    {
+                                        <span class="badge bg-success ms-1">Activa</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary ms-1">Desactivada</span>
+                                    }
+                                </h5>
                                 <div class="dropdown">
                                     <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown">
                                         <i class="fas fa-ellipsis-v"></i>
@@ -72,11 +82,11 @@
                                         </li>
                                         <li>
                                             <form asp-action="DeleteSchool" method="post" class="d-inline" 
-                                                  onsubmit="return confirm('¿Está seguro que desea eliminar esta escuela y todos sus usuarios asociados?');">
+                                                  onsubmit="return confirm('¿Desactivar esta institución? No se borrarán datos; dejará de aparecer en listados y sus usuarios no podrán acceder.');">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@school.SchoolId" />
-                                                <button type="submit" class="dropdown-item text-danger">
-                                                    <i class="fas fa-trash-alt"></i> Eliminar Escuela
+                                                <button type="submit" class="dropdown-item text-danger" @(school.IsActive ? "" : "disabled")>
+                                                    <i class="fas fa-ban"></i> @(school.IsActive ? "Desactivar institución" : "Desactivada")
                                                 </button>
                                             </form>
                                         </li>

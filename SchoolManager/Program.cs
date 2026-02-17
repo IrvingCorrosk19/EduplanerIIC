@@ -17,6 +17,18 @@ using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Aplicar columna schools.is_active sin arrancar la app (evita usar Schools antes de que exista la columna)
+if (args.Length > 0 && args[0] == "--apply-school-is-active")
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.ApplySchoolIsActive.RunAsync(ctx);
+    Console.WriteLine("✅ Columna schools.is_active aplicada y migración registrada. Saliendo...");
+    return;
+}
+
 // Cultura oficial del sistema (estándar corporativo de fechas)
 var culture = new CultureInfo("es-PA");
 CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -24,6 +36,12 @@ CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Configurar Antiforgery para aceptar el token desde header (usado por fetch en Schedule y otros módulos AJAX)
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "RequestVerificationToken";
+});
 
 // Conexión a la base de datos PostgreSQL
 builder.Services.AddDbContext<SchoolDbContext>(options =>
@@ -93,6 +111,8 @@ builder.Services.AddScoped<IPrematriculationService, PrematriculationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentConceptService, PaymentConceptService>();
 builder.Services.AddScoped<IAcademicYearService, AcademicYearService>();
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<IScheduleConfigurationService, ScheduleConfigurationService>();
 builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
 builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
 
@@ -136,13 +156,46 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await SchoolManager.Scripts.EnsureIdCardTables.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureUsersRoleCheck.EnsureAsync(db);
+    await SchoolManager.Scripts.EnsureScheduleTables.EnsureAsync(db);
+    await SchoolManager.Scripts.EnsureSchoolScheduleConfigurationTable.EnsureAsync(db);
+    await SchoolManager.Scripts.VerifyAcademicYearsInDb.RunAsync(db, logger);
+
+    // Garantizar que cada escuela tenga al menos un año académico (evitar mensaje "No hay años académicos configurados")
+    var academicYearService = scope.ServiceProvider.GetRequiredService<IAcademicYearService>();
+    var schools = await db.Schools.Select(s => s.Id).ToListAsync();
+    foreach (var schoolId in schools)
+    {
+        try
+        {
+            await academicYearService.EnsureDefaultAcademicYearForSchoolAsync(schoolId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "No se pudo asegurar año académico para la escuela {SchoolId}.", schoolId);
+        }
+    }
+
+    // Garantizar que cada escuela tenga bloques horarios por defecto (8 bloques de 35 min desde 07:00) si no tiene ninguno
+    try
+    {
+        foreach (var schoolId in schools)
+        {
+            await SchoolManager.Scripts.EnsureDefaultTimeSlots.EnsureForSchoolAsync(db, schoolId);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "No se pudo asegurar bloques horarios por defecto (tabla time_slots puede no existir aún).");
+    }
 }
 
 // Script temporal para aplicar cambios a la base de datos
 // Ejecutar con: 
 //   --apply-db-changes: Aplica cambios locales
+//   --apply-school-is-active: Añade columna schools.is_active (Soft Delete) y registra migración
 //   --apply-academic-year: Aplica cambios de año académico locales
 //   --test-render: Prueba conexión a Render
 //   --apply-render-all: Aplica todas las migraciones a Render
