@@ -17,6 +17,13 @@ using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render: usar PORT si está definido (producción en Render.com)
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Aplicar columna schools.is_active sin arrancar la app (evita usar Schools antes de que exista la columna)
 if (args.Length > 0 && args[0] == "--apply-school-is-active")
 {
@@ -48,6 +55,17 @@ if (args.Length > 0 && args[0] == "--apply-director-work-plan-governance")
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.ApplyDirectorWorkPlanGovernance.RunAsync(ctx);
+    return;
+}
+
+// Crear superadmin inicial (superadmin@schoolmanager.com / Admin123!). Usa la conexión configurada.
+if (args.Length > 0 && args[0] == "--create-initial-superadmin")
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.CreateInitialSuperAdminScript.RunAsync(ctx);
     return;
 }
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -10,11 +11,13 @@ namespace SchoolManager.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IUserService _userService;
+        private readonly SchoolDbContext _context;
 
-        public AuthController(IAuthService authService, IUserService userService)
+        public AuthController(IAuthService authService, IUserService userService, SchoolDbContext context)
         {
             _authService = authService;
             _userService = userService;
+            _context = context;
         }
 
         [HttpGet]
@@ -77,6 +80,29 @@ namespace SchoolManager.Controllers
         {
             ViewData["ReturnUrl"] = returnUrl;
             return View();
+        }
+
+        // Endpoint para crear superadmin inicial (solo si no existe ninguno). Uso: GET /api/auth/create-superadmin
+        [HttpGet("api/auth/create-superadmin")]
+        [AllowAnonymous]
+        public async Task<IActionResult> CreateSuperAdmin()
+        {
+            if (await _context.Users.AnyAsync(u => u.Role == "superadmin"))
+                return Ok(new { success = false, message = "Ya existe un superadmin" });
+
+            var u = new User
+            {
+                Id = Guid.NewGuid(),
+                Name = "Super", LastName = "Administrador",
+                Email = "superadmin@schoolmanager.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+                Role = "superadmin", Status = "active", SchoolId = null,
+                DocumentId = "8-000-0000", DateOfBirth = new DateTime(1990, 1, 1),
+                CellphonePrimary = "+507 0000 0000", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+            };
+            _context.Users.Add(u);
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, message = "Superadmin creado: superadmin@schoolmanager.com / Admin123!" });
         }
 
         // API endpoint para login desde app móvil (devuelve token simple)

@@ -1,0 +1,15 @@
+# Render Blueprint - EduplanerIIC
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: eduplaneriic
+    runtime: docker
+    dockerfilePath: ./SchoolManager/Dockerfile
+    dockerContext: ./SchoolManager
+    plan: free  # o starter, standard según plan
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false  # Configurar en Render Dashboard con la URL de PostgreSQL
+    healthCheckPath: /
