@@ -38,12 +38,12 @@ namespace SchoolManager.Services.Implementations
             return users;
         }
 
-        public async Task<List<UserListDto>> GetUsersByRoleAsync(string role)
+        public async Task<List<UserListDto>> GetUsersByRoleAsync(string? role)
         {
             if (string.IsNullOrWhiteSpace(role) || role.Equals("All", StringComparison.OrdinalIgnoreCase))
                 return await GetAllUsersAsync();
 
-            var roleLower = role.Trim().ToLowerInvariant();
+            var roleLower = (role ?? string.Empty).Trim().ToLowerInvariant();
             var roleFilter = roleLower switch
             {
                 "superadmin" => new[] { "superadmin" },

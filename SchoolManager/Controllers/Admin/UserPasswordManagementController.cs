@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Services.Interfaces;
 using System;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace SchoolManager.Controllers.Admin
 {
@@ -11,10 +12,14 @@ namespace SchoolManager.Controllers.Admin
     public class UserPasswordManagementController : Controller
     {
         private readonly IUserPasswordManagementService _userPasswordManagementService;
+        private readonly ILogger<UserPasswordManagementController> _logger;
 
-        public UserPasswordManagementController(IUserPasswordManagementService userPasswordManagementService)
+        public UserPasswordManagementController(
+            IUserPasswordManagementService userPasswordManagementService,
+            ILogger<UserPasswordManagementController> logger)
         {
             _userPasswordManagementService = userPasswordManagementService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -35,10 +40,18 @@ namespace SchoolManager.Controllers.Admin
 
         [HttpGet]
         [Route("FilterByRole")]
-        public async Task<IActionResult> FilterByRole([FromQuery] string role)
+        public async Task<IActionResult> FilterByRole([FromQuery] string? role)
         {
-            var users = await _userPasswordManagementService.GetUsersByRoleAsync(role ?? string.Empty);
-            return Json(users);
+            try
+            {
+                var users = await _userPasswordManagementService.GetUsersByRoleAsync(role ?? string.Empty);
+                return Json(users);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "FilterByRole failed for role={Role}", role);
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
     }
 }

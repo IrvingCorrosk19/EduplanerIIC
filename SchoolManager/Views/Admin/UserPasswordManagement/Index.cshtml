@@ -43,11 +43,8 @@
                             <input type="text" id="searchBox" class="form-control" placeholder="Search users..." />
                         </div>
                         <div class="col-md-4 d-flex align-items-end gap-2">
-                            <button type="button" id="btnFilter" class="btn btn-primary">
-                                <i class="fas fa-filter mr-1"></i> Filter
-                            </button>
                             <button type="button" id="btnReset" class="btn btn-secondary">
-                                <i class="fas fa-undo mr-1"></i> Reset
+                                <i class="fas fa-undo mr-1"></i> Limpiar filtros
                             </button>
                         </div>
                     </div>
@@ -81,8 +78,7 @@
     <script>
         $(function () {
             userPasswordManagement.init({
-                listUrl: '/Admin/UserPasswordManagement/ListJson',
-                filterByRoleUrl: '/Admin/UserPasswordManagement/FilterByRole'
+                listUrl: '/Admin/UserPasswordManagement/ListJson'
             });
         });
     </script>

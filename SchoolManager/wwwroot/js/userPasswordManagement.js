@@ -1,17 +1,17 @@
 /**
- * User Password Management - list users, filter by role, select multiple users.
+ * User Password Management - list users, filter by role (client-side like User/Index), select multiple users.
  * Prepares for future Mass Password Delivery feature.
  */
 var userPasswordManagement = (function () {
     'use strict';
 
     var config = {
-        listUrl: '',
-        filterByRoleUrl: ''
+        listUrl: ''
     };
 
     var dataTable = null;
     var currentData = [];
+    var ROLE_COLUMN_INDEX = 3; // Column "Role" (0=checkbox, 1=Name, 2=Email, 3=Role, 4=Status, 5=Created At)
 
     function formatDate(dateStr) {
         if (!dateStr) return '';
@@ -36,8 +36,12 @@ var userPasswordManagement = (function () {
         return role;
     }
 
+    function escapeRegex(str) {
+        return (str + '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     /**
-     * Load all users (for DataTables).
+     * Load all users once (like User/Index); filtering is done client-side with DataTables.
      */
     function loadUsers() {
         return $.ajax({
@@ -55,25 +59,29 @@ var userPasswordManagement = (function () {
     }
 
     /**
-     * Filter users by role (All, SuperAdmin, Admin, Teacher, Student).
+     * Apply role filter using DataTables column search (client-side, like User/Index).
      */
-    function filterByRole(role) {
-        var url = config.filterByRoleUrl;
-        if (role && role !== 'All' && role !== '') {
-            url += (url.indexOf('?') >= 0 ? '&' : '?') + 'role=' + encodeURIComponent(role);
+    function applyRoleFilter() {
+        if (!dataTable || !$.fn.DataTable.isDataTable('#usersTable')) return;
+        var role = $('#roleFilter').val() || '';
+        if (role === '') {
+            dataTable.column(ROLE_COLUMN_INDEX).search('').draw();
+        } else {
+            dataTable.column(ROLE_COLUMN_INDEX).search('^' + escapeRegex(role) + '$', true, false).draw();
         }
-        return $.ajax({
-            url: url,
-            type: 'GET',
-            dataType: 'json'
-        }).done(function (data) {
-            currentData = Array.isArray(data) ? data : [];
-            renderTable(currentData);
-        }).fail(function (xhr) {
-            console.error('userPasswordManagement: filterByRole failed', xhr);
-            currentData = [];
-            renderTable([]);
-        });
+    }
+
+    /**
+     * Clear all filters and redraw (client-side, like User/Index Reset).
+     */
+    function clearFilters() {
+        $('#roleFilter').val('');
+        $('#searchBox').val('');
+        if (dataTable && $.fn.DataTable.isDataTable('#usersTable')) {
+            dataTable.column(ROLE_COLUMN_INDEX).search('');
+            dataTable.search('');
+            dataTable.draw();
+        }
     }
 
     /**
@@ -116,10 +124,10 @@ var userPasswordManagement = (function () {
                 infoEmpty: 'Sin registros',
                 infoFiltered: '(filtrado de _MAX_)',
                 paginate: {
-                    first: 'Primera',
-                    last: 'Última',
-                    next: 'Siguiente',
-                    previous: 'Anterior'
+                    first: '«',
+                    last: '»',
+                    next: '›',
+                    previous: '‹'
                 }
             }
         });
@@ -170,22 +178,19 @@ var userPasswordManagement = (function () {
     function init(options) {
         if (options) {
             config.listUrl = options.listUrl || config.listUrl;
-            config.filterByRoleUrl = options.filterByRoleUrl || config.filterByRoleUrl;
         }
 
-        $('#btnFilter').on('click', function () {
-            var role = $('#roleFilter').val() || '';
-            filterByRole(role);
+        // Role filter: apply client-side column search on change (like User/Index)
+        $('#roleFilter').on('change', function () {
+            applyRoleFilter();
         });
 
         $('#btnReset').on('click', function () {
-            $('#roleFilter').val('');
-            $('#searchBox').val('');
-            loadUsers();
+            clearFilters();
         });
 
         $('#searchBox').on('keyup', function () {
-            if (dataTable) {
+            if (dataTable && $.fn.DataTable.isDataTable('#usersTable')) {
                 dataTable.search(this.value).draw();
             }
         });
@@ -196,7 +201,8 @@ var userPasswordManagement = (function () {
     return {
         init: init,
         loadUsers: loadUsers,
-        filterByRole: filterByRole,
+        applyRoleFilter: applyRoleFilter,
+        clearFilters: clearFilters,
         handleCheckboxSelection: handleCheckboxSelection,
         getSelectedIds: getSelectedIds
     };
