@@ -1,0 +1,89 @@
+@{
+    ViewData["Title"] = "User Password Management";
+    Layout = "_AdminLayout";
+}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>User Password Management</h1>
+                </div>
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="@Url.Action("Index", "Home")">Inicio</a></li>
+                        <li class="breadcrumb-item active">User Password Management</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-key mr-2"></i>User Password Management</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="roleFilter" class="form-label">Role</label>
+                            <select id="roleFilter" class="form-control">
+                                <option value="">All</option>
+                                <option value="SuperAdmin">SuperAdmin</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Teacher">Teacher</option>
+                                <option value="Student">Student</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="searchBox" class="form-label">Search</label>
+                            <input type="text" id="searchBox" class="form-control" placeholder="Search users..." />
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+                            <button type="button" id="btnFilter" class="btn btn-primary">
+                                <i class="fas fa-filter mr-1"></i> Filter
+                            </button>
+                            <button type="button" id="btnReset" class="btn btn-secondary">
+                                <i class="fas fa-undo mr-1"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="usersTable" class="table table-bordered table-striped table-hover" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="selectAll" title="Select all" />
+                                    </th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="~/js/userPasswordManagement.js" asp-append-version="true"></script>
+    <script>
+        $(function () {
+            userPasswordManagement.init({
+                listUrl: '/Admin/UserPasswordManagement/ListJson',
+                filterByRoleUrl: '/Admin/UserPasswordManagement/FilterByRole'
+            });
+        });
+    </script>
+}

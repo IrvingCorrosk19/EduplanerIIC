@@ -178,6 +178,7 @@ builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
 builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
 builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService>();
 builder.Services.AddScoped<IDirectorWorkPlanService, DirectorWorkPlanService>();
+builder.Services.AddScoped<IUserPasswordManagementService, UserPasswordManagementService>();
 
 // Identidad visual del usuario (foto): almacenamiento desacoplado + servicio de aplicación
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
