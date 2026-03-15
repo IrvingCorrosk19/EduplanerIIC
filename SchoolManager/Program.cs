@@ -342,6 +342,27 @@ if (args.Length > 0)
         await SchoolManager.Scripts.CompareDbSchemas.RunAsync();
         return;
     }
+    else if (args[0] == "--sync-ef-migrations-history")
+    {
+        var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); return; }
+        var label = builder.Environment.IsDevelopment() ? "LOCAL" : "RENDER";
+        Console.WriteLine($"Sincronizando __EFMigrationsHistory en {label}...\n");
+        await SchoolManager.Scripts.SyncEfMigrationsHistory.RunAsync(connStr, label);
+        Console.WriteLine("\n✅ Listo. Comprueba con: dotnet ef migrations list");
+        return;
+    }
+    else if (args[0] == "--sync-ef-migrations-both")
+    {
+        Console.WriteLine("Sincronizando __EFMigrationsHistory en LOCAL y RENDER...\n");
+        await SchoolManager.Scripts.SyncEfMigrationsHistory.RunAsync(SchoolManager.Scripts.CompareDbSchemas.LocalConnectionString, "LOCAL");
+        Console.WriteLine();
+        await SchoolManager.Scripts.SyncEfMigrationsHistory.RunAsync(
+            "Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true",
+            "RENDER");
+        Console.WriteLine("\n✅ Ambas bases actualizadas. Comprueba con: dotnet ef migrations list");
+        return;
+    }
     else if (args[0] == "--list-local-tables")
     {
         await SchoolManager.Scripts.CompareDbSchemas.ListLocalTablesAsync();
