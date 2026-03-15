@@ -37,8 +37,10 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
             return Array.Empty<ClubParentsStudentDto>();
         }
 
+        _logger.LogInformation("[ClubParents] GetStudentsAsync querying Users: Role IN (student,estudiante) AND SchoolId={SchoolId}", school.Id);
+
         var query = _context.Users
-            .Where(u => (u.Role == "student" || u.Role == "estudiante") && u.SchoolId == school.Id);
+            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante") && u.SchoolId == school.Id);
 
         if (gradeId.HasValue || groupId.HasValue)
         {
@@ -48,35 +50,42 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
                 && (!groupId.HasValue || sa.GroupId == groupId.Value)));
         }
 
-        var users = await query
-            .Include(u => u.StudentAssignments.Where(sa => sa.IsActive))
-                .ThenInclude(sa => sa.Grade)
-            .Include(u => u.StudentAssignments.Where(sa => sa.IsActive))
-                .ThenInclude(sa => sa.Group)
+        // Proyección en la consulta (como en StudentIdCard list-json) para evitar múltiples Include y posibles 500
+        var list = await query
+            .Select(u => new
+            {
+                u.Id,
+                FullName = u.Name + " " + u.LastName,
+                Grade = u.StudentAssignments.Where(sa => sa.IsActive).Select(sa => sa.Grade.Name).FirstOrDefault() ?? "Sin asignar",
+                Group = u.StudentAssignments.Where(sa => sa.IsActive).Select(sa => sa.Group.Name).FirstOrDefault() ?? "Sin asignar"
+            })
             .ToListAsync();
 
-        var studentIds = users.Select(u => u.Id).ToList();
+        _logger.LogInformation("[ClubParents] GetStudentsAsync found {Count} users for SchoolId={SchoolId}", list.Count, school.Id);
+
+        if (list.Count == 0)
+            return Array.Empty<ClubParentsStudentDto>();
+
+        var studentIds = list.Select(x => x.Id).ToList();
         var accessByStudent = await _context.StudentPaymentAccesses
             .Where(a => a.SchoolId == school.Id && studentIds.Contains(a.StudentId))
             .ToDictionaryAsync(a => a.StudentId, a => a);
 
-        var result = new List<ClubParentsStudentDto>();
-        foreach (var u in users)
+        var result = list.Select(x =>
         {
-            var active = u.StudentAssignments.FirstOrDefault(sa => sa.IsActive);
-            var access = accessByStudent.GetValueOrDefault(u.Id);
-            result.Add(new ClubParentsStudentDto
+            var access = accessByStudent.GetValueOrDefault(x.Id);
+            return new ClubParentsStudentDto
             {
-                Id = u.Id,
-                FullName = $"{u.Name} {u.LastName}",
-                Grade = active?.Grade?.Name ?? "Sin asignar",
-                Group = active?.Group?.Name ?? "Sin asignar",
+                Id = x.Id,
+                FullName = x.FullName ?? "",
+                Grade = x.Grade ?? "Sin asignar",
+                Group = x.Group ?? "Sin asignar",
                 CarnetStatus = access?.CarnetStatus ?? CarnetPendiente,
                 PlatformAccessStatus = access?.PlatformAccessStatus ?? PlatformPendiente
-            });
-        }
+            };
+        }).OrderBy(x => x.FullName).ToList();
 
-        return result.OrderBy(x => x.FullName).ToList();
+        return result;
     }
 
     /// <inheritdoc />

@@ -245,6 +245,7 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await SchoolManager.Scripts.EnsureIdCardTables.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureUsersRoleCheck.EnsureAsync(db);
+    await SchoolManager.Scripts.EnsureStudentPaymentAccessTable.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureScheduleTables.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureSchoolScheduleConfigurationTable.EnsureAsync(db);
     await SchoolManager.Scripts.VerifyAcademicYearsInDb.RunAsync(db, logger);
