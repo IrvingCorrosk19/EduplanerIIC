@@ -369,6 +369,7 @@ app.UseRouting();
 app.UseMiddleware<DateTimeMiddleware>();
 
 app.UseAuthentication();
+app.UseMiddleware<SchoolManager.Middleware.ApiBearerTokenMiddleware>();
 app.UseAuthorization();
 
 // Usar el método de extensión para el middleware
