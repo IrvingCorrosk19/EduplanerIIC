@@ -123,6 +123,17 @@ namespace SchoolManager.Controllers
                 return Unauthorized(new { message = message });
             }
 
+            // Cliente "scanner" (app escaneo de carnets): solo inspector y teacher/docente (cualquier casing)
+            if (string.Equals(request.Client, "scanner", StringComparison.OrdinalIgnoreCase))
+            {
+                var role = (user.Role ?? "").Trim().ToLowerInvariant();
+                var allowedForScanner = new[] { "inspector", "teacher", "docente" };
+                if (!allowedForScanner.Contains(role))
+                {
+                    return StatusCode(403, new { message = "Solo usuarios con rol Inspector o Docente pueden usar la aplicación de escaneo de carnets." });
+                }
+            }
+
             // Generar token simple (GUID + timestamp en base64)
             // En producción, usar JWT real con System.IdentityModel.Tokens.Jwt
             var tokenData = $"{user.Id}:{user.Email}:{DateTime.UtcNow:yyyyMMddHHmmss}";
@@ -181,5 +192,7 @@ namespace SchoolManager.Controllers
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        /// <summary>Cuando es "scanner", el login solo se permite para roles Inspector y Teacher.</summary>
+        public string? Client { get; set; }
     }
 } 
