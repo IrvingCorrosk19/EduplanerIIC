@@ -80,6 +80,13 @@ if (args.Length > 0 && args[0] == "--create-local-admin")
     return;
 }
 
+// Crear tabla student_payment_access en Render (módulo Club de Padres). No arranca la app.
+if (args.Length > 0 && args[0] == "--apply-render-student-payment-access")
+{
+    await SchoolManager.Scripts.ApplyRenderStudentPaymentAccess.RunAsync();
+    return;
+}
+
 // Homologar BD LOCAL con Render. Usa la misma conexión que CompareDbSchemas (localhost/schoolmanagement).
 if (args.Length > 0 && args[0] == "--homologate-local")
 {
