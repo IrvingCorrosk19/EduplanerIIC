@@ -14,6 +14,8 @@ using SchoolManager.Middleware;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Globalization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -196,6 +198,21 @@ builder.Services.AddScoped<IScheduleConfigurationService, ScheduleConfigurationS
 builder.Services.Configure<SchoolManager.Services.Security.QrSecurityOptions>(
     builder.Configuration.GetSection(SchoolManager.Services.Security.QrSecurityOptions.SectionName));
 builder.Services.AddSingleton<SchoolManager.Services.Security.IQrSignatureService, SchoolManager.Services.Security.QrSignatureService>();
+
+// SEG-2: Rate limiting para el endpoint público de escaneo QR.
+// Límite por IP: 60 peticiones/minuto en ventana fija.
+// Previene brute force de tokens, enumeración masiva y DoS de scan_logs.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("ScanApiPolicy", limiter =>
+    {
+        limiter.PermitLimit = 60;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiter.QueueLimit = 0; // sin cola — rechazar inmediatamente cuando se supera el límite
+    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
 builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
 builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
@@ -367,6 +384,9 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 
 app.UseRouting();
+
+// SEG-2: Rate limiter para endpoints con [EnableRateLimiting] (ej: /api/scan)
+app.UseRateLimiter();
 
 // Agregar middleware global para DateTime
 app.UseMiddleware<DateTimeMiddleware>();

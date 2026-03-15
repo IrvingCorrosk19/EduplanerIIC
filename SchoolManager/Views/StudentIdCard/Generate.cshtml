@@ -1,10 +1,11 @@
-@model SchoolManager.Dtos.StudentIdCardDto
+@model SchoolManager.Dtos.StudentIdCardDto?
 @{
-    ViewData["Title"] = "Carnet Estudiantil - " + Model.FullName;
+    var hasCard = Model != null;
+    ViewData["Title"] = hasCard ? "Carnet Estudiantil - " + Model!.FullName : "Generar Carnet";
     Layout = "_SuperAdminLayout";
     var schoolName = ViewBag.SchoolName as string ?? "SchoolManager";
     var schoolLogoUrl = ViewBag.SchoolLogoUrl as string;
-    // Diseño de referencia: CarnetQR Platform (header, cuerpo foto+info, footer, colores profesionales)
+    var studentId = Model?.StudentId ?? (Guid)ViewBag.StudentId;
     var primaryColor = "#1e3a8a";
     var backgroundColor = "#ffffff";
     var textColor = "#1f2937";
@@ -23,7 +24,6 @@
         background: #f5f5f5;
     }
 
-    /* Contenedor del carnet - proporción estándar tipo CarnetQR (85.6 x 54 mm) */
     .carnet-container {
         width: 342px;
         max-width: 100%;
@@ -47,7 +47,7 @@
         inset: 0;
         background-size: cover;
         background-position: center;
-        opacity: 0.15; /* watermark effect */
+        opacity: 0.15;
         z-index: 0;
     }
 
@@ -159,13 +159,14 @@
         opacity: 0.8;
     }
 
-    .carnet-qr img {
-        width: 44px;
-        height: 44px;
+    .carnet-qr canvas {
+        width: 44px !important;
+        height: 44px !important;
         border: 2px solid @primaryColor;
         border-radius: 4px;
         padding: 2px;
         background: white;
+        box-sizing: border-box;
     }
 
     .carnet-footer {
@@ -206,64 +207,148 @@
             <h2><i class="fas fa-id-card"></i> Carnet Estudiantil</h2>
         </div>
     </div>
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="carnet-preview-wrap">
-                <div class="carnet-container" id="idCard">
-                    <div class="carnet-background"
-                         style="background-image:url('@(ViewBag.BackgroundImageUrl ?? "")')">
-                    </div>
-                    <div class="carnet-header">
-                        @if (!string.IsNullOrEmpty(schoolLogoUrl))
-                        {
-                            <img src="@schoolLogoUrl" alt="Logo" class="carnet-logo" onerror="this.style.display='none'" />
-                        }
-                        <div class="carnet-institution-name">@schoolName</div>
-                    </div>
-                    <div class="carnet-body">
-                        <div class="carnet-photo">
-                            @if (!string.IsNullOrEmpty(Model.PhotoUrl))
-                            {
-                                <img src="@Model.PhotoUrl" alt="Foto" style="width:100%;height:100%;object-fit:cover;border-radius:2px;" />
-                            }
-                            else
-                            {
-                                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                                <span>Sin Foto</span>
-                            }
-                        </div>
-                        <div class="carnet-info">
-                            <div class="carnet-user-name">@Model.FullName</div>
-                            <div class="carnet-card-number">Carnet: @Model.CardNumber</div>
-                            <div class="carnet-details">
-                                <div class="carnet-detail-item"><strong>Grado:</strong> @Model.Grade</div>
-                                <div class="carnet-detail-item"><strong>Grupo:</strong> @Model.Group</div>
-                                <div class="carnet-detail-item"><strong>Jornada:</strong> @Model.Shift</div>
-                            </div>
-                            <div class="carnet-qr-row">
-                                <span class="carnet-qr-label">Escanea para verificar</span>
-                                <div class="carnet-qr">
-                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=@Uri.EscapeDataString(Model.QrToken)" alt="QR" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="carnet-footer">
-                        Emitido: @DateTime.UtcNow.ToString("dd/MM/yyyy")
-                    </div>
+
+    @if (!hasCard)
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Este estudiante no tiene un carnet activo. Haz clic en <strong>Generar Carnet</strong> para emitir uno.
                 </div>
-            </div>
-            <div class="print-actions">
-                <a href="/StudentIdCard/ui/print/@Model.StudentId" class="btn btn-primary btn-lg" target="_blank">
-                    <i class="fas fa-file-pdf"></i> Descargar PDF
-                </a>
-                <button type="button" class="btn btn-success btn-lg" onclick="window.print()">
-                    <i class="fas fa-print"></i> Imprimir Carnet
+                <button id="btnGenerate" class="btn btn-primary btn-lg" onclick="generateCard('@studentId')">
+                    <i class="fas fa-id-card"></i> Generar Carnet
                 </button>
-                <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg">
+                <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg ms-2">
                     <i class="fas fa-arrow-left"></i> Volver
                 </a>
             </div>
         </div>
-    </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="carnet-preview-wrap">
+                    <div class="carnet-container" id="idCard">
+                        <div class="carnet-background"
+                             style="background-image:url('@(ViewBag.BackgroundImageUrl ?? "")')">
+                        </div>
+                        <div class="carnet-header">
+                            @if (!string.IsNullOrEmpty(schoolLogoUrl))
+                            {
+                                <img src="@schoolLogoUrl" alt="Logo" class="carnet-logo" onerror="this.style.display='none'" />
+                            }
+                            <div class="carnet-institution-name">@schoolName</div>
+                        </div>
+                        <div class="carnet-body">
+                            <div class="carnet-photo">
+                                @if (!string.IsNullOrEmpty(Model!.PhotoUrl))
+                                {
+                                    <img src="@Model.PhotoUrl" alt="Foto" style="width:100%;height:100%;object-fit:cover;border-radius:2px;" />
+                                }
+                                else
+                                {
+                                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                                    <span>Sin Foto</span>
+                                }
+                            </div>
+                            <div class="carnet-info">
+                                <div class="carnet-user-name">@Model.FullName</div>
+                                <div class="carnet-card-number">Carnet: @Model.CardNumber</div>
+                                <div class="carnet-details">
+                                    <div class="carnet-detail-item"><strong>Grado:</strong> @Model.Grade</div>
+                                    <div class="carnet-detail-item"><strong>Grupo:</strong> @Model.Group</div>
+                                    <div class="carnet-detail-item"><strong>Jornada:</strong> @Model.Shift</div>
+                                </div>
+                                <div class="carnet-qr-row">
+                                    <span class="carnet-qr-label">Escanea para verificar</span>
+                                    <div class="carnet-qr">
+                                        @* QR generado localmente con qrcode.js — el token NO se envía a servidores externos *@
+                                        <canvas id="qrCanvas"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="carnet-footer">
+                            Emitido: @DateTime.UtcNow.ToString("dd/MM/yyyy")
+                        </div>
+                    </div>
+                </div>
+                <div class="print-actions">
+                    <a href="/StudentIdCard/ui/print/@Model.StudentId" class="btn btn-primary btn-lg" target="_blank">
+                        <i class="fas fa-file-pdf"></i> Descargar PDF
+                    </a>
+                    <button type="button" class="btn btn-success btn-lg" onclick="window.print()">
+                        <i class="fas fa-print"></i> Imprimir Carnet
+                    </button>
+                    <button type="button" class="btn btn-warning btn-lg" id="btnRegenerate" onclick="generateCard('@Model.StudentId')">
+                        <i class="fas fa-sync-alt"></i> Regenerar Carnet
+                    </button>
+                    <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
 </div>
+
+@* qrcode.js — genera el QR localmente en el navegador, sin exponer el token a terceros *@
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" crossorigin="anonymous"></script>
+
+<script>
+    @if (hasCard)
+    {
+        <text>
+        document.addEventListener('DOMContentLoaded', function () {
+            var token = '@Html.Raw(Model!.QrToken)';
+            if (token && typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(document.getElementById('qrCanvas'), token, {
+                    width: 44,
+                    margin: 0,
+                    color: { dark: '#000000', light: '#ffffff' }
+                }, function (err) {
+                    if (err) console.warn('[Carnet] Error generando QR:', err);
+                });
+            }
+        });
+        </text>
+    }
+
+    function generateCard(id) {
+        var btn = document.getElementById('btnGenerate') || document.getElementById('btnRegenerate');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+        }
+
+        var antiforgeryInput = document.querySelector('input[name="__RequestVerificationToken"]');
+        fetch('/StudentIdCard/api/generate/' + id, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': antiforgeryInput ? antiforgeryInput.value : ''
+            }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data && data.cardNumber) {
+                window.location.href = '/StudentIdCard/ui/generate/' + id;
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo generar el carnet.'));
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-id-card"></i> Generar Carnet';
+                }
+            }
+        })
+        .catch(function () {
+            alert('Error de red al generar el carnet.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-id-card"></i> Generar Carnet';
+            }
+        });
+    }
+</script>

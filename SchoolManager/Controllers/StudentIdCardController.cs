@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Dtos;
 using SchoolManager.Models;
@@ -19,7 +20,7 @@ public class StudentIdCardController : Controller
     private readonly ILogger<StudentIdCardController> _logger;
 
     public StudentIdCardController(
-        IStudentIdCardService service, 
+        IStudentIdCardService service,
         IStudentIdCardPdfService pdfService,
         SchoolDbContext context,
         ICurrentUserService currentUserService,
@@ -35,38 +36,22 @@ public class StudentIdCardController : Controller
     [HttpGet("ui")]
     public IActionResult Index() => View();
 
+    /// <summary>
+    /// BUG-2 fix: el GET solo lee y muestra el carnet actual — NO genera ni modifica estado.
+    /// La generación ocurre exclusivamente vía POST a /api/generate/{studentId}.
+    /// </summary>
     [HttpGet("ui/generate/{studentId}")]
     public async Task<IActionResult> GenerateView(Guid studentId)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
-        {
-            return Unauthorized("Usuario no autenticado");
-        }
+        var school = await _currentUserService.GetCurrentUserSchoolAsync();
+        ViewBag.SchoolName = school?.Name ?? "SchoolManager";
+        ViewBag.SchoolLogoUrl = school?.LogoUrl;
+        ViewBag.StudentId = studentId;
+        ViewBag.BackgroundImageUrl = "/uploads/idcards/backgrounds/default.png";
 
-        try
-        {
-            var dto = await _service.GenerateAsync(studentId, userId);
-            var school = await _currentUserService.GetCurrentUserSchoolAsync();
-            if (school != null)
-            {
-                ViewBag.SchoolName = school.Name;
-                ViewBag.SchoolLogoUrl = school.LogoUrl;
-            }
-            else
-            {
-                ViewBag.SchoolName = "SchoolManager";
-                ViewBag.SchoolLogoUrl = (string?)null;
-            }
-            ViewBag.BackgroundImageUrl = "/uploads/idcards/backgrounds/default.png";
-            return View("Generate", dto);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[StudentIdCard] GenerateView error StudentId={StudentId} UserId={UserId}: {Message}", studentId, userId, ex.Message);
-            TempData["Error"] = ex.Message;
-            return RedirectToAction("Index");
-        }
+        // GetCurrentCardAsync nunca revoca ni crea; es idempotente y seguro en GET
+        var dto = await _service.GetCurrentCardAsync(studentId);
+        return View("Generate", dto); // dto puede ser null → vista muestra estado "sin carnet"
     }
 
     [HttpGet("ui/scan")]
@@ -77,9 +62,7 @@ public class StudentIdCardController : Controller
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
-        {
             return Unauthorized("Usuario no autenticado");
-        }
 
         try
         {
@@ -88,7 +71,9 @@ public class StudentIdCardController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[StudentIdCard] Print/PDF error StudentId={StudentId} UserId={UserId}: {Message}", studentId, userId, ex.Message);
+            _logger.LogError(ex,
+                "[StudentIdCard] Print/PDF error StudentId={StudentId} UserId={UserId}: {Message}",
+                studentId, userId, ex.Message);
             TempData["Error"] = ex.Message;
             return RedirectToAction("Index");
         }
@@ -99,9 +84,7 @@ public class StudentIdCardController : Controller
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
-        {
             return Unauthorized("Usuario no autenticado");
-        }
 
         try
         {
@@ -114,14 +97,26 @@ public class StudentIdCardController : Controller
         }
     }
 
+    /// <summary>
+    /// Endpoint de escaneo QR. AllowAnonymous para compatibilidad con la APK móvil.
+    /// CRÍTICO-1 fix: el rol se extrae del JWT autenticado (Cookie o Bearer token de la APK),
+    /// NUNCA del cuerpo del request. Así un atacante no puede falsificar su rol.
+    /// SEG-2: rate limiting aplicado vía política "ScanApiPolicy" (configurada en Program.cs).
+    /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting("ScanApiPolicy")]
     [HttpPost("api/scan")]
     public async Task<IActionResult> ScanApi([FromBody] ScanRequestDto dto)
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.Token))
-        {
             return BadRequest(new { message = "Token es requerido" });
-        }
+
+        // CRÍTICO-1 fix: poblar AuthenticatedRole desde el JWT del usuario autenticado.
+        // Funciona con Cookie auth (portal web) y Bearer token (ApiBearerTokenMiddleware para APK).
+        // Si la petición es anónima, AuthenticatedRole queda null → canSeeSensitiveData = false.
+        dto.AuthenticatedRole = User.Identity?.IsAuthenticated == true
+            ? User.FindFirst(ClaimTypes.Role)?.Value
+            : null;
 
         try
         {
@@ -134,14 +129,20 @@ public class StudentIdCardController : Controller
         }
     }
 
+    /// <summary>
+    /// SCALE-4 fix: proyección SQL eficiente — sin doble evaluación de FirstOrDefault.
+    /// </summary>
     [HttpGet("api/list-json")]
     public async Task<IActionResult> ListJson()
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
 
-        _logger.LogInformation("[StudentIdCard/ListJson] Usuario={UserId} Nombre={Name} SchoolId={SchoolId}",
-            currentUser?.Id, currentUser != null ? $"{currentUser.Name} {currentUser.LastName}" : "null", schoolId);
+        _logger.LogInformation(
+            "[StudentIdCard/ListJson] Usuario={UserId} Nombre={Name} SchoolId={SchoolId}",
+            currentUser?.Id,
+            currentUser != null ? $"{currentUser.Name} {currentUser.LastName}" : "null",
+            schoolId);
 
         var query = _context.Users
             .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"));
@@ -149,25 +150,27 @@ public class StudentIdCardController : Controller
         if (schoolId.HasValue)
             query = query.Where(u => u.SchoolId == schoolId.Value);
 
+        // SCALE-4 fix: usar Select anidado para que EF traduzca a subqueries SQL eficientes
         var students = await query
-            .Include(u => u.StudentAssignments.Where(sa => sa.IsActive))
-                .ThenInclude(sa => sa.Grade)
-            .Include(u => u.StudentAssignments.Where(sa => sa.IsActive))
-                .ThenInclude(sa => sa.Group)
             .Select(u => new
             {
                 id = u.Id,
                 fullName = $"{u.Name} {u.LastName}",
-                grade = u.StudentAssignments.FirstOrDefault(sa => sa.IsActive) != null
-                    ? u.StudentAssignments.FirstOrDefault(sa => sa.IsActive)!.Grade.Name
-                    : "Sin asignar",
-                group = u.StudentAssignments.FirstOrDefault(sa => sa.IsActive) != null
-                    ? u.StudentAssignments.FirstOrDefault(sa => sa.IsActive)!.Group.Name
-                    : "Sin asignar"
+                grade = u.StudentAssignments
+                    .Where(sa => sa.IsActive)
+                    .Select(sa => sa.Grade.Name)
+                    .FirstOrDefault() ?? "Sin asignar",
+                group = u.StudentAssignments
+                    .Where(sa => sa.IsActive)
+                    .Select(sa => sa.Group.Name)
+                    .FirstOrDefault() ?? "Sin asignar"
             })
             .ToListAsync();
 
-        _logger.LogInformation("[StudentIdCard/ListJson] Retornando {Count} estudiantes para SchoolId={SchoolId}", students.Count, schoolId);
+        _logger.LogInformation(
+            "[StudentIdCard/ListJson] Retornando {Count} estudiantes para SchoolId={SchoolId}",
+            students.Count, schoolId);
+
         return Json(new { data = students });
     }
 }

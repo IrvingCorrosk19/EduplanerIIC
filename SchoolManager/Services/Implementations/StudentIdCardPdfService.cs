@@ -1,3 +1,5 @@
+using System.Data;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -17,6 +19,20 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     private readonly HttpClient _http;
     private readonly ILogger<StudentIdCardPdfService> _logger;
     private readonly IQrSignatureService _qrSignatureService;
+    private readonly IWebHostEnvironment _environment;
+
+    // Dimensiones estándar de carnet CR-80 (ISO/IEC 7810)
+    private const float CardWidthMm = 85.6f;
+    private const float CardHeightMm = 54f;
+
+    /// <summary>Máximo de caracteres de alergias en el reverso del carnet impreso (BUG-3 fix).</summary>
+    private const int MaxAllergiesCharsOnCard = 100;
+
+    /// <summary>Máximo de bytes para una imagen de logo descargada externamente (SEG-4 fix).</summary>
+    private const int MaxImageDownloadBytes = 5 * 1024 * 1024; // 5 MB
+
+    /// <summary>Timeout para descarga de imágenes externas (SEG-4 fix).</summary>
+    private static readonly TimeSpan ImageDownloadTimeout = TimeSpan.FromSeconds(10);
 
     public StudentIdCardPdfService(
         SchoolDbContext context,
@@ -24,7 +40,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         IFileStorageService fileStorage,
         IHttpClientFactory httpClientFactory,
         ILogger<StudentIdCardPdfService> logger,
-        IQrSignatureService qrSignatureService)
+        IQrSignatureService qrSignatureService,
+        IWebHostEnvironment environment)
     {
         _context = context;
         _currentUserService = currentUserService;
@@ -32,122 +49,123 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         _http = httpClientFactory.CreateClient();
         _logger = logger;
         _qrSignatureService = qrSignatureService;
-    }
-
-    /// <summary>Genera un número de carnet único (evita duplicados con carnets revocados).</summary>
-    private static string GenerateUniqueCardNumber(Guid studentId)
-    {
-        return $"SM-{DateTime.UtcNow:yyyyMMdd}-{studentId.ToString("N")[..8].ToUpper()}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+        _environment = environment;
     }
 
     public async Task<byte[]> GenerateCardPdfAsync(Guid studentId, Guid createdBy)
     {
         try
         {
-        _logger.LogInformation("[StudentIdCardPdf] GenerateCardPdfAsync inicio StudentId={StudentId} CreatedBy={CreatedBy}", studentId, createdBy);
+            _logger.LogInformation(
+                "[StudentIdCardPdf] GenerateCardPdfAsync inicio StudentId={StudentId} CreatedBy={CreatedBy}",
+                studentId, createdBy);
 
-        // 1) Datos escuela (multi-escuela correcto)
-        var school = await _currentUserService.GetCurrentUserSchoolAsync();
-        if (school == null)
-        {
-            _logger.LogWarning("[StudentIdCardPdf] No se pudo determinar la escuela del usuario actual");
-            throw new Exception("No se pudo determinar la escuela del usuario actual.");
-        }
-
-        // 2) Settings de carnet
-        var settings = await _context.Set<SchoolIdCardSetting>()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.SchoolId == school.Id);
-
-        settings ??= new SchoolIdCardSetting
-        {
-            SchoolId = school.Id,
-            TemplateKey = "default_v1",
-            PageWidthMm = 54,
-            PageHeightMm = 86,
-            BackgroundColor = "#FFFFFF",
-            PrimaryColor = "#0D6EFD",
-            TextColor = "#111111",
-            ShowQr = true,
-            ShowPhoto = true
-        };
-
-        // 3) Campos configurables
-        var fields = await _context.Set<IdCardTemplateField>()
-            .AsNoTracking()
-            .Where(x => x.SchoolId == school.Id && x.IsEnabled)
-            .ToListAsync();
-
-        // 4) Asegurar carnet + token
-        var dto = await BuildStudentCardDtoAsync(studentId, createdBy, school.Name);
-
-        // 5) Logo y foto del estudiante (solo URL en BD; archivo vía almacenamiento)
-        byte[]? logoBytes = null;
-        if (!string.IsNullOrWhiteSpace(school.LogoUrl))
-            logoBytes = await SafeDownloadBytesAsync(school.LogoUrl);
-
-        byte[]? photoBytes = null;
-        if (settings.ShowPhoto && !string.IsNullOrWhiteSpace(dto.PhotoUrl))
-            photoBytes = await _fileStorage.GetUserPhotoBytesAsync(dto.PhotoUrl);
-
-        // 6) Generar PDF - Diseño referencia: CarnetQR Platform (horizontal 85.6x54 mm, header, cuerpo foto+info, reverso con QR)
-        QuestPDF.Settings.License = LicenseType.Community;
-
-        var pdf = Document.Create(container =>
-        {
-            if (fields.Any())
+            // 1) Datos escuela (multi-escuela correcto)
+            var school = await _currentUserService.GetCurrentUserSchoolAsync();
+            if (school == null)
             {
-                // Con campos personalizados: usar tamaño de settings y layout por posiciones
-                container.Page(page =>
-                {
-                    page.Size(settings.PageWidthMm, settings.PageHeightMm, Unit.Millimetre);
-                    page.Margin(0);
-                    page.Content().Layers(layers =>
-                    {
-                        layers.Layer().Background(ParseColor(settings.BackgroundColor));
-                        layers.Layer().Unconstrained()
-                            .TranslateX(0, Unit.Millimetre).TranslateY(0, Unit.Millimetre)
-                            .Width(settings.PageWidthMm, Unit.Millimetre).Height(12, Unit.Millimetre)
-                            .Background(ParseColor(settings.PrimaryColor));
-                        foreach (var f in fields)
-                            layers.Layer().Element(e => RenderField(e, f, dto, school.Name, logoBytes, photoBytes, settings));
-                    });
-                });
+                _logger.LogWarning("[StudentIdCardPdf] No se pudo determinar la escuela del usuario actual");
+                throw new Exception("No se pudo determinar la escuela del usuario actual.");
             }
-            else
-            {
-                // Layout estilo CarnetQR: frente (header + cuerpo + footer) y reverso con QR
-                container.Page(page =>
-                {
-                    page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
-                    page.Margin(0);
-                    page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings));
-                });
 
-                if (settings.ShowQr)
+            // 2) Settings de carnet
+            var settings = await _context.Set<SchoolIdCardSetting>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.SchoolId == school.Id);
+
+            settings ??= new SchoolIdCardSetting
+            {
+                SchoolId = school.Id,
+                TemplateKey = "default_v1",
+                PageWidthMm = 54,
+                PageHeightMm = 86,
+                BackgroundColor = "#FFFFFF",
+                PrimaryColor = "#0D6EFD",
+                TextColor = "#111111",
+                ShowQr = true,
+                ShowPhoto = true
+            };
+
+            // 3) Campos configurables
+            var fields = await _context.Set<IdCardTemplateField>()
+                .AsNoTracking()
+                .Where(x => x.SchoolId == school.Id && x.IsEnabled)
+                .ToListAsync();
+
+            // 4) Asegurar carnet + token (con transacción — CONC-2 fix)
+            var dto = await BuildStudentCardDtoAsync(studentId, createdBy, school.Name);
+
+            // 5) Logo y foto del estudiante
+            byte[]? logoBytes = null;
+            if (!string.IsNullOrWhiteSpace(school.LogoUrl))
+                logoBytes = await SafeDownloadBytesAsync(school.LogoUrl);
+
+            byte[]? photoBytes = null;
+            if (settings.ShowPhoto && !string.IsNullOrWhiteSpace(dto.PhotoUrl))
+                photoBytes = await _fileStorage.GetUserPhotoBytesAsync(dto.PhotoUrl);
+
+            // 6) Generar PDF
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            var pdf = Document.Create(container =>
+            {
+                if (fields.Any())
                 {
+                    // Con campos personalizados: layout por posiciones
+                    container.Page(page =>
+                    {
+                        page.Size(settings.PageWidthMm, settings.PageHeightMm, Unit.Millimetre);
+                        page.Margin(0);
+                        page.Content().Layers(layers =>
+                        {
+                            layers.Layer().Background(ParseColor(settings.BackgroundColor));
+                            layers.Layer().Unconstrained()
+                                .TranslateX(0, Unit.Millimetre).TranslateY(0, Unit.Millimetre)
+                                .Width(settings.PageWidthMm, Unit.Millimetre).Height(12, Unit.Millimetre)
+                                .Background(ParseColor(settings.PrimaryColor));
+                            foreach (var f in fields)
+                                layers.Layer().Element(e => RenderField(e, f, dto, school.Name, logoBytes, photoBytes, settings));
+                        });
+                    });
+                }
+                else
+                {
+                    // Layout estilo CarnetQR: frente + reverso con QR
                     container.Page(page =>
                     {
                         page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
                         page.Margin(0);
-                        page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, dto, settings));
+                        page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings));
                     });
-                }
-            }
-        }).GeneratePdf();
 
-        _logger.LogInformation("[StudentIdCardPdf] GenerateCardPdfAsync OK StudentId={StudentId} SchoolId={SchoolId}", studentId, school.Id);
-        return pdf;
+                    if (settings.ShowQr)
+                    {
+                        container.Page(page =>
+                        {
+                            page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
+                            page.Margin(0);
+                            page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, dto, settings));
+                        });
+                    }
+                }
+            }).GeneratePdf();
+
+            _logger.LogInformation(
+                "[StudentIdCardPdf] GenerateCardPdfAsync OK StudentId={StudentId} SchoolId={SchoolId}",
+                studentId, school.Id);
+            return pdf;
         }
         catch (Exception ex)
-    {
-        _logger.LogError(ex, "[StudentIdCardPdf] GenerateCardPdfAsync error StudentId={StudentId}: {Message}", studentId, ex.Message);
-        throw;
-    }
+        {
+            _logger.LogError(ex,
+                "[StudentIdCardPdf] GenerateCardPdfAsync error StudentId={StudentId}: {Message}",
+                studentId, ex.Message);
+            throw;
+        }
     }
 
-    private IContainer RenderField(IContainer container, IdCardTemplateField f, StudentCardRenderDto dto, string schoolName,
-        byte[]? logoBytes, byte[]? photoBytes, SchoolIdCardSetting settings)
+    private IContainer RenderField(IContainer container, IdCardTemplateField f, StudentCardRenderDto dto,
+        string schoolName, byte[]? logoBytes, byte[]? photoBytes, SchoolIdCardSetting settings)
     {
         var positioned = container.Unconstrained()
             .TranslateX((float)f.XMm, Unit.Millimetre)
@@ -159,8 +177,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         {
             case "SchoolName":
                 positioned.AlignLeft().AlignMiddle().Text(schoolName)
-                    .FontSize((float)f.FontSize)
-                    .FontColor(Colors.White); // si va sobre barra
+                    .FontSize((float)f.FontSize).FontColor(Colors.White);
                 break;
 
             case "SchoolLogo":
@@ -203,11 +220,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     positioned.Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
                 break;
         }
-        
+
         return positioned;
     }
 
-    /// <summary>Frente del carnet - diseño CarnetQR: header (logo + escuela), cuerpo (foto izq + datos), footer.</summary>
+    /// <summary>Frente del carnet — diseño CarnetQR: header, cuerpo foto+datos, footer.</summary>
     private IContainer RenderCarnetQrFront(IContainer container, string schoolName, byte[]? logoBytes,
         byte[]? photoBytes, StudentCardRenderDto dto, SchoolIdCardSetting settings)
     {
@@ -221,7 +238,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         {
             layers.Layer().Background(ParseColor(settings.BackgroundColor));
 
-            // Header con color primario (logo + nombre institución)
+            // Header con color primario
             layers.Layer().Background(ParseColor(settings.PrimaryColor)).Padding(paddingMm).Height(headerHeightMm).Row(r =>
             {
                 if (logoBytes != null)
@@ -233,7 +250,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .FontSize(8).FontColor(Colors.White).Bold();
             });
 
-            // Cuerpo: foto a la izquierda, datos a la derecha (como CarnetQR)
+            // Cuerpo: foto izquierda, datos derecha
             layers.Layer().Padding(paddingMm).PaddingTop(headerHeightMm + 2).Row(r =>
             {
                 if (settings.ShowPhoto)
@@ -273,69 +290,113 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         return container;
     }
 
-    private const float CardWidthMm = 85.6f;
-    private const float CardHeightMm = 54f;
-
-    /// <summary>Reverso del carnet - QR centrado e instrucciones (estilo CarnetQR). Opcional: teléfono colegio, contacto emergencia, alergias.</summary>
-    private IContainer RenderCarnetQrBack(IContainer container, string schoolName, string? schoolPhone, StudentCardRenderDto dto, SchoolIdCardSetting settings)
+    /// <summary>Reverso del carnet — QR centrado e información de emergencia (opcional).</summary>
+    private IContainer RenderCarnetQrBack(IContainer container, string schoolName, string? schoolPhone,
+        StudentCardRenderDto dto, SchoolIdCardSetting settings)
     {
         const float qrBackSizeMm = 28f;
 
         container.Background(ParseColor(settings.BackgroundColor)).Padding(6).Column(col =>
         {
-            col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre).AlignCenter().Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
+            col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre)
+                .AlignCenter().Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
             col.Item().PaddingTop(3).AlignCenter().Text(schoolName).FontSize(8).Bold().FontColor(ParseColor(settings.TextColor));
-            col.Item().AlignCenter().Text("Escanea el código QR para verificar la información del carnet").FontSize(6).FontColor(ParseColor(settings.TextColor));
+            col.Item().AlignCenter().Text("Escanea el código QR para verificar la información del carnet")
+                .FontSize(6).FontColor(ParseColor(settings.TextColor));
             col.Item().AlignCenter().Text($"Carnet: {dto.CardNumber}").FontSize(6).FontColor(ParseColor(settings.TextColor));
 
             if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone))
             {
-                col.Item().PaddingTop(2).AlignCenter().Text($"Tel. colegio: {schoolPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                col.Item().PaddingTop(2).AlignCenter()
+                    .Text($"Tel. colegio: {schoolPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
             }
-            if (settings.ShowEmergencyContact && (!string.IsNullOrWhiteSpace(dto.EmergencyContactName) || !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone)))
+
+            if (settings.ShowEmergencyContact &&
+                (!string.IsNullOrWhiteSpace(dto.EmergencyContactName) || !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone)))
             {
-                col.Item().PaddingTop(2).AlignCenter().Text($"Contacto emergencia: {dto.EmergencyContactName ?? "—"}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                col.Item().PaddingTop(2).AlignCenter()
+                    .Text($"Contacto emergencia: {dto.EmergencyContactName ?? "—"}").FontSize(5).FontColor(ParseColor(settings.TextColor));
                 if (!string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
-                    col.Item().AlignCenter().Text($"Tel: {dto.EmergencyContactPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                    col.Item().AlignCenter()
+                        .Text($"Tel: {dto.EmergencyContactPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
             }
+
+            // BUG-3 fix: truncar alergias para evitar desbordamiento del layout del carnet
             if (settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
             {
-                col.Item().PaddingTop(2).AlignCenter().Text($"Alergias: {dto.Allergies}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                var allergiesText = dto.Allergies.Length > MaxAllergiesCharsOnCard
+                    ? dto.Allergies[..( MaxAllergiesCharsOnCard - 3)] + "..."
+                    : dto.Allergies;
+                col.Item().PaddingTop(2).AlignCenter()
+                    .Text($"Alergias: {allergiesText}").FontSize(5).FontColor(ParseColor(settings.TextColor));
             }
         });
         return container;
     }
 
-    private string ParseColor(string colorHex)
+    // BUG-6 fix: manejo de null y colores inválidos
+    private static string ParseColor(string? colorHex)
     {
-        // QuestPDF acepta hex directamente, pero asegurémonos del formato
-        if (colorHex.StartsWith("#"))
-            return colorHex;
+        if (string.IsNullOrWhiteSpace(colorHex)) return "#000000";
+        if (colorHex.StartsWith("#")) return colorHex;
         return "#" + colorHex;
     }
 
+    /// <summary>
+    /// Descarga segura de imagen con timeout y límite de tamaño (SEG-4 fix).
+    /// BUG-4 fix: soporta rutas locales /uploads/... usando WebRootPath.
+    /// </summary>
     private async Task<byte[]?> SafeDownloadBytesAsync(string url)
     {
         try
         {
             if (url.StartsWith("http://") || url.StartsWith("https://"))
             {
-                return await _http.GetByteArrayAsync(url);
+                // SEG-4 fix: timeout para evitar hang y límite de tamaño
+                using var cts = new CancellationTokenSource(ImageDownloadTimeout);
+                var bytes = await _http.GetByteArrayAsync(url, cts.Token);
+                if (bytes.Length > MaxImageDownloadBytes)
+                {
+                    _logger.LogWarning("[StudentIdCardPdf] Imagen en {Url} supera el límite de {Max} bytes, se ignora.", url, MaxImageDownloadBytes);
+                    return null;
+                }
+                return bytes;
             }
-            else if (url.StartsWith("/"))
+
+            if (url.StartsWith("/"))
             {
-                // Ruta local - necesitarías leer del filesystem
-                // Por ahora retornamos null para rutas locales
+                // BUG-4 fix: leer desde el sistema de archivos usando WebRootPath
+                var fullPath = Path.Combine(
+                    _environment.WebRootPath,
+                    url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+
+                if (File.Exists(fullPath))
+                    return await File.ReadAllBytesAsync(fullPath);
+
+                _logger.LogWarning("[StudentIdCardPdf] Archivo local no encontrado: {Path}", fullPath);
                 return null;
             }
+
             return null;
         }
-        catch
+        catch (OperationCanceledException)
         {
+            _logger.LogWarning("[StudentIdCardPdf] Timeout descargando imagen: {Url}", url);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[StudentIdCardPdf] Error descargando imagen: {Url}", url);
             return null;
         }
     }
 
+    /// <summary>
+    /// Construye el DTO de renderizado asegurando que existan carnet y token activos.
+    /// CONC-2 fix: transacción serializable para evitar creación simultánea de duplicados.
+    /// LÓGICA-3 fix: token usa la misma constante QrTokenValidityMonths que GenerateAsync.
+    /// LÓGICA-5 fix: usa CardNumberHelper centralizado.
+    /// </summary>
     private async Task<StudentCardRenderDto> BuildStudentCardDtoAsync(Guid studentId, Guid createdBy, string schoolName)
     {
         _logger.LogInformation("[StudentIdCardPdf] BuildStudentCardDtoAsync StudentId={StudentId}", studentId);
@@ -352,73 +413,91 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
         if (student == null)
         {
-            _logger.LogWarning("[StudentIdCardPdf] BuildStudentCardDtoAsync estudiante no encontrado StudentId={StudentId}", studentId);
+            _logger.LogWarning("[StudentIdCardPdf] Estudiante no encontrado StudentId={StudentId}", studentId);
             throw new Exception("Estudiante no encontrado.");
         }
 
         var assignment = student.StudentAssignments.FirstOrDefault(a => a.IsActive);
         if (assignment == null)
         {
-            _logger.LogWarning("[StudentIdCardPdf] BuildStudentCardDtoAsync estudiante sin asignación activa StudentId={StudentId}", studentId);
+            _logger.LogWarning("[StudentIdCardPdf] Estudiante sin asignación activa StudentId={StudentId}", studentId);
             throw new Exception("El estudiante no tiene asignación activa.");
         }
 
-        var card = await _context.StudentIdCards
-            .FirstOrDefaultAsync(c => c.StudentId == studentId && c.Status == "active");
-
-        if (card == null)
+        // CONC-2 fix: transacción serializable — previene creación simultánea de carnets duplicados
+        using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        try
         {
-            var newCardNumber = GenerateUniqueCardNumber(studentId);
-            _logger.LogInformation("[StudentIdCardPdf] Creando carnet nuevo CardNumber={CardNumber} StudentId={StudentId}", newCardNumber, studentId);
-            card = new StudentIdCard
+            var card = await _context.StudentIdCards
+                .FirstOrDefaultAsync(c => c.StudentId == studentId && c.Status == "active");
+
+            if (card == null)
+            {
+                var newCardNumber = CardNumberHelper.Generate(studentId);
+                _logger.LogInformation(
+                    "[StudentIdCardPdf] Creando carnet nuevo CardNumber={CardNumber} StudentId={StudentId}",
+                    newCardNumber, studentId);
+                card = new StudentIdCard
+                {
+                    StudentId = studentId,
+                    CardNumber = newCardNumber,
+                    IssuedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddYears(1),
+                    Status = "active"
+                };
+                _context.StudentIdCards.Add(card);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "[StudentIdCardPdf] Usando carnet existente CardNumber={CardNumber} StudentId={StudentId}",
+                    card.CardNumber, studentId);
+            }
+
+            // Buscar token activo; si no existe, crear uno nuevo
+            // LÓGICA-3 fix: usar la misma constante de validez que GenerateAsync (6 meses)
+            // LÓGICA-6 fix: formato GUID sin guiones ("N") — consistente con GenerateAsync
+            var token = await _context.StudentQrTokens
+                .FirstOrDefaultAsync(t => t.StudentId == studentId && !t.IsRevoked &&
+                    (t.ExpiresAt == null || t.ExpiresAt > DateTime.UtcNow));
+
+            if (token == null)
+            {
+                token = new StudentQrToken
+                {
+                    StudentId = studentId,
+                    Token = Guid.NewGuid().ToString("N"),
+                    ExpiresAt = DateTime.UtcNow.AddMonths(StudentIdCardService.QrTokenValidityMonths),
+                    IsRevoked = false
+                };
+                _context.StudentQrTokens.Add(token);
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return new StudentCardRenderDto
             {
                 StudentId = studentId,
-                CardNumber = newCardNumber,
-                IssuedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.AddYears(1),
-                Status = "active"
+                FullName = $"{student.Name} {student.LastName}",
+                DocumentId = student.DocumentId,
+                Grade = assignment.Grade?.Name ?? "",
+                Group = assignment.Group?.Name ?? "",
+                Shift = assignment.Shift?.Name ?? "",
+                CardNumber = card.CardNumber,
+                QrToken = token.Token,
+                PhotoUrl = student.PhotoUrl,
+                Allergies = student.Allergies,
+                EmergencyContactName = student.EmergencyContactName,
+                EmergencyContactPhone = student.EmergencyContactPhone,
+                EmergencyRelationship = student.EmergencyRelationship
             };
-            _context.StudentIdCards.Add(card);
         }
-        else
+        catch
         {
-            _logger.LogInformation("[StudentIdCardPdf] Usando carnet existente CardNumber={CardNumber} StudentId={StudentId}", card.CardNumber, studentId);
+            await transaction.RollbackAsync();
+            throw;
         }
-
-        var token = await _context.StudentQrTokens
-            .FirstOrDefaultAsync(t => t.StudentId == studentId && !t.IsRevoked &&
-                (t.ExpiresAt == null || t.ExpiresAt > DateTime.UtcNow));
-
-        if (token == null)
-        {
-            token = new StudentQrToken
-            {
-                StudentId = studentId,
-                Token = Guid.NewGuid().ToString("N"),
-                ExpiresAt = DateTime.UtcNow.AddMonths(6),
-                IsRevoked = false
-            };
-            _context.StudentQrTokens.Add(token);
-        }
-
-        await _context.SaveChangesAsync();
-
-        return new StudentCardRenderDto
-        {
-            StudentId = studentId,
-            FullName = $"{student.Name} {student.LastName}",
-            DocumentId = student.DocumentId,        // si existe
-            Grade = assignment.Grade?.Name ?? "",
-            Group = assignment.Group?.Name ?? "",
-            Shift = assignment.Shift?.Name ?? "",
-            CardNumber = card.CardNumber,
-            QrToken = token.Token,
-            PhotoUrl = student.PhotoUrl,
-            Allergies = student.Allergies,
-            EmergencyContactName = student.EmergencyContactName,
-            EmergencyContactPhone = student.EmergencyContactPhone,
-            EmergencyRelationship = student.EmergencyRelationship
-        };
     }
 
     private class StudentCardRenderDto

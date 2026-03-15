@@ -26,9 +26,30 @@ public class QrSignatureService : IQrSignatureService
     private readonly byte[] _secretKeyBytes;
     private const char Separator = '|';
 
+    /// <summary>
+    /// Antigüedad máxima permitida de un token firmado (días).
+    /// Los tokens del carnet PDF duran 6 meses; 400 días da margen a carnets anuales.
+    /// Defensa en profundidad: si la clave se compromete, los tokens muy viejos dejan de funcionar.
+    /// </summary>
+    private const int MaxSignedTokenAgeDays = 400;
+
     public QrSignatureService(IOptions<QrSecurityOptions> options)
     {
-        var key = options?.Value?.SecretKey ?? QrSecurityOptions.SectionName;
+        var key = options?.Value?.SecretKey;
+
+        // CRÍTICO-4: Rechazar clave vacía, por defecto o demasiado corta
+        if (string.IsNullOrWhiteSpace(key))
+            throw new InvalidOperationException(
+                "QrSecurity:SecretKey no está configurado. Agrega un secreto seguro en appsettings.json.");
+
+        if (key == "CHANGE_THIS_TO_RANDOM_SECRET")
+            throw new InvalidOperationException(
+                "QrSecurity:SecretKey está usando el valor por defecto. Configura un secreto único y seguro en appsettings.json (mínimo 20 caracteres).");
+
+        if (key.Length < 20)
+            throw new InvalidOperationException(
+                $"QrSecurity:SecretKey es demasiado corta ({key.Length} chars). Usa al menos 20 caracteres aleatorios.");
+
         _secretKeyBytes = Encoding.UTF8.GetBytes(key);
     }
 
@@ -46,14 +67,28 @@ public class QrSignatureService : IQrSignatureService
     {
         if (string.IsNullOrEmpty(signedToken) || !signedToken.Contains(Separator))
             return false;
+
         var parts = signedToken.Split(Separator, 3, StringSplitOptions.None);
         if (parts.Length != 3)
             return false;
+
         var token = parts[0];
         var timestamp = parts[1];
         var receivedSignature = parts[2];
+
+        // CRÍTICO-3: Validar que el timestamp sea un Unix timestamp válido
+        if (!long.TryParse(timestamp, out var unixTs))
+            return false;
+
+        // CRÍTICO-3: Rechazar tokens firmados hace más de MaxSignedTokenAgeDays días
+        // Previene replay attack con tokens muy antiguos filtrados de PDFs expirados
+        var tokenAge = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(unixTs);
+        if (tokenAge < TimeSpan.Zero || tokenAge.TotalDays > MaxSignedTokenAgeDays)
+            return false;
+
         var payload = token + timestamp;
         var expectedSignature = ComputeHmacSha256(payload);
+
         try
         {
             var receivedBytes = Convert.FromHexString(receivedSignature);
