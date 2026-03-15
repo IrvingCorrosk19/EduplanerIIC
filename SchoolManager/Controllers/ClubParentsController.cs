@@ -8,7 +8,7 @@ using SchoolManager.Services.Interfaces;
 namespace SchoolManager.Controllers;
 
 /// <summary>Módulo Club de Padres: listado de estudiantes, estado carnet/plataforma, marcar pagado y activar plataforma.</summary>
-[Authorize(Roles = "ClubParentsAdmin")]
+[Authorize(Roles = "ClubParentsAdmin,clubparentsadmin")]
 [Route("ClubParents")]
 public class ClubParentsController : Controller
 {

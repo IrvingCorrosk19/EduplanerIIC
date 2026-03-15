@@ -69,6 +69,17 @@ if (args.Length > 0 && args[0] == "--create-initial-superadmin")
     return;
 }
 
+// Crear admin local (admin@local.com / Admin123!). Crea escuela si no existe.
+if (args.Length > 0 && args[0] == "--create-local-admin")
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.CreateLocalAdminScript.RunAsync(ctx);
+    return;
+}
+
 // Homologar BD LOCAL con Render. Usa la misma conexión que CompareDbSchemas (localhost/schoolmanagement).
 if (args.Length > 0 && args[0] == "--homologate-local")
 {
