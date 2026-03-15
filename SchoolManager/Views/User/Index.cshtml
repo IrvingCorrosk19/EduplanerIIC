@@ -371,6 +371,15 @@
     .role-secretaria {
         color: #0369a1;
     }
+    .role-clubparentsadmin {
+        color: #059669;
+    }
+    .role-qlservices {
+        color: #0d9488;
+    }
+    .role-inspector {
+        color: #7c2d12;
+    }
 </style>
 
 <div class="container-fluid">
@@ -588,6 +597,9 @@
                         <option value="Contable">Contable</option>
                         <option value="Secretaria">Secretaria</option>
                         <option value="Estudiante">Estudiante</option>
+                        <option value="ClubParentsAdmin">Administrador Club de Padres</option>
+                        <option value="QlServices">QL Services</option>
+                        <option value="Inspector">Inspector</option>
                     </select>
                 </div>
                 <!-- Campo de búsqueda -->
@@ -1060,6 +1072,12 @@
                                         usersTable.column(roleColumnIndex).search('(Estudiante|Student)', true, false).draw();
                                     } else if (selectedRole === 'Secretaria') {
                                         usersTable.column(roleColumnIndex).search('\\s*Secretaria\\s*', true, false).draw();
+                                    } else if (selectedRole === 'ClubParentsAdmin') {
+                                        usersTable.column(roleColumnIndex).search('(Administrador Club de Padres|ClubParentsAdmin)', true, false).draw();
+                                    } else if (selectedRole === 'QlServices') {
+                                        usersTable.column(roleColumnIndex).search('(QL Services|QlServices)', true, false).draw();
+                                    } else if (selectedRole === 'Inspector') {
+                                        usersTable.column(roleColumnIndex).search('\\s*Inspector\\s*', true, false).draw();
                                     } else {
                                         usersTable.column(roleColumnIndex).search('\\s*' + selectedRole.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', true, false).draw();
                                     }
@@ -1118,6 +1136,12 @@
                                 matchesRole = roleCell.indexOf('Estudiante') !== -1 || roleCell.indexOf('Student') !== -1;
                             } else if (selectedRole === 'Secretaria') {
                                 matchesRole = roleCell.indexOf('Secretaria') !== -1;
+                            } else if (selectedRole === 'ClubParentsAdmin') {
+                                matchesRole = roleCell.indexOf('Administrador Club de Padres') !== -1 || roleCell.indexOf('ClubParentsAdmin') !== -1;
+                            } else if (selectedRole === 'QlServices') {
+                                matchesRole = roleCell.indexOf('QL Services') !== -1 || roleCell.indexOf('QlServices') !== -1;
+                            } else if (selectedRole === 'Inspector') {
+                                matchesRole = roleCell.indexOf('Inspector') !== -1;
                             } else {
                                 matchesRole = roleCell.indexOf(selectedRole) !== -1;
                             }
@@ -1171,7 +1195,13 @@
                     $('[name="PasswordHash"]').val('').attr('placeholder', 'Dejar vacío para mantener la contraseña actual');
                     $('#passwordInfo').html('<i class="fas fa-shield-alt text-warning"></i> Las contraseñas están protegidas con hash. Use el botón <i class="fas fa-key"></i> para generar una nueva.').show();
                     
-                    $('[name="Role"]').val(user.role);
+                    // Normalizar rol para coincidir con option value (enum: Inspector, ClubParentsAdmin, etc.)
+                    var roleForSelect = (user.role || '').toLowerCase();
+                    if (roleForSelect === 'clubparentsadmin') roleForSelect = 'ClubParentsAdmin';
+                    else if (roleForSelect === 'qlservices') roleForSelect = 'QlServices';
+                    else if (roleForSelect === 'inspector') roleForSelect = 'Inspector';
+                    else if (roleForSelect.length > 0) roleForSelect = (user.role || '').charAt(0).toUpperCase() + (user.role || '').slice(1).toLowerCase();
+                    $('[name="Role"]').val(roleForSelect);
                     $('[name="Status"]').val(user.status);
                     $('[name="DateOfBirth"]').val(user.dateOfBirth ? user.dateOfBirth.split('T')[0] : '');
                     $('[name="CellphonePrimary"]').val(user.cellphonePrimary || '');
@@ -1805,6 +1835,9 @@
             "parent" => "role-parent",
             "director" => "role-director",
             "superadmin" => "role-admin",
+            "clubparentsadmin" => "role-clubparentsadmin",
+            "qlservices" => "role-qlservices",
+            "inspector" => "role-inspector",
             _ => ""
         };
     }
@@ -1822,6 +1855,9 @@
             "estudiante" => "Estudiante",
             "parent" => "Padre/Madre",
             "director" => "Director",
+            "clubparentsadmin" => "Administrador Club de Padres",
+            "qlservices" => "QL Services",
+            "inspector" => "Inspector",
             _ => role ?? "Sin rol"
         };
     }

@@ -17,6 +17,9 @@
         "parent" => "Padre/Madre",
         "student" => "Estudiante",
         "estudiante" => "Estudiante",
+        "clubparentsadmin" => "Administrador Club de Padres",
+        "qlservices" => "QL Services",
+        "inspector" => "Inspector",
         _ => userRole
     };
 }
@@ -143,6 +146,14 @@
                             <a href="/Dashboard/School" class="nav-link">
                                 <i class="nav-icon fas fa-chart-line"></i>
                                 <p>Dashboard Escolar</p>
+                            </a>
+                        </li>
+                        }
+                        @if (userRole == "clubparentsadmin") {
+                        <li class="nav-item">
+                            <a href="/ClubParents/Students" class="nav-link">
+                                <i class="nav-icon fas fa-hand-holding-usd"></i>
+                                <p>Club de Padres</p>
                             </a>
                         </li>
                         }

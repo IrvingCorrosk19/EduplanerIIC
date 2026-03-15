@@ -125,6 +125,8 @@ builder.Services.AddControllers()
     {
         // Agregar filtro global para conversión de DateTime
         options.Filters.Add<SchoolManager.Attributes.DateTimeConversionAttribute>();
+        // Bloquear acceso al portal académico si el estudiante tiene PlatformAccessStatus = Pendiente
+        options.Filters.Add<SchoolManager.Filters.PlatformAccessGuardFilter>();
     });
 
 // Registrando todos los servicios con inyección de dependencias
@@ -183,6 +185,7 @@ builder.Services.AddScoped<IUserPasswordManagementService, UserPasswordManagemen
 builder.Services.AddScoped<IClubParentsPaymentService, ClubParentsPaymentService>();
 builder.Services.AddScoped<IQlServicesCarnetService, QlServicesCarnetService>();
 builder.Services.AddScoped<IPlatformAccessGuardService, PlatformAccessGuardService>();
+builder.Services.AddScoped<SchoolManager.Filters.PlatformAccessGuardFilter>();
 
 // Identidad visual del usuario (foto): almacenamiento desacoplado + servicio de aplicación
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
@@ -310,7 +313,6 @@ if (args.Length > 0)
         await SchoolManager.Scripts.AddRenderIndexes.RunAsync();
         return;
     }
-    
     // Comandos locales (usando la conexión del appsettings.json)
     using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();

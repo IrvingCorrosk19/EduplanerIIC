@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Models;
 using Microsoft.AspNetCore.Authorization;
 
@@ -68,5 +68,12 @@ public class StudentController : Controller
     {
         await _studentService.DeleteAsync(id);
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Vista informativa cuando el estudiante no tiene acceso a la plataforma (PlatformAccessStatus = Pendiente). Ruta excluida del PlatformAccessGuardFilter.</summary>
+    [HttpGet]
+    public IActionResult AccessPending()
+    {
+        return View();
     }
 }

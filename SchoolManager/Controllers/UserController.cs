@@ -69,7 +69,7 @@ public class UserController : Controller
 
         // Validar que el rol sea uno permitido (coherente con el enum y la BD)
         var roleLower = model.Role?.Trim().ToLower() ?? "";
-        var allowedRoles = new[] { "director", "teacher", "contable", "secretaria", "estudiante", "acudiente", "contabilidad", "parent" };
+        var allowedRoles = new[] { "director", "teacher", "contable", "secretaria", "estudiante", "acudiente", "contabilidad", "parent", "clubparentsadmin", "qlservices", "inspector" };
         if (string.IsNullOrEmpty(roleLower) || !allowedRoles.Contains(roleLower))
         {
             return BadRequest(new { message = "El rol seleccionado no es válido." });
@@ -408,7 +408,7 @@ public class UserController : Controller
             Console.WriteLine("Actualizando campos del usuario...");
 
             var roleLower = model.Role?.Trim().ToLower() ?? "";
-            var allowedRoles = new[] { "director", "teacher", "contable", "secretaria", "estudiante", "acudiente", "contabilidad", "parent", "admin" };
+            var allowedRoles = new[] { "director", "teacher", "contable", "secretaria", "estudiante", "acudiente", "contabilidad", "parent", "admin", "clubparentsadmin", "qlservices", "inspector" };
             if (string.IsNullOrEmpty(roleLower) || !allowedRoles.Contains(roleLower))
             {
                 return BadRequest(new { message = "El rol seleccionado no es válido." });

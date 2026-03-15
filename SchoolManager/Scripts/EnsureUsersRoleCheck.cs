@@ -29,7 +29,10 @@ CHECK (role::text = ANY (ARRAY[
     'acudiente'::text, 
     'contable'::text, 
     'contabilidad'::text,
-    'secretaria'::text
+    'secretaria'::text,
+    'clubparentsadmin'::text,
+    'qlservices'::text,
+    'inspector'::text
 ]));");
         }
         catch (Exception ex)
