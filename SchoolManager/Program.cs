@@ -179,6 +179,10 @@ builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
 builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService>();
 builder.Services.AddScoped<IDirectorWorkPlanService, DirectorWorkPlanService>();
 builder.Services.AddScoped<IUserPasswordManagementService, UserPasswordManagementService>();
+// Módulo Club de Padres (pagos carnet y plataforma)
+builder.Services.AddScoped<IClubParentsPaymentService, ClubParentsPaymentService>();
+builder.Services.AddScoped<IQlServicesCarnetService, QlServicesCarnetService>();
+builder.Services.AddScoped<IPlatformAccessGuardService, PlatformAccessGuardService>();
 
 // Identidad visual del usuario (foto): almacenamiento desacoplado + servicio de aplicación
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
@@ -299,6 +303,11 @@ if (args.Length > 0)
     else if (args[0] == "--list-local-tables")
     {
         await SchoolManager.Scripts.CompareDbSchemas.ListLocalTablesAsync();
+        return;
+    }
+    else if (args[0] == "--add-render-indexes")
+    {
+        await SchoolManager.Scripts.AddRenderIndexes.RunAsync();
         return;
     }
     

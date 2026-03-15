@@ -58,6 +58,7 @@ public class StudentIdCardController : Controller
                 ViewBag.SchoolName = "SchoolManager";
                 ViewBag.SchoolLogoUrl = (string?)null;
             }
+            ViewBag.BackgroundImageUrl = "/uploads/idcards/backgrounds/default.png";
             return View("Generate", dto);
         }
         catch (Exception ex)

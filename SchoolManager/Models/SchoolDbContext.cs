@@ -81,6 +81,8 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<StudentIdCard> StudentIdCards { get; set; }
 
+    public virtual DbSet<StudentPaymentAccess> StudentPaymentAccesses { get; set; }
+
     public virtual DbSet<StudentQrToken> StudentQrTokens { get; set; }
 
     public virtual DbSet<ScanLog> ScanLogs { get; set; }
@@ -2147,6 +2149,87 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.StudentId)
                 .HasConstraintName("student_id_cards_student_id_fkey")
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configuración de StudentPaymentAccess (módulo Club de Padres)
+        modelBuilder.Entity<StudentPaymentAccess>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("student_payment_access_pkey");
+            entity.ToTable("student_payment_access");
+
+            entity.HasIndex(e => e.StudentId, "IX_student_payment_access_student_id");
+            entity.HasIndex(e => e.SchoolId, "IX_student_payment_access_school_id");
+            entity.HasIndex(e => new { e.CarnetStatus, e.SchoolId }, "IX_student_payment_access_carnet_status_school_id");
+            entity.HasIndex(e => new { e.StudentId, e.SchoolId }, "IX_student_payment_access_student_id_school_id").IsUnique();
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+
+            entity.Property(e => e.StudentId)
+                .HasColumnName("student_id");
+
+            entity.Property(e => e.SchoolId)
+                .HasColumnName("school_id");
+
+            entity.Property(e => e.CarnetStatus)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("Pendiente")
+                .HasColumnName("carnet_status");
+
+            entity.Property(e => e.PlatformAccessStatus)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("Pendiente")
+                .HasColumnName("platform_access_status");
+
+            entity.Property(e => e.CarnetStatusUpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("carnet_status_updated_at");
+
+            entity.Property(e => e.PlatformStatusUpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("platform_status_updated_at");
+
+            entity.Property(e => e.CarnetUpdatedByUserId)
+                .HasColumnName("carnet_updated_by_user_id");
+
+            entity.Property(e => e.PlatformUpdatedByUserId)
+                .HasColumnName("platform_updated_by_user_id");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Student)
+                .WithMany()
+                .HasForeignKey(d => d.StudentId)
+                .HasConstraintName("student_payment_access_student_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.School)
+                .WithMany()
+                .HasForeignKey(d => d.SchoolId)
+                .HasConstraintName("student_payment_access_school_id_fkey")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.CarnetUpdatedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.CarnetUpdatedByUserId)
+                .HasConstraintName("student_payment_access_carnet_updated_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.PlatformUpdatedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.PlatformUpdatedByUserId)
+                .HasConstraintName("student_payment_access_platform_updated_by_fkey")
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Configuración de StudentQrToken

@@ -10,6 +10,10 @@ namespace SchoolManager.Enums
         Secretaria,
         // Parent,
         Student,
-        Estudiante
+        Estudiante,
+        /// <summary>Club de Padres: solo registro de pagos (carnet y plataforma).</summary>
+        ClubParentsAdmin,
+        /// <summary>QL Services: marcar carnet Impreso/Entregado.</summary>
+        QlServices
     }
 }

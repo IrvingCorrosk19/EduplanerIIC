@@ -120,6 +120,8 @@ public class StudentIdCardService : IStudentIdCardService
             .Include(x => x.Student)
                 .ThenInclude(x => x.StudentAssignments)
                     .ThenInclude(x => x.Group)
+            .Include(x => x.Student)
+                .ThenInclude(x => x.SchoolNavigation)
             .FirstOrDefaultAsync(x => x.Token == request.Token && !x.IsRevoked && (x.ExpiresAt == null || x.ExpiresAt > DateTime.UtcNow));
 
         if (token == null)
@@ -139,7 +141,8 @@ public class StudentIdCardService : IStudentIdCardService
                 Message = "QR inválido o expirado",
                 StudentName = "N/A",
                 Grade = "N/A",
-                Group = "N/A"
+                Group = "N/A",
+                DisciplineCount = 0
             };
         }
 
@@ -161,7 +164,8 @@ public class StudentIdCardService : IStudentIdCardService
                 Message = "Estudiante sin asignación activa",
                 StudentName = $"{token.Student.Name} {token.Student.LastName}",
                 Grade = "N/A",
-                Group = "N/A"
+                Group = "N/A",
+                DisciplineCount = 0
             };
         }
 
@@ -175,13 +179,23 @@ public class StudentIdCardService : IStudentIdCardService
 
         await _context.SaveChangesAsync();
 
+        var disciplineCount = await _context.DisciplineReports
+            .AsNoTracking()
+            .Where(r => r.StudentId == token.StudentId)
+            .CountAsync();
+
         return new ScanResultDto
         {
             Allowed = true,
             Message = "Acceso permitido",
             StudentName = $"{token.Student.Name} {token.Student.LastName}",
             Grade = assignment.Grade.Name,
-            Group = assignment.Group.Name
+            Group = assignment.Group.Name,
+            StudentId = token.StudentId,
+            DisciplineCount = disciplineCount,
+            StudentPhotoUrl = token.Student.PhotoUrl,
+            SchoolName = token.Student.SchoolNavigation?.Name,
+            StudentCode = token.Student.DocumentId
         };
     }
 }

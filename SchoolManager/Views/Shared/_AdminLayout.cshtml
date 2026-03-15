@@ -138,6 +138,14 @@
                             </a>
                         </li>
                         }
+                        @if (userRole == "admin" || userRole == "superadmin" || userRole == "director") {
+                        <li class="nav-item">
+                            <a href="/Dashboard/School" class="nav-link">
+                                <i class="nav-icon fas fa-chart-line"></i>
+                                <p>Dashboard Escolar</p>
+                            </a>
+                        </li>
+                        }
                         <!-- Mensajería - Disponible para todos -->
                         <li class="nav-item has-treeview">
                             <a href="#" class="nav-link">

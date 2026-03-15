@@ -129,6 +129,13 @@ namespace SchoolManager.Services.Implementations
                     Icon = "fas fa-id-card",
                     Url = "/StudentIdCard/ui",
                     RequiredRoles = new[] { "director", "superadmin" }
+                },
+                new MenuItem 
+                { 
+                    Title = "Club de Padres", 
+                    Icon = "fas fa-hand-holding-usd",
+                    Url = "/ClubParents/Students",
+                    RequiredRoles = new[] { "clubparentsadmin" }
                 }
             };
 
