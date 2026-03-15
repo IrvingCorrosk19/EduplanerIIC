@@ -4,6 +4,8 @@
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
     var currentUser = await CurrentUserService.GetCurrentUserAsync();
     var userSchool = await CurrentUserService.GetCurrentUserSchoolAsync();
+    var schoolToShow = ViewBag.SelectedSchool as SchoolManager.Models.School ?? userSchool;
+    var schoolsDropdown = ViewBag.Schools as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
 }
 
 <div class="container-fluid">
@@ -118,26 +120,18 @@
                             </div>
                             <div class="col-md-6">
                                 <h5><i class="fas fa-school mr-2"></i>Información de la Escuela</h5>
-                                @if (userSchool != null)
+                                @if (schoolToShow != null)
                                 {
                                     <div class="text-center mb-3">
-                                        @if (!string.IsNullOrEmpty(userSchool.LogoUrl))
+                                        @if (!string.IsNullOrEmpty(schoolToShow.LogoUrl))
                                         {
-                                            @if (userSchool.LogoUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                            @if (schoolToShow.LogoUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                                             {
-                                                <!-- URL de Cloudinary - acceso directo -->
-                                                <img src="@userSchool.LogoUrl" 
-                                                     alt="Logo de @userSchool.Name" 
-                                                     class="img-fluid rounded" 
-                                                     style="max-height: 100px;">
+                                                <img src="@schoolToShow.LogoUrl" alt="Logo de @schoolToShow.Name" class="img-fluid rounded" style="max-height: 100px;">
                                             }
                                             else
                                             {
-                                                <!-- URL local antigua -->
-                                                <img src="/File/GetSchoolLogo?logoUrl=@userSchool.LogoUrl" 
-                                                     alt="Logo de @userSchool.Name" 
-                                                     class="img-fluid rounded" 
-                                                     style="max-height: 100px;">
+                                                <img src="/File/GetSchoolLogo?logoUrl=@schoolToShow.LogoUrl" alt="Logo de @schoolToShow.Name" class="img-fluid rounded" style="max-height: 100px;">
                                             }
                                         }
                                         else
@@ -149,18 +143,42 @@
                                         <table class="table table-borderless">
                                             <tr>
                                                 <td><strong>Escuela:</strong></td>
-                                                <td>@userSchool.Name</td>
+                                                <td>@schoolToShow.Name</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Dirección:</strong></td>
-                                                <td>@userSchool.Address</td>
+                                                <td>@schoolToShow.Address</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Teléfono:</strong></td>
-                                                <td>@userSchool.Phone</td>
+                                                <td>@schoolToShow.Phone</td>
                                             </tr>
                                         </table>
                                     </div>
+                                    @if (userSchool == null && ViewBag.SelectedSchool != null)
+                                    {
+                                        <p class="small text-muted mb-0 mt-2">
+                                            <a href="@Url.Action("Index", "Home")">Cambiar escuela</a>
+                                        </p>
+                                    }
+                                }
+                                else if (schoolsDropdown != null && schoolsDropdown.Any())
+                                {
+                                    <p class="text-muted mb-2">Seleccione una escuela para ver su información.</p>
+                                    <form method="get" action="@Url.Action("Index", "Home")" class="d-flex flex-wrap gap-2 align-items-end">
+                                        <div class="flex-grow-1" style="min-width: 200px;">
+                                            <select name="schoolId" class="form-select" required>
+                                                <option value="">-- Seleccione una escuela --</option>
+                                                @foreach (Microsoft.AspNetCore.Mvc.Rendering.SelectListItem item in schoolsDropdown)
+                                                {
+                                                    <option value="@item.Value">@item.Text</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-arrow-right mr-1"></i> Ver escuela
+                                        </button>
+                                    </form>
                                 }
                                 else
                                 {

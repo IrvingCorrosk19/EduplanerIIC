@@ -20,16 +20,42 @@ public class IdCardSettingsController : Controller
     }
 
     [HttpGet("")]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index([FromQuery] Guid? schoolId)
     {
         // No mostrar en esta página errores de otras secciones (ej. "Estudiante no encontrado" de Carnet)
         TempData.Remove("Error");
 
         var school = await _currentUserService.GetCurrentUserSchoolAsync();
+
+        // SuperAdmin no tiene escuela: debe elegir una
         if (school == null)
         {
-            TempData["IdCardSettings.Error"] = "No se pudo determinar la escuela del usuario actual.";
-            return RedirectToAction("Index", "Home");
+            var schoolList = await _context.Schools
+                .OrderBy(s => s.Name)
+                .Select(s => new { s.Id, s.Name })
+                .ToListAsync();
+            ViewBag.Schools = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(schoolList, "Id", "Name");
+            ViewBag.NeedSchoolSelection = true;
+
+            if (!schoolId.HasValue || schoolId == Guid.Empty)
+                return View(new SchoolIdCardSetting { SchoolId = Guid.Empty, TemplateKey = "default_v1", PageWidthMm = 54, PageHeightMm = 86, BackgroundColor = "#FFFFFF", PrimaryColor = "#0D6EFD", TextColor = "#111111", ShowQr = true, ShowPhoto = false });
+
+            var selectedSchool = await _context.Schools.FindAsync(schoolId.Value);
+            if (selectedSchool == null)
+            {
+                TempData["IdCardSettings.Error"] = "Escuela no encontrada o inactiva.";
+                return RedirectToAction("Index");
+            }
+            school = selectedSchool;
+            ViewBag.NeedSchoolSelection = false;
+            ViewBag.SelectedSchoolId = schoolId.Value;
+            ViewBag.SelectedSchoolName = selectedSchool.Name;
+        }
+        else
+        {
+            ViewBag.NeedSchoolSelection = false;
+            ViewBag.SelectedSchoolId = school.Id;
+            ViewBag.SelectedSchoolName = school.Name;
         }
 
         var settings = await _context.Set<SchoolIdCardSetting>()
@@ -57,11 +83,21 @@ public class IdCardSettingsController : Controller
         var school = await _currentUserService.GetCurrentUserSchoolAsync();
         if (school == null)
         {
-            TempData["IdCardSettings.Error"] = "No se pudo determinar la escuela del usuario actual.";
-            return RedirectToAction("Index");
+            // SuperAdmin: usar escuela enviada en el formulario
+            if (model.SchoolId == Guid.Empty)
+            {
+                TempData["IdCardSettings.Error"] = "Seleccione una escuela.";
+                return RedirectToAction("Index");
+            }
+            school = await _context.Schools.FindAsync(model.SchoolId);
+            if (school == null)
+            {
+                TempData["IdCardSettings.Error"] = "Escuela no encontrada o inactiva.";
+                return RedirectToAction("Index");
+            }
         }
-
-        model.SchoolId = school.Id;
+        else
+            model.SchoolId = school.Id;
 
         var existing = await _context.Set<SchoolIdCardSetting>()
             .FirstOrDefaultAsync(x => x.SchoolId == school.Id);
@@ -91,6 +127,9 @@ public class IdCardSettingsController : Controller
         await _context.SaveChangesAsync();
         TempData["Success"] = "Configuración guardada exitosamente.";
 
-        return RedirectToAction("Index");
+        var isSuperAdmin = await _currentUserService.GetCurrentUserSchoolAsync() == null;
+        return isSuperAdmin
+            ? RedirectToAction("Index", new { schoolId = model.SchoolId })
+            : RedirectToAction("Index");
     }
 }
