@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolManager.Dtos;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
+using SchoolManager.Services.Security;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -9,11 +10,13 @@ public class StudentIdCardService : IStudentIdCardService
 {
     private readonly SchoolDbContext _context;
     private readonly ILogger<StudentIdCardService> _logger;
+    private readonly IQrSignatureService _qrSignatureService;
 
-    public StudentIdCardService(SchoolDbContext context, ILogger<StudentIdCardService> logger)
+    public StudentIdCardService(SchoolDbContext context, ILogger<StudentIdCardService> logger, IQrSignatureService qrSignatureService)
     {
         _context = context;
         _logger = logger;
+        _qrSignatureService = qrSignatureService;
     }
 
     /// <summary>Genera un número de carnet único (evita duplicados con carnets revocados en la misma fecha).</summary>
@@ -113,6 +116,32 @@ public class StudentIdCardService : IStudentIdCardService
 
     public async Task<ScanResultDto> ScanAsync(ScanRequestDto request)
     {
+        var tokenToLookup = request.Token;
+        if (request.Token.Contains("|"))
+        {
+            if (!_qrSignatureService.ValidateSignedToken(request.Token))
+            {
+                _context.ScanLogs.Add(new ScanLog
+                {
+                    StudentId = null,
+                    ScanType = request.ScanType,
+                    Result = "denied",
+                    ScannedBy = request.ScannedBy
+                });
+                await _context.SaveChangesAsync();
+                return new ScanResultDto
+                {
+                    Allowed = false,
+                    Message = "QR inválido o expirado",
+                    StudentName = "N/A",
+                    Grade = "N/A",
+                    Group = "N/A",
+                    DisciplineCount = 0
+                };
+            }
+            tokenToLookup = _qrSignatureService.ExtractTokenFromSigned(request.Token) ?? request.Token;
+        }
+
         var token = await _context.StudentQrTokens
             .Include(x => x.Student)
                 .ThenInclude(x => x.StudentAssignments)
@@ -122,7 +151,7 @@ public class StudentIdCardService : IStudentIdCardService
                     .ThenInclude(x => x.Group)
             .Include(x => x.Student)
                 .ThenInclude(x => x.SchoolNavigation)
-            .FirstOrDefaultAsync(x => x.Token == request.Token && !x.IsRevoked && (x.ExpiresAt == null || x.ExpiresAt > DateTime.UtcNow));
+            .FirstOrDefaultAsync(x => x.Token == tokenToLookup && !x.IsRevoked && (x.ExpiresAt == null || x.ExpiresAt > DateTime.UtcNow));
 
         if (token == null)
         {
@@ -179,10 +208,29 @@ public class StudentIdCardService : IStudentIdCardService
 
         await _context.SaveChangesAsync();
 
+        var card = await _context.StudentIdCards
+            .AsNoTracking()
+            .Where(c => c.StudentId == token.StudentId && c.Status == "active")
+            .FirstOrDefaultAsync();
+
+        var allowedToEnterSchool =
+            token.Student.Status == "active"
+            && card != null
+            && card.Status == "active"
+            && token.Student.StudentAssignments.Any(a => a.IsActive);
+
         var disciplineCount = await _context.DisciplineReports
             .AsNoTracking()
             .Where(r => r.StudentId == token.StudentId)
             .CountAsync();
+
+        var scannedByUser = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == request.ScannedBy)
+            .Select(u => u.Role)
+            .FirstOrDefaultAsync();
+        var role = (scannedByUser ?? "").Trim().ToLowerInvariant();
+        var canSeeSensitiveData = role is "inspector" or "teacher" or "docente" or "admin" or "superadmin";
 
         return new ScanResultDto
         {
@@ -195,7 +243,14 @@ public class StudentIdCardService : IStudentIdCardService
             DisciplineCount = disciplineCount,
             StudentPhotoUrl = token.Student.PhotoUrl,
             SchoolName = token.Student.SchoolNavigation?.Name,
-            StudentCode = token.Student.DocumentId
+            StudentCode = token.Student.DocumentId,
+            EmergencyContactName = canSeeSensitiveData ? token.Student.EmergencyContactName : null,
+            EmergencyContactPhone = canSeeSensitiveData ? token.Student.EmergencyContactPhone : null,
+            Allergies = canSeeSensitiveData ? token.Student.Allergies : null,
+            CardNumber = card?.CardNumber,
+            CardStatus = card?.Status,
+            CardIssuedDate = card?.IssuedAt,
+            AllowedToEnterSchool = allowedToEnterSchool
         };
     }
 }

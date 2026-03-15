@@ -5,6 +5,7 @@ using QuestPDF.Infrastructure;
 using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
+using SchoolManager.Services.Security;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -15,19 +16,22 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     private readonly IFileStorageService _fileStorage;
     private readonly HttpClient _http;
     private readonly ILogger<StudentIdCardPdfService> _logger;
+    private readonly IQrSignatureService _qrSignatureService;
 
     public StudentIdCardPdfService(
         SchoolDbContext context,
         ICurrentUserService currentUserService,
         IFileStorageService fileStorage,
         IHttpClientFactory httpClientFactory,
-        ILogger<StudentIdCardPdfService> logger)
+        ILogger<StudentIdCardPdfService> logger,
+        IQrSignatureService qrSignatureService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _fileStorage = fileStorage;
         _http = httpClientFactory.CreateClient();
         _logger = logger;
+        _qrSignatureService = qrSignatureService;
     }
 
     /// <summary>Genera un número de carnet único (evita duplicados con carnets revocados).</summary>
@@ -126,7 +130,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     {
                         page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
                         page.Margin(0);
-                        page.Content().Element(c => RenderCarnetQrBack(c, school.Name, dto, settings));
+                        page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, dto, settings));
                     });
                 }
             }
@@ -196,7 +200,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
             case "Qr":
                 if (settings.ShowQr)
-                    positioned.Image(QrHelper.GenerateQrPng(dto.QrToken));
+                    positioned.Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
                 break;
         }
         
@@ -256,7 +260,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         col.Item().PaddingTop(2).Row(qrRow =>
                         {
                             qrRow.RelativeItem().AlignMiddle().Text("Escanea para verificar").FontSize(5).FontColor(ParseColor(settings.TextColor));
-                            qrRow.ConstantItem(qrSizeMm).Height(qrSizeMm).Image(QrHelper.GenerateQrPng(dto.QrToken));
+                            qrRow.ConstantItem(qrSizeMm).Height(qrSizeMm).Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
                         });
                     }
                 });
@@ -272,17 +276,32 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     private const float CardWidthMm = 85.6f;
     private const float CardHeightMm = 54f;
 
-    /// <summary>Reverso del carnet - QR centrado e instrucciones (estilo CarnetQR).</summary>
-    private IContainer RenderCarnetQrBack(IContainer container, string schoolName, StudentCardRenderDto dto, SchoolIdCardSetting settings)
+    /// <summary>Reverso del carnet - QR centrado e instrucciones (estilo CarnetQR). Opcional: teléfono colegio, contacto emergencia, alergias.</summary>
+    private IContainer RenderCarnetQrBack(IContainer container, string schoolName, string? schoolPhone, StudentCardRenderDto dto, SchoolIdCardSetting settings)
     {
         const float qrBackSizeMm = 28f;
 
         container.Background(ParseColor(settings.BackgroundColor)).Padding(6).Column(col =>
         {
-            col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre).AlignCenter().Image(QrHelper.GenerateQrPng(dto.QrToken));
+            col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre).AlignCenter().Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
             col.Item().PaddingTop(3).AlignCenter().Text(schoolName).FontSize(8).Bold().FontColor(ParseColor(settings.TextColor));
             col.Item().AlignCenter().Text("Escanea el código QR para verificar la información del carnet").FontSize(6).FontColor(ParseColor(settings.TextColor));
             col.Item().AlignCenter().Text($"Carnet: {dto.CardNumber}").FontSize(6).FontColor(ParseColor(settings.TextColor));
+
+            if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone))
+            {
+                col.Item().PaddingTop(2).AlignCenter().Text($"Tel. colegio: {schoolPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+            }
+            if (settings.ShowEmergencyContact && (!string.IsNullOrWhiteSpace(dto.EmergencyContactName) || !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone)))
+            {
+                col.Item().PaddingTop(2).AlignCenter().Text($"Contacto emergencia: {dto.EmergencyContactName ?? "—"}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                if (!string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
+                    col.Item().AlignCenter().Text($"Tel: {dto.EmergencyContactPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+            }
+            if (settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
+            {
+                col.Item().PaddingTop(2).AlignCenter().Text($"Alergias: {dto.Allergies}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+            }
         });
         return container;
     }
@@ -394,7 +413,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             Shift = assignment.Shift?.Name ?? "",
             CardNumber = card.CardNumber,
             QrToken = token.Token,
-            PhotoUrl = student.PhotoUrl
+            PhotoUrl = student.PhotoUrl,
+            Allergies = student.Allergies,
+            EmergencyContactName = student.EmergencyContactName,
+            EmergencyContactPhone = student.EmergencyContactPhone,
+            EmergencyRelationship = student.EmergencyRelationship
         };
     }
 
@@ -409,5 +432,9 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         public string CardNumber { get; set; } = "";
         public string QrToken { get; set; } = "";
         public string? PhotoUrl { get; set; }
+        public string? Allergies { get; set; }
+        public string? EmergencyContactName { get; set; }
+        public string? EmergencyContactPhone { get; set; }
+        public string? EmergencyRelationship { get; set; }
     }
 }

@@ -193,6 +193,9 @@ builder.Services.AddScoped<IPaymentConceptService, PaymentConceptService>();
 builder.Services.AddScoped<IAcademicYearService, AcademicYearService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IScheduleConfigurationService, ScheduleConfigurationService>();
+builder.Services.Configure<SchoolManager.Services.Security.QrSecurityOptions>(
+    builder.Configuration.GetSection(SchoolManager.Services.Security.QrSecurityOptions.SectionName));
+builder.Services.AddSingleton<SchoolManager.Services.Security.IQrSignatureService, SchoolManager.Services.Security.QrSignatureService>();
 builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
 builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
 builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();

@@ -39,7 +39,11 @@ namespace SchoolManager.Services.Implementations
                         u.CellphoneSecondary,
                         u.Role,
                         u.SchoolId,
-                        u.PhotoUrl
+                        u.PhotoUrl,
+                        u.EmergencyContactName,
+                        u.EmergencyContactPhone,
+                        u.EmergencyRelationship,
+                        u.Allergies
                     })
                     .FirstOrDefaultAsync();
 
@@ -84,7 +88,11 @@ namespace SchoolManager.Services.Implementations
                     Grade = assignment?.GradeName,
                     GroupName = assignment?.GroupName,
                     SchoolName = school,
-                    PhotoUrl = user.PhotoUrl
+                    PhotoUrl = user.PhotoUrl,
+                    EmergencyContactName = user.EmergencyContactName,
+                    EmergencyContactPhone = user.EmergencyContactPhone,
+                    EmergencyRelationship = user.EmergencyRelationship,
+                    Allergies = user.Allergies
                 };
 
                 _logger.LogInformation("✅ Perfil obtenido correctamente para: {Name} {LastName}", user.Name, user.LastName);

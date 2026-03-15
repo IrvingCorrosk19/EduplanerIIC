@@ -58,6 +58,17 @@ namespace SchoolManager.ViewModels
         /// <summary>URL o path de la foto del estudiante (solo lectura desde vista).</summary>
         [Display(Name = "Foto")]
         public string? PhotoUrl { get; set; }
+
+        [Display(Name = "Contacto de emergencia")]
+        public string? EmergencyContactName { get; set; }
+        [Display(Name = "Teléfono emergencia")]
+        public string? EmergencyContactPhone { get; set; }
+        [Display(Name = "Relación")]
+        public string? EmergencyRelationship { get; set; }
+        [Display(Name = "Alergias")]
+        public string? Allergies { get; set; }
+        /// <summary>Si true, la vista puede mostrar la sección de información de emergencia (solo para roles inspector/teacher/admin).</summary>
+        public bool ShowEmergencyInfo { get; set; }
     }
 }
 

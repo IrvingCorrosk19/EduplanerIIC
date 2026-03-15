@@ -158,6 +158,41 @@
                 </div>
             </div>
 
+            @if (Model.ShowEmergencyInfo)
+            {
+            <div class="info-section mt-3">
+                <h5><i class="bi bi-telephone-plus me-2"></i>Información de emergencia</h5>
+                <div class="info-item">
+                    <i class="bi bi-person"></i>
+                    <div>
+                        <small class="text-muted d-block">Contacto de emergencia</small>
+                        <strong>@(Model.EmergencyContactName ?? "—")</strong>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-telephone"></i>
+                    <div>
+                        <small class="text-muted d-block">Teléfono</small>
+                        <strong>@(Model.EmergencyContactPhone ?? "—")</strong>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-link-45deg"></i>
+                    <div>
+                        <small class="text-muted d-block">Relación</small>
+                        <strong>@(Model.EmergencyRelationship ?? "—")</strong>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-heart-pulse"></i>
+                    <div>
+                        <small class="text-muted d-block">Alergias</small>
+                        <strong>@(Model.Allergies ?? "Ninguna registrada")</strong>
+                    </div>
+                </div>
+            </div>
+            }
+
             <!-- Foto del perfil (identidad visual / carnet) -->
             <div class="info-section mt-3">
                 <h5><i class="bi bi-camera me-2"></i>Mi foto</h5>

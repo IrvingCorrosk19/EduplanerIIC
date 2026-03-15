@@ -53,6 +53,9 @@ namespace SchoolManager.Controllers
                     return RedirectToAction("Index", "Home");
                 }
 
+                var currentRole = (await _currentUserService.GetCurrentUserRoleAsync() ?? "").Trim().ToLowerInvariant();
+                profile.ShowEmergencyInfo = currentRole is "inspector" or "teacher" or "docente" or "admin" or "superadmin";
+
                 return View(profile);
             }
             catch (Exception ex)

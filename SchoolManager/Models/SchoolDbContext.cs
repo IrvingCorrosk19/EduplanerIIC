@@ -1311,6 +1311,19 @@ public partial class SchoolDbContext : DbContext
                 .HasMaxLength(500)
                 .HasColumnName("photo_url");
 
+            entity.Property(e => e.Allergies)
+                .HasMaxLength(500)
+                .HasColumnName("allergies");
+            entity.Property(e => e.EmergencyContactName)
+                .HasMaxLength(200)
+                .HasColumnName("emergency_contact_name");
+            entity.Property(e => e.EmergencyContactPhone)
+                .HasMaxLength(30)
+                .HasColumnName("emergency_contact_phone");
+            entity.Property(e => e.EmergencyRelationship)
+                .HasMaxLength(50)
+                .HasColumnName("emergency_relationship");
+
             entity.HasOne(d => d.SchoolNavigation).WithMany(p => p.Users)
                 .HasForeignKey(d => d.SchoolId)
                 .OnDelete(DeleteBehavior.SetNull)
@@ -2373,6 +2386,16 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.ShowPhoto)
                 .HasDefaultValue(true)
                 .HasColumnName("show_photo");
+
+            entity.Property(e => e.ShowSchoolPhone)
+                .HasDefaultValue(true)
+                .HasColumnName("show_school_phone");
+            entity.Property(e => e.ShowEmergencyContact)
+                .HasDefaultValue(false)
+                .HasColumnName("show_emergency_contact");
+            entity.Property(e => e.ShowAllergies)
+                .HasDefaultValue(false)
+                .HasColumnName("show_allergies");
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")

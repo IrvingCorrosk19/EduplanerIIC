@@ -51,6 +51,18 @@ public partial class User
     
     public string? Shift { get; set; } // Jornada actual del estudiante: Mañana, Tarde, Noche
 
+    /// <summary>Alergias o información médica relevante del estudiante.</summary>
+    public string? Allergies { get; set; }
+
+    /// <summary>Nombre del contacto de emergencia.</summary>
+    public string? EmergencyContactName { get; set; }
+
+    /// <summary>Teléfono del contacto de emergencia.</summary>
+    public string? EmergencyContactPhone { get; set; }
+
+    /// <summary>Relación del contacto de emergencia con el estudiante (ej. Padre, Madre, Acudiente).</summary>
+    public string? EmergencyRelationship { get; set; }
+
     /// <summary>URL o path de la foto del usuario (solo asignable vía dominio).</summary>
     public string? PhotoUrl { get; private set; }
 

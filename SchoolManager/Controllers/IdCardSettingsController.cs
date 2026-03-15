@@ -71,7 +71,10 @@ public class IdCardSettingsController : Controller
             PrimaryColor = "#0D6EFD",
             TextColor = "#111111",
             ShowQr = true,
-            ShowPhoto = false
+            ShowPhoto = false,
+            ShowSchoolPhone = true,
+            ShowEmergencyContact = false,
+            ShowAllergies = false
         };
 
         return View(settings);
@@ -120,6 +123,9 @@ public class IdCardSettingsController : Controller
             existing.TextColor = model.TextColor;
             existing.ShowQr = model.ShowQr;
             existing.ShowPhoto = model.ShowPhoto;
+            existing.ShowSchoolPhone = model.ShowSchoolPhone;
+            existing.ShowEmergencyContact = model.ShowEmergencyContact;
+            existing.ShowAllergies = model.ShowAllergies;
             existing.UpdatedAt = DateTime.UtcNow;
             _context.Update(existing);
         }

@@ -17,4 +17,18 @@ public class ScanResultDto
     public string? SchoolName { get; set; }
     /// <summary>Código o documento del estudiante. Para tarjeta digital.</summary>
     public string? StudentCode { get; set; }
+    /// <summary>Contacto de emergencia (solo si el escáner tiene rol inspector/teacher/admin).</summary>
+    public string? EmergencyContactName { get; set; }
+    /// <summary>Teléfono de emergencia (solo si el escáner tiene rol inspector/teacher/admin).</summary>
+    public string? EmergencyContactPhone { get; set; }
+    /// <summary>Alergias (solo si el escáner tiene rol inspector/teacher/admin).</summary>
+    public string? Allergies { get; set; }
+    /// <summary>Número del carnet activo del estudiante (cuando el escaneo es válido).</summary>
+    public string? CardNumber { get; set; }
+    /// <summary>Estado del carnet (active/revoked).</summary>
+    public string? CardStatus { get; set; }
+    /// <summary>Fecha de emisión del carnet.</summary>
+    public DateTime? CardIssuedDate { get; set; }
+    /// <summary>Indica si el estudiante está autorizado a ingresar al colegio (estado activo, carnet activo, asignación activa). Solo informativo; no modifica Allowed.</summary>
+    public bool AllowedToEnterSchool { get; set; }
 }

@@ -15,6 +15,12 @@ public class SchoolIdCardSetting
     public string TextColor { get; set; } = "#111111";
     public bool ShowQr { get; set; } = true;
     public bool ShowPhoto { get; set; } = true;
+    /// <summary>Mostrar teléfono del colegio en el reverso del carnet.</summary>
+    public bool ShowSchoolPhone { get; set; } = true;
+    /// <summary>Mostrar contacto de emergencia en el reverso del carnet.</summary>
+    public bool ShowEmergencyContact { get; set; } = false;
+    /// <summary>Mostrar alergias en el reverso del carnet.</summary>
+    public bool ShowAllergies { get; set; } = false;
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
