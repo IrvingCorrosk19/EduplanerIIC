@@ -128,7 +128,7 @@ namespace SchoolManager.Services.Implementations
                     Title = "Carnet Estudiantil", 
                     Icon = "fas fa-id-card",
                     Url = "/StudentIdCard/ui",
-                    RequiredRoles = new[] { "director", "superadmin" }
+                    RequiredRoles = new[] { "superadmin" }
                 },
                 new MenuItem 
                 { 

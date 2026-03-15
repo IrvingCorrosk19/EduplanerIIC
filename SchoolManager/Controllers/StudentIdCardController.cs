@@ -8,7 +8,7 @@ using System.Security.Claims;
 
 namespace SchoolManager.Controllers;
 
-[Authorize(Roles = "Admin,admin,SuperAdmin,superadmin,Director,director")]
+[Authorize(Roles = "SuperAdmin,superadmin")]
 [Route("StudentIdCard")]
 public class StudentIdCardController : Controller
 {

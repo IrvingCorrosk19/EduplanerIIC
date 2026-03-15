@@ -1,7 +1,7 @@
 @model SchoolManager.Dtos.StudentIdCardDto
 @{
     ViewData["Title"] = "Carnet Estudiantil - " + Model.FullName;
-    Layout = "_AdminLayout";
+    Layout = "_SuperAdminLayout";
     var schoolName = ViewBag.SchoolName as string ?? "SchoolManager";
     var schoolLogoUrl = ViewBag.SchoolLogoUrl as string;
     // Diseño de referencia: CarnetQR Platform (header, cuerpo foto+info, footer, colores profesionales)
