@@ -145,7 +145,7 @@ namespace SchoolManager.Services.Implementations
                     }
                 }
 
-                // Actualizar solo los campos permitidos
+                // Actualizar solo los campos permitidos (incl. alergias y contacto de emergencia para el carnet)
                 user.Name = model.Name;
                 user.LastName = model.LastName;
                 user.Email = model.Email;
@@ -153,6 +153,10 @@ namespace SchoolManager.Services.Implementations
                 user.DateOfBirth = model.DateOfBirth;
                 user.CellphonePrimary = model.CellphonePrimary;
                 user.CellphoneSecondary = model.CellphoneSecondary;
+                user.Allergies = model.Allergies;
+                user.EmergencyContactName = model.EmergencyContactName;
+                user.EmergencyContactPhone = model.EmergencyContactPhone;
+                user.EmergencyRelationship = model.EmergencyRelationship;
                 user.UpdatedAt = DateTime.UtcNow;
                 user.UpdatedBy = model.Id; // El estudiante se actualiza a sí mismo
 

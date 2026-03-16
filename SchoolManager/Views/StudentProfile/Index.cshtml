@@ -317,6 +317,29 @@
                             </div>
                         </div>
 
+                        <!-- Contacto de emergencia y alergias (se muestran en el carnet si el colegio lo habilita) -->
+                        <hr class="my-3" />
+                        <h6 class="text-muted mb-3"><i class="bi bi-heart-pulse me-1"></i>Información para el carnet estudiantil</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="EmergencyContactName" class="form-label">@Html.DisplayNameFor(m => m.EmergencyContactName)</label>
+                                <input asp-for="EmergencyContactName" class="form-control" placeholder="Nombre del contacto" maxlength="200" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="EmergencyContactPhone" class="form-label">@Html.DisplayNameFor(m => m.EmergencyContactPhone)</label>
+                                <input asp-for="EmergencyContactPhone" class="form-control" placeholder="6XXX-XXXX" maxlength="30" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="EmergencyRelationship" class="form-label">@Html.DisplayNameFor(m => m.EmergencyRelationship)</label>
+                                <input asp-for="EmergencyRelationship" class="form-control" placeholder="Ej. Padre, Madre, Acudiente" maxlength="50" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Allergies" class="form-label">@Html.DisplayNameFor(m => m.Allergies)</label>
+                                <input asp-for="Allergies" class="form-control" placeholder="Ej. Ninguna, Penicilina, etc." maxlength="500" />
+                                <small class="text-muted">Aparece en el reverso del carnet si el colegio lo habilita.</small>
+                            </div>
+                        </div>
+
                         <!-- Botones -->
                         <div class="d-flex justify-content-end gap-2 mt-4">
                             <a href="@Url.Action("Index", "Home")" class="btn btn-secondary">

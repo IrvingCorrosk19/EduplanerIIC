@@ -677,6 +677,9 @@ public partial class SchoolDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValueSql("''::character varying")
                 .HasColumnName("phone");
+            entity.Property(e => e.IdCardPolicy)
+                .HasColumnType("text")
+                .HasColumnName("id_card_policy");
 
             // Relación opcional con admin principal (puede ser null)
             // Múltiples admins se manejan via Users con SchoolId
@@ -2533,6 +2536,9 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.ShiftId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("time_slots_shift_id_fkey");
+
+            // Filtro coherente con School: solo time_slots de escuelas activas (evita warning 10622)
+            entity.HasQueryFilter(t => t.School != null && t.School.IsActive);
         });
 
         // Módulo Horarios: ScheduleEntry

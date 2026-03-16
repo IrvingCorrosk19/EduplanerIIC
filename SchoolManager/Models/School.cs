@@ -20,6 +20,9 @@ public partial class School
     /// <summary>Soft delete: false cuando la institución está desactivada (no se borra físicamente).</summary>
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Política del carnet: texto único por escuela que se muestra en el reverso del carnet (debajo del QR).</summary>
+    public string? IdCardPolicy { get; set; }
+
     public Guid? AdminId { get; set; }
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();

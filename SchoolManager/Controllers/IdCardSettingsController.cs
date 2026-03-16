@@ -6,7 +6,7 @@ using SchoolManager.Services.Interfaces;
 
 namespace SchoolManager.Controllers;
 
-[Authorize(Roles = "SuperAdmin,superadmin")]
+[Authorize(Roles = "SuperAdmin,superadmin,admin,director")]
 [Route("id-card/settings")]
 public class IdCardSettingsController : Controller
 {
@@ -77,6 +77,7 @@ public class IdCardSettingsController : Controller
             ShowAllergies = false
         };
 
+        ViewBag.IdCardPolicy = school.IdCardPolicy ?? "";
         return View(settings);
     }
 
@@ -101,6 +102,14 @@ public class IdCardSettingsController : Controller
         }
         else
             model.SchoolId = school.Id;
+
+        // Guardar política del carnet en School (única por escuela)
+        var idCardPolicy = Request.Form["IdCardPolicy"].ToString();
+        var schoolEntity = await _context.Schools.FindAsync(school.Id);
+        if (schoolEntity != null)
+        {
+            schoolEntity.IdCardPolicy = string.IsNullOrWhiteSpace(idCardPolicy) ? null : idCardPolicy.Trim();
+        }
 
         var existing = await _context.Set<SchoolIdCardSetting>()
             .FirstOrDefaultAsync(x => x.SchoolId == school.Id);

@@ -68,23 +68,30 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 throw new Exception("No se pudo determinar la escuela del usuario actual.");
             }
 
-            // 2) Settings de carnet
+            // 2) Settings de carnet — siempre desde BD por school.Id para que la configuración afecte al PDF
             var settings = await _context.Set<SchoolIdCardSetting>()
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(x => x.SchoolId == school.Id);
 
-            settings ??= new SchoolIdCardSetting
+            if (settings == null)
             {
-                SchoolId = school.Id,
-                TemplateKey = "default_v1",
-                PageWidthMm = 54,
-                PageHeightMm = 86,
-                BackgroundColor = "#FFFFFF",
-                PrimaryColor = "#0D6EFD",
-                TextColor = "#111111",
-                ShowQr = true,
-                ShowPhoto = true
-            };
+                settings = new SchoolIdCardSetting
+                {
+                    SchoolId = school.Id,
+                    TemplateKey = "default_v1",
+                    PageWidthMm = 54,
+                    PageHeightMm = 86,
+                    BackgroundColor = "#FFFFFF",
+                    PrimaryColor = "#0D6EFD",
+                    TextColor = "#111111",
+                    ShowQr = true,
+                    ShowPhoto = true,
+                    ShowSchoolPhone = true,
+                    ShowEmergencyContact = false,
+                    ShowAllergies = false
+                };
+            }
 
             // 3) Campos configurables
             var fields = await _context.Set<IdCardTemplateField>()
@@ -144,7 +151,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         {
                             page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
                             page.Margin(0);
-                            page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, dto, settings));
+                            page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, school.IdCardPolicy, dto, settings));
                         });
                     }
                 }
@@ -216,8 +223,12 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 break;
 
             case "Qr":
-                if (settings.ShowQr)
-                    positioned.Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
+                if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                {
+                    var qrBytesField = SafeGenerateQrPng(dto.QrToken);
+                    if (qrBytesField != null && qrBytesField.Length > 0)
+                        positioned.Image(qrBytesField);
+                }
                 break;
         }
 
@@ -272,13 +283,17 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     col.Item().Text($"{dto.Grade} - {dto.Group}").FontSize(7).FontColor(ParseColor(settings.TextColor));
                     col.Item().Text(dto.Shift).FontSize(6).FontColor(ParseColor(settings.TextColor));
 
-                    if (settings.ShowQr)
+                    if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
                     {
-                        col.Item().PaddingTop(2).Row(qrRow =>
+                        var qrBytesFront = SafeGenerateQrPng(dto.QrToken);
+                        if (qrBytesFront != null && qrBytesFront.Length > 0)
                         {
-                            qrRow.RelativeItem().AlignMiddle().Text("Escanea para verificar").FontSize(5).FontColor(ParseColor(settings.TextColor));
-                            qrRow.ConstantItem(qrSizeMm).Height(qrSizeMm).Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
-                        });
+                            col.Item().PaddingTop(2).Row(qrRow =>
+                            {
+                                qrRow.RelativeItem().AlignMiddle().Text("Escanea para verificar").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                                qrRow.ConstantItem(qrSizeMm).Height(qrSizeMm).Image(qrBytesFront);
+                            });
+                        }
                     }
                 });
             });
@@ -290,20 +305,33 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         return container;
     }
 
-    /// <summary>Reverso del carnet — QR centrado e información de emergencia (opcional).</summary>
+    /// <summary>Reverso del carnet — QR centrado, política del colegio (opcional) e información de emergencia (opcional).</summary>
     private IContainer RenderCarnetQrBack(IContainer container, string schoolName, string? schoolPhone,
-        StudentCardRenderDto dto, SchoolIdCardSetting settings)
+        string? idCardPolicy, StudentCardRenderDto dto, SchoolIdCardSetting settings)
     {
         const float qrBackSizeMm = 28f;
 
         container.Background(ParseColor(settings.BackgroundColor)).Padding(6).Column(col =>
         {
-            col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre)
-                .AlignCenter().Image(QrHelper.GenerateQrPng(dto.QrToken, _qrSignatureService));
+            // QR: solo si ShowQr y token no vacío (FASE 3 — corrección visualización QR)
+            if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+            {
+                var qrBytes = SafeGenerateQrPng(dto.QrToken);
+                if (qrBytes != null && qrBytes.Length > 0)
+                    col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre)
+                        .AlignCenter().Image(qrBytes);
+            }
             col.Item().PaddingTop(3).AlignCenter().Text(schoolName).FontSize(8).Bold().FontColor(ParseColor(settings.TextColor));
             col.Item().AlignCenter().Text("Escanea el código QR para verificar la información del carnet")
                 .FontSize(6).FontColor(ParseColor(settings.TextColor));
             col.Item().AlignCenter().Text($"Carnet: {dto.CardNumber}").FontSize(6).FontColor(ParseColor(settings.TextColor));
+
+            // Política del colegio (FASE 1) — debajo del QR si está configurada
+            if (!string.IsNullOrWhiteSpace(idCardPolicy))
+            {
+                col.Item().PaddingTop(2).PaddingHorizontal(2)
+                    .AlignCenter().Text(idCardPolicy.Trim()).FontSize(4).FontColor(ParseColor(settings.TextColor));
+            }
 
             if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone))
             {
@@ -332,6 +360,22 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             }
         });
         return container;
+    }
+
+    /// <summary>Genera PNG del QR con manejo de errores (FASE 3 — asegurar que el QR se renderice).</summary>
+    private byte[]? SafeGenerateQrPng(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        try
+        {
+            var bytes = QrHelper.GenerateQrPng(token, _qrSignatureService);
+            return (bytes != null && bytes.Length > 0) ? bytes : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[StudentIdCardPdf] Error generando QR (token length={Length})", token.Length);
+            return null;
+        }
     }
 
     // BUG-6 fix: manejo de null y colores inválidos

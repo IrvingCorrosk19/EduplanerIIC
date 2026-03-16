@@ -218,6 +218,16 @@
                             </div>
                         </section>
 
+                        <hr />
+
+                        <section class="mb-4">
+                            <h5 class="text-secondary border-bottom pb-2 mb-3">
+                                <i class="fas fa-file-contract me-1"></i> Política del carnet
+                            </h5>
+                            <p class="text-muted small">Texto único por escuela que se muestra en el reverso del carnet (debajo del código QR). Opcional.</p>
+                            <textarea name="IdCardPolicy" id="IdCardPolicy" class="form-control" rows="4" placeholder="Ej.: Este carnet es propiedad del colegio. Su uso es personal e intransferible.">@(ViewBag.IdCardPolicy ?? "")</textarea>
+                        </section>
+
                         <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save me-1"></i> Guardar configuración
