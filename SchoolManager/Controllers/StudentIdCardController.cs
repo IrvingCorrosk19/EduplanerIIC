@@ -57,6 +57,10 @@ public class StudentIdCardController : Controller
         ViewBag.IdCardOrientation = cardSettings?.Orientation ?? "Vertical";
         ViewBag.IdCardShowQr = cardSettings?.ShowQr ?? true;
         ViewBag.IdCardShowPhoto = cardSettings?.ShowPhoto ?? true;
+        // Colores de configuración para que la vista previa web refleje los ajustes reales del carnet
+        ViewBag.IdCardPrimaryColor = cardSettings?.PrimaryColor ?? "#0D6EFD";
+        ViewBag.IdCardBackgroundColor = cardSettings?.BackgroundColor ?? "#FFFFFF";
+        ViewBag.IdCardTextColor = cardSettings?.TextColor ?? "#111111";
 
         // GetCurrentCardAsync nunca revoca ni crea; es idempotente y seguro en GET
         var dto = await _service.GetCurrentCardAsync(studentId);

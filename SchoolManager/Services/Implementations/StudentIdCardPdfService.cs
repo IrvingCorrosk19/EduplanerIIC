@@ -66,12 +66,29 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 "[StudentIdCardPdf] GenerateCardPdfAsync inicio StudentId={StudentId} CreatedBy={CreatedBy}",
                 studentId, createdBy);
 
-            // 1) Datos escuela (multi-escuela correcto)
+            // 1) Datos escuela (multi-escuela + SuperAdmin fix)
             var school = await _currentUserService.GetCurrentUserSchoolAsync();
             if (school == null)
             {
-                _logger.LogWarning("[StudentIdCardPdf] No se pudo determinar la escuela del usuario actual");
-                throw new Exception("No se pudo determinar la escuela del usuario actual.");
+                // SuperAdmin no tiene escuela asociada: buscar la escuela del estudiante directamente
+                var studentSchoolId = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.Id == studentId)
+                    .Select(u => u.SchoolId)
+                    .FirstOrDefaultAsync();
+
+                if (studentSchoolId.HasValue)
+                    school = await _context.Schools
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Id == studentSchoolId.Value);
+
+                if (school == null)
+                {
+                    _logger.LogWarning("[StudentIdCardPdf] No se pudo determinar la escuela para StudentId={StudentId}", studentId);
+                    throw new Exception("No se pudo determinar la escuela del estudiante.");
+                }
+
+                _logger.LogInformation("[StudentIdCardPdf] SuperAdmin: usando escuela del estudiante SchoolId={SchoolId}", school.Id);
             }
 
             // 2) Settings de carnet — siempre desde BD por school.Id para que la configuración afecte al PDF
