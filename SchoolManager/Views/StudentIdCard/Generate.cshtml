@@ -337,13 +337,13 @@
                                 </div>
                                 @if (showQr)
                                 {
-                                    @if (!string.IsNullOrEmpty(Model!.QrToken))
+                                    @if (!string.IsNullOrEmpty(Model!.QrImageDataUrl))
                                     {
                                         <div class="carnet-qr-row">
                                             <span class="carnet-qr-label">Escanea para verificar</span>
                                             <div class="carnet-qr">
-                                                @* Imagen QR generada vía toDataURL (más fiable que toCanvas con CSS aplicado) *@
-                                                <img id="qrImg" class="carnet-qr-img" data-qr-token="@Model.QrToken" alt="QR" />
+                                                @* QR generado en servidor — no requiere CDN externo *@
+                                                <img class="carnet-qr-img" src="@Model.QrImageDataUrl" alt="QR" />
                                             </div>
                                         </div>
                                     }
@@ -362,11 +362,11 @@
                         </div>
                     </div>
                 </div>
-                @if (showQr && !string.IsNullOrEmpty(Model!.QrToken))
+                @if (showQr && !string.IsNullOrEmpty(Model!.QrImageDataUrl))
                 {
                     <div class="carnet-back-print" id="carnetBackPrint">
                         <div class="carnet-back-qr">
-                            <img id="qrImgBack" class="carnet-back-qr-img" data-qr-token="@Model.QrToken" alt="QR" />
+                            <img class="carnet-back-qr-img" src="@Model.QrImageDataUrl" alt="QR" />
                         </div>
                         <div class="carnet-back-school">@schoolName</div>
                         <div class="carnet-back-text">Escanea el código QR para verificar la información del carnet</div>
@@ -401,35 +401,7 @@
     })();
 </script>
 
-@* qrcode.js — genera QR como Data URL y lo asigna a los img con data-qr-token *@
 <script>
-    function drawCarnetQR() {
-        if (typeof QRCode === 'undefined') return;
-        var imgs = document.querySelectorAll('img[data-qr-token]');
-        imgs.forEach(function (img) {
-            var token = img.getAttribute('data-qr-token');
-            if (!token) return;
-            var size = (img.id === 'qrImgBack') ? 80 : 44;
-            QRCode.toDataURL(token, {
-                width: size,
-                margin: 1,
-                color: { dark: '#000000', light: '#ffffff' }
-            }, function (err, url) {
-                if (err) { console.warn('[Carnet] Error generando QR:', err); return; }
-                img.src = url;
-            });
-        });
-    }
-</script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" crossorigin="anonymous" onload="drawCarnetQR()"></script>
-<script>
-    @if (hasCard && showQr)
-    {
-        <text>
-        if (typeof QRCode !== 'undefined') drawCarnetQR(); else window.addEventListener('load', function () { setTimeout(drawCarnetQR, 50); });
-        </text>
-    }
-
     function generateCard(id) {
         var btn = document.getElementById('btnGenerate') || document.getElementById('btnRegenerate');
         if (btn) {

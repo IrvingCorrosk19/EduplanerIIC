@@ -9,6 +9,8 @@ public class StudentIdCardDto
     public string Group { get; set; } = null!;
     public string Shift { get; set; } = null!;
     public string QrToken { get; set; } = null!;
+    /// <summary>QR generado en el servidor como data URI (data:image/png;base64,...). Evita dependencia de CDN en la vista.</summary>
+    public string? QrImageDataUrl { get; set; }
     /// <summary>URL o path de la foto del estudiante (para vista y PDF).</summary>
     public string? PhotoUrl { get; set; }
 }

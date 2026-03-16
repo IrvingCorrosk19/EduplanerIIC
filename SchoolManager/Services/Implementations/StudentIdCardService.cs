@@ -67,6 +67,14 @@ public class StudentIdCardService : IStudentIdCardService
             .FirstOrDefaultAsync(x => x.StudentId == studentId && !x.IsRevoked &&
                 (x.ExpiresAt == null || x.ExpiresAt > DateTime.UtcNow));
 
+        // Generar QR como data URI en el servidor para evitar dependencias de CDN en la vista
+        string? qrImageDataUrl = null;
+        if (token != null)
+        {
+            var pngBytes = QrHelper.GenerateQrPng(token.Token, _qrSignatureService);
+            qrImageDataUrl = "data:image/png;base64," + Convert.ToBase64String(pngBytes);
+        }
+
         return new StudentIdCardDto
         {
             StudentId = studentId,
@@ -76,6 +84,7 @@ public class StudentIdCardService : IStudentIdCardService
             Group = assignment.Group?.Name ?? "",
             Shift = assignment.Shift?.Name ?? "N/A",
             QrToken = token?.Token ?? "",
+            QrImageDataUrl = qrImageDataUrl,
             PhotoUrl = student.PhotoUrl
         };
     }
@@ -173,6 +182,10 @@ public class StudentIdCardService : IStudentIdCardService
                 "[StudentIdCard] GenerateAsync OK StudentId={StudentId} CardNumber={CardNumber}",
                 studentId, cardNumber);
 
+            // Generar QR como data URI en el servidor para evitar dependencias de CDN en la vista
+            var pngBytes = QrHelper.GenerateQrPng(newToken.Token, _qrSignatureService);
+            var qrImageDataUrl = "data:image/png;base64," + Convert.ToBase64String(pngBytes);
+
             return new StudentIdCardDto
             {
                 StudentId = studentId,
@@ -182,6 +195,7 @@ public class StudentIdCardService : IStudentIdCardService
                 Group = activeAssignment.Group?.Name ?? "",
                 Shift = activeAssignment.Shift?.Name ?? "N/A",
                 QrToken = newToken.Token,
+                QrImageDataUrl = qrImageDataUrl,
                 PhotoUrl = student.PhotoUrl
             };
         }
