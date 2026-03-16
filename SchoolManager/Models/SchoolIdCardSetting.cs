@@ -21,6 +21,8 @@ public class SchoolIdCardSetting
     public bool ShowEmergencyContact { get; set; } = false;
     /// <summary>Mostrar alergias en el reverso del carnet.</summary>
     public bool ShowAllergies { get; set; } = false;
+    /// <summary>Orientación del carnet: Vertical (54×86 mm) u Horizontal (86×54 mm).</summary>
+    public string Orientation { get; set; } = "Vertical";
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

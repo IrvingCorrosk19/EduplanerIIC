@@ -49,6 +49,15 @@ public class StudentIdCardController : Controller
         ViewBag.StudentId = studentId;
         ViewBag.BackgroundImageUrl = "/uploads/idcards/backgrounds/default.png";
 
+        // Configuración del carnet para vista previa (orientación, mostrar QR/foto)
+        var cardSettings = school != null
+            ? await _context.Set<SchoolIdCardSetting>().AsNoTracking().IgnoreQueryFilters()
+                .FirstOrDefaultAsync(x => x.SchoolId == school.Id)
+            : null;
+        ViewBag.IdCardOrientation = cardSettings?.Orientation ?? "Vertical";
+        ViewBag.IdCardShowQr = cardSettings?.ShowQr ?? true;
+        ViewBag.IdCardShowPhoto = cardSettings?.ShowPhoto ?? true;
+
         // GetCurrentCardAsync nunca revoca ni crea; es idempotente y seguro en GET
         var dto = await _service.GetCurrentCardAsync(studentId);
         return View("Generate", dto); // dto puede ser null → vista muestra estado "sin carnet"

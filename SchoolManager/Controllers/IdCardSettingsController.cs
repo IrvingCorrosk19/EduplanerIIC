@@ -38,7 +38,7 @@ public class IdCardSettingsController : Controller
             ViewBag.NeedSchoolSelection = true;
 
             if (!schoolId.HasValue || schoolId == Guid.Empty)
-                return View(new SchoolIdCardSetting { SchoolId = Guid.Empty, TemplateKey = "default_v1", PageWidthMm = 54, PageHeightMm = 86, BackgroundColor = "#FFFFFF", PrimaryColor = "#0D6EFD", TextColor = "#111111", ShowQr = true, ShowPhoto = false });
+                return View(new SchoolIdCardSetting { SchoolId = Guid.Empty, TemplateKey = "default_v1", PageWidthMm = 54, PageHeightMm = 86, BackgroundColor = "#FFFFFF", PrimaryColor = "#0D6EFD", TextColor = "#111111", ShowQr = true, ShowPhoto = false, Orientation = "Vertical" });
 
             var selectedSchool = await _context.Schools.FindAsync(schoolId.Value);
             if (selectedSchool == null)
@@ -74,7 +74,8 @@ public class IdCardSettingsController : Controller
             ShowPhoto = false,
             ShowSchoolPhone = true,
             ShowEmergencyContact = false,
-            ShowAllergies = false
+            ShowAllergies = false,
+            Orientation = "Vertical"
         };
 
         ViewBag.IdCardPolicy = school.IdCardPolicy ?? "";
@@ -117,6 +118,10 @@ public class IdCardSettingsController : Controller
         if (existing == null)
         {
             model.Id = Guid.NewGuid();
+            model.Orientation = model.Orientation ?? "Vertical";
+            var isHorizontal = string.Equals(model.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
+            model.PageWidthMm = isHorizontal ? 86 : 54;
+            model.PageHeightMm = isHorizontal ? 54 : 86;
             model.CreatedAt = DateTime.UtcNow;
             model.UpdatedAt = DateTime.UtcNow;
             _context.Add(model);
@@ -135,6 +140,11 @@ public class IdCardSettingsController : Controller
             existing.ShowSchoolPhone = model.ShowSchoolPhone;
             existing.ShowEmergencyContact = model.ShowEmergencyContact;
             existing.ShowAllergies = model.ShowAllergies;
+            existing.Orientation = model.Orientation ?? "Vertical";
+            // Sincronizar dimensiones con orientación para que el PDF y la vista previa sean consistentes
+            var isHorizontal = string.Equals(existing.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
+            existing.PageWidthMm = isHorizontal ? 86 : 54;
+            existing.PageHeightMm = isHorizontal ? 54 : 86;
             existing.UpdatedAt = DateTime.UtcNow;
             _context.Update(existing);
         }

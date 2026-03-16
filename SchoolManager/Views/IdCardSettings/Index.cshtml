@@ -161,6 +161,22 @@
                                     <input type="text" asp-for="TemplateKey" class="form-control bg-light" readonly />
                                 </div>
                             </div>
+                            <div class="row g-3 mt-1">
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Orientación del carnet</label>
+                                    <div class="d-flex gap-4">
+                                        <div class="form-check">
+                                            <input type="radio" asp-for="Orientation" value="Vertical" class="form-check-input" id="OrientationVertical" />
+                                            <label class="form-check-label" for="OrientationVertical">Vertical (54 × 86 mm)</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="radio" asp-for="Orientation" value="Horizontal" class="form-check-input" id="OrientationHorizontal" />
+                                            <label class="form-check-label" for="OrientationHorizontal">Horizontal (86 × 54 mm)</label>
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Define el tamaño y orientación de la tarjeta impresa.</small>
+                                </div>
+                            </div>
                         </section>
 
                         <hr />
@@ -338,8 +354,9 @@
                 var primary = (form.querySelector('[name="PrimaryColor"]') || form.querySelector('#PrimaryColorPicker'))?.value || '#0D6EFD';
                 var text = (form.querySelector('[name="TextColor"]') || form.querySelector('#TextColorPicker'))?.value || '#111111';
                 var bg = (form.querySelector('[name="BackgroundColor"]') || form.querySelector('#BackgroundColorPicker'))?.value || '#FFFFFF';
-                var wMm = parseInt(form.querySelector('[name="PageWidthMm"]')?.value || '54', 10) || 54;
-                var hMm = parseInt(form.querySelector('[name="PageHeightMm"]')?.value || '86', 10) || 86;
+                var orientation = (form.querySelector('[name="Orientation"]:checked') || form.querySelector('input[name="Orientation"][value="Vertical"]'))?.value || 'Vertical';
+                var wMm = 54, hMm = 86;
+                if (orientation === 'Horizontal') { wMm = 86; hMm = 54; } else { wMm = 54; hMm = 86; }
                 var showQr = (form.querySelector('[name="ShowQr"]') || form.querySelector('#ShowQr'))?.checked !== false;
                 var showPhoto = (form.querySelector('[name="ShowPhoto"]') || form.querySelector('#ShowPhoto'))?.checked === true;
 

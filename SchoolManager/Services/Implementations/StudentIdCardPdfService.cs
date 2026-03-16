@@ -21,9 +21,14 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     private readonly IQrSignatureService _qrSignatureService;
     private readonly IWebHostEnvironment _environment;
 
-    // Dimensiones estándar de carnet CR-80 (ISO/IEC 7810)
-    private const float CardWidthMm = 85.6f;
-    private const float CardHeightMm = 54f;
+    /// <summary>Dimensiones según orientación: Vertical = 54×86 mm, Horizontal = 86×54 mm.</summary>
+    private static (float WidthMm, float HeightMm) GetCardDimensions(SchoolIdCardSetting settings)
+    {
+        var orientation = (settings?.Orientation ?? "Vertical").Trim();
+        if (string.Equals(orientation, "Horizontal", StringComparison.OrdinalIgnoreCase))
+            return (86f, 54f);
+        return (54f, 86f); // Vertical por defecto
+    }
 
     /// <summary>Máximo de caracteres de alergias en el reverso del carnet impreso (BUG-3 fix).</summary>
     private const int MaxAllergiesCharsOnCard = 100;
@@ -89,7 +94,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     ShowPhoto = true,
                     ShowSchoolPhone = true,
                     ShowEmergencyContact = false,
-                    ShowAllergies = false
+                    ShowAllergies = false,
+                    Orientation = "Vertical"
                 };
             }
 
@@ -137,19 +143,20 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 }
                 else
                 {
-                    // Layout estilo CarnetQR: frente + reverso con QR
+                    // Layout estilo CarnetQR: dimensiones desde configuración/orientación
+                    var (cardWidthMm, cardHeightMm) = GetCardDimensions(settings);
                     container.Page(page =>
                     {
-                        page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
+                        page.Size(cardWidthMm, cardHeightMm, Unit.Millimetre);
                         page.Margin(0);
-                        page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings));
+                        page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm));
                     });
 
                     if (settings.ShowQr)
                     {
                         container.Page(page =>
                         {
-                            page.Size(CardWidthMm, CardHeightMm, Unit.Millimetre);
+                            page.Size(cardWidthMm, cardHeightMm, Unit.Millimetre);
                             page.Margin(0);
                             page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, school.IdCardPolicy, dto, settings));
                         });
@@ -237,7 +244,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
     /// <summary>Frente del carnet — diseño CarnetQR: header, cuerpo foto+datos, footer.</summary>
     private IContainer RenderCarnetQrFront(IContainer container, string schoolName, byte[]? logoBytes,
-        byte[]? photoBytes, StudentCardRenderDto dto, SchoolIdCardSetting settings)
+        byte[]? photoBytes, StudentCardRenderDto dto, SchoolIdCardSetting settings, float cardWidthMm, float cardHeightMm)
     {
         const float paddingMm = 4f;
         const float headerHeightMm = 10f;
@@ -298,8 +305,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 });
             });
 
-            // Footer sutil
-            layers.Layer().Padding(paddingMm).PaddingTop(CardHeightMm - 8).BorderTop(0.5f).BorderColor(ParseColor("#e5e7eb"))
+            // Footer sutil (usa altura del carnet desde configuración)
+            layers.Layer().Padding(paddingMm).PaddingTop(cardHeightMm - 8).BorderTop(0.5f).BorderColor(ParseColor("#e5e7eb"))
                 .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}").FontSize(5).FontColor(ParseColor(settings.TextColor));
         });
         return container;
@@ -362,18 +369,27 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         return container;
     }
 
-    /// <summary>Genera PNG del QR con manejo de errores (FASE 3 — asegurar que el QR se renderice).</summary>
+    /// <summary>Genera PNG del QR con manejo de errores. Si falla con firma, intenta sin firma para que el QR siempre se muestre.</summary>
     private byte[]? SafeGenerateQrPng(string token)
     {
         if (string.IsNullOrWhiteSpace(token)) return null;
         try
         {
             var bytes = QrHelper.GenerateQrPng(token, _qrSignatureService);
+            if (bytes != null && bytes.Length > 0) return bytes;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[StudentIdCardPdf] Error generando QR con firma (token length={Length}), intentando sin firma", token.Length);
+        }
+        try
+        {
+            var bytes = QrHelper.GenerateQrPng(token, null);
             return (bytes != null && bytes.Length > 0) ? bytes : null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[StudentIdCardPdf] Error generando QR (token length={Length})", token.Length);
+            _logger.LogWarning(ex, "[StudentIdCardPdf] Error generando QR sin firma");
             return null;
         }
     }

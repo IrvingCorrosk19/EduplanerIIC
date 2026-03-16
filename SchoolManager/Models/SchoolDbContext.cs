@@ -2400,6 +2400,12 @@ public partial class SchoolDbContext : DbContext
                 .HasDefaultValue(false)
                 .HasColumnName("show_allergies");
 
+            entity.Property(e => e.Orientation)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("Vertical")
+                .HasColumnName("orientation");
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp with time zone")
