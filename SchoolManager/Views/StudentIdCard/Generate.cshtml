@@ -273,8 +273,8 @@
                                     <div class="carnet-qr-row">
                                         <span class="carnet-qr-label">Escanea para verificar</span>
                                         <div class="carnet-qr">
-                                            @* QR generado localmente con qrcode.js — el token NO se envía a servidores externos *@
-                                            <canvas id="qrCanvas"></canvas>
+                                            @* Token en data-attribute para evitar problemas de escape; QR se dibuja cuando carga la librería *@
+                                            <canvas id="qrCanvas" data-qr-token="@(Model!.QrToken ?? "")" width="44" height="44"></canvas>
                                         </div>
                                     </div>
                                 }
@@ -304,26 +304,28 @@
     }
 </div>
 
-@* qrcode.js — genera el QR localmente en el navegador, sin exponer el token a terceros *@
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" crossorigin="anonymous"></script>
-
+@* qrcode.js — genera el QR cuando la librería termina de cargar para que QRCode esté definido *@
+<script>
+    function drawCarnetQR() {
+        var canvas = document.getElementById('qrCanvas');
+        if (!canvas) return;
+        var token = canvas.getAttribute('data-qr-token');
+        if (!token || typeof QRCode === 'undefined') return;
+        QRCode.toCanvas(canvas, token, {
+            width: 44,
+            margin: 0,
+            color: { dark: '#000000', light: '#ffffff' }
+        }, function (err) {
+            if (err) console.warn('[Carnet] Error generando QR:', err);
+        });
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" crossorigin="anonymous" onload="drawCarnetQR()"></script>
 <script>
     @if (hasCard && showQr)
     {
         <text>
-        document.addEventListener('DOMContentLoaded', function () {
-            var token = '@Html.Raw(Model!.QrToken)';
-            var canvas = document.getElementById('qrCanvas');
-            if (token && canvas && typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(canvas, token, {
-                    width: 44,
-                    margin: 0,
-                    color: { dark: '#000000', light: '#ffffff' }
-                }, function (err) {
-                    if (err) console.warn('[Carnet] Error generando QR:', err);
-                });
-            }
-        });
+        if (typeof QRCode !== 'undefined') drawCarnetQR(); else window.addEventListener('load', function () { setTimeout(drawCarnetQR, 50); });
         </text>
     }
 
