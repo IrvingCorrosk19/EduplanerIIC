@@ -167,14 +167,21 @@
         opacity: 0.8;
     }
 
-    .carnet-qr canvas {
-        width: 44px !important;
-        height: 44px !important;
+    /* QR generado como imagen (toDataURL es más fiable que toCanvas con estilos aplicados) */
+    .carnet-qr-img {
+        width: 44px;
+        height: 44px;
         border: 2px solid @primaryColor;
         border-radius: 4px;
-        padding: 2px;
         background: white;
-        box-sizing: border-box;
+        display: block;
+    }
+
+    .carnet-back-qr-img {
+        width: 80px;
+        height: 80px;
+        display: block;
+        margin: 0 auto;
     }
 
     .carnet-footer {
@@ -211,33 +218,57 @@
         text-align: center;
         box-sizing: border-box;
     }
-    .carnet-back-print .carnet-back-qr { margin: 8px 0; }
+    .carnet-back-print .carnet-back-qr { margin: 8px 0; text-align: center; }
     .carnet-back-print .carnet-back-school { font-weight: 700; font-size: 10pt; margin-bottom: 4px; }
     .carnet-back-print .carnet-back-text { font-size: 7pt; margin-bottom: 4px; }
     .carnet-back-print .carnet-back-number { font-size: 8pt; font-weight: 600; color: @primaryColor; }
 
+    /* IMPRESION: la regla de tamaño de pagina se inyecta via JS (ver script al final) */
+
     @@media print {
-        body * { visibility: hidden; }
-        .carnet-preview-wrap, .carnet-preview-wrap * { visibility: visible; }
-        .carnet-preview-wrap {
-            position: absolute;
-            left: 0;
-            top: 0;
-            padding: 0;
-            background: white;
-        }
-        .carnet-back-print, .carnet-back-print * { visibility: visible !important; }
-        .carnet-back-print {
-            display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            page-break-before: always;
-            padding: 12px;
-            margin: 0;
-        }
-        .carnet-back-print .carnet-back-qr { display: block !important; margin: 8px auto; }
+        /* Forzar colores de fondo en impresión (desactivado por defecto en browsers) */
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+        /* Ocultar todo el contenido de la página */
+        body * { visibility: hidden !important; }
         .print-actions { display: none !important; }
+
+        /* ── Frente del carnet ─────────────────────────────── */
+        .carnet-preview-wrap {
+            visibility: visible !important;
+            position: fixed !important;
+            top: 0 !important; left: 0 !important;
+            width: @(isVertical ? "54mm" : "86mm") !important;
+            height: @(isVertical ? "86mm" : "54mm") !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: @backgroundColor !important;
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: flex-start !important;
+        }
+        .carnet-preview-wrap * { visibility: visible !important; }
+
+        .carnet-container {
+            width: @(isVertical ? "54mm" : "86mm") !important;
+            height: @(isVertical ? "86mm" : "54mm") !important;
+            max-width: none !important;
+            max-height: none !important;
+            aspect-ratio: unset !important;
+            font-size: 7.5pt !important;
+            line-height: 1.3 !important;
+            border-radius: 2mm !important;
+            box-shadow: none !important;
+            border: 0.3mm solid rgba(0,0,0,0.15) !important;
+            overflow: hidden !important;
+            padding: 2mm !important;
+            flex-shrink: 0 !important;
+        }
+
+        /* El carnet sólo tiene 1 página en impresión desde el browser.
+           Para frente + reverso usar "Descargar PDF". */
+        .carnet-back-print { display: none !important; }
     }
 </style>
 
@@ -311,8 +342,8 @@
                                         <div class="carnet-qr-row">
                                             <span class="carnet-qr-label">Escanea para verificar</span>
                                             <div class="carnet-qr">
-                                                @* Token en data-attribute para evitar problemas de escape; QR se dibuja cuando carga la librería *@
-                                                <canvas id="qrCanvas" data-qr-token="@Model.QrToken" width="44" height="44"></canvas>
+                                                @* Imagen QR generada vía toDataURL (más fiable que toCanvas con CSS aplicado) *@
+                                                <img id="qrImg" class="carnet-qr-img" data-qr-token="@Model.QrToken" alt="QR" />
                                             </div>
                                         </div>
                                     }
@@ -335,7 +366,7 @@
                 {
                     <div class="carnet-back-print" id="carnetBackPrint">
                         <div class="carnet-back-qr">
-                            <canvas id="qrCanvasBack" data-qr-token="@Model.QrToken" width="80" height="80"></canvas>
+                            <img id="qrImgBack" class="carnet-back-qr-img" data-qr-token="@Model.QrToken" alt="QR" />
                         </div>
                         <div class="carnet-back-school">@schoolName</div>
                         <div class="carnet-back-text">Escanea el código QR para verificar la información del carnet</div>
@@ -361,21 +392,31 @@
     }
 </div>
 
-@* qrcode.js — dibuja el QR en todos los canvas con data-qr-token (frente y reverso para imprimir) *@
+@* Inyecta la regla de tamaño de pagina para impresion via JS (String.fromCharCode evita que Razor parsee el arroba como directiva) *@
+<script>
+    (function () {
+        var s = document.createElement('style');
+        s.textContent = String.fromCharCode(64) + 'page { size: @(isVertical ? "54mm 86mm" : "86mm 54mm"); margin: 0; }';
+        document.head.appendChild(s);
+    })();
+</script>
+
+@* qrcode.js — genera QR como Data URL y lo asigna a los img con data-qr-token *@
 <script>
     function drawCarnetQR() {
         if (typeof QRCode === 'undefined') return;
-        var canvases = document.querySelectorAll('canvas[data-qr-token]');
-        canvases.forEach(function (canvas) {
-            var token = canvas.getAttribute('data-qr-token');
+        var imgs = document.querySelectorAll('img[data-qr-token]');
+        imgs.forEach(function (img) {
+            var token = img.getAttribute('data-qr-token');
             if (!token) return;
-            var size = canvas.id === 'qrCanvasBack' ? 76 : 44;
-            QRCode.toCanvas(canvas, token, {
+            var size = (img.id === 'qrImgBack') ? 80 : 44;
+            QRCode.toDataURL(token, {
                 width: size,
-                margin: 0,
+                margin: 1,
                 color: { dark: '#000000', light: '#ffffff' }
-            }, function (err) {
-                if (err) console.warn('[Carnet] Error generando QR:', err);
+            }, function (err, url) {
+                if (err) { console.warn('[Carnet] Error generando QR:', err); return; }
+                img.src = url;
             });
         });
     }
