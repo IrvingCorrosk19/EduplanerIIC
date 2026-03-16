@@ -191,6 +191,27 @@
         justify-content: center;
     }
 
+    .carnet-back-print {
+        display: none;
+        width: @(isVertical ? "210px" : "342px");
+        max-width: 100%;
+        aspect-ratio: @(isVertical ? "54 / 86" : "86 / 54");
+        max-height: @(isVertical ? "334px" : "216px");
+        margin: 0 auto;
+        background: @backgroundColor;
+        border-radius: 5px;
+        padding: 12px;
+        border: 1px solid @borderColor;
+        font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+        color: @textColor;
+        text-align: center;
+        box-sizing: border-box;
+    }
+    .carnet-back-print .carnet-back-qr { margin: 8px 0; }
+    .carnet-back-print .carnet-back-school { font-weight: 700; font-size: 10pt; margin-bottom: 4px; }
+    .carnet-back-print .carnet-back-text { font-size: 7pt; margin-bottom: 4px; }
+    .carnet-back-print .carnet-back-number { font-size: 8pt; font-weight: 600; color: @primaryColor; }
+
     @@media print {
         body * { visibility: hidden; }
         .carnet-preview-wrap, .carnet-preview-wrap * { visibility: visible; }
@@ -201,6 +222,17 @@
             padding: 0;
             background: white;
         }
+        .carnet-back-print, .carnet-back-print * { visibility: visible !important; }
+        .carnet-back-print {
+            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            page-break-before: always;
+            padding: 12px;
+            margin: 0;
+        }
+        .carnet-back-print .carnet-back-qr { display: block !important; margin: 8px auto; }
         .print-actions { display: none !important; }
     }
 </style>
@@ -285,6 +317,17 @@
                         </div>
                     </div>
                 </div>
+                @if (showQr)
+                {
+                    <div class="carnet-back-print" id="carnetBackPrint">
+                        <div class="carnet-back-qr">
+                            <canvas id="qrCanvasBack" data-qr-token="@(Model!.QrToken ?? "")" width="80" height="80"></canvas>
+                        </div>
+                        <div class="carnet-back-school">@schoolName</div>
+                        <div class="carnet-back-text">Escanea el código QR para verificar la información del carnet</div>
+                        <div class="carnet-back-number">Carnet: @Model.CardNumber</div>
+                    </div>
+                }
                 <div class="print-actions">
                     <a href="/StudentIdCard/ui/print/@Model.StudentId" class="btn btn-primary btn-lg" target="_blank">
                         <i class="fas fa-file-pdf"></i> Descargar PDF
@@ -304,19 +347,22 @@
     }
 </div>
 
-@* qrcode.js — genera el QR cuando la librería termina de cargar para que QRCode esté definido *@
+@* qrcode.js — dibuja el QR en todos los canvas con data-qr-token (frente y reverso para imprimir) *@
 <script>
     function drawCarnetQR() {
-        var canvas = document.getElementById('qrCanvas');
-        if (!canvas) return;
-        var token = canvas.getAttribute('data-qr-token');
-        if (!token || typeof QRCode === 'undefined') return;
-        QRCode.toCanvas(canvas, token, {
-            width: 44,
-            margin: 0,
-            color: { dark: '#000000', light: '#ffffff' }
-        }, function (err) {
-            if (err) console.warn('[Carnet] Error generando QR:', err);
+        if (typeof QRCode === 'undefined') return;
+        var canvases = document.querySelectorAll('canvas[data-qr-token]');
+        canvases.forEach(function (canvas) {
+            var token = canvas.getAttribute('data-qr-token');
+            if (!token) return;
+            var size = canvas.id === 'qrCanvasBack' ? 76 : 44;
+            QRCode.toCanvas(canvas, token, {
+                width: size,
+                margin: 0,
+                color: { dark: '#000000', light: '#ffffff' }
+            }, function (err) {
+                if (err) console.warn('[Carnet] Error generando QR:', err);
+            });
         });
     }
 </script>

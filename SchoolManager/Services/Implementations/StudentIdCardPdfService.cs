@@ -8,6 +8,7 @@ using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Security;
+using SkiaSharp;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -95,7 +96,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     ShowSchoolPhone = true,
                     ShowEmergencyContact = false,
                     ShowAllergies = false,
-                    Orientation = "Vertical"
+                    Orientation = "Vertical",
+                    ShowWatermark = true
                 };
             }
 
@@ -108,10 +110,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             // 4) Asegurar carnet + token (con transacción — CONC-2 fix)
             var dto = await BuildStudentCardDtoAsync(studentId, createdBy, school.Name);
 
-            // 5) Logo y foto del estudiante
+            // 5) Logo, marca de agua (logo con opacidad) y foto del estudiante
             byte[]? logoBytes = null;
             if (!string.IsNullOrWhiteSpace(school.LogoUrl))
                 logoBytes = await SafeDownloadBytesAsync(school.LogoUrl);
+            byte[]? watermarkBytes = (settings.ShowWatermark && logoBytes != null) ? CreateWatermarkImage(logoBytes, 0.14f) : null;
 
             byte[]? photoBytes = null;
             if (settings.ShowPhoto && !string.IsNullOrWhiteSpace(dto.PhotoUrl))
@@ -149,7 +152,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     {
                         page.Size(cardWidthMm, cardHeightMm, Unit.Millimetre);
                         page.Margin(0);
-                        page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm));
+                        page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes));
                     });
 
                     if (settings.ShowQr)
@@ -158,7 +161,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         {
                             page.Size(cardWidthMm, cardHeightMm, Unit.Millimetre);
                             page.Margin(0);
-                            page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, school.IdCardPolicy, dto, settings));
+                            page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, school.IdCardPolicy, dto, settings, watermarkBytes));
                         });
                     }
                 }
@@ -242,19 +245,33 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         return positioned;
     }
 
-    /// <summary>Frente del carnet — diseño CarnetQR: header, cuerpo foto+datos, footer.</summary>
+    /// <summary>Frente del carnet — diseño CarnetQR: marca de agua (logo), header, cuerpo foto+datos, footer.</summary>
     private IContainer RenderCarnetQrFront(IContainer container, string schoolName, byte[]? logoBytes,
-        byte[]? photoBytes, StudentCardRenderDto dto, SchoolIdCardSetting settings, float cardWidthMm, float cardHeightMm)
+        byte[]? photoBytes, StudentCardRenderDto dto, SchoolIdCardSetting settings, float cardWidthMm, float cardHeightMm,
+        byte[]? watermarkBytes = null)
     {
         const float paddingMm = 4f;
         const float headerHeightMm = 10f;
         const float photoW = 22f;
         const float photoH = 28f;
         const float qrSizeMm = 18f;
+        const float watermarkSizePercent = 0.42f; // tamaño de la marca de agua respecto al ancho del carnet (visible pero discreta)
 
         container.Layers(layers =>
         {
             layers.Layer().Background(ParseColor(settings.BackgroundColor));
+
+            // Marca de agua: logo del colegio centrado, semi-transparente, que se vea bien sin tapar el contenido
+            if (watermarkBytes != null && watermarkBytes.Length > 0)
+            {
+                var wMm = cardWidthMm * watermarkSizePercent;
+                layers.Layer()
+                    .AlignCenter()
+                    .AlignMiddle()
+                    .Width(wMm, Unit.Millimetre)
+                    .Height(wMm, Unit.Millimetre)
+                    .Image(watermarkBytes);
+            }
 
             // Header con color primario
             layers.Layer().Background(ParseColor(settings.PrimaryColor)).Padding(paddingMm).Height(headerHeightMm).Row(r =>
@@ -312,14 +329,27 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         return container;
     }
 
-    /// <summary>Reverso del carnet — QR centrado, política del colegio (opcional) e información de emergencia (opcional).</summary>
+    /// <summary>Reverso del carnet — marca de agua (opcional), QR centrado, política del colegio e información de emergencia.</summary>
     private IContainer RenderCarnetQrBack(IContainer container, string schoolName, string? schoolPhone,
-        string? idCardPolicy, StudentCardRenderDto dto, SchoolIdCardSetting settings)
+        string? idCardPolicy, StudentCardRenderDto dto, SchoolIdCardSetting settings, byte[]? watermarkBytes = null)
     {
         const float qrBackSizeMm = 28f;
 
-        container.Background(ParseColor(settings.BackgroundColor)).Padding(6).Column(col =>
+        container.Layers(layers =>
         {
+            layers.Layer().Background(ParseColor(settings.BackgroundColor));
+            if (watermarkBytes != null && watermarkBytes.Length > 0)
+            {
+                layers.Layer()
+                    .Padding(6)
+                    .AlignCenter()
+                    .AlignMiddle()
+                    .Width(28f, Unit.Millimetre)
+                    .Height(28f, Unit.Millimetre)
+                    .Image(watermarkBytes);
+            }
+            layers.Layer().Padding(6).Column(col =>
+            {
             // QR: solo si ShowQr y token no vacío (FASE 3 — corrección visualización QR)
             if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
             {
@@ -365,6 +395,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 col.Item().PaddingTop(2).AlignCenter()
                     .Text($"Alergias: {allergiesText}").FontSize(5).FontColor(ParseColor(settings.TextColor));
             }
+            });
         });
         return container;
     }
@@ -390,6 +421,39 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[StudentIdCardPdf] Error generando QR sin firma");
+            return null;
+        }
+    }
+
+    /// <summary>Genera una versión del logo con opacidad reducida para usar como marca de agua (que se vea bien, sin tapar el contenido).</summary>
+    private static byte[]? CreateWatermarkImage(byte[]? logoBytes, float opacity = 0.14f)
+    {
+        if (logoBytes == null || logoBytes.Length == 0 || opacity <= 0 || opacity >= 1) return null;
+        try
+        {
+            using var data = SKData.CreateCopy(logoBytes);
+            using var original = SKImage.FromEncodedData(data);
+            if (original == null) return null;
+            var info = new SKImageInfo(original.Width, original.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            if (surface == null) return null;
+            using var canvas = surface.Canvas;
+            using var paint = new SKPaint
+            {
+                ColorFilter = SKColorFilter.CreateBlendMode(
+                    SKColors.White.WithAlpha((byte)(opacity * 255)),
+                    SKBlendMode.DstIn)
+            };
+            canvas.DrawImage(original, 0, 0, paint);
+            using var snapshot = surface.Snapshot();
+            using var encoded = snapshot.Encode(SKEncodedImageFormat.Png, 100);
+            if (encoded == null) return null;
+            using var stream = new MemoryStream();
+            encoded.SaveTo(stream);
+            return stream.ToArray();
+        }
+        catch
+        {
             return null;
         }
     }

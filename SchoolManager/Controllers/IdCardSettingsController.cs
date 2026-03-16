@@ -75,7 +75,8 @@ public class IdCardSettingsController : Controller
             ShowSchoolPhone = true,
             ShowEmergencyContact = false,
             ShowAllergies = false,
-            Orientation = "Vertical"
+            Orientation = "Vertical",
+            ShowWatermark = true
         };
 
         ViewBag.IdCardPolicy = school.IdCardPolicy ?? "";
@@ -119,6 +120,7 @@ public class IdCardSettingsController : Controller
         {
             model.Id = Guid.NewGuid();
             model.Orientation = model.Orientation ?? "Vertical";
+            model.ShowWatermark = model.ShowWatermark;
             var isHorizontal = string.Equals(model.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
             model.PageWidthMm = isHorizontal ? 86 : 54;
             model.PageHeightMm = isHorizontal ? 54 : 86;
@@ -141,6 +143,7 @@ public class IdCardSettingsController : Controller
             existing.ShowEmergencyContact = model.ShowEmergencyContact;
             existing.ShowAllergies = model.ShowAllergies;
             existing.Orientation = model.Orientation ?? "Vertical";
+            existing.ShowWatermark = model.ShowWatermark;
             // Sincronizar dimensiones con orientación para que el PDF y la vista previa sean consistentes
             var isHorizontal = string.Equals(existing.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
             existing.PageWidthMm = isHorizontal ? 86 : 54;

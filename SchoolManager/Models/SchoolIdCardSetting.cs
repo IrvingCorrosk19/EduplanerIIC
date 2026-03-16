@@ -23,6 +23,8 @@ public class SchoolIdCardSetting
     public bool ShowAllergies { get; set; } = false;
     /// <summary>Orientación del carnet: Vertical (54×86 mm) u Horizontal (86×54 mm).</summary>
     public string Orientation { get; set; } = "Vertical";
+    /// <summary>Mostrar logo del colegio como marca de agua en el frente y reverso del carnet.</summary>
+    public bool ShowWatermark { get; set; } = true;
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

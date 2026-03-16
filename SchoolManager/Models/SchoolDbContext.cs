@@ -2406,6 +2406,10 @@ public partial class SchoolDbContext : DbContext
                 .HasDefaultValue("Vertical")
                 .HasColumnName("orientation");
 
+            entity.Property(e => e.ShowWatermark)
+                .HasDefaultValue(true)
+                .HasColumnName("show_watermark");
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp with time zone")

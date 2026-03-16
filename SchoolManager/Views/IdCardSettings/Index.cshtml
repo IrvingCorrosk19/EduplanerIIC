@@ -231,6 +231,15 @@
                                     </div>
                                     <small class="text-muted d-block ms-4">En el reverso del carnet</small>
                                 </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" asp-for="ShowWatermark" class="form-check-input" id="ShowWatermark" />
+                                        <label class="form-check-label fw-semibold" for="ShowWatermark">
+                                            <i class="fas fa-tint me-1"></i> Marca de agua (logo del colegio)
+                                        </label>
+                                    </div>
+                                    <small class="text-muted d-block ms-4">Logo semi-transparente en frente y reverso del carnet</small>
+                                </div>
                             </div>
                         </section>
 
@@ -302,7 +311,7 @@
                         <div id="previewCardBack" class="idcard-preview-card shadow-sm rounded overflow-hidden" style="width: 280px;">
                             <div class="idcard-preview-back-header p-2 text-center small fw-bold" id="previewBackHeader">Código de verificación</div>
                             <div class="idcard-preview-back-qr d-flex align-items-center justify-content-center p-3" id="previewBackQr">
-                                <div class="border rounded p-2 bg-white"><i class="fas fa-qrcode fa-4x text-muted"></i></div>
+                                <div class="border rounded p-2 bg-white"><canvas id="previewBackQrCanvas" width="120" height="120"></canvas></div>
                             </div>
                             <div class="idcard-preview-footer small py-1" id="previewBackFooter">Escanea para validar</div>
                         </div>
@@ -415,8 +424,20 @@
                 var optEl = document.getElementById('previewOptions');
                 if (dimEl) dimEl.textContent = 'Dimensiones: ' + wMm + ' × ' + hMm + ' mm';
                 if (optEl) optEl.textContent = 'QR: ' + (showQr ? 'Sí' : 'No') + ' · Foto: ' + (showPhoto ? 'Sí' : 'No');
+
+                if (showQr) {
+                    var qrCanvas = document.getElementById('previewBackQrCanvas');
+                    if (qrCanvas && typeof QRCode !== 'undefined') {
+                        var ctx = qrCanvas.getContext('2d');
+                        if (ctx) ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+                        QRCode.toCanvas(qrCanvas, 'Vista-previa-carnet-config', { width: 110, margin: 1, color: { dark: '#000000', light: '#ffffff' } }, function (err) {
+                            if (err) console.warn('[IdCardPreview] QR:', err);
+                        });
+                    }
+                }
             });
         }
     });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" crossorigin="anonymous" id="qrcodeLibIdCard"></script>
 }
