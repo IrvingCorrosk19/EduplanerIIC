@@ -6,7 +6,8 @@ var userPasswordManagement = (function () {
     'use strict';
 
     var config = {
-        listUrl: ''
+        listUrl: '',
+        sendPasswordsUrl: ''
     };
 
     var dataTable = null;
@@ -101,6 +102,8 @@ var userPasswordManagement = (function () {
                 '<td>' + escapeHtml(u.email || '') + '</td>' +
                 '<td>' + escapeHtml(getRoleDisplayName(u.role)) + '</td>' +
                 '<td>' + escapeHtml(u.status || '') + '</td>' +
+                '<td>' + escapeHtml(u.passwordEmailStatus || '') + '</td>' +
+                '<td>' + escapeHtml(formatDate(u.passwordEmailSentAt)) + '</td>' +
                 '<td>' + escapeHtml(formatDate(u.createdAt)) + '</td>' +
                 '</tr>';
             $tbody.append(row);
@@ -178,6 +181,7 @@ var userPasswordManagement = (function () {
     function init(options) {
         if (options) {
             config.listUrl = options.listUrl || config.listUrl;
+            config.sendPasswordsUrl = options.sendPasswordsUrl || config.sendPasswordsUrl;
         }
 
         // Role filter: apply client-side column search on change (like User/Index)
@@ -195,7 +199,96 @@ var userPasswordManagement = (function () {
             }
         });
 
+        $('#btnSendPasswords').on('click', function () {
+            sendPasswords();
+        });
+
         loadUsers();
+    }
+
+    function getAntiForgeryToken() {
+        return $('input[name="__RequestVerificationToken"]').val() || '';
+    }
+
+    var MAX_SEND = 30;
+
+    /**
+     * Envío masivo: contraseña temporal por correo (Resend). Requiere usuarios seleccionados.
+     */
+    function sendPasswords() {
+        var ids = getSelectedIds();
+        if (!ids.length) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'warning', title: 'Selección', text: 'Seleccione al menos un usuario.' });
+            } else { alert('Seleccione al menos un usuario.'); }
+            return;
+        }
+        if (ids.length > MAX_SEND) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Límite',
+                    text: 'Máximo ' + MAX_SEND + ' usuarios por envío. Reduzca la selección.'
+                });
+            } else { alert('Máximo ' + MAX_SEND + ' usuarios por envío.'); }
+            return;
+        }
+        if (!config.sendPasswordsUrl) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'URL de envío no configurada.' });
+            } else { alert('URL de envío no configurada.'); }
+            return;
+        }
+
+        var doPost = function () {
+            var $btn = $('#btnSendPasswords');
+            $btn.prop('disabled', true);
+            $.ajax({
+                url: config.sendPasswordsUrl,
+                type: 'POST',
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                data: JSON.stringify({ userIds: ids }),
+                headers: {
+                    RequestVerificationToken: getAntiForgeryToken()
+                }
+            }).done(function (res) {
+                if (res && res.success) {
+                    var t = 'Total: ' + (res.total || 0) + '. Enviados: ' + (res.sent || 0) + '. Fallidos: ' + (res.failed || 0) + '.';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'success', title: res.message || 'Listo', text: t });
+                    } else { alert(t); }
+                    loadUsers();
+                } else {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'Respuesta inesperada.' });
+                    } else { alert('Respuesta inesperada.'); }
+                }
+            }).fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : (xhr.statusText || 'Error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                } else { alert('Error: ' + msg); }
+            }).always(function () {
+                $btn.prop('disabled', false);
+            });
+        };
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'question',
+                title: 'Enviar contraseñas',
+                html: 'Se generará una <strong>contraseña temporal nueva</strong> por usuario, se guardará en el sistema y se enviará por correo.<br/><br/>Máximo ' + MAX_SEND + ' por vez.',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, enviar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#0d6efd'
+            }).then(function (r) {
+                if (r.isConfirmed) doPost();
+            });
+        } else if (confirm('¿Generar contraseña temporal y enviar por correo a cada usuario seleccionado?')) {
+            doPost();
+        }
     }
 
     return {
@@ -204,6 +297,7 @@ var userPasswordManagement = (function () {
         applyRoleFilter: applyRoleFilter,
         clearFilters: clearFilters,
         handleCheckboxSelection: handleCheckboxSelection,
-        getSelectedIds: getSelectedIds
+        getSelectedIds: getSelectedIds,
+        sendPasswords: sendPasswords
     };
 })();

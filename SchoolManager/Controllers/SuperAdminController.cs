@@ -12,20 +12,25 @@ namespace SchoolManager.Controllers;
 [Authorize(Roles = "superadmin")]
 public class SuperAdminController : Controller
 {
+    private static readonly Guid DefaultEmailApiConfigId = Guid.Parse("b2222222-2222-2222-2222-222222222222");
+
     private readonly ISuperAdminService _superAdminService;
     private readonly IUserPhotoService _userPhotoService;
     private readonly IWebHostEnvironment _webHostEnvironment;
+    private readonly SchoolDbContext _db;
     private readonly ILogger<SuperAdminController> _logger;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
         IUserPhotoService userPhotoService,
         IWebHostEnvironment webHostEnvironment,
+        SchoolDbContext db,
         ILogger<SuperAdminController> logger)
     {
         _superAdminService = superAdminService;
         _userPhotoService = userPhotoService;
         _webHostEnvironment = webHostEnvironment;
+        _db = db;
         _logger = logger;
     }
 
@@ -456,4 +461,86 @@ public class SuperAdminController : Controller
             return RedirectToAction(nameof(Index));
         }
     }
-} 
+
+    /// <summary>Configuración Resend para envío masivo de contraseñas (UserPasswordManagement).</summary>
+    [HttpGet]
+    public async Task<IActionResult> EmailApiSettings()
+    {
+        try
+        {
+            await EnsureEmailApiConfigurationRowAsync();
+            var row = await _db.EmailApiConfigurations
+                .AsNoTracking()
+                .OrderByDescending(x => x.IsActive)
+                .ThenByDescending(x => x.CreatedAt)
+                .FirstAsync();
+            var vm = new EmailApiSettingsViewModel
+            {
+                FromEmail = row.FromEmail,
+                FromName = row.FromName,
+                IsActive = row.IsActive,
+                Provider = row.Provider,
+                HasStoredApiKey = !string.IsNullOrWhiteSpace(row.ApiKey)
+            };
+            return View(vm);
+        }
+        catch (Exception ex) when (ex.Message.Contains("email_api_configurations", StringComparison.OrdinalIgnoreCase) ||
+                                   ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogError(ex, "Tabla email_api_configurations no existe");
+            TempData["ErrorMessage"] =
+                "Falta la tabla email_api_configurations en la base de datos. Aplique la migración EF o el SQL del proyecto.";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EmailApiSettings(EmailApiSettingsViewModel model)
+    {
+        if (!ModelState.IsValid)
+            return View(model);
+
+        try
+        {
+            await EnsureEmailApiConfigurationRowAsync();
+            var row = await _db.EmailApiConfigurations.FirstOrDefaultAsync(x => x.Id == DefaultEmailApiConfigId)
+                      ?? await _db.EmailApiConfigurations.OrderByDescending(x => x.CreatedAt).FirstAsync();
+
+            if (!string.IsNullOrWhiteSpace(model.NewApiKey))
+                row.ApiKey = model.NewApiKey.Trim();
+
+            row.FromEmail = model.FromEmail.Trim();
+            row.FromName = string.IsNullOrWhiteSpace(model.FromName) ? "SchoolManager" : model.FromName.Trim();
+            row.Provider = "Resend";
+            row.IsActive = model.IsActive;
+            await _db.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Configuración de correo API guardada.";
+            return RedirectToAction(nameof(EmailApiSettings));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "EmailApiSettings save failed");
+            ModelState.AddModelError("", "No se pudo guardar. Verifique que exista la tabla email_api_configurations.");
+            model.HasStoredApiKey = await _db.EmailApiConfigurations.AnyAsync(x => !string.IsNullOrEmpty(x.ApiKey));
+            return View(model);
+        }
+    }
+
+    private async Task EnsureEmailApiConfigurationRowAsync()
+    {
+        if (await _db.EmailApiConfigurations.AnyAsync())
+            return;
+        _db.EmailApiConfigurations.Add(new EmailApiConfiguration
+        {
+            Id = DefaultEmailApiConfigId,
+            Provider = "Resend",
+            ApiKey = string.Empty,
+            FromEmail = "noreply@tusistema.com",
+            FromName = "SchoolManager",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+    }
+}

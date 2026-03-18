@@ -5,22 +5,32 @@ using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using System.Net.Mail;
 using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace SchoolManager.Services.Implementations
 {
     public class EmailService : IEmailService
     {
+        private const string ResendEmailsUrl = "https://api.resend.com/emails";
         private readonly SchoolDbContext _context;
         private readonly IEmailConfigurationService _emailConfigService;
+        private readonly IEmailApiConfigurationService _emailApiConfigurationService;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<EmailService> _logger;
 
         public EmailService(
-            SchoolDbContext context, 
+            SchoolDbContext context,
             IEmailConfigurationService emailConfigService,
+            IEmailApiConfigurationService emailApiConfigurationService,
+            IHttpClientFactory httpClientFactory,
             ILogger<EmailService> logger)
         {
             _context = context;
             _emailConfigService = emailConfigService;
+            _emailApiConfigurationService = emailApiConfigurationService;
+            _httpClientFactory = httpClientFactory;
             _logger = logger;
         }
 
@@ -518,6 +528,66 @@ namespace SchoolManager.Services.Implementations
             {
                 _logger.LogError(ex, "Error al enviar email con adjuntos: {ErrorMessage}", ex.Message);
                 return false;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<(bool Success, string? Message)> SendEmailAsync(
+            string toEmail,
+            string subject,
+            string htmlBody,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(toEmail))
+                return (false, "Correo destino vacío.");
+
+            var cfg = await _emailApiConfigurationService.GetActiveAsync(cancellationToken);
+            if (cfg == null)
+                return (false, "No hay configuración API de correo activa (tabla email_api_configurations, IsActive=true).");
+            if (string.IsNullOrWhiteSpace(cfg.ApiKey))
+                return (false, "La API key de correo no está configurada.");
+            if (string.IsNullOrWhiteSpace(cfg.FromEmail))
+                return (false, "FromEmail no configurado.");
+
+            var provider = (cfg.Provider ?? "").Trim();
+            if (!provider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+                return (false, $"Proveedor no soportado para SendEmailAsync: {provider}.");
+
+            var fromDisplay = $"{cfg.FromName} <{cfg.FromEmail.Trim()}>";
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(45);
+            using var request = new HttpRequestMessage(HttpMethod.Post, ResendEmailsUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cfg.ApiKey.Trim());
+
+            var payload = new
+            {
+                from = fromDisplay,
+                to = new[] { toEmail.Trim() },
+                subject,
+                html = htmlBody
+            };
+
+            request.Content = new StringContent(
+                JsonSerializer.Serialize(payload),
+                Encoding.UTF8,
+                "application/json");
+
+            try
+            {
+                using var response = await client.SendAsync(request, cancellationToken);
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Resend API {Code}: {Body}", (int)response.StatusCode, body);
+                    return (false, string.IsNullOrWhiteSpace(body) ? response.ReasonPhrase : body);
+                }
+
+                return (true, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SendEmailAsync Resend falló para {Email}", toEmail);
+                return (false, ex.Message);
             }
         }
     }

@@ -183,6 +183,7 @@ builder.Services.AddScoped<IDirectorService, DirectorService>();
 builder.Services.AddScoped<ISuperAdminService, SuperAdminService>();
 builder.Services.AddScoped<IDateTimeHomologationService, DateTimeHomologationService>();
 builder.Services.AddScoped<IEmailConfigurationService, EmailConfigurationService>();
+builder.Services.AddScoped<IEmailApiConfigurationService, EmailApiConfigurationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICounselorAssignmentService, CounselorAssignmentService>();
 builder.Services.AddScoped<IStudentProfileService, StudentProfileService>();
@@ -219,6 +220,7 @@ builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
 builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService>();
 builder.Services.AddScoped<IDirectorWorkPlanService, DirectorWorkPlanService>();
 builder.Services.AddScoped<IUserPasswordManagementService, UserPasswordManagementService>();
+builder.Services.AddScoped<IBulkPasswordEmailService, BulkPasswordEmailService>();
 // Módulo Club de Padres (pagos carnet y plataforma)
 builder.Services.AddScoped<IClubParentsPaymentService, ClubParentsPaymentService>();
 builder.Services.AddScoped<IQlServicesCarnetService, QlServicesCarnetService>();

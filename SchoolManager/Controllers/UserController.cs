@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using BCrypt.Net;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Dtos;
+using SchoolManager.Constants;
 using Microsoft.Extensions.Logging;
 
 [Authorize(Roles = "admin")]
@@ -505,7 +506,7 @@ public class UserController : Controller
                 emailConfig.SmtpServer, emailConfig.SmtpPort, emailConfig.SmtpUsername);
 
             // Generar una nueva contraseña temporal
-            var newPassword = GenerateTemporaryPassword();
+            var newPassword = DefaultTemporaryPassword.Value;
             _logger.LogInformation("Contraseña temporal generada para usuario: {UserEmail}", user.Email);
             
             // Actualizar la contraseña del usuario
@@ -533,35 +534,6 @@ public class UserController : Controller
             _logger.LogError(ex, "Error inesperado al enviar email de contraseña para usuario ID: {UserId}", id);
             return BadRequest(new { message = $"Error: {ex.Message}" });
         }
-    }
-
-    private string GenerateTemporaryPassword()
-    {
-        const int length = 12;
-        const string charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-        var random = new Random();
-        
-        // Asegurar al menos un carácter de cada tipo
-        var password = new char[length];
-        password[0] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[random.Next(26)]; // Mayúscula
-        password[1] = "abcdefghijklmnopqrstuvwxyz"[random.Next(26)]; // Minúscula
-        password[2] = "0123456789"[random.Next(10)]; // Número
-        password[3] = "!@#$%^&*"[random.Next(8)]; // Especial
-        
-        // Completar con caracteres aleatorios
-        for (int i = 4; i < length; i++)
-        {
-            password[i] = charset[random.Next(charset.Length)];
-        }
-        
-        // Mezclar la contraseña
-        for (int i = 0; i < length; i++)
-        {
-            int randomIndex = random.Next(length);
-            (password[i], password[randomIndex]) = (password[randomIndex], password[i]);
-        }
-        
-        return new string(password);
     }
 
     private async Task<bool> SendWelcomeEmailAsync(User user, string password, EmailConfigurationDto emailConfig)

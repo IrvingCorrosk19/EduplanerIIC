@@ -87,6 +87,8 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<ScanLog> ScanLogs { get; set; }
 
+    public virtual DbSet<EmailApiConfiguration> EmailApiConfigurations { get; set; }
+
     public virtual DbSet<SchoolIdCardSetting> SchoolIdCardSettings { get; set; }
 
     public virtual DbSet<IdCardTemplateField> IdCardTemplateFields { get; set; }
@@ -1327,6 +1329,13 @@ public partial class SchoolDbContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("emergency_relationship");
 
+            entity.Property(e => e.PasswordEmailStatus)
+                .HasMaxLength(20)
+                .HasColumnName("password_email_status");
+            entity.Property(e => e.PasswordEmailSentAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("password_email_sent_at");
+
             entity.HasOne(d => d.SchoolNavigation).WithMany(p => p.Users)
                 .HasForeignKey(d => d.SchoolId)
                 .OnDelete(DeleteBehavior.SetNull)
@@ -2327,6 +2336,38 @@ public partial class SchoolDbContext : DbContext
                 .HasForeignKey(d => d.StudentId)
                 .HasConstraintName("scan_logs_student_id_fkey")
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EmailApiConfiguration>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("email_api_configurations_pkey");
+            entity.ToTable("email_api_configurations");
+            entity.HasIndex(e => e.IsActive, "IX_email_api_configurations_is_active");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.Provider)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("provider");
+            entity.Property(e => e.ApiKey)
+                .IsRequired()
+                .HasMaxLength(500)
+                .HasColumnName("api_key");
+            entity.Property(e => e.FromEmail)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("from_email");
+            entity.Property(e => e.FromName)
+                .IsRequired()
+                .HasMaxLength(200)
+                .HasColumnName("from_name");
+            entity.Property(e => e.IsActive)
+                .HasColumnName("is_active");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
         });
 
         // Configuración de SchoolIdCardSetting

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SchoolManager.Models;
@@ -11,9 +12,11 @@ using SchoolManager.Models;
 namespace SchoolManager.Migrations
 {
     [DbContext(typeof(SchoolDbContext))]
-    partial class SchoolDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260318015555_AddPasswordEmailAndResendSettings")]
+    partial class AddPasswordEmailAndResendSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -692,56 +695,6 @@ namespace SchoolManager.Migrations
                     b.HasIndex(new[] { "TeacherId" }, "IX_discipline_reports_teacher_id");
 
                     b.ToTable("discipline_reports", (string)null);
-                });
-
-            modelBuilder.Entity("SchoolManager.Models.EmailApiConfiguration", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("uuid_generate_v4()");
-
-                    b.Property<string>("ApiKey")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("api_key");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("FromEmail")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("from_email");
-
-                    b.Property<string>("FromName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("from_name");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("provider");
-
-                    b.HasKey("Id")
-                        .HasName("email_api_configurations_pkey");
-
-                    b.HasIndex(new[] { "IsActive" }, "IX_email_api_configurations_is_active");
-
-                    b.ToTable("email_api_configurations", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManager.Models.EmailConfiguration", b =>
@@ -1661,6 +1614,36 @@ namespace SchoolManager.Migrations
                     b.HasIndex(new[] { "SchoolId" }, "IX_prematriculation_periods_school_id");
 
                     b.ToTable("prematriculation_periods", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.ResendEmailSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("ApiKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("api_key");
+
+                    b.Property<string>("FromAddress")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("from_address");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("resend_email_settings_pkey");
+
+                    b.ToTable("resend_email_settings", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManager.Models.ScanLog", b =>

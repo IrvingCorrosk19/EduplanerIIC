@@ -22,6 +22,7 @@
 
     <section class="content">
         <div class="container-fluid">
+            @Html.AntiForgeryToken()
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title"><i class="fas fa-key mr-2"></i>User Password Management</h3>
@@ -42,7 +43,10 @@
                             <label for="searchBox" class="form-label">Search</label>
                             <input type="text" id="searchBox" class="form-control" placeholder="Search users..." />
                         </div>
-                        <div class="col-md-4 d-flex align-items-end gap-2">
+                        <div class="col-md-4 d-flex align-items-end gap-2 flex-wrap">
+                            <button type="button" id="btnSendPasswords" class="btn btn-primary">
+                                <i class="fas fa-envelope mr-1"></i> Enviar contraseñas
+                            </button>
                             <button type="button" id="btnReset" class="btn btn-secondary">
                                 <i class="fas fa-undo mr-1"></i> Limpiar filtros
                             </button>
@@ -60,6 +64,8 @@
                                     <th>Email</th>
                                     <th>Role</th>
                                     <th>Status</th>
+                                    <th>Estado correo</th>
+                                    <th>Fecha envío</th>
                                     <th>Created At</th>
                                 </tr>
                             </thead>
@@ -78,7 +84,8 @@
     <script>
         $(function () {
             userPasswordManagement.init({
-                listUrl: '/Admin/UserPasswordManagement/ListJson'
+                listUrl: '/Admin/UserPasswordManagement/ListJson',
+                sendPasswordsUrl: '/Admin/UserPasswordManagement/SendPasswords'
             });
         });
     </script>

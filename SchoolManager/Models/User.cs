@@ -63,6 +63,12 @@ public partial class User
     /// <summary>Relación del contacto de emergencia con el estudiante (ej. Padre, Madre, Acudiente).</summary>
     public string? EmergencyRelationship { get; set; }
 
+    /// <summary>Estado del último envío masivo de contraseña por correo (Pending, Sent, Failed).</summary>
+    public string? PasswordEmailStatus { get; set; }
+
+    /// <summary>Fecha UTC del último intento de envío de contraseña por correo.</summary>
+    public DateTime? PasswordEmailSentAt { get; set; }
+
     /// <summary>URL o path de la foto del usuario (solo asignable vía dominio).</summary>
     public string? PhotoUrl { get; private set; }
 

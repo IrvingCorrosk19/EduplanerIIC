@@ -32,6 +32,8 @@ namespace SchoolManager.Services.Implementations
                     Email = u.Email,
                     Role = u.Role ?? string.Empty,
                     Status = u.Status ?? string.Empty,
+                    PasswordEmailStatus = u.PasswordEmailStatus,
+                    PasswordEmailSentAt = u.PasswordEmailSentAt,
                     CreatedAt = u.CreatedAt
                 })
                 .ToListAsync();
@@ -66,6 +68,8 @@ namespace SchoolManager.Services.Implementations
                     Email = u.Email,
                     Role = u.Role ?? string.Empty,
                     Status = u.Status ?? string.Empty,
+                    PasswordEmailStatus = u.PasswordEmailStatus,
+                    PasswordEmailSentAt = u.PasswordEmailSentAt,
                     CreatedAt = u.CreatedAt
                 })
                 .ToListAsync();

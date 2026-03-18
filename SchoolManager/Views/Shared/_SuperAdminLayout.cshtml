@@ -76,6 +76,12 @@
                         </li>
                         <li class="nav-header">CONFIGURACIÓN</li>
                         <li class="nav-item">
+                            <a href="/SuperAdmin/EmailApiSettings" class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "EmailApiSettings" ? "active" : "")">
+                                <i class="nav-icon fas fa-paper-plane"></i>
+                                <p>Correo API (Resend)</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="/StudentIdCard/ui" class="nav-link">
                                 <i class="nav-icon fas fa-id-card"></i>
                                 <p>Carnet Estudiantil</p>
