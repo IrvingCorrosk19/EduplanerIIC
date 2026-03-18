@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolManager.Dtos;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
+using SchoolManager.ViewModels;
 using System.Security.Claims;
 
 namespace SchoolManager.Controllers;
@@ -40,55 +41,86 @@ public class StudentIdCardController : Controller
     /// BUG-2 fix: el GET solo lee y muestra el carnet actual — NO genera ni modifica estado.
     /// La generación ocurre exclusivamente vía POST a /api/generate/{studentId}.
     /// </summary>
+    /// <summary>
+    /// Vista previa del carnet: escuela y configuración siempre desde el estudiante (SchoolId del alumno),
+    /// no desde la escuela del usuario autenticado (corrige SuperAdmin sin escuela).
+    /// </summary>
     [HttpGet("ui/generate/{studentId}")]
     public async Task<IActionResult> GenerateView(Guid studentId)
     {
-        var school = await _currentUserService.GetCurrentUserSchoolAsync();
-        ViewBag.SchoolName = school?.Name ?? "SchoolManager";
-        ViewBag.SchoolLogoUrl = school?.LogoUrl;
-        ViewBag.StudentId = studentId;
-        ViewBag.BackgroundImageUrl = "/uploads/idcards/backgrounds/default.png";
+        // Comparación traducible a SQL (Equals con StringComparison no lo es en EF Core)
+        var student = await _context.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == studentId &&
+                u.Role != null &&
+                (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"));
 
-        // Configuración del carnet para vista previa (orientación, mostrar QR/foto)
-        var cardSettings = school != null
+        if (student == null)
+        {
+            return View("Generate", new StudentIdCardGenerateViewModel
+            {
+                StudentId = studentId,
+                StudentNotFound = true,
+                SchoolName = "—"
+            });
+        }
+
+        School? schoolEntity = null;
+        if (student.SchoolId.HasValue)
+        {
+            schoolEntity = await _context.Schools.AsNoTracking().IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.Id == student.SchoolId.Value);
+        }
+
+        var cardSettings = student.SchoolId.HasValue
             ? await _context.Set<SchoolIdCardSetting>().AsNoTracking().IgnoreQueryFilters()
-                .FirstOrDefaultAsync(x => x.SchoolId == school.Id)
+                .FirstOrDefaultAsync(x => x.SchoolId == student.SchoolId.Value)
             : null;
-        ViewBag.IdCardOrientation = cardSettings?.Orientation ?? "Vertical";
-        ViewBag.IdCardShowQr = cardSettings?.ShowQr ?? true;
-        ViewBag.IdCardShowPhoto = cardSettings?.ShowPhoto ?? true;
-        // Colores de configuración para que la vista previa web refleje los ajustes reales del carnet
-        ViewBag.IdCardPrimaryColor = cardSettings?.PrimaryColor ?? "#0D6EFD";
-        ViewBag.IdCardBackgroundColor = cardSettings?.BackgroundColor ?? "#FFFFFF";
-        ViewBag.IdCardTextColor = cardSettings?.TextColor ?? "#111111";
 
-        // GetCurrentCardAsync nunca revoca ni crea; es idempotente y seguro en GET
-        var dto = await _service.GetCurrentCardAsync(studentId);
-        return View("Generate", dto); // dto puede ser null → vista muestra estado "sin carnet"
+        var enabledTemplateFields = student.SchoolId.HasValue
+            ? await _context.Set<IdCardTemplateField>().AsNoTracking()
+                .CountAsync(x => x.SchoolId == student.SchoolId.Value && x.IsEnabled)
+            : 0;
+
+        var vm = StudentIdCardGenerateViewModel.ForStudent(studentId, schoolEntity, cardSettings);
+        vm.UsesCustomPdfTemplate = enabledTemplateFields > 0;
+        vm.EmergencyContactName = student.EmergencyContactName;
+        vm.EmergencyContactPhone = student.EmergencyContactPhone;
+        vm.Allergies = student.Allergies;
+
+        vm.Card = await _service.GetCurrentCardAsync(studentId);
+        return View("Generate", vm);
     }
 
     [HttpGet("ui/scan")]
     public IActionResult Scan() => View();
 
+    /// <summary>
+    /// Descarga del PDF del carnet (frente/reverso según configuración). Errores en texto plano para que fetch en la vista pueda mostrarlos.
+    /// </summary>
     [HttpGet("ui/print/{studentId}")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Print(Guid studentId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized("Usuario no autenticado");
+            return Unauthorized("Usuario no autenticado.");
 
         try
         {
             var pdf = await _pdfService.GenerateCardPdfAsync(studentId, userId);
-            return File(pdf, "application/pdf", $"carnet-{studentId}.pdf");
+            return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "[StudentIdCard] Print/PDF error StudentId={StudentId} UserId={UserId}: {Message}",
                 studentId, userId, ex.Message);
-            TempData["Error"] = ex.Message;
-            return RedirectToAction("Index");
+            return new ContentResult
+            {
+                Content = "No se pudo generar el PDF: " + ex.Message,
+                ContentType = "text/plain; charset=utf-8",
+                StatusCode = StatusCodes.Status500InternalServerError
+            };
         }
     }
 

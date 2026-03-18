@@ -15,7 +15,6 @@ namespace SchoolManager.Services.Implementations;
 public class StudentIdCardPdfService : IStudentIdCardPdfService
 {
     private readonly SchoolDbContext _context;
-    private readonly ICurrentUserService _currentUserService;
     private readonly IFileStorageService _fileStorage;
     private readonly HttpClient _http;
     private readonly ILogger<StudentIdCardPdfService> _logger;
@@ -42,7 +41,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
     public StudentIdCardPdfService(
         SchoolDbContext context,
-        ICurrentUserService currentUserService,
         IFileStorageService fileStorage,
         IHttpClientFactory httpClientFactory,
         ILogger<StudentIdCardPdfService> logger,
@@ -50,7 +48,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         IWebHostEnvironment environment)
     {
         _context = context;
-        _currentUserService = currentUserService;
         _fileStorage = fileStorage;
         _http = httpClientFactory.CreateClient();
         _logger = logger;
@@ -66,32 +63,34 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 "[StudentIdCardPdf] GenerateCardPdfAsync inicio StudentId={StudentId} CreatedBy={CreatedBy}",
                 studentId, createdBy);
 
-            // 1) Datos escuela (multi-escuela + SuperAdmin fix)
-            var school = await _currentUserService.GetCurrentUserSchoolAsync();
-            if (school == null)
+            // 1) Escuela siempre la del estudiante (misma fuente que la vista Generate y la configuración por colegio del alumno).
+            //    No usar GetCurrentUserSchoolAsync: un admin de otra sede o SuperAdmin debe obtener el PDF correcto del alumno.
+            var studentSchoolId = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.Id == studentId)
+                .Select(u => u.SchoolId)
+                .FirstOrDefaultAsync();
+
+            if (!studentSchoolId.HasValue)
             {
-                // SuperAdmin no tiene escuela asociada: buscar la escuela del estudiante directamente
-                var studentSchoolId = await _context.Users
-                    .AsNoTracking()
-                    .Where(u => u.Id == studentId)
-                    .Select(u => u.SchoolId)
-                    .FirstOrDefaultAsync();
-
-                if (studentSchoolId.HasValue)
-                    school = await _context.Schools
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(s => s.Id == studentSchoolId.Value);
-
-                if (school == null)
-                {
-                    _logger.LogWarning("[StudentIdCardPdf] No se pudo determinar la escuela para StudentId={StudentId}", studentId);
-                    throw new Exception("No se pudo determinar la escuela del estudiante.");
-                }
-
-                _logger.LogInformation("[StudentIdCardPdf] SuperAdmin: usando escuela del estudiante SchoolId={SchoolId}", school.Id);
+                _logger.LogWarning("[StudentIdCardPdf] Estudiante sin SchoolId StudentId={StudentId}", studentId);
+                throw new Exception("El estudiante no tiene escuela asignada.");
             }
 
-            // 2) Settings de carnet — siempre desde BD por school.Id para que la configuración afecte al PDF
+            var school = await _context.Schools
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.Id == studentSchoolId.Value);
+
+            if (school == null)
+            {
+                _logger.LogWarning("[StudentIdCardPdf] Escuela no encontrada SchoolId={SchoolId}", studentSchoolId);
+                throw new Exception("No se encontró la institución del estudiante.");
+            }
+
+            _logger.LogInformation("[StudentIdCardPdf] Usando escuela del estudiante SchoolId={SchoolId}", school.Id);
+
+            // 2) Settings de carnet — por school.Id del estudiante
             var settings = await _context.Set<SchoolIdCardSetting>()
                 .AsNoTracking()
                 .IgnoreQueryFilters()
@@ -118,7 +117,9 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 };
             }
 
-            // 3) Campos configurables
+            // 3) Campos de plantilla PDF personalizada (id_card_template_fields).
+            //    Si hay alguno habilitado: una sola página con posiciones fijas (no es el layout CarnetQR de dos caras).
+            //    TemplateKey en school_id_card_settings no selecciona otro motor de layout; solo distingue "hay campos" vs CarnetQR.
             var fields = await _context.Set<IdCardTemplateField>()
                 .AsNoTracking()
                 .Where(x => x.SchoolId == school.Id && x.IsEnabled)
@@ -144,17 +145,20 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             {
                 if (fields.Any())
                 {
-                    // Con campos personalizados: layout por posiciones
+                    // Layout personalizado: capas sobre fondo; QuestPDF exige exactamente una PrimaryLayer (tamaño del lienzo).
+                    var pw = settings.PageWidthMm;
+                    var ph = settings.PageHeightMm;
                     container.Page(page =>
                     {
-                        page.Size(settings.PageWidthMm, settings.PageHeightMm, Unit.Millimetre);
+                        page.Size(pw, ph, Unit.Millimetre);
                         page.Margin(0);
                         page.Content().Layers(layers =>
                         {
                             layers.Layer().Background(ParseColor(settings.BackgroundColor));
+                            layers.PrimaryLayer().Width(pw, Unit.Millimetre).Height(ph, Unit.Millimetre);
                             layers.Layer().Unconstrained()
                                 .TranslateX(0, Unit.Millimetre).TranslateY(0, Unit.Millimetre)
-                                .Width(settings.PageWidthMm, Unit.Millimetre).Height(12, Unit.Millimetre)
+                                .Width(pw, Unit.Millimetre).Height(12, Unit.Millimetre)
                                 .Background(ParseColor(settings.PrimaryColor));
                             foreach (var f in fields)
                                 layers.Layer().Element(e => RenderField(e, f, dto, school.Name, logoBytes, photoBytes, settings));
@@ -163,24 +167,44 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 }
                 else
                 {
-                    // Layout estilo CarnetQR: dimensiones desde configuración/orientación
+                    // CarnetQR: una sola hoja A4 con frente y reverso lado a lado (evita páginas en blanco por overflow).
                     var (cardWidthMm, cardHeightMm) = GetCardDimensions(settings);
+                    const float sheetGapMm = 6f;
+                    const float sheetMarginMm = 10f;
+                    var schoolNamePdf = school.Name;
+                    var phonePdf = school.Phone;
+                    var policyPdf = school.IdCardPolicy;
+
                     container.Page(page =>
                     {
-                        page.Size(cardWidthMm, cardHeightMm, Unit.Millimetre);
-                        page.Margin(0);
-                        page.Content().Element(c => RenderCarnetQrFront(c, school.Name, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes));
-                    });
-
-                    if (settings.ShowQr)
-                    {
-                        container.Page(page =>
+                        page.Size(PageSizes.A4);
+                        page.Margin(sheetMarginMm, Unit.Millimetre);
+                        page.Content().AlignCenter().AlignMiddle().Row(row =>
                         {
-                            page.Size(cardWidthMm, cardHeightMm, Unit.Millimetre);
-                            page.Margin(0);
-                            page.Content().Element(c => RenderCarnetQrBack(c, school.Name, school.Phone, school.IdCardPolicy, dto, settings, watermarkBytes));
+                            if (settings.ShowQr)
+                            {
+                                row.Spacing(sheetGapMm);
+                                row.ConstantItem(cardWidthMm, Unit.Millimetre)
+                                    .Height(cardHeightMm, Unit.Millimetre)
+                                    .Border(0.2f)
+                                    .BorderColor(Colors.Grey.Medium)
+                                    .Element(c => RenderCarnetQrFront(c, schoolNamePdf, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes));
+                                row.ConstantItem(cardWidthMm, Unit.Millimetre)
+                                    .Height(cardHeightMm, Unit.Millimetre)
+                                    .Border(0.2f)
+                                    .BorderColor(Colors.Grey.Medium)
+                                    .Element(c => RenderCarnetQrBack(c, schoolNamePdf, phonePdf, policyPdf, dto, settings, watermarkBytes));
+                            }
+                            else
+                            {
+                                row.ConstantItem(cardWidthMm, Unit.Millimetre)
+                                    .Height(cardHeightMm, Unit.Millimetre)
+                                    .Border(0.2f)
+                                    .BorderColor(Colors.Grey.Medium)
+                                    .Element(c => RenderCarnetQrFront(c, schoolNamePdf, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes));
+                            }
                         });
-                    }
+                    });
                 }
             }).GeneratePdf();
 
@@ -268,80 +292,91 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         byte[]? watermarkBytes = null)
     {
         const float paddingMm = 4f;
-        const float headerHeightMm = 10f;
+        // Alto barra superior: debe caber padding + logo (~8 mm) + texto; 10 mm total con Padding(4) dejaba 2 mm útiles (fallo QuestPDF).
+        const float headerHeightMm = 14f;
+        const float headerPaddingVMm = 2f;
         const float photoW = 22f;
         const float photoH = 28f;
         const float qrSizeMm = 18f;
         const float watermarkSizePercent = 0.42f; // tamaño de la marca de agua respecto al ancho del carnet (visible pero discreta)
 
+        // QuestPDF 2025+: Layers requiere exactamente una PrimaryLayer. Capas previas = fondo; PrimaryLayer = contenido principal.
+        var wMmWm = cardWidthMm * watermarkSizePercent;
         container.Layers(layers =>
         {
             layers.Layer().Background(ParseColor(settings.BackgroundColor));
-
-            // Marca de agua: logo del colegio centrado, semi-transparente, que se vea bien sin tapar el contenido
             if (watermarkBytes != null && watermarkBytes.Length > 0)
             {
-                var wMm = cardWidthMm * watermarkSizePercent;
                 layers.Layer()
                     .AlignCenter()
                     .AlignMiddle()
-                    .Width(wMm, Unit.Millimetre)
-                    .Height(wMm, Unit.Millimetre)
+                    .Width(wMmWm, Unit.Millimetre)
+                    .Height(wMmWm, Unit.Millimetre)
                     .Image(watermarkBytes);
             }
 
-            // Header con color primario
-            layers.Layer().Background(ParseColor(settings.PrimaryColor)).Padding(paddingMm).Height(headerHeightMm).Row(r =>
+            layers.PrimaryLayer().Column(col =>
             {
-                if (logoBytes != null)
-                {
-                    r.ConstantItem(24).Height(8).AlignLeft().AlignMiddle().Image(logoBytes);
-                    r.ConstantItem(2);
-                }
-                r.RelativeItem().AlignLeft().AlignMiddle().Text(schoolName)
-                    .FontSize(8).FontColor(Colors.White).Bold();
-            });
-
-            // Cuerpo: foto izquierda, datos derecha
-            layers.Layer().Padding(paddingMm).PaddingTop(headerHeightMm + 2).Row(r =>
-            {
-                if (settings.ShowPhoto)
-                {
-                    var photoBlock = r.ConstantItem(photoW).Height(photoH)
-                        .Border(1).BorderColor(ParseColor(settings.PrimaryColor))
-                        .Padding(2);
-                    if (photoBytes != null && photoBytes.Length > 0)
-                        photoBlock.AlignCenter().AlignMiddle().Image(photoBytes);
-                    else
-                        photoBlock.AlignCenter().AlignMiddle().Text("FOTO").FontSize(6).FontColor(ParseColor(settings.TextColor));
-                    r.ConstantItem(3);
-                }
-
-                r.RelativeItem().Column(col =>
-                {
-                    col.Item().Text(dto.FullName).FontSize(9).Bold().FontColor(ParseColor(settings.TextColor));
-                    col.Item().Text($"Carnet: {dto.CardNumber}").FontSize(7).FontColor(ParseColor(settings.PrimaryColor)).SemiBold();
-                    col.Item().Text($"{dto.Grade} - {dto.Group}").FontSize(7).FontColor(ParseColor(settings.TextColor));
-                    col.Item().Text(dto.Shift).FontSize(6).FontColor(ParseColor(settings.TextColor));
-
-                    if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                col.Item().Height(headerHeightMm).Background(ParseColor(settings.PrimaryColor))
+                    .PaddingHorizontal(paddingMm).PaddingVertical(headerPaddingVMm)
+                    .Row(r =>
                     {
-                        var qrBytesFront = SafeGenerateQrPng(dto.QrToken);
-                        if (qrBytesFront != null && qrBytesFront.Length > 0)
+                        if (logoBytes != null)
                         {
-                            col.Item().PaddingTop(2).Row(qrRow =>
-                            {
-                                qrRow.RelativeItem().AlignMiddle().Text("Escanea para verificar").FontSize(5).FontColor(ParseColor(settings.TextColor));
-                                qrRow.ConstantItem(qrSizeMm).Height(qrSizeMm).Image(qrBytesFront);
-                            });
+                            r.ConstantItem(24).Height(8).AlignLeft().AlignMiddle().Image(logoBytes);
+                            r.ConstantItem(2);
                         }
-                    }
-                });
-            });
+                        r.RelativeItem().AlignLeft().AlignMiddle().Text(schoolName)
+                            .FontSize(7).FontColor(Colors.White).Bold().LineHeight(1.1f);
+                    });
 
-            // Footer sutil (usa altura del carnet desde configuración)
-            layers.Layer().Padding(paddingMm).PaddingTop(cardHeightMm - 8).BorderTop(0.5f).BorderColor(ParseColor("#e5e7eb"))
-                .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                const float footerBandMm = 8f;
+                var bodyHeightMm = cardHeightMm - headerHeightMm - footerBandMm;
+                if (bodyHeightMm < 18f)
+                    bodyHeightMm = 18f;
+
+                col.Item().Height(bodyHeightMm).Padding(paddingMm).PaddingTop(2).Row(r =>
+                {
+                    if (settings.ShowPhoto)
+                    {
+                        var ph = Math.Min(photoH, bodyHeightMm - 4f);
+                        var photoBlock = r.ConstantItem(photoW).Height(ph)
+                            .Border(1).BorderColor(ParseColor(settings.PrimaryColor))
+                            .Padding(2);
+                        if (photoBytes != null && photoBytes.Length > 0)
+                            photoBlock.AlignCenter().AlignMiddle().Image(photoBytes);
+                        else
+                            photoBlock.AlignCenter().AlignMiddle().Text("FOTO").FontSize(6).FontColor(ParseColor(settings.TextColor));
+                        r.ConstantItem(3);
+                    }
+
+                    r.RelativeItem().Column(c2 =>
+                    {
+                        c2.Item().Text(dto.FullName).FontSize(9).Bold().FontColor(ParseColor(settings.TextColor));
+                        c2.Item().Text($"Carnet: {dto.CardNumber}").FontSize(7).FontColor(ParseColor(settings.PrimaryColor)).SemiBold();
+                        c2.Item().Text($"{dto.Grade} - {dto.Group}").FontSize(7).FontColor(ParseColor(settings.TextColor));
+                        c2.Item().Text(dto.Shift).FontSize(6).FontColor(ParseColor(settings.TextColor));
+
+                        if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                        {
+                            var qrBytesFront = SafeGenerateQrPng(dto.QrToken);
+                            if (qrBytesFront != null && qrBytesFront.Length > 0)
+                            {
+                                var qrH = Math.Min(qrSizeMm, Math.Max(10f, bodyHeightMm - 28f));
+                                c2.Item().PaddingTop(2).Row(qrRow =>
+                                {
+                                    qrRow.RelativeItem().AlignMiddle().Text("Escanea para verificar").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                                    qrRow.ConstantItem(qrH).Height(qrH).Image(qrBytesFront);
+                                });
+                            }
+                        }
+                    });
+                });
+
+                col.Item().Height(footerBandMm).PaddingHorizontal(paddingMm).AlignMiddle()
+                    .BorderTop(0.5f).BorderColor(ParseColor("#e5e7eb"))
+                    .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+            });
         });
         return container;
     }
@@ -365,53 +400,51 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Height(28f, Unit.Millimetre)
                     .Image(watermarkBytes);
             }
-            layers.Layer().Padding(6).Column(col =>
-            {
-            // QR: solo si ShowQr y token no vacío (FASE 3 — corrección visualización QR)
-            if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
-            {
-                var qrBytes = SafeGenerateQrPng(dto.QrToken);
-                if (qrBytes != null && qrBytes.Length > 0)
-                    col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre)
-                        .AlignCenter().Image(qrBytes);
-            }
-            col.Item().PaddingTop(3).AlignCenter().Text(schoolName).FontSize(8).Bold().FontColor(ParseColor(settings.TextColor));
-            col.Item().AlignCenter().Text("Escanea el código QR para verificar la información del carnet")
-                .FontSize(6).FontColor(ParseColor(settings.TextColor));
-            col.Item().AlignCenter().Text($"Carnet: {dto.CardNumber}").FontSize(6).FontColor(ParseColor(settings.TextColor));
 
-            // Política del colegio (FASE 1) — debajo del QR si está configurada
-            if (!string.IsNullOrWhiteSpace(idCardPolicy))
+            layers.PrimaryLayer().Padding(6).Column(col =>
             {
-                col.Item().PaddingTop(2).PaddingHorizontal(2)
-                    .AlignCenter().Text(idCardPolicy.Trim()).FontSize(4).FontColor(ParseColor(settings.TextColor));
-            }
+                if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                {
+                    var qrBytes = SafeGenerateQrPng(dto.QrToken);
+                    if (qrBytes != null && qrBytes.Length > 0)
+                        col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre)
+                            .AlignCenter().Image(qrBytes);
+                }
+                col.Item().PaddingTop(3).AlignCenter().Text(schoolName).FontSize(8).Bold().FontColor(ParseColor(settings.TextColor));
+                col.Item().AlignCenter().Text("Escanea el código QR para verificar la información del carnet")
+                    .FontSize(6).FontColor(ParseColor(settings.TextColor));
+                col.Item().AlignCenter().Text($"Carnet: {dto.CardNumber}").FontSize(6).FontColor(ParseColor(settings.TextColor));
 
-            if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone))
-            {
-                col.Item().PaddingTop(2).AlignCenter()
-                    .Text($"Tel. colegio: {schoolPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
-            }
+                if (!string.IsNullOrWhiteSpace(idCardPolicy))
+                {
+                    col.Item().PaddingTop(2).PaddingHorizontal(2)
+                        .AlignCenter().Text(idCardPolicy.Trim()).FontSize(4).FontColor(ParseColor(settings.TextColor));
+                }
 
-            if (settings.ShowEmergencyContact &&
-                (!string.IsNullOrWhiteSpace(dto.EmergencyContactName) || !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone)))
-            {
-                col.Item().PaddingTop(2).AlignCenter()
-                    .Text($"Contacto emergencia: {dto.EmergencyContactName ?? "—"}").FontSize(5).FontColor(ParseColor(settings.TextColor));
-                if (!string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
-                    col.Item().AlignCenter()
-                        .Text($"Tel: {dto.EmergencyContactPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
-            }
+                if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone))
+                {
+                    col.Item().PaddingTop(2).AlignCenter()
+                        .Text($"Tel. colegio: {schoolPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                }
 
-            // BUG-3 fix: truncar alergias para evitar desbordamiento del layout del carnet
-            if (settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
-            {
-                var allergiesText = dto.Allergies.Length > MaxAllergiesCharsOnCard
-                    ? dto.Allergies[..( MaxAllergiesCharsOnCard - 3)] + "..."
-                    : dto.Allergies;
-                col.Item().PaddingTop(2).AlignCenter()
-                    .Text($"Alergias: {allergiesText}").FontSize(5).FontColor(ParseColor(settings.TextColor));
-            }
+                if (settings.ShowEmergencyContact &&
+                    (!string.IsNullOrWhiteSpace(dto.EmergencyContactName) || !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone)))
+                {
+                    col.Item().PaddingTop(2).AlignCenter()
+                        .Text($"Contacto emergencia: {dto.EmergencyContactName ?? "—"}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                    if (!string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
+                        col.Item().AlignCenter()
+                            .Text($"Tel: {dto.EmergencyContactPhone}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                }
+
+                if (settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
+                {
+                    var allergiesText = dto.Allergies.Length > MaxAllergiesCharsOnCard
+                        ? dto.Allergies[..(MaxAllergiesCharsOnCard - 3)] + "..."
+                        : dto.Allergies;
+                    col.Item().PaddingTop(2).AlignCenter()
+                        .Text($"Alergias: {allergiesText}").FontSize(5).FontColor(ParseColor(settings.TextColor));
+                }
             });
         });
         return container;

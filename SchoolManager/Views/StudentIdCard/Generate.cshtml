@@ -1,96 +1,119 @@
-@model SchoolManager.Dtos.StudentIdCardDto?
+@model SchoolManager.ViewModels.StudentIdCardGenerateViewModel
 @{
-    var hasCard = Model != null;
-    ViewData["Title"] = hasCard ? "Carnet Estudiantil - " + Model!.FullName : "Generar Carnet";
     Layout = "_SuperAdminLayout";
-    var schoolName = ViewBag.SchoolName as string ?? "SchoolManager";
-    var schoolLogoUrl = ViewBag.SchoolLogoUrl as string;
-    var studentId = Model?.StudentId ?? (Guid)ViewBag.StudentId;
-    var orientation = ViewBag.IdCardOrientation as string ?? "Vertical";
-    var showQr = ViewBag.IdCardShowQr as bool? ?? true;
-    var showPhoto = ViewBag.IdCardShowPhoto as bool? ?? true;
-    var isVertical = string.Equals(orientation, "Vertical", StringComparison.OrdinalIgnoreCase);
-    // Colores leídos desde configuración de la escuela (via ViewBag) para que la vista previa refleje los ajustes guardados
-    var primaryColor = ViewBag.IdCardPrimaryColor as string ?? "#0D6EFD";
-    var backgroundColor = ViewBag.IdCardBackgroundColor as string ?? "#FFFFFF";
-    var textColor = ViewBag.IdCardTextColor as string ?? "#111111";
+    var hasCard = Model.HasActiveCard;
+    ViewData["Title"] = Model.StudentNotFound ? "Carnet" : (hasCard ? "Carnet — " + Model.Card!.FullName : "Generar Carnet");
+    var isVertical = string.Equals(Model.Orientation, "Vertical", StringComparison.OrdinalIgnoreCase);
+    var primary = Model.PrimaryColor;
+    var bg = Model.BackgroundColor;
+    var text = Model.TextColor;
     var borderColor = "#e5e7eb";
+    const int maxAllergies = 100;
+    string? allergiesTxt = null;
+    if (Model.ShowAllergies && !string.IsNullOrWhiteSpace(Model.Allergies))
+    {
+        var a = Model.Allergies.Trim();
+        allergiesTxt = a.Length > maxAllergies ? a[..(maxAllergies - 3)] + "..." : a;
+    }
+    var showBackFace = Model.ShowQr;
+    var hasLogo = !string.IsNullOrWhiteSpace(Model.SchoolLogoUrl);
+    var showWm = Model.ShowWatermark && hasLogo;
 }
 
 <style>
     @@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    .carnet-preview-wrap {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 400px;
-        padding: 2rem;
-        background: #f5f5f5;
+    .idcard-generate-alert-print {
+        font-size: 0.9rem;
     }
 
-    .carnet-container {
+    .idcard-faces-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 2rem;
+        padding: 1.5rem;
+        background: #f0f2f5;
+        border-radius: 12px;
+    }
+
+    .idcard-face-label {
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .idcard-face {
         width: @(isVertical ? "210px" : "342px");
         max-width: 100%;
         aspect-ratio: @(isVertical ? "54 / 86" : "86 / 54");
         max-height: @(isVertical ? "334px" : "216px");
-        background: @backgroundColor;
-        border-radius: 5px;
+        background: @bg;
+        border-radius: 8px;
         padding: 6px;
         position: relative;
         overflow: hidden;
         border: 1px solid @borderColor;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        color: @textColor;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        color: @text;
         font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
         display: flex;
         flex-direction: column;
+        box-sizing: border-box;
     }
 
-    .carnet-background {
+    .idcard-watermark {
         position: absolute;
         inset: 0;
-        background-size: cover;
-        background-position: center;
-        opacity: 0.15;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
         z-index: 0;
     }
 
-    .carnet-header,
-    .carnet-body,
-    .carnet-footer {
-        position: relative;
-        z-index: 1;
+    .idcard-watermark img {
+        width: 42%;
+        max-width: 100px;
+        opacity: 0.14;
+        object-fit: contain;
     }
 
-    .carnet-header {
+    .idcard-z1 { position: relative; z-index: 1; }
+
+    .idcard-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         margin-bottom: 4px;
-        padding: 4px 6px 4px 6px;
-        background: @primaryColor;
+        padding: 4px 6px;
+        background: @primary;
         min-height: 28px;
-        border-radius: 3px 3px 0 0;
+        border-radius: 4px 4px 0 0;
     }
 
-    .carnet-logo {
-        max-width: 60px;
+    .idcard-logo {
+        max-width: 56px;
         max-height: 22px;
         object-fit: contain;
         filter: brightness(0) invert(1);
-        opacity: 0.9;
+        opacity: 0.92;
     }
 
-    .carnet-institution-name {
-        font-size: 9pt;
+    .idcard-school-name {
+        font-size: 8.5pt;
         font-weight: 700;
-        color: #ffffff;
+        color: #fff;
         flex: 1;
         margin-left: 6px;
+        line-height: 1.2;
     }
 
-    .carnet-body {
+    .idcard-body-front {
         display: flex;
         align-items: flex-start;
         gap: 6px;
@@ -98,309 +121,285 @@
         min-height: 0;
     }
 
-    .carnet-photo {
+    .idcard-photo {
         flex-shrink: 0;
-        width: 60px;
+        width: 58px;
         height: 72px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: 2px solid @primaryColor;
+        border: 2px solid @primary;
         border-radius: 4px;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        color: white;
-        font-size: 8pt;
-        font-weight: bold;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    }
-
-    .carnet-photo svg {
-        width: 24px;
-        height: 24px;
-        opacity: 0.9;
-        margin-bottom: 2px;
-    }
-
-    .carnet-info {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .carnet-user-name {
-        font-size: 11pt;
-        font-weight: 700;
-        color: @textColor;
-        margin-bottom: 3px;
-        line-height: 1.25;
-    }
-
-    .carnet-card-number {
-        font-size: 9pt;
-        color: @primaryColor;
-        font-weight: 600;
-        margin-bottom: 3px;
-    }
-
-    .carnet-details {
-        font-size: 8pt;
-        color: @textColor;
-        line-height: 1.5;
-        opacity: 0.95;
-    }
-
-    .carnet-detail-item {
-        margin-bottom: 1px;
-    }
-
-    .carnet-qr-row {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 4px;
-        margin-top: 4px;
-    }
-
-    .carnet-qr-label {
+        background: rgba(0,0,0,0.04);
         font-size: 7pt;
-        color: @textColor;
-        opacity: 0.8;
+        font-weight: 600;
+        color: @text;
     }
 
-    /* QR generado como imagen (toDataURL es más fiable que toCanvas con estilos aplicados) */
-    .carnet-qr-img {
-        width: 44px;
-        height: 44px;
-        border: 2px solid @primaryColor;
-        border-radius: 4px;
-        background: white;
-        display: block;
-    }
+    .idcard-photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
 
-    .carnet-back-qr-img {
-        width: 80px;
-        height: 80px;
-        display: block;
-        margin: 0 auto;
-    }
+    .idcard-qr-front { width: 42px; height: 42px; border: 2px solid @primary; border-radius: 4px; background: #fff; }
 
-    .carnet-footer {
+    .idcard-footer-front {
         margin-top: auto;
         padding-top: 3px;
         border-top: 1px solid @borderColor;
-        font-size: 7pt;
-        color: @textColor;
-        opacity: 0.7;
+        font-size: 6.5pt;
+        color: @text;
+        opacity: 0.8;
     }
+
+    .idcard-back-inner {
+        padding: 10px 8px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    .idcard-back-qr { width: 76px; height: 76px; margin: 4px 0; }
+    .idcard-back-qr img { width: 100%; height: 100%; display: block; }
+    .idcard-policy { font-size: 6.5pt; line-height: 1.35; color: @text; max-height: 72px; overflow-y: auto; text-align: center; margin-top: 4px; white-space: pre-wrap; }
+    .idcard-back-line { font-size: 7pt; margin-top: 3px; color: @text; }
 
     .print-actions {
         text-align: center;
-        margin-top: 2rem;
+        margin-top: 1.5rem;
         display: flex;
         flex-wrap: wrap;
-        gap: 1rem;
+        gap: 0.75rem;
         justify-content: center;
-    }
-
-    .carnet-back-print {
-        display: none;
-        width: @(isVertical ? "210px" : "342px");
-        max-width: 100%;
-        aspect-ratio: @(isVertical ? "54 / 86" : "86 / 54");
-        max-height: @(isVertical ? "334px" : "216px");
-        margin: 0 auto;
-        background: @backgroundColor;
-        border-radius: 5px;
-        padding: 12px;
-        border: 1px solid @borderColor;
-        font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
-        color: @textColor;
-        text-align: center;
-        box-sizing: border-box;
-    }
-    .carnet-back-print .carnet-back-qr { margin: 8px 0; text-align: center; }
-    .carnet-back-print .carnet-back-school { font-weight: 700; font-size: 10pt; margin-bottom: 4px; }
-    .carnet-back-print .carnet-back-text { font-size: 7pt; margin-bottom: 4px; }
-    .carnet-back-print .carnet-back-number { font-size: 8pt; font-weight: 600; color: @primaryColor; }
-
-    /* IMPRESION: la regla de tamaño de pagina se inyecta via JS (ver script al final) */
-
-    @@media print {
-        /* Forzar colores de fondo en impresión (desactivado por defecto en browsers) */
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-
-        /* Ocultar todo el contenido de la página */
-        body * { visibility: hidden !important; }
-        .print-actions { display: none !important; }
-
-        /* ── Frente del carnet ─────────────────────────────── */
-        .carnet-preview-wrap {
-            visibility: visible !important;
-            position: fixed !important;
-            top: 0 !important; left: 0 !important;
-            width: @(isVertical ? "54mm" : "86mm") !important;
-            height: @(isVertical ? "86mm" : "54mm") !important;
-            min-height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: @backgroundColor !important;
-            display: flex !important;
-            align-items: flex-start !important;
-            justify-content: flex-start !important;
-        }
-        .carnet-preview-wrap * { visibility: visible !important; }
-
-        .carnet-container {
-            width: @(isVertical ? "54mm" : "86mm") !important;
-            height: @(isVertical ? "86mm" : "54mm") !important;
-            max-width: none !important;
-            max-height: none !important;
-            aspect-ratio: unset !important;
-            font-size: 7.5pt !important;
-            line-height: 1.3 !important;
-            border-radius: 2mm !important;
-            box-shadow: none !important;
-            border: 0.3mm solid rgba(0,0,0,0.15) !important;
-            overflow: hidden !important;
-            padding: 2mm !important;
-            flex-shrink: 0 !important;
-        }
-
-        /* El carnet sólo tiene 1 página en impresión desde el browser.
-           Para frente + reverso usar "Descargar PDF". */
-        .carnet-back-print { display: none !important; }
     }
 </style>
 
 <div class="container-fluid">
     <div class="row">
         <div class="col-12 text-center mb-3">
-            <h2><i class="fas fa-id-card"></i> Carnet Estudiantil</h2>
+            <h2><i class="fas fa-id-card"></i> Carnet estudiantil</h2>
+            @if (!Model.StudentNotFound)
+            {
+                <p class="text-muted small mb-0">@Model.SchoolName</p>
+            }
         </div>
     </div>
 
-    @if (!hasCard)
+    @if (Model.StudentNotFound)
     {
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <div class="alert alert-danger"><i class="fas fa-user-slash me-2"></i>Estudiante no encontrado.</div>
+                <a href="/StudentIdCard/ui" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+            </div>
+        </div>
+    }
+    else if (!hasCard)
+    {
+        @if (Model.UsesCustomPdfTemplate)
+        {
+            <div class="alert alert-warning py-2 small mx-auto no-print" style="max-width:640px">
+                <i class="fas fa-layer-group me-1"></i>
+                Esta escuela utiliza una plantilla PDF personalizada. La vista previa web puede variar ligeramente del PDF final.
+            </div>
+        }
         <div class="row justify-content-center">
             <div class="col-md-6 text-center">
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    Este estudiante no tiene un carnet activo. Haz clic en <strong>Generar Carnet</strong> para emitir uno.
+                    Este estudiante no tiene carnet activo. Pulse <strong>Generar carnet</strong> para emitirlo.
                 </div>
-                <button id="btnGenerate" class="btn btn-primary btn-lg" onclick="generateCard('@studentId')">
-                    <i class="fas fa-id-card"></i> Generar Carnet
+                <button id="btnGenerate" type="button" class="btn btn-primary btn-lg" onclick="generateCard('@Model.StudentId')">
+                    <i class="fas fa-id-card"></i> Generar carnet
                 </button>
-                <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg ms-2">
-                    <i class="fas fa-arrow-left"></i> Volver
-                </a>
+                <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg ms-2"><i class="fas fa-arrow-left"></i> Volver</a>
             </div>
         </div>
     }
     else
     {
+        @if (Model.UsesCustomPdfTemplate)
+        {
+            <div class="alert alert-warning py-2 small mx-auto mb-3 no-print" style="max-width:720px">
+                <i class="fas fa-file-pdf me-1"></i>
+                Este carnet utiliza una plantilla PDF personalizada de la escuela. La vista previa web puede variar ligeramente del PDF final.
+            </div>
+        }
+        <div class="alert alert-info border-0 mx-auto mb-3 no-print" style="max-width:720px">
+            <i class="fas fa-file-pdf text-primary me-2"></i>
+            <strong>Descargue el PDF</strong> para imprimir el carnet completo (frente y reverso, impresión a doble cara según su impresora).
+        </div>
+
         <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="carnet-preview-wrap">
-                    <div class="carnet-container" id="idCard">
-                        <div class="carnet-background"
-                             style="background-image:url('@(ViewBag.BackgroundImageUrl ?? "")')">
-                        </div>
-                        <div class="carnet-header">
-                            @if (!string.IsNullOrEmpty(schoolLogoUrl))
+            <div class="col-12 col-xl-11">
+                <div class="idcard-faces-row">
+                    <div class="idcard-col-front">
+                        <div class="idcard-face-label no-print">Frente</div>
+                        <div class="idcard-face" id="idCardFront">
+                            @if (showWm)
                             {
-                                <img src="@schoolLogoUrl" alt="Logo" class="carnet-logo" onerror="this.style.display='none'" />
+                                <div class="idcard-watermark" aria-hidden="true"><img src="@Model.SchoolLogoUrl" alt="" onerror="this.parentElement.style.display='none'" /></div>
                             }
-                            <div class="carnet-institution-name">@schoolName</div>
-                        </div>
-                        <div class="carnet-body">
-                            @if (showPhoto)
-                            {
-                                <div class="carnet-photo">
-                                    @if (!string.IsNullOrEmpty(Model!.PhotoUrl))
-                                    {
-                                        <img src="@Model.PhotoUrl" alt="Foto" style="width:100%;height:100%;object-fit:cover;border-radius:2px;" />
-                                    }
-                                    else
-                                    {
-                                        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                                        <span>Sin Foto</span>
-                                    }
-                                </div>
-                            }
-                            <div class="carnet-info">
-                                <div class="carnet-user-name">@Model.FullName</div>
-                                <div class="carnet-card-number">Carnet: @Model.CardNumber</div>
-                                <div class="carnet-details">
-                                    <div class="carnet-detail-item"><strong>Grado:</strong> @Model.Grade</div>
-                                    <div class="carnet-detail-item"><strong>Grupo:</strong> @Model.Group</div>
-                                    <div class="carnet-detail-item"><strong>Jornada:</strong> @Model.Shift</div>
-                                </div>
-                                @if (showQr)
+                            <div class="idcard-header idcard-z1">
+                                @if (hasLogo)
                                 {
-                                    @if (!string.IsNullOrEmpty(Model!.QrImageDataUrl))
-                                    {
-                                        <div class="carnet-qr-row">
-                                            <span class="carnet-qr-label">Escanea para verificar</span>
-                                            <div class="carnet-qr">
-                                                @* QR generado en servidor — no requiere CDN externo *@
-                                                <img class="carnet-qr-img" src="@Model.QrImageDataUrl" alt="QR" />
-                                            </div>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        @* QR no disponible: token inexistente o expirado — regenerar carnet para obtener QR *@
-                                        <div class="carnet-qr-row" style="justify-content:flex-end;margin-top:4px;">
-                                            <small style="font-size:6pt;color:#dc3545;opacity:0.85;text-align:right;">QR no disponible<br/>Regenerar carnet</small>
-                                        </div>
-                                    }
+                                    <img src="@Model.SchoolLogoUrl" alt="" class="idcard-logo" onerror="this.style.display='none'" />
                                 }
+                                <div class="idcard-school-name">@Model.SchoolName</div>
+                            </div>
+                            <div class="idcard-body-front idcard-z1 px-1 pt-1">
+                                @if (Model.ShowPhoto)
+                                {
+                                    <div class="idcard-photo">
+                                        @if (!string.IsNullOrEmpty(Model.Card!.PhotoUrl))
+                                        {
+                                            <img src="@Model.Card.PhotoUrl" alt="Foto" onerror="this.outerHTML='<span>Sin foto</span>'" />
+                                        }
+                                        else
+                                        {
+                                            <span>Sin foto</span>
+                                        }
+                                    </div>
+                                }
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="fw-bold" style="font-size:10pt;line-height:1.2;color:@text">@Model.Card!.FullName</div>
+                                    <div style="font-size:8pt;color:@primary;font-weight:600">Carnet: @Model.Card.CardNumber</div>
+                                    <div style="font-size:7.5pt;color:@text;line-height:1.45">
+                                        <div><strong>Grado:</strong> @Model.Card.Grade</div>
+                                        <div><strong>Grupo:</strong> @Model.Card.Group</div>
+                                        <div><strong>Jornada:</strong> @Model.Card.Shift</div>
+                                    </div>
+                                    @if (Model.ShowQr)
+                                    {
+                                        if (!string.IsNullOrEmpty(Model.Card.QrImageDataUrl))
+                                        {
+                                            <div class="d-flex align-items-center justify-content-end gap-1 mt-1">
+                                                <span style="font-size:6.5pt;opacity:.85">Escanea para verificar</span>
+                                                <img class="idcard-qr-front" src="@Model.Card.QrImageDataUrl" alt="QR" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-danger" style="font-size:6pt;margin-top:4px">QR no disponible — regenere el carnet</div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            <div class="idcard-footer-front idcard-z1">Emitido: @DateTime.UtcNow.ToString("dd/MM/yyyy")</div>
+                        </div>
+                    </div>
+
+                    @if (showBackFace)
+                    {
+                        <div class="idcard-face-back-screen no-print">
+                            <div class="idcard-face-label">Reverso</div>
+                            <div class="idcard-face d-flex flex-column">
+                                @if (showWm)
+                                {
+                                    <div class="idcard-watermark" aria-hidden="true"><img src="@Model.SchoolLogoUrl" alt="" onerror="this.parentElement.style.display='none'" /></div>
+                                }
+                                <div class="idcard-back-inner idcard-z1">
+                                    @if (Model.ShowQr && !string.IsNullOrEmpty(Model.Card!.QrImageDataUrl))
+                                    {
+                                        <div class="idcard-back-qr"><img src="@Model.Card.QrImageDataUrl" alt="QR" /></div>
+                                    }
+                                    <div class="fw-bold" style="font-size:9pt">@Model.SchoolName</div>
+                                    <div class="idcard-back-line opacity-90">Escanea el código QR para verificar la información del carnet</div>
+                                    <div class="idcard-back-line fw-semibold">Carnet: @Model.Card!.CardNumber</div>
+                                    @if (!string.IsNullOrWhiteSpace(Model.IdCardPolicy))
+                                    {
+                                        <div class="idcard-policy">@Model.IdCardPolicy</div>
+                                    }
+                                    @if (Model.ShowSchoolPhone && !string.IsNullOrWhiteSpace(Model.SchoolPhone))
+                                    {
+                                        <div class="idcard-back-line">Tel. colegio: @Model.SchoolPhone</div>
+                                    }
+                                    @if (Model.ShowEmergencyContact && (!string.IsNullOrWhiteSpace(Model.EmergencyContactName) || !string.IsNullOrWhiteSpace(Model.EmergencyContactPhone)))
+                                    {
+                                        <div class="idcard-back-line">Contacto emergencia: @(Model.EmergencyContactName ?? "—")</div>
+                                        @if (!string.IsNullOrWhiteSpace(Model.EmergencyContactPhone))
+                                        {
+                                            <div class="idcard-back-line">Tel: @Model.EmergencyContactPhone</div>
+                                        }
+                                    }
+                                    @if (allergiesTxt != null)
+                                    {
+                                        <div class="idcard-back-line">Alergias: @allergiesTxt</div>
+                                    }
+                                </div>
                             </div>
                         </div>
-                        <div class="carnet-footer">
-                            Emitido: @DateTime.UtcNow.ToString("dd/MM/yyyy")
+                    }
+                    else
+                    {
+                        <div class="align-self-center text-muted small" style="max-width:220px">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Con <strong>QR desactivado</strong> en la configuración, el PDF solo incluye el frente (sin reverso).
                         </div>
-                    </div>
+                    }
                 </div>
-                @if (showQr && !string.IsNullOrEmpty(Model!.QrImageDataUrl))
-                {
-                    <div class="carnet-back-print" id="carnetBackPrint">
-                        <div class="carnet-back-qr">
-                            <img class="carnet-back-qr-img" src="@Model.QrImageDataUrl" alt="QR" />
-                        </div>
-                        <div class="carnet-back-school">@schoolName</div>
-                        <div class="carnet-back-text">Escanea el código QR para verificar la información del carnet</div>
-                        <div class="carnet-back-number">Carnet: @Model.CardNumber</div>
-                    </div>
-                }
+
                 <div class="print-actions">
-                    <a href="/StudentIdCard/ui/print/@Model.StudentId" class="btn btn-primary btn-lg" target="_blank">
+                    <button type="button" class="btn btn-primary btn-lg" id="btnDownloadPdf"
+                            data-pdf-url="@Url.Action("Print", "StudentIdCard", new { studentId = Model.Card!.StudentId })"
+                            data-filename="@($"carnet-{Model.Card.StudentId:N}.pdf")">
                         <i class="fas fa-file-pdf"></i> Descargar PDF
-                    </a>
-                    <button type="button" class="btn btn-success btn-lg" onclick="window.print()">
-                        <i class="fas fa-print"></i> Imprimir Carnet
                     </button>
-                    <button type="button" class="btn btn-warning btn-lg" id="btnRegenerate" onclick="generateCard('@Model.StudentId')">
-                        <i class="fas fa-sync-alt"></i> Regenerar Carnet
+                    <button type="button" class="btn btn-warning btn-lg" id="btnRegenerate" onclick="generateCard('@Model.Card.StudentId')">
+                        <i class="fas fa-sync-alt"></i> Regenerar carnet
                     </button>
-                    <a href="/StudentIdCard/ui" class="btn btn-secondary btn-lg">
-                        <i class="fas fa-arrow-left"></i> Volver
-                    </a>
+                    <a href="@Url.Action("Index", "StudentIdCard")" class="btn btn-secondary btn-lg"><i class="fas fa-arrow-left"></i> Volver</a>
                 </div>
             </div>
         </div>
     }
 </div>
 
-@* Inyecta la regla de tamaño de pagina para impresion via JS (String.fromCharCode evita que Razor parsee el arroba como directiva) *@
 <script>
     (function () {
-        var s = document.createElement('style');
-        s.textContent = String.fromCharCode(64) + 'page { size: @(isVertical ? "54mm 86mm" : "86mm 54mm"); margin: 0; }';
-        document.head.appendChild(s);
+        var btn = document.getElementById('btnDownloadPdf');
+        if (!btn) return;
+        btn.addEventListener('click', async function () {
+            var url = btn.getAttribute('data-pdf-url');
+            var name = btn.getAttribute('data-filename') || 'carnet.pdf';
+            btn.disabled = true;
+            var prev = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF...';
+            try {
+                var r = await fetch(url, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+                var ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (r.status === 401) {
+                    alert('Sesión expirada o no autenticado. Vuelva a iniciar sesión.');
+                    return;
+                }
+                if (!r.ok) {
+                    var errText = await r.text();
+                    alert(errText || ('Error al generar el PDF (código ' + r.status + ').'));
+                    return;
+                }
+                if (!ct.includes('pdf')) {
+                    var t = await r.text();
+                    alert(t.substring(0, 500) || 'La respuesta no es un PDF.');
+                    return;
+                }
+                var blob = await r.blob();
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(a.href);
+            } catch (e) {
+                alert('Error de red al descargar el PDF.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = prev;
+            }
+        });
     })();
 </script>
-
 <script>
     function generateCard(id) {
         var btn = document.getElementById('btnGenerate') || document.getElementById('btnRegenerate');
@@ -408,7 +407,6 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
         }
-
         var antiforgeryInput = document.querySelector('input[name="__RequestVerificationToken"]');
         fetch('/StudentIdCard/api/generate/' + id, {
             method: 'POST',
@@ -423,18 +421,12 @@
                 window.location.href = '/StudentIdCard/ui/generate/' + id;
             } else {
                 alert('Error: ' + (data.message || 'No se pudo generar el carnet.'));
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-id-card"></i> Generar Carnet';
-                }
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-id-card"></i> Generar carnet'; }
             }
         })
         .catch(function () {
             alert('Error de red al generar el carnet.');
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-id-card"></i> Generar Carnet';
-            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-id-card"></i> Generar carnet'; }
         });
     }
 </script>

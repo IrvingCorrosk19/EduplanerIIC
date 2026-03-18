@@ -130,7 +130,10 @@
             },
             body: JSON.stringify({
                 token: token,
-                scannedBy: userId !== '@Guid.Empty.ToString()' ? userId : Guid.Empty,
+                // Si no hay usuario autenticado, se envía Guid.Empty como string.
+                scannedBy: userId && userId !== '@Guid.Empty.ToString()'
+                    ? userId
+                    : '00000000-0000-0000-0000-000000000000',
                 scanType: 'entry'
             })
         })

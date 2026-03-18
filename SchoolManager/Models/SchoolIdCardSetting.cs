@@ -6,6 +6,11 @@ public class SchoolIdCardSetting
 {
     public Guid Id { get; set; }
     public Guid SchoolId { get; set; }
+    /// <summary>
+    /// Clave de plantilla persistida por compatibilidad. El PDF no ramifica por este valor:
+    /// el layout es "CarnetQR" (frente+reverso) si no hay filas activas en IdCardTemplateField;
+    /// si las hay, se usa el layout posicional de una sola cara.
+    /// </summary>
     public string TemplateKey { get; set; } = "default_v1";
     public int PageWidthMm { get; set; } = 54;
     public int PageHeightMm { get; set; } = 86;
