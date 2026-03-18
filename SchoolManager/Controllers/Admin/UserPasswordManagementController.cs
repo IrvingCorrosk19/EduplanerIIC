@@ -36,13 +36,22 @@ namespace SchoolManager.Controllers.Admin
         [HttpGet]
         [Route("")]
         [Route("Index")]
-        public async Task<IActionResult> Index([FromQuery] Guid? gradeId, [FromQuery] Guid? groupId)
+        public async Task<IActionResult> Index(
+            [FromQuery] Guid? gradeId,
+            [FromQuery] Guid? groupId,
+            [FromQuery] string? role,
+            [FromQuery] string? q)
         {
+            if (gradeId == Guid.Empty) gradeId = null;
+            if (groupId == Guid.Empty) groupId = null;
+
             var me = await _currentUserService.GetCurrentUserAsync();
             var isSuper = string.Equals(me?.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
             var vm = await _userPasswordManagementService.GetIndexViewModelAsync(
                 gradeId,
                 groupId,
+                string.IsNullOrWhiteSpace(role) ? null : role.Trim(),
+                string.IsNullOrWhiteSpace(q) ? null : q.Trim(),
                 me?.SchoolId,
                 isSuper);
             return View("~/Views/Admin/UserPasswordManagement/Index.cshtml", vm);

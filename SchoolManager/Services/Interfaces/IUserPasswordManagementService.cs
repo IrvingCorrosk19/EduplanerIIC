@@ -16,6 +16,8 @@ namespace SchoolManager.Services.Interfaces
         Task<UserPasswordManagementIndexViewModel> GetIndexViewModelAsync(
             Guid? gradeId,
             Guid? groupId,
+            string? roleFilter,
+            string? searchQuery,
             Guid? callerSchoolId,
             bool callerIsSuperAdmin,
             CancellationToken cancellationToken = default);

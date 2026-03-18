@@ -13,4 +13,10 @@ public class UserPasswordManagementIndexViewModel
 
     public Guid? SelectedGradeId { get; set; }
     public Guid? SelectedGroupId { get; set; }
+
+    /// <summary>Rol filtro (superadmin, admin, teacher, student) o vacío = todos.</summary>
+    public string? SelectedRole { get; set; }
+
+    /// <summary>Búsqueda por nombre/apellido/email.</summary>
+    public string? SearchQuery { get; set; }
 }

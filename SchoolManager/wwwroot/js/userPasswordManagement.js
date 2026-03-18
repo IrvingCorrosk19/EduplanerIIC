@@ -151,6 +151,7 @@ var userPasswordManagement = (function () {
         dataTable = $table.DataTable({
             pageLength: 25,
             order: [[1, 'asc']],
+            searching: false,
             columnDefs: [
                 { orderable: false, targets: 0 }
             ],
@@ -219,27 +220,34 @@ var userPasswordManagement = (function () {
             config.indexUrl = options.indexUrl || config.indexUrl;
         }
 
-        $('#roleFilter').on('change', function () {
-            applyRoleFilter();
-        });
-
-        $('#btnReset').on('click', function () {
-            clearFilters();
-        });
-
-        $('#searchBox').on('keyup', function () {
-            if (dataTable && $.fn.DataTable.isDataTable('#usersTable')) {
-                dataTable.search(this.value).draw();
-            }
-        });
-
         $('#btnSendPasswords').on('click', function () {
             sendPasswords();
         });
 
         if (config.serverRendered) {
             initDataTableOnExistingRows();
+            $('#btnReset').on('click', function (e) {
+                e.preventDefault();
+                var p = new URLSearchParams();
+                var gi = $('#gradeId').val();
+                var gr = $('#groupId').val();
+                if (gi) { p.set('gradeId', gi); }
+                if (gr) { p.set('groupId', gr); }
+                var base = (config.indexUrl || '').split('?')[0];
+                window.location.href = base + (p.toString() ? '?' + p.toString() : '');
+            });
         } else {
+            $('#roleFilter').on('change', function () {
+                applyRoleFilter();
+            });
+            $('#btnReset').on('click', function () {
+                clearFilters();
+            });
+            $('#searchBox').on('keyup', function () {
+                if (dataTable && $.fn.DataTable.isDataTable('#usersTable')) {
+                    dataTable.search(this.value).draw();
+                }
+            });
             loadUsers();
         }
     }

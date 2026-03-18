@@ -98,15 +98,11 @@ namespace SchoolManager.Services.Implementations
             return users;
         }
 
-        private static bool IsStudentRole(string? role)
-        {
-            var r = (role ?? string.Empty).ToLowerInvariant();
-            return r is "student" or "estudiante";
-        }
-
         public async Task<UserPasswordManagementIndexViewModel> GetIndexViewModelAsync(
             Guid? gradeId,
             Guid? groupId,
+            string? roleFilter,
+            string? searchQuery,
             Guid? callerSchoolId,
             bool callerIsSuperAdmin,
             CancellationToken cancellationToken = default)
@@ -114,7 +110,9 @@ namespace SchoolManager.Services.Implementations
             var vm = new UserPasswordManagementIndexViewModel
             {
                 SelectedGradeId = gradeId,
-                SelectedGroupId = groupId
+                SelectedGroupId = groupId,
+                SelectedRole = string.IsNullOrWhiteSpace(roleFilter) ? null : roleFilter.ToLowerInvariant(),
+                SearchQuery = searchQuery
             };
 
             // Grados y grupos para dropdowns (alcance por escuela si no es SuperAdmin)
@@ -140,20 +138,42 @@ namespace SchoolManager.Services.Implementations
             if (!callerIsSuperAdmin && callerSchoolId.HasValue)
                 usersQ = usersQ.Where(u => u.SchoolId == callerSchoolId.Value);
 
-            if (gradeId.HasValue)
+            // Grado y/o grupo: misma fila de asignación activa (evita combinar grado de un curso y grupo de otro).
+            if (gradeId.HasValue || groupId.HasValue)
             {
-                var gid = gradeId.Value;
+                var gGrade = gradeId;
+                var gGroup = groupId;
                 usersQ = usersQ.Where(u =>
-                    !IsStudentRole(u.Role) ||
-                    u.StudentAssignments.Any(sa => sa.IsActive && sa.GradeId == gid));
+                    ((u.Role ?? "").ToLower() != "student" && (u.Role ?? "").ToLower() != "estudiante") ||
+                    u.StudentAssignments.Any(sa =>
+                        sa.IsActive &&
+                        (!gGrade.HasValue || sa.GradeId == gGrade.Value) &&
+                        (!gGroup.HasValue || sa.GroupId == gGroup.Value)));
             }
 
-            if (groupId.HasValue)
+            if (!string.IsNullOrWhiteSpace(roleFilter))
             {
-                var grId = groupId.Value;
+                var rf = roleFilter.Trim().ToLowerInvariant();
+                if (rf == "student")
+                {
+                    usersQ = usersQ.Where(u =>
+                        (u.Role ?? "").ToLower() == "student" ||
+                        (u.Role ?? "").ToLower() == "estudiante");
+                }
+                else
+                {
+                    usersQ = usersQ.Where(u => (u.Role ?? "").ToLower() == rf);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                var term = searchQuery.Trim();
+                var pattern = "%" + term.Replace("%", "[%]").Replace("_", "[_]") + "%";
                 usersQ = usersQ.Where(u =>
-                    !IsStudentRole(u.Role) ||
-                    u.StudentAssignments.Any(sa => sa.IsActive && sa.GroupId == grId));
+                    EF.Functions.ILike(u.Name, pattern) ||
+                    EF.Functions.ILike(u.LastName ?? "", pattern) ||
+                    EF.Functions.ILike(u.Email, pattern));
             }
 
             vm.Users = await usersQ
