@@ -53,24 +53,36 @@ namespace SchoolManager.Controllers
             if (studentId == Guid.Empty || gradeId == Guid.Empty || groupId == Guid.Empty)
                 return Json(new { success = false, message = "Datos inválidos para la asignación." });
 
-            // Verificar que solo el director pueda hacer cambios de turno
             var currentUser = await _currentUserService.GetCurrentUserAsync();
-            if (currentUser?.Role?.ToLower() != "director")
-            {
-                return Json(new { success = false, message = "Solo el director tiene autorización para realizar cambios de turno." });
-            }
+            if (currentUser == null)
+                return Json(new { success = false, message = "Sesión no válida." });
 
-            // 1. Inactivar todas las asignaciones existentes de este estudiante (preserva historial)
+            var student = await _userService.GetByIdAsync(studentId);
+            if (student == null)
+                return Json(new { success = false, message = "Estudiante no encontrado." });
+
+            // Misma escuela que el usuario que edita (multi-tenant)
+            if (currentUser.SchoolId.HasValue && student.SchoolId.HasValue &&
+                currentUser.SchoolId != student.SchoolId)
+                return Json(new { success = false, message = "No puede modificar estudiantes de otra institución." });
+
+            var group = await _groupService.GetByIdAsync(groupId);
+            if (group == null)
+                return Json(new { success = false, message = "Grupo no válido." });
+
+            // 1. Inactivar asignaciones activas (historial)
             await _studentAssignmentService.RemoveAssignmentsAsync(studentId);
 
-            // 2. Crear la nueva asignación
+            // 2. Nueva asignación (jornada alineada al grupo, como en carga masiva)
             var newAssignment = new StudentAssignment
             {
                 Id = Guid.NewGuid(),
                 StudentId = studentId,
                 GradeId = gradeId,
                 GroupId = groupId,
-                CreatedAt = DateTime.UtcNow
+                ShiftId = group.ShiftId,
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true
             };
             await _studentAssignmentService.InsertAsync(newAssignment);
 
@@ -110,24 +122,19 @@ namespace SchoolManager.Controllers
             var assignments = await _studentAssignmentService.GetAssignmentsByStudentIdAsync(studentId);
 
             if (assignments == null || !assignments.Any())
-                return Json(new { success = false, message = "El estudiante no tiene asignaciones." });
+                return Json(new { success = true, data = Array.Empty<object>(), empty = true });
 
-            var results = new List<object>();
-
+            var results = new List<(string grado, string grupo)>();
             foreach (var a in assignments)
             {
                 var grade = await _gradeLevelService.GetByIdAsync(a.GradeId);
                 var group = await _groupService.GetByIdAsync(a.GroupId);
                 var shift = !string.IsNullOrEmpty(group?.Shift) ? group.Shift : "Sin jornada";
-
-                results.Add(new
-                {
-                    grado = grade?.Name ?? "(Sin grado)",
-                    grupo = $"{group?.Name ?? "(Sin grupo)"} ({shift})"
-                });
+                results.Add((grade?.Name ?? "(Sin grado)", $"{group?.Name ?? "(Sin grupo)"} ({shift})"));
             }
 
-            return Json(new { success = true, data = results.Distinct() });
+            var distinct = results.Distinct().Select(x => new { grado = x.grado, grupo = x.grupo }).ToList();
+            return Json(new { success = true, data = distinct });
         }
 
         [HttpGet]

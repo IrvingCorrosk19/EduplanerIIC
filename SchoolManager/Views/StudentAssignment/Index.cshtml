@@ -1,4 +1,4 @@
-no corras un escript solamente manejalo de forma visually@model List<SchoolManager.ViewModels.StudentAssignmentOverviewViewModel>
+@model List<SchoolManager.ViewModels.StudentAssignmentOverviewViewModel>
 
 @{
     Layout = "_AdminLayout";
@@ -272,7 +272,7 @@ no corras un escript solamente manejalo de forma visually@model List<SchoolManag
         <div class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="gradeGroupModalLabel">Asignación de <span id="modalStudentName"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <div id="gradeGroupInfo" class="mb-4 p-3 bg-light rounded">
@@ -303,33 +303,50 @@ no corras un escript solamente manejalo de forma visually@model List<SchoolManag
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
-        function forceCleanup() {
-            // Limpiar SweetAlert2
-            const sweetAlertContainer = document.querySelector('.swal2-container');
-            if (sweetAlertContainer) {
-                sweetAlertContainer.remove();
-            }
+        /** SweetAlert encima del modal: solo quitar overlays de Swal. */
+        function cleanupSweetAlert() {
+            document.querySelectorAll('.swal2-container').forEach(function (c) { c.remove(); });
+            document.body.classList.remove('swal2-shown', 'swal2-height-auto');
+        }
 
-            // Limpiar modal de Bootstrap
-            const modalBackdrop = document.querySelector('.modal-backdrop');
-            if (modalBackdrop) {
-                modalBackdrop.remove();
-            }
-
-            // Restaurar el body
-            document.body.classList.remove('swal2-shown', 'swal2-height-auto', 'modal-open');
+        /** Restaurar body solo si no hay modal visible (evita romper Bootstrap 5 / null en .hide). */
+        function resetBodyIfNoOpenModal() {
+            if (document.querySelector('.modal.show')) return;
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+            document.body.classList.remove('modal-open');
             document.body.style.paddingRight = '';
             document.body.style.overflow = '';
             document.documentElement.style.paddingRight = '';
             document.documentElement.style.overflow = '';
+        }
 
-            // Asegurarse de que el modal esté cerrado
-            const modal = document.getElementById('gradeGroupModal');
-            if (modal) {
-                modal.style.display = 'none';
-                modal.classList.remove('show');
-                $(modal).modal('dispose');
+        /** Limpieza segura tras Swal o estados raros — nunca dispose del modal abierto. */
+        function forceCleanup() {
+            cleanupSweetAlert();
+            resetBodyIfNoOpenModal();
+        }
+
+        /** Quitar backdrops viejos antes de abrir (show.bs.modal); no tocar la instancia Modal. */
+        function prepareModalOpen() {
+            cleanupSweetAlert();
+            if (!document.querySelector('.modal.show')) {
+                document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
+                document.body.style.overflow = '';
             }
+        }
+
+        /** Cierra el modal con API BS5 y quita foco del .btn-close (evita aria-hidden + foco). */
+        function hideGradeGroupModalSafe() {
+            var el = document.getElementById('gradeGroupModal');
+            if (!el) return;
+            var ae = document.activeElement;
+            if (ae && el.contains(ae)) {
+                ae.blur();
+            }
+            var inst = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+            inst.hide();
         }
 
         $(function () {
@@ -356,7 +373,7 @@ no corras un escript solamente manejalo de forma visually@model List<SchoolManag
 
         // Manejo del Modal
         $('#gradeGroupModal').on('show.bs.modal', function (event) {
-            forceCleanup(); // Limpiar cualquier residuo antes de mostrar el modal
+            prepareModalOpen();
             const button = $(event.relatedTarget);
             currentStudentId = button.data('student-id');
             const studentName = button.data('student-name');
@@ -372,16 +389,16 @@ no corras un escript solamente manejalo de forma visually@model List<SchoolManag
             // Cargar asignación actual
             $.get(`/StudentAssignment/GetGradeGroupByStudent/${currentStudentId}`)
                 .done(function (res) {
-                    if (res.success && res.data) {
+                    if (res.success && res.data && res.data.length) {
                         const actual = res.data.map(x => {
-                            // Extraer jornada del formato: "Grupo (Jornada)"
+                            var grupoRaw = x.grupo || '';
                             var jornada = "";
-                            var grupo = x.grupo;
-                            if (x.grupo.includes("(") && x.grupo.includes(")")) {
-                                var match = x.grupo.match(/\(([^)]+)\)/);
+                            var grupo = grupoRaw;
+                            if (grupoRaw.includes("(") && grupoRaw.includes(")")) {
+                                var match = grupoRaw.match(/\(([^)]+)\)/);
                                 if (match && match[1]) {
                                     jornada = match[1];
-                                    grupo = x.grupo.replace(/\([^)]+\)/, "").trim();
+                                    grupo = grupoRaw.replace(/\([^)]+\)/, "").trim();
                                 }
                             }
                             
@@ -432,7 +449,8 @@ no corras un escript solamente manejalo de forma visually@model List<SchoolManag
             currentStudentId = null;
             $('#gradeGroupSelect').empty();
             $('#gradeGroupInfo .current-assignment').empty();
-            forceCleanup();
+            cleanupSweetAlert();
+            resetBodyIfNoOpenModal();
         });
 
         // Guardar cambios
@@ -484,7 +502,7 @@ no corras un escript solamente manejalo de forma visually@model List<SchoolManag
                             const row = $(`tr[data-student-id="${currentStudentId}"]`);
                             const displayText = $('#gradeGroupSelect option:selected').text();
                             row.find('.grade-group-cell').html(`<strong>${displayText}</strong>`);
-                            $('#gradeGroupModal').modal('hide');
+                            hideGradeGroupModalSafe();
                             
                             Swal.fire({
                                 icon: 'success',
@@ -506,36 +524,37 @@ no corras un escript solamente manejalo de forma visually@model List<SchoolManag
                             });
                         }
                     })
-                    .fail(function () {
+                    .fail(function (xhr) {
+                        var msg = 'Hubo un problema al guardar los cambios. Por favor, intente nuevamente.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) { msg = xhr.responseJSON.message; }
+                        else if (xhr.responseText && xhr.responseText.indexOf('{') === 0) {
+                            try { var j = JSON.parse(xhr.responseText); if (j.message) msg = j.message; } catch (e) { }
+                        }
                         Swal.fire({
                             icon: 'error',
                             title: 'Error',
-                            text: 'Hubo un problema al guardar los cambios. Por favor, intente nuevamente.',
+                            text: msg,
                             didClose: () => forceCleanup()
                         });
                     })
                     .always(function () {
                         $btn.prop('disabled', false);
-                        forceCleanup();
                     });
                 } else {
                     $btn.prop('disabled', false);
-                    forceCleanup();
+                    cleanupSweetAlert();
                 }
             });
         });
 
-        // Agregar manejador de escape global
-        $(document).on('keydown', function(e) {
-            if (e.key === 'Escape') {
-                forceCleanup();
-            }
-        });
-
-        // Agregar manejador de clic global
-        $(document).on('click', '.modal-backdrop, .swal2-container', function(e) {
-            if (e.target === this) {
-                forceCleanup();
+        $(document).on('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            var m = document.getElementById('gradeGroupModal');
+            if (m && m.classList.contains('show')) {
+                hideGradeGroupModalSafe();
+            } else {
+                cleanupSweetAlert();
+                resetBodyIfNoOpenModal();
             }
         });
     </script>
