@@ -7,7 +7,9 @@ var userPasswordManagement = (function () {
 
     var config = {
         listUrl: '',
-        sendPasswordsUrl: ''
+        sendPasswordsUrl: '',
+        serverRendered: false,
+        indexUrl: ''
     };
 
     var dataTable = null;
@@ -101,6 +103,8 @@ var userPasswordManagement = (function () {
                 '<td>' + escapeHtml(name) + '</td>' +
                 '<td>' + escapeHtml(u.email || '') + '</td>' +
                 '<td>' + escapeHtml(getRoleDisplayName(u.role)) + '</td>' +
+                '<td>' + escapeHtml(u.grade != null && u.grade !== '' ? u.grade : '-') + '</td>' +
+                '<td>' + escapeHtml(u.group != null && u.group !== '' ? u.group : '-') + '</td>' +
                 '<td>' + escapeHtml(u.status || '') + '</td>' +
                 '<td>' + escapeHtml(u.passwordEmailStatus || '') + '</td>' +
                 '<td>' + escapeHtml(formatDate(u.passwordEmailSentAt)) + '</td>' +
@@ -135,6 +139,35 @@ var userPasswordManagement = (function () {
             }
         });
 
+        handleCheckboxSelection();
+    }
+
+    function initDataTableOnExistingRows() {
+        var $table = $('#usersTable');
+        if (dataTable && $.fn.DataTable.isDataTable($table)) {
+            dataTable.destroy();
+            dataTable = null;
+        }
+        dataTable = $table.DataTable({
+            pageLength: 25,
+            order: [[1, 'asc']],
+            columnDefs: [
+                { orderable: false, targets: 0 }
+            ],
+            language: {
+                search: 'Buscar:',
+                lengthMenu: 'Mostrar _MENU_ registros',
+                info: 'Mostrando _START_ a _END_ de _TOTAL_',
+                infoEmpty: 'Sin registros',
+                infoFiltered: '(filtrado de _MAX_)',
+                paginate: {
+                    first: '«',
+                    last: '»',
+                    next: '›',
+                    previous: '‹'
+                }
+            }
+        });
         handleCheckboxSelection();
     }
 
@@ -182,9 +215,10 @@ var userPasswordManagement = (function () {
         if (options) {
             config.listUrl = options.listUrl || config.listUrl;
             config.sendPasswordsUrl = options.sendPasswordsUrl || config.sendPasswordsUrl;
+            config.serverRendered = !!options.serverRendered;
+            config.indexUrl = options.indexUrl || config.indexUrl;
         }
 
-        // Role filter: apply client-side column search on change (like User/Index)
         $('#roleFilter').on('change', function () {
             applyRoleFilter();
         });
@@ -203,7 +237,11 @@ var userPasswordManagement = (function () {
             sendPasswords();
         });
 
-        loadUsers();
+        if (config.serverRendered) {
+            initDataTableOnExistingRows();
+        } else {
+            loadUsers();
+        }
     }
 
     function getAntiForgeryToken() {

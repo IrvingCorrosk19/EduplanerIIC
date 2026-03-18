@@ -1,6 +1,20 @@
+@model SchoolManager.ViewModels.UserPasswordManagementIndexViewModel
 @{
     ViewData["Title"] = "User Password Management";
     Layout = "_AdminLayout";
+    var indexUrl = Url.Action("Index", "UserPasswordManagement")!;
+    string RoleDisplay(string? role)
+    {
+        var r = (role ?? "").ToLowerInvariant();
+        return r switch
+        {
+            "superadmin" => "SuperAdmin",
+            "admin" => "Admin",
+            "teacher" => "Teacher",
+            "student" or "estudiante" => "Student",
+            _ => role ?? ""
+        };
+    }
 }
 
 <div class="content-wrapper">
@@ -28,6 +42,45 @@
                     <h3 class="card-title"><i class="fas fa-key mr-2"></i>User Password Management</h3>
                 </div>
                 <div class="card-body">
+                    <form method="get" action="@indexUrl" class="mb-4">
+                        <div class="row align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label" for="gradeId">Grado</label>
+                                <select name="gradeId" id="gradeId" class="form-control">
+                                    <option value="">Todos</option>
+                                    @foreach (var g in Model.GradeLevels)
+                                    {
+                                        if (Model.SelectedGradeId == g.Id)
+                                        { <option value="@g.Id" selected>@g.Name</option> }
+                                        else
+                                        { <option value="@g.Id">@g.Name</option> }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="groupId">Grupo</label>
+                                <select name="groupId" id="groupId" class="form-control">
+                                    <option value="">Todos</option>
+                                    @foreach (var gr in Model.Groups)
+                                    {
+                                        if (Model.SelectedGroupId == gr.Id)
+                                        { <option value="@gr.Id" selected>@gr.Name</option> }
+                                        else
+                                        { <option value="@gr.Id">@gr.Name</option> }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-flex flex-wrap gap-2 align-items-end pb-1">
+                                <button type="submit" class="btn btn-info">
+                                    <i class="fas fa-filter mr-1"></i> Filtrar
+                                </button>
+                                <a href="@indexUrl" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times mr-1"></i> Limpiar grado/grupo
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label for="roleFilter" class="form-label">Role</label>
@@ -48,7 +101,7 @@
                                 <i class="fas fa-envelope mr-1"></i> Enviar contraseñas
                             </button>
                             <button type="button" id="btnReset" class="btn btn-secondary">
-                                <i class="fas fa-undo mr-1"></i> Limpiar filtros
+                                <i class="fas fa-undo mr-1"></i> Limpiar tabla
                             </button>
                         </div>
                     </div>
@@ -63,13 +116,33 @@
                                     <th>Name</th>
                                     <th>Email</th>
                                     <th>Role</th>
+                                    <th>Grado</th>
+                                    <th>Grupo</th>
                                     <th>Status</th>
                                     <th>Estado correo</th>
                                     <th>Fecha envío</th>
                                     <th>Created At</th>
                                 </tr>
                             </thead>
-                            <tbody></tbody>
+                            <tbody>
+                                @foreach (var u in Model.Users)
+                                {
+                                    var name = $"{u.FirstName} {u.LastName}".Trim();
+                                    if (string.IsNullOrEmpty(name)) { name = u.Email; }
+                                    <tr data-id="@u.Id">
+                                        <td><input type="checkbox" class="user-select-cb" value="@u.Id" /></td>
+                                        <td>@name</td>
+                                        <td>@u.Email</td>
+                                        <td class="col-role">@RoleDisplay(u.Role)</td>
+                                        <td>@(string.IsNullOrEmpty(u.Grade) || u.Grade == "-" ? "-" : u.Grade)</td>
+                                        <td>@(string.IsNullOrEmpty(u.Group) || u.Group == "-" ? "-" : u.Group)</td>
+                                        <td>@u.Status</td>
+                                        <td>@(u.PasswordEmailStatus ?? "")</td>
+                                        <td>@(u.PasswordEmailSentAt.HasValue ? u.PasswordEmailSentAt.Value.ToLocalTime().ToString("g") : "")</td>
+                                        <td>@(u.CreatedAt.HasValue ? u.CreatedAt.Value.ToLocalTime().ToString("g") : "")</td>
+                                    </tr>
+                                }
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -84,8 +157,9 @@
     <script>
         $(function () {
             userPasswordManagement.init({
-                listUrl: '/Admin/UserPasswordManagement/ListJson',
-                sendPasswordsUrl: '/Admin/UserPasswordManagement/SendPasswords'
+                serverRendered: true,
+                sendPasswordsUrl: '@Url.Action("SendPasswords", "UserPasswordManagement")',
+                indexUrl: '@indexUrl'
             });
         });
     </script>

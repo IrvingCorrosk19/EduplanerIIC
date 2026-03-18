@@ -18,24 +18,34 @@ namespace SchoolManager.Controllers.Admin
 
         private readonly IUserPasswordManagementService _userPasswordManagementService;
         private readonly IBulkPasswordEmailService _bulkPasswordEmailService;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<UserPasswordManagementController> _logger;
 
         public UserPasswordManagementController(
             IUserPasswordManagementService userPasswordManagementService,
             IBulkPasswordEmailService bulkPasswordEmailService,
+            ICurrentUserService currentUserService,
             ILogger<UserPasswordManagementController> logger)
         {
             _userPasswordManagementService = userPasswordManagementService;
             _bulkPasswordEmailService = bulkPasswordEmailService;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
         [HttpGet]
         [Route("")]
         [Route("Index")]
-        public IActionResult Index()
+        public async Task<IActionResult> Index([FromQuery] Guid? gradeId, [FromQuery] Guid? groupId)
         {
-            return View("~/Views/Admin/UserPasswordManagement/Index.cshtml");
+            var me = await _currentUserService.GetCurrentUserAsync();
+            var isSuper = string.Equals(me?.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
+            var vm = await _userPasswordManagementService.GetIndexViewModelAsync(
+                gradeId,
+                groupId,
+                me?.SchoolId,
+                isSuper);
+            return View("~/Views/Admin/UserPasswordManagement/Index.cshtml", vm);
         }
 
         [HttpGet]

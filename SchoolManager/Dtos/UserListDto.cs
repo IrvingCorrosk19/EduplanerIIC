@@ -9,6 +9,10 @@ namespace SchoolManager.Dtos
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+        /// <summary>Grado (estudiantes con asignación activa); "-" si no aplica.</summary>
+        public string Grade { get; set; } = "-";
+        /// <summary>Grupo (estudiantes con asignación activa); "-" si no aplica.</summary>
+        public string Group { get; set; } = "-";
         public string Status { get; set; } = string.Empty;
         public string? PasswordEmailStatus { get; set; }
         public DateTime? PasswordEmailSentAt { get; set; }
