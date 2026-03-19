@@ -256,7 +256,7 @@ var userPasswordManagement = (function () {
         return $('input[name="__RequestVerificationToken"]').val() || '';
     }
 
-    var MAX_SEND = 30;
+    var MAX_SEND = 2000;
 
     /**
      * Envío masivo: contraseña temporal por correo (Resend). Requiere usuarios seleccionados.
@@ -300,10 +300,9 @@ var userPasswordManagement = (function () {
                 }
             }).done(function (res) {
                 if (res && res.success) {
-                    var t = 'Total: ' + (res.total || 0) + '. Enviados: ' + (res.sent || 0) + '. Fallidos: ' + (res.failed || 0) + '.';
                     if (typeof Swal !== 'undefined') {
-                        Swal.fire({ icon: 'success', title: res.message || 'Listo', text: t });
-                    } else { alert(t); }
+                        Swal.fire({ icon: 'success', title: res.message || 'Correos en proceso' });
+                    } else { alert(res.message || 'Correos en proceso'); }
                     loadUsers();
                 } else {
                     if (typeof Swal !== 'undefined') {
@@ -324,7 +323,7 @@ var userPasswordManagement = (function () {
             Swal.fire({
                 icon: 'question',
                 title: 'Enviar contraseñas',
-                html: 'Se generará una <strong>contraseña temporal nueva</strong> por usuario, se guardará en el sistema y se enviará por correo.<br/><br/>Máximo ' + MAX_SEND + ' por vez.',
+                html: 'Se generará una <strong>contraseña temporal nueva</strong> por usuario, se guardará en el sistema y se enviará por correo en segundo plano.<br/><br/>Máximo ' + MAX_SEND + ' por solicitud.',
                 showCancelButton: true,
                 confirmButtonText: 'Sí, enviar',
                 cancelButtonText: 'Cancelar',

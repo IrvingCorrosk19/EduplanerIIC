@@ -16,6 +16,9 @@ using System.Text.Json.Serialization;
 using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using SchoolManager.Repositories.Implementations;
+using SchoolManager.Repositories.Interfaces;
+using SchoolManager.Services.Background;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +27,17 @@ var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrEmpty(port))
 {
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
+// Tabla email_queues (cola de envío de contraseñas por correo). Idempotente.
+if (args.Length > 0 && args[0] == "--apply-email-queues-table")
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.ApplyEmailQueuesTable.RunAsync(ctx);
+    return;
 }
 
 // Aplicar columna schools.is_active sin arrancar la app (evita usar Schools antes de que exista la columna)
@@ -221,6 +235,10 @@ builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService
 builder.Services.AddScoped<IDirectorWorkPlanService, DirectorWorkPlanService>();
 builder.Services.AddScoped<IUserPasswordManagementService, UserPasswordManagementService>();
 builder.Services.AddScoped<IBulkPasswordEmailService, BulkPasswordEmailService>();
+builder.Services.AddScoped<IEmailQueueRepository, EmailQueueRepository>();
+builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
+builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
+builder.Services.AddHostedService<EmailQueueWorker>();
 // Módulo Club de Padres (pagos carnet y plataforma)
 builder.Services.AddScoped<IClubParentsPaymentService, ClubParentsPaymentService>();
 builder.Services.AddScoped<IQlServicesCarnetService, QlServicesCarnetService>();

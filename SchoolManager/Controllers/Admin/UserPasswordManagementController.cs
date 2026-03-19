@@ -14,21 +14,21 @@ namespace SchoolManager.Controllers.Admin
     [Route("Admin/UserPasswordManagement")]
     public class UserPasswordManagementController : Controller
     {
-        public const int MaxPasswordEmailsPerRequest = 30;
+        public const int MaxEnqueuePerRequest = 2000;
 
         private readonly IUserPasswordManagementService _userPasswordManagementService;
-        private readonly IBulkPasswordEmailService _bulkPasswordEmailService;
+        private readonly IEmailQueueService _emailQueueService;
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<UserPasswordManagementController> _logger;
 
         public UserPasswordManagementController(
             IUserPasswordManagementService userPasswordManagementService,
-            IBulkPasswordEmailService bulkPasswordEmailService,
+            IEmailQueueService emailQueueService,
             ICurrentUserService currentUserService,
             ILogger<UserPasswordManagementController> logger)
         {
             _userPasswordManagementService = userPasswordManagementService;
-            _bulkPasswordEmailService = bulkPasswordEmailService;
+            _emailQueueService = emailQueueService;
             _currentUserService = currentUserService;
             _logger = logger;
         }
@@ -90,44 +90,24 @@ namespace SchoolManager.Controllers.Admin
             if (ids.Count == 0)
                 return BadRequest(new { success = false, message = "Seleccione al menos un usuario." });
 
-            if (ids.Count > MaxPasswordEmailsPerRequest)
-            {
-                _logger.LogWarning("SendPasswords rechazado: {Count} ids (máx {Max})", ids.Count, MaxPasswordEmailsPerRequest);
+            if (ids.Count > MaxEnqueuePerRequest)
                 return BadRequest(new
                 {
                     success = false,
-                    message = $"Máximo {MaxPasswordEmailsPerRequest} usuarios por envío. Seleccione menos e intente de nuevo."
+                    message = $"Máximo {MaxEnqueuePerRequest} usuarios por solicitud."
                 });
-            }
 
             if (User?.Identity?.IsAuthenticated != true)
                 return Unauthorized();
 
             try
             {
-                var result = await _bulkPasswordEmailService.SendPasswordsAsync(ids, User);
-
-                var sent = result.Items.Count(x => x.Success);
-                var failed = result.Items.Count(x => !x.Success);
-                var total = result.Items.Count;
-
-                _logger.LogInformation(
-                    "SendPasswords completado total={Total} sent={Sent} failed={Failed}",
-                    total, sent, failed);
-
-                return Json(new
-                {
-                    success = true,
-                    total,
-                    sent,
-                    failed,
-                    message = "Proceso completado",
-                    items = result.Items.Select(i => new { i.UserId, i.Success, i.Message })
-                });
+                await _emailQueueService.EnqueueUsersAsync(ids, User);
+                return Json(new { success = true, message = "Correos en proceso" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "SendPasswords failed");
+                _logger.LogError(ex, "SendPasswords enqueue failed");
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }

@@ -89,6 +89,8 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<EmailApiConfiguration> EmailApiConfigurations { get; set; }
 
+    public virtual DbSet<EmailQueue> EmailQueues { get; set; }
+
     public virtual DbSet<SchoolIdCardSetting> SchoolIdCardSettings { get; set; }
 
     public virtual DbSet<IdCardTemplateField> IdCardTemplateFields { get; set; }
@@ -2368,6 +2370,40 @@ public partial class SchoolDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<EmailQueue>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("email_queues_pkey");
+            entity.ToTable("email_queues");
+            entity.HasIndex(e => e.Status, "IX_email_queues_status");
+            entity.HasIndex(e => e.CreatedAt, "IX_email_queues_created_at");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("email");
+            entity.Property(e => e.Subject).HasMaxLength(500).HasColumnName("subject");
+            entity.Property(e => e.Body).HasColumnType("text").HasColumnName("body");
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(EmailQueueStatus.Pending)
+                .HasColumnName("status");
+            entity.Property(e => e.Attempts).HasDefaultValue(0).HasColumnName("attempts");
+            entity.Property(e => e.MaxAttempts).HasDefaultValue(3).HasColumnName("max_attempts");
+            entity.Property(e => e.LastError).HasMaxLength(2000).HasColumnName("last_error");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.ProcessedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("processed_at");
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Configuración de SchoolIdCardSetting
