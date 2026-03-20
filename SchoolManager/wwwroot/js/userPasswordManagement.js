@@ -39,6 +39,24 @@ var userPasswordManagement = (function () {
         return role;
     }
 
+    function getAllCheckboxes() {
+        // Cuando DataTables paginea, en el DOM quedan solo las filas del page actual.
+        // Para "Select all" real necesitamos consultar los nodos de TODAS las filas.
+        if (dataTable && $.fn.DataTable.isDataTable('#usersTable')) {
+            return dataTable.rows().nodes().to$().find('.user-select-cb');
+        }
+        return $('#usersTable').find('.user-select-cb');
+    }
+
+    function refreshSelectAllState() {
+        var $selectAll = $('#selectAll');
+        var $allCheckboxes = getAllCheckboxes();
+        var total = $allCheckboxes.length;
+        var checked = $allCheckboxes.filter(':checked').length;
+        $selectAll.prop('checked', total > 0 && checked === total);
+        $selectAll.prop('indeterminate', checked > 0 && checked < total);
+    }
+
     function escapeRegex(str) {
         return (str + '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -66,7 +84,7 @@ var userPasswordManagement = (function () {
      */
     function applyRoleFilter() {
         if (!dataTable || !$.fn.DataTable.isDataTable('#usersTable')) return;
-        var role = $('#roleFilter').val() || '';
+        var role = $('#role').val() || '';
         if (role === '') {
             dataTable.column(ROLE_COLUMN_INDEX).search('').draw();
         } else {
@@ -78,8 +96,8 @@ var userPasswordManagement = (function () {
      * Clear all filters and redraw (client-side, like User/Index Reset).
      */
     function clearFilters() {
-        $('#roleFilter').val('');
-        $('#searchBox').val('');
+        $('#role').val('');
+        $('#q').val('');
         if (dataTable && $.fn.DataTable.isDataTable('#usersTable')) {
             dataTable.column(ROLE_COLUMN_INDEX).search('');
             dataTable.search('');
@@ -185,29 +203,34 @@ var userPasswordManagement = (function () {
     function handleCheckboxSelection() {
         var $table = $('#usersTable');
         var $selectAll = $('#selectAll');
-        var $checkboxes = $table.find('.user-select-cb');
+        // Evitamos capturar una colección estática (DataTables cambia el DOM entre páginas).
+        // Usamos delegación de eventos sobre la tabla.
 
         $selectAll.off('change').on('change', function () {
             var checked = $(this).prop('checked');
-            $checkboxes.prop('checked', checked);
+            getAllCheckboxes().prop('checked', checked);
+            refreshSelectAllState();
         });
 
-        $checkboxes.off('change').on('change', function () {
-            var total = $checkboxes.length;
-            var checked = $checkboxes.filter(':checked').length;
-            $selectAll.prop('checked', total > 0 && checked === total);
-            $selectAll.prop('indeterminate', checked > 0 && checked < total);
-        });
+        $table.off('change.userPasswordManagement', '.user-select-cb')
+            .on('change.userPasswordManagement', '.user-select-cb', function () {
+                refreshSelectAllState();
+            });
 
-        $selectAll.prop('checked', false);
-        $selectAll.prop('indeterminate', false);
+        refreshSelectAllState();
+        if (dataTable) {
+            dataTable.off('draw.userPasswordManagement');
+            dataTable.on('draw.userPasswordManagement', function () {
+                refreshSelectAllState();
+            });
+        }
     }
 
     /**
      * Get currently selected user IDs (for future Mass Password Delivery).
      */
     function getSelectedIds() {
-        return $('#usersTable').find('.user-select-cb:checked').map(function () {
+        return getAllCheckboxes().filter(':checked').map(function () {
             return $(this).val();
         }).get();
     }
