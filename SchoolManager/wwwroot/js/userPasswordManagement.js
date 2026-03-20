@@ -289,6 +289,23 @@ var userPasswordManagement = (function () {
         var doPost = function () {
             var $btn = $('#btnSendPasswords');
             $btn.prop('disabled', true);
+
+            // Loading explícito para que el usuario no vea "resultado" desaparecer
+            // inmediatamente por el reload al servidor-render.
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Enviando...',
+                    html: 'Generando contraseñas temporales y encolando correos.<br/><small class="text-muted">Esto puede tardar unos segundos.</small>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    willOpen: function () {
+                        Swal.showLoading();
+                    }
+                });
+            }
+
             $.ajax({
                 url: config.sendPasswordsUrl,
                 type: 'POST',
@@ -313,12 +330,31 @@ var userPasswordManagement = (function () {
                         html += '<br/><small class="text-muted">Job ID: <code>' + escapeHtml(res.jobId) + '</code></small>';
                     }
                     if (typeof Swal !== 'undefined') {
-                        Swal.fire({ icon: 'success', title: 'Envío iniciado', html: html });
-                    } else { alert(res.message); }
-                    if (config.serverRendered) {
-                        window.location.reload();
+                        // Mantener el mensaje visible hasta que el usuario lo cierre,
+                        // y solo después recargar si aplica.
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Envío iniciado',
+                            html: html,
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            confirmButtonText: 'OK'
+                        }).then(function () {
+                            if (config.serverRendered) {
+                                window.location.reload();
+                            } else {
+                                loadUsers();
+                            }
+                        });
                     } else {
-                        loadUsers();
+                        // Sin SweetAlert: fallback simple
+                        alert(res.message);
+                        if (config.serverRendered) {
+                            window.location.reload();
+                        } else {
+                            loadUsers();
+                        }
                     }
                 } else {
                     // El servidor respondió pero con success=false (no es error HTTP)
@@ -331,14 +367,16 @@ var userPasswordManagement = (function () {
                         errHtml += '</ul>';
                     }
                     if (typeof Swal !== 'undefined') {
-                        Swal.fire({ icon: 'warning', title: 'Sin correos encolados', html: errHtml });
+                        Swal.close();
+                        Swal.fire({ icon: 'warning', title: 'Sin correos encolados', html: errHtml, allowOutsideClick: false, allowEscapeKey: false, confirmButtonText: 'OK' });
                     } else { alert(errMsg); }
                 }
             }).fail(function (xhr) {
                 var errData = xhr.responseJSON || {};
                 var msg = errData.message || xhr.statusText || 'Error de red.';
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({ icon: 'error', title: 'Error', text: msg, allowOutsideClick: false, allowEscapeKey: false, confirmButtonText: 'OK' });
                 } else { alert('Error: ' + msg); }
             }).always(function () {
                 $btn.prop('disabled', false);
