@@ -126,6 +126,14 @@
                             </a>
                         </li>
                         }
+                        @if (userRole == "admin") {
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "EmailJobs")" class="nav-link">
+                                <i class="nav-icon fas fa-envelope-open-text"></i>
+                                <p>Lotes de Correo</p>
+                            </a>
+                        </li>
+                        }
                         @if (userRole == "admin" || userRole == "superadmin" || userRole == "director") {
                         <li class="nav-item">
                             <a href="/Dashboard/School" class="nav-link">

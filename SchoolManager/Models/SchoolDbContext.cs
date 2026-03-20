@@ -91,6 +91,8 @@ public partial class SchoolDbContext : DbContext
 
     public virtual DbSet<EmailQueue> EmailQueues { get; set; }
 
+    public virtual DbSet<EmailJob> EmailJobs { get; set; }
+
     public virtual DbSet<SchoolIdCardSetting> SchoolIdCardSettings { get; set; }
 
     public virtual DbSet<IdCardTemplateField> IdCardTemplateFields { get; set; }
@@ -2372,15 +2374,58 @@ public partial class SchoolDbContext : DbContext
                 .HasColumnName("created_at");
         });
 
+        modelBuilder.Entity<EmailJob>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("email_jobs_pkey");
+            entity.ToTable("email_jobs");
+            entity.HasIndex(e => e.CorrelationId, "IX_email_jobs_correlation_id");
+            entity.HasIndex(e => e.RequestedAt, "IX_email_jobs_requested_at");
+            entity.HasIndex(e => e.Status, "IX_email_jobs_status");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.CorrelationId).HasColumnName("correlation_id");
+            entity.Property(e => e.CreatedByUserId).HasColumnName("created_by_user_id");
+            entity.Property(e => e.SchoolId).HasColumnName("school_id");
+            entity.Property(e => e.RequestedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("requested_at");
+            entity.Property(e => e.StartedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("started_at");
+            entity.Property(e => e.CompletedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("completed_at");
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(30)
+                .HasDefaultValue(EmailJobStatus.Accepted)
+                .HasColumnName("status");
+            entity.Property(e => e.TotalItems).HasDefaultValue(0).HasColumnName("total_items");
+            entity.Property(e => e.SentCount).HasDefaultValue(0).HasColumnName("sent_count");
+            entity.Property(e => e.FailedCount).HasDefaultValue(0).HasColumnName("failed_count");
+            entity.Property(e => e.RejectedCount).HasDefaultValue(0).HasColumnName("rejected_count");
+            entity.Property(e => e.SummaryJson).HasColumnType("text").HasColumnName("summary_json");
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_email_jobs_users_created_by_user_id");
+        });
+
         modelBuilder.Entity<EmailQueue>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("email_queues_pkey");
             entity.ToTable("email_queues");
             entity.HasIndex(e => e.Status, "IX_email_queues_status");
             entity.HasIndex(e => e.CreatedAt, "IX_email_queues_created_at");
+            entity.HasIndex(e => e.JobId, "IX_email_queues_job_id");
+            entity.HasIndex(e => e.LockedUntil, "IX_email_queues_locked_until");
+            entity.HasIndex(e => e.NextAttemptAt, "IX_email_queues_next_attempt_at");
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
+            entity.Property(e => e.JobId).HasColumnName("job_id");
+            entity.Property(e => e.CorrelationId).HasColumnName("correlation_id");
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.Email)
                 .IsRequired()
@@ -2390,12 +2435,14 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.Body).HasColumnType("text").HasColumnName("body");
             entity.Property(e => e.Status)
                 .IsRequired()
-                .HasMaxLength(20)
+                .HasMaxLength(30)
                 .HasDefaultValue(EmailQueueStatus.Pending)
                 .HasColumnName("status");
             entity.Property(e => e.Attempts).HasDefaultValue(0).HasColumnName("attempts");
             entity.Property(e => e.MaxAttempts).HasDefaultValue(3).HasColumnName("max_attempts");
             entity.Property(e => e.LastError).HasMaxLength(2000).HasColumnName("last_error");
+            entity.Property(e => e.ErrorCode).HasMaxLength(50).HasColumnName("error_code");
+            entity.Property(e => e.ProviderMessageId).HasMaxLength(200).HasColumnName("provider_message_id");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp with time zone")
@@ -2403,7 +2450,21 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.ProcessedAt)
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("processed_at");
-            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.LockedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("locked_at");
+            entity.Property(e => e.LockedUntil)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("locked_until");
+            entity.Property(e => e.LockedBy).HasMaxLength(100).HasColumnName("locked_by");
+            entity.Property(e => e.NextAttemptAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("next_attempt_at");
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Job).WithMany(j => j.QueueItems).HasForeignKey(e => e.JobId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_email_queues_email_jobs_job_id");
         });
 
         // Configuración de SchoolIdCardSetting

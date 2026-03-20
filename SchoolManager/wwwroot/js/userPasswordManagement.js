@@ -300,17 +300,43 @@ var userPasswordManagement = (function () {
                 }
             }).done(function (res) {
                 if (res && res.success) {
+                    // Respuesta honesta: mostrar conteos reales y jobId
+                    var html = escapeHtml(res.message || 'Correos encolados.');
+                    if (res.acceptedCount > 0) {
+                        html += '<br/><small class="text-muted">Encolados: <strong>' + res.acceptedCount + '</strong>';
+                        if (res.rejectedCount > 0) {
+                            html += ' · Omitidos: <strong>' + res.rejectedCount + '</strong>';
+                        }
+                        html += '</small>';
+                    }
+                    if (res.jobId) {
+                        html += '<br/><small class="text-muted">Job ID: <code>' + escapeHtml(res.jobId) + '</code></small>';
+                    }
                     if (typeof Swal !== 'undefined') {
-                        Swal.fire({ icon: 'success', title: res.message || 'Correos en proceso' });
-                    } else { alert(res.message || 'Correos en proceso'); }
-                    loadUsers();
+                        Swal.fire({ icon: 'success', title: 'Envío iniciado', html: html });
+                    } else { alert(res.message); }
+                    if (config.serverRendered) {
+                        window.location.reload();
+                    } else {
+                        loadUsers();
+                    }
                 } else {
+                    // El servidor respondió pero con success=false (no es error HTTP)
+                    var errMsg = res && res.message ? res.message : 'El sistema no pudo encolar los correos.';
+                    var warnings = (res && res.warnings && res.warnings.length) ? res.warnings : [];
+                    var errHtml = escapeHtml(errMsg);
+                    if (warnings.length) {
+                        errHtml += '<ul style="text-align:left;margin-top:8px;">';
+                        warnings.forEach(function (w) { errHtml += '<li>' + escapeHtml(w) + '</li>'; });
+                        errHtml += '</ul>';
+                    }
                     if (typeof Swal !== 'undefined') {
-                        Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'Respuesta inesperada.' });
-                    } else { alert('Respuesta inesperada.'); }
+                        Swal.fire({ icon: 'warning', title: 'Sin correos encolados', html: errHtml });
+                    } else { alert(errMsg); }
                 }
             }).fail(function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : (xhr.statusText || 'Error');
+                var errData = xhr.responseJSON || {};
+                var msg = errData.message || xhr.statusText || 'Error de red.';
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'error', title: 'Error', text: msg });
                 } else { alert('Error: ' + msg); }

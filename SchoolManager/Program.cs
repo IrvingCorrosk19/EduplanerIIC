@@ -41,6 +41,17 @@ if (args.Length > 0 && args[0] == "--apply-email-queues-table")
 }
 
 // Aplicar columna schools.is_active sin arrancar la app (evita usar Schools antes de que exista la columna)
+if (args.Length > 0 && args[0] == "--apply-email-jobs")
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.ApplyEmailJobsAndQueueColumns.RunAsync(ctx);
+    Console.WriteLine("✅ email_jobs y columnas de email_queues aplicados. Saliendo...");
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--apply-school-is-active")
 {
     var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -238,6 +249,7 @@ builder.Services.AddScoped<IBulkPasswordEmailService, BulkPasswordEmailService>(
 builder.Services.AddScoped<IEmailQueueRepository, EmailQueueRepository>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
+builder.Services.AddScoped<IEmailJobService, EmailJobService>();
 builder.Services.AddHostedService<EmailQueueWorker>();
 // Módulo Club de Padres (pagos carnet y plataforma)
 builder.Services.AddScoped<IClubParentsPaymentService, ClubParentsPaymentService>();
@@ -295,6 +307,7 @@ using (var scope = app.Services.CreateScope())
     await SchoolManager.Scripts.EnsureStudentPaymentAccessTable.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureScheduleTables.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureSchoolScheduleConfigurationTable.EnsureAsync(db);
+    await SchoolManager.Scripts.ApplyEmailJobsAndQueueColumns.RunAsync(db);
     await SchoolManager.Scripts.VerifyAcademicYearsInDb.RunAsync(db, logger);
 
     // Garantizar que cada escuela tenga al menos un año académico (evitar mensaje "No hay años académicos configurados")

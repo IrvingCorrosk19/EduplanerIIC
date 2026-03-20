@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "SchoolManager Dev",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "C:/Proyectos/EduplanerIIC/SchoolManager/SchoolManager.csproj", "--launch-profile", "http"],
+      "port": 5172
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Constants;
+using SchoolManager.Dtos;
 using SchoolManager.Models;
 using SchoolManager.Repositories.Interfaces;
 using SchoolManager.Services.Interfaces;
@@ -10,6 +11,7 @@ namespace SchoolManager.Services.Implementations;
 public class EmailQueueService : IEmailQueueService
 {
     private const string Subject = "Acceso a la plataforma";
+
     private readonly SchoolDbContext _db;
     private readonly IEmailQueueRepository _repository;
     private readonly IEmailApiConfigurationService _emailApiConfig;
@@ -27,56 +29,103 @@ public class EmailQueueService : IEmailQueueService
         _logger = logger;
     }
 
-    public async Task EnqueueUsersAsync(List<Guid> userIds, ClaimsPrincipal currentUser)
+    public async Task<EnqueueResult> EnqueueUsersAsync(List<Guid> userIds, ClaimsPrincipal currentUser)
     {
-        if (userIds == null || userIds.Count == 0) return;
+        var correlationId = Guid.NewGuid();
+        var requested = userIds?.Count ?? 0;
 
+        _logger.LogInformation(
+            "EnqueueUsers start CorrelationId={CorrelationId} Requested={Requested}",
+            correlationId, requested);
+
+        if (userIds == null || userIds.Count == 0)
+            return EnqueueResult.NoneEligible(correlationId, 0, 0, ["Lista de usuarios vacía."]);
+
+        // ── Validar caller ────────────────────────────────────────────────────
         var callerIdClaim = currentUser.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(callerIdClaim, out var callerUserId))
         {
-            _logger.LogWarning("EnqueueUsersAsync: sin NameIdentifier en ClaimsPrincipal.");
-            return;
+            _logger.LogWarning(
+                "EnqueueUsers CorrelationId={CorrelationId} sin NameIdentifier en ClaimsPrincipal",
+                correlationId);
+            return EnqueueResult.Unauthorized(correlationId, requested);
         }
 
         var caller = await _db.Users.IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == callerUserId);
-        if (caller == null) return;
+
+        if (caller == null)
+        {
+            _logger.LogWarning(
+                "EnqueueUsers CorrelationId={CorrelationId} caller no encontrado UserId={UserId}",
+                correlationId, callerUserId);
+            return EnqueueResult.Unauthorized(correlationId, requested);
+        }
 
         var role = (caller.Role ?? string.Empty).ToLowerInvariant();
         if (role != "superadmin" && role != "admin")
         {
-            _logger.LogWarning("EnqueueUsersAsync: rol no autorizado {Role}", caller.Role);
-            return;
+            _logger.LogWarning(
+                "EnqueueUsers CorrelationId={CorrelationId} rol no autorizado Role={Role}",
+                correlationId, caller.Role);
+            return EnqueueResult.Unauthorized(correlationId, requested);
         }
 
-        var isSuperAdmin = role == "superadmin";
-        var callerSchoolId = caller.SchoolId;
-
+        // ── Verificar configuración activa de email ───────────────────────────
         var apiCfg = await _emailApiConfig.GetActiveAsync();
         if (apiCfg == null || string.IsNullOrWhiteSpace(apiCfg.ApiKey))
         {
-            _logger.LogWarning("EnqueueUsersAsync: no hay EmailApiConfiguration activa con API key.");
-            return;
+            _logger.LogWarning(
+                "EnqueueUsers CorrelationId={CorrelationId} sin EmailApiConfiguration activa",
+                correlationId);
+            return EnqueueResult.NoConfig(correlationId, requested);
         }
 
+        var isSuperAdmin  = role == "superadmin";
+        var callerSchoolId = caller.SchoolId;
         var fromName = string.IsNullOrWhiteSpace(apiCfg.FromName) ? "SchoolManager" : apiCfg.FromName.Trim();
         var distinctIds = userIds.Distinct().ToList();
+        var now = DateTime.UtcNow;
 
+        // ── Cargar usuarios ───────────────────────────────────────────────────
         var users = await _db.Users.IgnoreQueryFilters()
             .Where(u => distinctIds.Contains(u.Id))
             .ToListAsync();
 
         var queueItems = new List<EmailQueue>();
-        var now = DateTime.UtcNow;
+        var warnings   = new List<string>();
+        var rejected   = 0;
 
+        // ── Crear EmailJob para este lote ─────────────────────────────────────
+        var job = new EmailJob
+        {
+            Id              = Guid.NewGuid(),
+            CorrelationId   = correlationId,
+            CreatedByUserId = callerUserId,
+            SchoolId        = isSuperAdmin ? null : callerSchoolId,
+            RequestedAt     = now,
+            Status          = EmailJobStatus.Accepted,
+            TotalItems      = 0, // se fija al final
+            RejectedCount   = 0
+        };
+        _db.EmailJobs.Add(job);
+
+        // ── Procesar cada usuario ─────────────────────────────────────────────
         foreach (var user in users)
         {
+            // Scope: admin solo puede enviar a su propia escuela
             if (!isSuperAdmin && (callerSchoolId == null || user.SchoolId != callerSchoolId.Value))
+            {
+                rejected++;
+                warnings.Add($"Usuario {user.Id} omitido: escuela no coincide.");
                 continue;
+            }
 
             if (string.IsNullOrWhiteSpace(user.Email))
             {
+                rejected++;
+                warnings.Add($"Usuario {user.Id} omitido: sin email.");
                 user.PasswordEmailStatus = PasswordEmailStatusValues.Failed;
                 user.PasswordEmailSentAt = now;
                 user.UpdatedAt = now;
@@ -84,35 +133,67 @@ public class EmailQueueService : IEmailQueueService
             }
 
             var plainPassword = DefaultTemporaryPassword.Value;
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(plainPassword);
+            user.PasswordHash        = BCrypt.Net.BCrypt.HashPassword(plainPassword);
             user.PasswordEmailStatus = PasswordEmailStatusValues.Pending;
-            user.UpdatedAt = now;
+            user.UpdatedAt           = now;
 
             var body = BuildEmailHtml(user.Email, plainPassword, fromName);
             queueItems.Add(new EmailQueue
             {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                Email = user.Email,
-                Subject = Subject,
-                Body = body,
-                Status = EmailQueueStatus.Pending,
-                Attempts = 0,
-                MaxAttempts = 3,
-                CreatedAt = now
+                Id            = Guid.NewGuid(),
+                JobId         = job.Id,
+                CorrelationId = correlationId,
+                UserId        = user.Id,
+                Email         = user.Email,
+                Subject       = Subject,
+                Body          = body,
+                Status        = EmailQueueStatus.Pending,
+                Attempts      = 0,
+                MaxAttempts   = 3,
+                CreatedAt     = now
             });
         }
 
-        await _db.SaveChangesAsync();
+        // ── Verificar que haya algo que encolar ───────────────────────────────
+        if (queueItems.Count == 0)
+        {
+            // No persistir un job vacío
+            _db.EmailJobs.Remove(job);
+            await _db.SaveChangesAsync();
+
+            _logger.LogWarning(
+                "EnqueueUsers CorrelationId={CorrelationId} 0 ítems elegibles Rejected={Rejected}",
+                correlationId, rejected);
+
+            return EnqueueResult.NoneEligible(correlationId, requested, rejected, warnings);
+        }
+
+        // ── Fijar contadores y persistir ──────────────────────────────────────
+        job.TotalItems    = queueItems.Count;
+        job.RejectedCount = rejected;
+
+        await _db.SaveChangesAsync(); // usuarios + job
+
         _repository.AddRange(queueItems);
-        await _repository.SaveChangesAsync();
-        _logger.LogInformation("EnqueueUsersAsync: {Count} correos encolados.", queueItems.Count);
+        await _repository.SaveChangesAsync(); // email_queues
+
+        _logger.LogInformation(
+            "EnqueueUsers OK CorrelationId={CorrelationId} JobId={JobId} Accepted={Accepted} Rejected={Rejected}",
+            correlationId, job.Id, queueItems.Count, rejected);
+
+        return EnqueueResult.Accepted(
+            job.Id,
+            correlationId,
+            requested,
+            queueItems.Count,
+            rejected,
+            warnings);
     }
 
     private static string BuildEmailHtml(string email, string tempPassword, string fromName)
     {
-        var e = System.Net.WebUtility.HtmlEncode(email);
-        var p = System.Net.WebUtility.HtmlEncode(tempPassword);
+        var e  = System.Net.WebUtility.HtmlEncode(email);
+        var p  = System.Net.WebUtility.HtmlEncode(tempPassword);
         var fn = System.Net.WebUtility.HtmlEncode(fromName);
         const string platformUrl = "https://eduplaner.net/";
         return $@"
