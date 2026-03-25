@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -253,8 +253,22 @@ namespace SchoolManager.Services
             }
 
             var trimestres = await _context.Trimesters
-                .Where(t => t.SchoolId == currentUserSchool.Id)  // ← Solo trimestres de la escuela del usuario
+                .Where(t => t.SchoolId == currentUserSchool.Id)
                 .ToListAsync();
+
+            if (trimestres.Count == 0)
+                return;
+
+            var trimesterIds = trimestres.Select(t => t.Id).ToList();
+
+            // Desvincular actividades docentes: FK activities.trimester_id → trimester.id impide DELETE sin esto
+            var activitiesConTrimestre = await _context.Activities
+                .Where(a => a.TrimesterId != null && trimesterIds.Contains(a.TrimesterId.Value))
+                .ToListAsync();
+
+            foreach (var a in activitiesConTrimestre)
+                a.TrimesterId = null;
+
             _context.Trimesters.RemoveRange(trimestres);
             await _context.SaveChangesAsync();
         }

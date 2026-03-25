@@ -139,8 +139,20 @@ var culture = new CultureInfo("es-PA");
 CultureInfo.DefaultThreadCurrentCulture = culture;
 CultureInfo.DefaultThreadCurrentUICulture = culture;
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
+// Add services to the container (una sola cadena: vistas + JSON camelCase para Ok()/fetch)
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new DateTimeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new NullableDateTimeJsonConverter());
+    })
+    .AddMvcOptions(options =>
+    {
+        options.Filters.Add<SchoolManager.Attributes.DateTimeConversionAttribute>();
+        options.Filters.Add<SchoolManager.Filters.PlatformAccessGuardFilter>();
+    });
 
 // Configurar Antiforgery para aceptar el token desde header (usado por fetch en Schedule y otros módulos AJAX)
 builder.Services.AddAntiforgery(options =>
@@ -156,23 +168,6 @@ builder.Services.AddDbContext<SchoolDbContext>(options =>
     // Configurar Entity Framework para manejar DateTime automáticamente
     options.ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.RowLimitingOperationWithoutOrderByWarning));
 });
-
-// Configurar MVC para usar los convertidores JSON personalizados
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-        options.JsonSerializerOptions.Converters.Add(new DateTimeJsonConverter());
-        options.JsonSerializerOptions.Converters.Add(new NullableDateTimeJsonConverter());
-    })
-    .AddMvcOptions(options =>
-    {
-        // Agregar filtro global para conversión de DateTime
-        options.Filters.Add<SchoolManager.Attributes.DateTimeConversionAttribute>();
-        // Bloquear acceso al portal académico si el estudiante tiene PlatformAccessStatus = Pendiente
-        options.Filters.Add<SchoolManager.Filters.PlatformAccessGuardFilter>();
-    });
 
 // Registrando todos los servicios con inyección de dependencias
 builder.Services.AddScoped<ISchoolService, SchoolService>();

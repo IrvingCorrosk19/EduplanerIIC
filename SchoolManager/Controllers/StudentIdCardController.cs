@@ -183,16 +183,22 @@ public class StudentIdCardController : Controller
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
 
+        // SuperAdmin puede tener SchoolId en su perfil (p. ej. escuela de referencia) pero debe ver
+        // todos los estudiantes del sistema para emitir carnets en cualquier institución.
+        var isSuperAdmin = currentUser?.Role != null &&
+            string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
+
         _logger.LogInformation(
-            "[StudentIdCard/ListJson] Usuario={UserId} Nombre={Name} SchoolId={SchoolId}",
+            "[StudentIdCard/ListJson] Usuario={UserId} Nombre={Name} SchoolId={SchoolId} IsSuperAdmin={IsSuperAdmin}",
             currentUser?.Id,
             currentUser != null ? $"{currentUser.Name} {currentUser.LastName}" : "null",
-            schoolId);
+            schoolId,
+            isSuperAdmin);
 
         var query = _context.Users
             .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"));
 
-        if (schoolId.HasValue)
+        if (schoolId.HasValue && !isSuperAdmin)
             query = query.Where(u => u.SchoolId == schoolId.Value);
 
         // SCALE-4 fix: usar Select anidado para que EF traduzca a subqueries SQL eficientes

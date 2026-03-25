@@ -37,10 +37,13 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
             return Array.Empty<ClubParentsStudentDto>();
         }
 
-        _logger.LogInformation("[ClubParents] GetStudentsAsync querying Users: Role IN (student,estudiante) AND SchoolId={SchoolId}", school.Id);
+        _logger.LogInformation("[ClubParents] GetStudentsAsync querying Users: Role IN (student,estudiante) AND (User.SchoolId={SchoolId} OR asignación activa al colegio)", school.Id);
 
+        // Incluir alumnos con users.school_id = escuela O sin school_id en user pero con matrícula activa (grado del colegio).
         var query = _context.Users
-            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante") && u.SchoolId == school.Id);
+            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"))
+            .Where(u => u.SchoolId == school.Id
+                || u.StudentAssignments.Any(sa => sa.IsActive && sa.Grade.SchoolId == school.Id));
 
         if (gradeId.HasValue || groupId.HasValue)
         {
@@ -124,8 +127,7 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
         if (school == null)
             throw new InvalidOperationException("Usuario sin escuela asignada.");
 
-        var student = await _context.Users
-            .FirstOrDefaultAsync(u => u.Id == studentId && u.SchoolId == school.Id && (u.Role == "student" || u.Role == "estudiante"));
+        var student = await FindStudentInSchoolAsync(studentId, school.Id);
         if (student == null)
             throw new InvalidOperationException("Estudiante no encontrado o no pertenece a su escuela.");
 
@@ -166,8 +168,7 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
         if (school == null)
             throw new InvalidOperationException("Usuario sin escuela asignada.");
 
-        var student = await _context.Users
-            .FirstOrDefaultAsync(u => u.Id == studentId && u.SchoolId == school.Id && (u.Role == "student" || u.Role == "estudiante"));
+        var student = await FindStudentInSchoolAsync(studentId, school.Id);
         if (student == null)
             throw new InvalidOperationException("Estudiante no encontrado o no pertenece a su escuela.");
 
@@ -199,4 +200,12 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
         await _context.SaveChangesAsync();
         _logger.LogInformation("[ClubParents] Plataforma activada StudentId={StudentId} por UserId={UserId}", studentId, userId);
     }
+
+    private Task<User?> FindStudentInSchoolAsync(Guid studentId, Guid schoolId) =>
+        _context.Users.FirstOrDefaultAsync(u =>
+            u.Id == studentId
+            && u.Role != null
+            && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante")
+            && (u.SchoolId == schoolId
+                || u.StudentAssignments.Any(sa => sa.IsActive && sa.Grade.SchoolId == schoolId)));
 }
