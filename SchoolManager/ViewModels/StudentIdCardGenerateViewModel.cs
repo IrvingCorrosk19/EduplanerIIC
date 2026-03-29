@@ -57,6 +57,20 @@ public class StudentIdCardGenerateViewModel
 
     public string? Allergies { get; set; }
 
+    // ── Flags de visibilidad del frente (sincronizados con SchoolIdCardSetting) ──
+    public bool ShowDocumentId { get; set; }
+
+    public bool ShowAcademicYear { get; set; }
+
+    public bool ShowPolicyNumber { get; set; }
+
+    // ── Datos para los bloques condicionales del frente ──
+    public string? DocumentId { get; set; }
+
+    public string? AcademicYear { get; set; }
+
+    public string? PolicyNumber { get; set; }
+
     /// <summary>Hay campos IdCardTemplateField activos: el PDF usa layout posicional de una cara.</summary>
     public bool UsesCustomPdfTemplate { get; set; }
 
@@ -83,6 +97,9 @@ public class StudentIdCardGenerateViewModel
             ShowEmergencyContact = s?.ShowEmergencyContact ?? false,
             ShowAllergies = s?.ShowAllergies ?? false,
             ShowWatermark = s?.ShowWatermark ?? true,
+            ShowDocumentId = s?.ShowDocumentId ?? false,
+            ShowAcademicYear = s?.ShowAcademicYear ?? false,
+            ShowPolicyNumber = s?.ShowPolicyNumber ?? false,
             PrimaryColor = string.IsNullOrWhiteSpace(s?.PrimaryColor) ? "#0D6EFD" : s!.PrimaryColor,
             BackgroundColor = string.IsNullOrWhiteSpace(s?.BackgroundColor) ? "#FFFFFF" : s!.BackgroundColor,
             TextColor = string.IsNullOrWhiteSpace(s?.TextColor) ? "#111111" : s!.TextColor,

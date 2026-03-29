@@ -97,6 +97,16 @@ public class StudentIdCardController : Controller
         vm.EmergencyContactPhone = student.EmergencyContactPhone;
         vm.Allergies = student.Allergies;
 
+        // Datos para bloques condicionales del frente (sincronizados con PDF)
+        vm.DocumentId = student.DocumentId;
+        vm.PolicyNumber = string.IsNullOrWhiteSpace(schoolEntity?.PolicyNumber) ? null : schoolEntity!.PolicyNumber.Trim();
+        vm.AcademicYear = student.SchoolId.HasValue
+            ? await _context.StudentAssignments
+                .Where(a => a.StudentId == studentId && a.IsActive)
+                .Select(a => a.AcademicYear == null ? null : a.AcademicYear.Name)
+                .FirstOrDefaultAsync()
+            : null;
+
         vm.Card = await _service.GetCurrentCardAsync(studentId);
         return View("Generate", vm);
     }

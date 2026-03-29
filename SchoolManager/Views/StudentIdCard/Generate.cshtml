@@ -117,8 +117,30 @@
         display: flex;
         align-items: flex-start;
         gap: 6px;
+    }
+
+    .idcard-front-info {
+        padding: 2px 6px 0 6px;
+        font-size: 7pt;
+        line-height: 1.4;
+        color: @text;
+    }
+
+    .idcard-policy-block {
+        margin: 4px 6px 0 6px;
+        background: #F0F4FF;
+        border-radius: 3px;
+        padding: 3px 4px;
+    }
+
+    .idcard-qr-zone {
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         min-height: 0;
+        padding: 2px 0;
     }
 
     .idcard-photo {
@@ -141,12 +163,12 @@
     .idcard-qr-front { width: 42px; height: 42px; border: 2px solid @primary; border-radius: 4px; background: #fff; }
 
     .idcard-footer-front {
-        margin-top: auto;
-        padding-top: 3px;
-        border-top: 1px solid @borderColor;
-        font-size: 6.5pt;
-        color: @text;
-        opacity: 0.8;
+        padding: 3px 6px;
+        background: @primary;
+        border-radius: 0 0 4px 4px;
+        font-size: 6pt;
+        color: #fff;
+        text-align: center;
     }
 
     .idcard-back-inner {
@@ -249,6 +271,7 @@
                                 }
                                 <div class="idcard-school-name">@Model.SchoolName</div>
                             </div>
+                            @* ZONA 2: Foto + datos (nombre, grado, grupo, jornada) *@
                             <div class="idcard-body-front idcard-z1 px-1 pt-1">
                                 @if (Model.ShowPhoto)
                                 {
@@ -264,29 +287,44 @@
                                     </div>
                                 }
                                 <div class="flex-grow-1 min-w-0">
-                                    <div class="fw-bold" style="font-size:10pt;line-height:1.2;color:@text">@Model.Card!.FullName</div>
-                                    <div style="font-size:8pt;color:@primary;font-weight:600">Carnet: @Model.Card.CardNumber</div>
-                                    <div style="font-size:7.5pt;color:@text;line-height:1.45">
-                                        <div><strong>Grado:</strong> @Model.Card.Grade</div>
-                                        <div><strong>Grupo:</strong> @Model.Card.Group</div>
-                                        <div><strong>Jornada:</strong> @Model.Card.Shift</div>
-                                    </div>
-                                    @if (Model.ShowQr)
-                                    {
-                                        if (!string.IsNullOrEmpty(Model.Card.QrImageDataUrl))
-                                        {
-                                            <div class="d-flex align-items-center justify-content-end gap-1 mt-1">
-                                                <span style="font-size:6.5pt;opacity:.85">Escanea para verificar</span>
-                                                <img class="idcard-qr-front" src="@Model.Card.QrImageDataUrl" alt="QR" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="text-danger" style="font-size:6pt;margin-top:4px">QR no disponible — regenere el carnet</div>
-                                        }
-                                    }
+                                    <div class="fw-bold" style="font-size:9pt;line-height:1.2;color:@text">@Model.Card!.FullName</div>
+                                    <div style="font-size:7pt;color:@primary;font-weight:600;margin-top:2px">@Model.Card.Grade &nbsp; @Model.Card.Group</div>
+                                    <div style="font-size:6.5pt;color:@text">@Model.Card.Shift</div>
                                 </div>
                             </div>
+                            @* ZONA 2b: Cédula y año lectivo (ancho completo) *@
+                            @if (Model.ShowDocumentId && !string.IsNullOrWhiteSpace(Model.DocumentId))
+                            {
+                                <div class="idcard-front-info idcard-z1">Cédula: @Model.DocumentId</div>
+                            }
+                            @if (Model.ShowAcademicYear && !string.IsNullOrWhiteSpace(Model.AcademicYear))
+                            {
+                                <div class="idcard-front-info idcard-z1">Año: @Model.AcademicYear</div>
+                            }
+                            @* ZONA 3: Bloque póliza (condicional) *@
+                            @if (Model.ShowPolicyNumber)
+                            {
+                                <div class="idcard-policy-block idcard-z1">
+                                    <div style="font-size:5.5pt;font-weight:700;color:@primary">Póliza de Seguro Educativo</div>
+                                    <div style="font-size:6.5pt;font-weight:600;color:@text">@(Model.PolicyNumber ?? "POLIZA-PENDIENTE-CONFIGURACION")</div>
+                                </div>
+                            }
+                            @* ZONA 4: QR centrado *@
+                            @if (Model.ShowQr)
+                            {
+                                <div class="idcard-qr-zone idcard-z1">
+                                    @if (!string.IsNullOrEmpty(Model.Card!.QrImageDataUrl))
+                                    {
+                                        <img style="width:42px;height:42px;border:2px solid @primary;border-radius:4px;background:#fff" src="@Model.Card.QrImageDataUrl" alt="QR" />
+                                        <div style="font-size:5.5pt;color:@text;opacity:.85;margin-top:2px">Escanea para verificar</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-danger" style="font-size:6pt">QR no disponible — regenere el carnet</div>
+                                    }
+                                </div>
+                            }
+                            @* ZONA 5: Footer con color primario *@
                             <div class="idcard-footer-front idcard-z1">Emitido: @DateTime.UtcNow.ToString("dd/MM/yyyy")</div>
                         </div>
                     </div>
