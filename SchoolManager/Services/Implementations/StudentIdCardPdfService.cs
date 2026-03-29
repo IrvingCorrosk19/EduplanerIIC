@@ -495,22 +495,27 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     // ══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Frente institucional vertical (54×86 mm).
-    /// Zonas fijas sin Height() rígido interno — usa AutoItem/RelativeItem para evitar overflow.
+    /// Frente institucional vertical (54×86 mm) — layout centrado moderno.
     ///
     /// Distribución:
-    ///  ┌─────────────────────┐  ← Header 16 mm  (PrimaryColor, logo+nombre+insignia)
-    ///  │ HEADER              │
-    ///  ├─────────────────────┤  ← Datos 30 mm   (foto izq + columna datos der)
-    ///  │ FOTO  | Nombre      │
-    ///  │       | Cédula      │
-    ///  │       | Grado       │
-    ///  │       | Año lectivo │
-    ///  ├─────────────────────┤  ← Bloque póliza  ≈8 mm  (condicional ShowPolicyNumber)
-    ///  │ Póliza / ID         │
-    ///  ├─────────────────────┤  ← Zona QR         ≈24 mm (condicional ShowQr)
-    ///  │      [QR]           │
-    ///  └─────────────────────┘  ← Footer 6 mm   (fecha emisión)
+    ///  ┌─────────────────────┐  ← Header     (PrimaryColor, logo centrado + nombre centrado)
+    ///  │    [LOGO]           │
+    ///  │  Nombre colegio     │
+    ///  ├─────────────────────┤  ← Foto centrada (22–24 mm con borde)
+    ///  │       [FOTO]        │
+    ///  ├─────────────────────┤  ← Datos centrados
+    ///  │  Nombre completo    │
+    ///  │  Jornada            │
+    ///  │  Cédula (cond.)     │
+    ///  │  Grado · Grupo      │
+    ///  │  Año lectivo (cond.)│
+    ///  ├─────────────────────┤  ← Badge póliza (cond., #F0F4FF)
+    ///  │  Póliza de Seguro   │
+    ///  │  POL-XXXXX          │
+    ///  ├─────────────────────┤  ← QR abajo-derecha + ID centrado
+    ///  │             [QR]    │
+    ///  │   ID: XXXXXX        │
+    ///  └─────────────────────┘  ← Footer 6 mm (PrimaryColor, fecha)
     /// </summary>
     private IContainer RenderCarnetInstitutionalVerticalFront(
         IContainer container,
@@ -522,17 +527,15 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         SchoolIdCardSetting settings,
         byte[]? watermarkBytes = null)
     {
-        // ── Constantes de layout (todos en mm) ────────────────────────────────
-        const float cardW         = 54f;
-        const float cardH         = 86f;
-        const float headerH       = 16f;
-        const float footerH       = 6f;
-        const float hPad          = 3f;   // padding horizontal general
-        const float vPad          = 2f;   // padding vertical general
-        const float photoSize     = 22f;  // foto cuadrada
-        const float spacer        = 2f;   // separador entre columnas
-        const float policyBlockH  = 9f;   // altura del bloque póliza
-        const float wmPct         = 0.45f;
+        const float cardW        = 54f;
+        const float footerH      = 6f;
+        const float hPad         = 3f;
+        const float photoSize    = 22f;
+        const float wmPct        = 0.45f;
+        const float qrSize       = 18f;
+
+        var primary  = ParseColor(settings.PrimaryColor);
+        var textCol  = ParseColor(settings.TextColor);
 
         container.Layers(layers =>
         {
@@ -550,155 +553,141 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             // ── Capa principal ────────────────────────────────────────────────
             layers.PrimaryLayer().Column(col =>
             {
-                // ── ZONA 1: Header ────────────────────────────────────────────
-                col.Item().Height(headerH, Unit.Millimetre)
-                    .Background(ParseColor(settings.PrimaryColor))
+                // ── ZONA 1: Header — logo centrado + nombre centrado ──────────
+                col.Item()
+                    .Background(primary)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
-                    .PaddingVertical(vPad, Unit.Millimetre)
-                    .Row(r =>
+                    .PaddingVertical(2.5f, Unit.Millimetre)
+                    .Column(hdr =>
                     {
-                        if (logoBytes != null)
+                        if (logoBytes != null && logoBytes.Length > 0)
                         {
-                            r.ConstantItem(10f, Unit.Millimetre)
-                                .Height(10f, Unit.Millimetre)
-                                .AlignMiddle().AlignLeft()
-                                .Image(logoBytes);
-                            r.ConstantItem(spacer, Unit.Millimetre);
+                            hdr.Item().AlignCenter()
+                                .Width(12f, Unit.Millimetre)
+                                .Height(12f, Unit.Millimetre)
+                                .Image(logoBytes).FitArea();
+                            hdr.Item().Height(1.5f, Unit.Millimetre); // separador
                         }
 
-                        r.RelativeItem().AlignMiddle().AlignLeft()
+                        hdr.Item().AlignCenter()
                             .Text(schoolName)
-                            .FontSize(6.5f).Bold().FontColor(Colors.White).LineHeight(1.15f);
+                            .FontSize(6f).Bold().FontColor(Colors.White).LineHeight(1.2f);
 
-                        if (settings.ShowSecondaryLogo && secondaryLogoBytes != null)
+                        // Insignia secundaria justo debajo del nombre (opcional)
+                        if (settings.ShowSecondaryLogo && secondaryLogoBytes != null && secondaryLogoBytes.Length > 0)
                         {
-                            r.ConstantItem(spacer, Unit.Millimetre);
-                            r.ConstantItem(10f, Unit.Millimetre)
-                                .Height(10f, Unit.Millimetre)
-                                .AlignMiddle().AlignRight()
-                                .Image(secondaryLogoBytes);
+                            hdr.Item().Height(1f, Unit.Millimetre);
+                            hdr.Item().AlignCenter()
+                                .Width(8f, Unit.Millimetre)
+                                .Height(8f, Unit.Millimetre)
+                                .Image(secondaryLogoBytes).FitArea();
                         }
                     });
 
-                // ── ZONA 2: Datos del estudiante (foto + columna) ─────────────
-                col.Item()
-                    .PaddingHorizontal(hPad, Unit.Millimetre)
-                    .PaddingTop(vPad, Unit.Millimetre)
-                    .Row(r =>
-                    {
-                        // Foto
-                        if (settings.ShowPhoto)
+                // ── ZONA 2: Foto centrada ─────────────────────────────────────
+                if (settings.ShowPhoto)
+                {
+                    col.Item()
+                        .PaddingTop(2.5f, Unit.Millimetre)
+                        .AlignCenter()
+                        .Column(photoCol =>
                         {
-                            var photoSlot = r.ConstantItem(photoSize, Unit.Millimetre)
+                            var photoSlot = photoCol.Item()
+                                .AlignCenter()
+                                .Width(photoSize, Unit.Millimetre)
                                 .Height(photoSize, Unit.Millimetre)
-                                .Border(0.8f)
-                                .BorderColor(ParseColor(settings.PrimaryColor));
+                                .Border(1f)
+                                .BorderColor(primary);
+
                             if (photoBytes != null && photoBytes.Length > 0)
                                 photoSlot.Image(photoBytes).FitArea();
                             else
                                 photoSlot.AlignCenter().AlignMiddle()
-                                    .Text("FOTO").FontSize(6f)
-                                    .FontColor(ParseColor(settings.TextColor));
-                            r.ConstantItem(spacer, Unit.Millimetre);
-                        }
-
-                        // Columna de datos
-                        r.RelativeItem().Column(info =>
-                        {
-                            info.Item().Text(dto.FullName)
-                                .FontSize(8f).Bold()
-                                .FontColor(ParseColor(settings.TextColor))
-                                .LineHeight(1.15f);
-
-                            info.Item().PaddingTop(1f, Unit.Millimetre)
-                                .Text($"{dto.Grade}  {dto.Group}")
-                                .FontSize(6.5f).SemiBold()
-                                .FontColor(ParseColor(settings.PrimaryColor));
-
-                            info.Item().Text(dto.Shift)
-                                .FontSize(5.5f)
-                                .FontColor(ParseColor(settings.TextColor));
+                                    .Text("FOTO").FontSize(6f).FontColor(textCol);
                         });
+                }
+
+                // ── ZONA 3: Datos centrados ───────────────────────────────────
+                col.Item()
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .PaddingTop(2f, Unit.Millimetre)
+                    .Column(info =>
+                    {
+                        info.Item().AlignCenter()
+                            .Text(dto.FullName)
+                            .FontSize(7.5f).Bold().FontColor(textCol).LineHeight(1.2f);
+
+                        if (!string.IsNullOrWhiteSpace(dto.Shift))
+                            info.Item().AlignCenter().PaddingTop(0.5f, Unit.Millimetre)
+                                .Text(dto.Shift)
+                                .FontSize(5.5f).FontColor(textCol);
+
+                        if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
+                            info.Item().AlignCenter().PaddingTop(0.8f, Unit.Millimetre)
+                                .Text($"Cédula: {dto.DocumentId}")
+                                .FontSize(5.5f).FontColor(textCol);
+
+                        info.Item().AlignCenter().PaddingTop(0.8f, Unit.Millimetre)
+                            .Text($"{dto.Grade}  ·  {dto.Group}")
+                            .FontSize(6f).SemiBold().FontColor(primary);
+
+                        if (settings.ShowAcademicYear && !string.IsNullOrWhiteSpace(dto.AcademicYear))
+                            info.Item().AlignCenter().PaddingTop(0.5f, Unit.Millimetre)
+                                .Text($"Año: {dto.AcademicYear}")
+                                .FontSize(5.5f).FontColor(textCol);
                     });
 
-                // ── ZONA 2b: Cédula y año lectivo (ancho completo, fuera del row de foto) ──
-                if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
-                    col.Item()
-                        .PaddingHorizontal(hPad, Unit.Millimetre)
-                        .PaddingTop(0.8f, Unit.Millimetre)
-                        .Text($"Cédula: {dto.DocumentId}")
-                        .FontSize(5.5f)
-                        .FontColor(ParseColor(settings.TextColor));
-
-                if (settings.ShowAcademicYear && !string.IsNullOrWhiteSpace(dto.AcademicYear))
-                    col.Item()
-                        .PaddingHorizontal(hPad, Unit.Millimetre)
-                        .Text($"Año: {dto.AcademicYear}")
-                        .FontSize(5.5f)
-                        .FontColor(ParseColor(settings.TextColor));
-
-                // ── ZONA 3: Bloque póliza (condicional) ──────────────────────
+                // ── ZONA 4: Badge póliza (condicional) ───────────────────────
                 if (settings.ShowPolicyNumber)
                 {
                     col.Item()
                         .PaddingHorizontal(hPad, Unit.Millimetre)
-                        .PaddingTop(vPad, Unit.Millimetre)
-                        .Height(policyBlockH, Unit.Millimetre)
+                        .PaddingTop(2f, Unit.Millimetre)
                         .Background("#F0F4FF")
                         .Padding(2f, Unit.Millimetre)
                         .Column(p =>
                         {
-                            p.Item().Text("Póliza de Seguro Educativo")
-                                .FontSize(5f).Bold()
-                                .FontColor(ParseColor(settings.PrimaryColor));
-                            p.Item().Text(dto.PolicyNumber ?? "POLIZA-PENDIENTE-CONFIGURACION")
-                                .FontSize(6f).SemiBold()
-                                .FontColor(ParseColor(settings.TextColor));
+                            p.Item().AlignCenter()
+                                .Text("Póliza de Seguro Educativo")
+                                .FontSize(5f).Bold().FontColor(primary);
+                            p.Item().AlignCenter().PaddingTop(0.5f, Unit.Millimetre)
+                                .Text(dto.PolicyNumber ?? "POLIZA-PENDIENTE-CONFIGURACION")
+                                .FontSize(6f).SemiBold().FontColor(textCol);
                         });
                 }
 
-                // ── ZONA 4: QR centrado ───────────────────────────────────────
-                if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
-                {
-                    var qrBytes = SafeGenerateQrPng(dto.QrToken);
-                    if (qrBytes != null && qrBytes.Length > 0)
+                // ── ZONA 5: QR abajo-derecha + ID centrado ────────────────────
+                col.Item().Extend()
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .PaddingTop(1f, Unit.Millimetre)
+                    .Column(zone =>
                     {
-                        // Espacio disponible restante: total - header - footer - datos(~30) - póliza
-                        var usedMm = headerH + footerH + (settings.ShowPhoto ? photoSize + vPad : 0f)
-                                     + (settings.ShowPolicyNumber ? policyBlockH + vPad : 0f) + vPad * 3f;
-                        var availMm = cardH - usedMm;
-                        var qrMm = Math.Clamp(availMm - 2f, 15f, 22f);
-
-                        col.Item().Extend()
-                            .PaddingHorizontal(hPad, Unit.Millimetre)
-                            .AlignCenter().AlignMiddle()
-                            .Column(q =>
+                        // Fila: espacio vacío a la izquierda + QR a la derecha
+                        if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                        {
+                            var qrBytes = SafeGenerateQrPng(dto.QrToken);
+                            if (qrBytes != null && qrBytes.Length > 0)
                             {
-                                q.Item().AlignCenter()
-                                    .Width(qrMm, Unit.Millimetre)
-                                    .Height(qrMm, Unit.Millimetre)
-                                    .Image(qrBytes);
-                                q.Item().AlignCenter().PaddingTop(0.5f, Unit.Millimetre)
-                                    .Text("Escanea para verificar")
-                                    .FontSize(4.5f)
-                                    .FontColor(ParseColor(settings.TextColor));
-                            });
-                    }
-                }
-                else
-                {
-                    // Sin QR: ocupa el espacio restante con el número de carnet
-                    col.Item().Extend()
-                        .PaddingHorizontal(hPad, Unit.Millimetre)
-                        .AlignCenter().AlignMiddle()
-                        .Text($"N° {dto.CardNumber}")
-                        .FontSize(6f).SemiBold()
-                        .FontColor(ParseColor(settings.PrimaryColor));
-                }
+                                zone.Item().AlignBottom().Row(r =>
+                                {
+                                    r.RelativeItem(); // empuja el QR a la derecha
+                                    r.ConstantItem(qrSize, Unit.Millimetre)
+                                        .Height(qrSize, Unit.Millimetre)
+                                        .Border(0.5f).BorderColor(primary)
+                                        .Image(qrBytes).FitArea();
+                                });
+                            }
+                        }
 
-                // ── ZONA 5: Footer ────────────────────────────────────────────
+                        // ID del carnet centrado
+                        zone.Item().AlignCenter().PaddingTop(1f, Unit.Millimetre)
+                            .Text($"ID: {dto.CardNumber}")
+                            .FontSize(5f).SemiBold().FontColor(primary);
+                    });
+
+                // ── ZONA 6: Footer ────────────────────────────────────────────
                 col.Item().Height(footerH, Unit.Millimetre)
-                    .Background(ParseColor(settings.PrimaryColor))
+                    .Background(primary)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignMiddle()
                     .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}")
