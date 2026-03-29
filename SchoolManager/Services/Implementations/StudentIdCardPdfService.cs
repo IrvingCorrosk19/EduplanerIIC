@@ -134,6 +134,10 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 ? "POLIZA-PENDIENTE-CONFIGURACION"
                 : school.PolicyNumber.Trim();
 
+            // 4c) Año lectivo: fallback explícito si el estudiante no tiene AcademicYear asignado.
+            if (string.IsNullOrWhiteSpace(dto.AcademicYear))
+                dto.AcademicYear = "NO DEFINIDO";
+
             // 5) Logo principal, insignia secundaria, marca de agua y foto del estudiante
             byte[]? logoBytes = null;
             if (!string.IsNullOrWhiteSpace(school.LogoUrl))
@@ -143,12 +147,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             byte[]? secondaryLogoBytes = null;
             if (settings.ShowSecondaryLogo && !string.IsNullOrWhiteSpace(settings.SecondaryLogoUrl))
                 secondaryLogoBytes = await SafeDownloadBytesAsync(settings.SecondaryLogoUrl);
-
-            // DEBUG TEMPORAL — verificar flags y datos del DTO
-            Console.WriteLine($"[IdCard-DEBUG] ShowDocumentId={settings.ShowDocumentId} DocumentId={dto.DocumentId}");
-            Console.WriteLine($"[IdCard-DEBUG] ShowPolicyNumber={settings.ShowPolicyNumber} PolicyNumber={dto.PolicyNumber}");
-            Console.WriteLine($"[IdCard-DEBUG] ShowAcademicYear={settings.ShowAcademicYear} AcademicYear={dto.AcademicYear}");
-            Console.WriteLine($"[IdCard-DEBUG] UseModernLayout={settings.UseModernLayout} ShowQr={settings.ShowQr}");
 
             // Inyectar SecondaryLogoUrl en el DTO de render (para que RenderCarnetModern lo reciba)
             dto.SecondaryLogoUrl = settings.SecondaryLogoUrl;
@@ -1170,6 +1168,25 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     return await File.ReadAllBytesAsync(fullPath);
 
                 _logger.LogWarning("[StudentIdCardPdf] Archivo local no encontrado: {Path}", fullPath);
+                return null;
+            }
+
+            // Bare-filename: logos de colegios guardados como solo nombre de archivo
+            // (ej. "07bde5e1-..._IPT.jpg") almacenados en wwwroot/uploads/schools/
+            if (!url.Contains('/') && !url.Contains('\\'))
+            {
+                var schoolsPath = Path.Combine(_environment.WebRootPath, "uploads", "schools",
+                    url.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(schoolsPath))
+                    return await File.ReadAllBytesAsync(schoolsPath);
+
+                // Segundo intento: wwwroot/uploads/ directamente
+                var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads",
+                    url.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(uploadsPath))
+                    return await File.ReadAllBytesAsync(uploadsPath);
+
+                _logger.LogWarning("[StudentIdCardPdf] Logo bare-filename no encontrado en uploads/schools/: {File}", url);
                 return null;
             }
 

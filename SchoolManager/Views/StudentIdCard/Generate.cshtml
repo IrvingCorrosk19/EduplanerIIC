@@ -262,12 +262,12 @@
                         <div class="idcard-face" id="idCardFront">
                             @if (showWm)
                             {
-                                <div class="idcard-watermark" aria-hidden="true"><img src="@Model.SchoolLogoUrl" alt="" onerror="this.parentElement.style.display='none'" /></div>
+                                <div class="idcard-watermark" aria-hidden="true"><img src="/File/GetSchoolLogo?logoUrl=@Uri.EscapeDataString(Model.SchoolLogoUrl ?? "")" alt="" onerror="this.parentElement.style.display='none'" /></div>
                             }
                             <div class="idcard-header idcard-z1">
                                 @if (hasLogo)
                                 {
-                                    <img src="@Model.SchoolLogoUrl" alt="" class="idcard-logo" onerror="this.style.display='none'" />
+                                    <img src="/File/GetSchoolLogo?logoUrl=@Uri.EscapeDataString(Model.SchoolLogoUrl ?? "")" alt="" class="idcard-logo" onerror="this.style.display='none'" />
                                 }
                                 <div class="idcard-school-name">@Model.SchoolName</div>
                             </div>
@@ -336,7 +336,7 @@
                             <div class="idcard-face d-flex flex-column">
                                 @if (showWm)
                                 {
-                                    <div class="idcard-watermark" aria-hidden="true"><img src="@Model.SchoolLogoUrl" alt="" onerror="this.parentElement.style.display='none'" /></div>
+                                    <div class="idcard-watermark" aria-hidden="true"><img src="/File/GetSchoolLogo?logoUrl=@Uri.EscapeDataString(Model.SchoolLogoUrl ?? "")" alt="" onerror="this.parentElement.style.display='none'" /></div>
                                 }
                                 <div class="idcard-back-inner idcard-z1">
                                     @if (Model.ShowQr && !string.IsNullOrEmpty(Model.Card!.QrImageDataUrl))
