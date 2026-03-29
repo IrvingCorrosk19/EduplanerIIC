@@ -23,6 +23,13 @@ public partial class School
     /// <summary>Política del carnet: texto único por escuela que se muestra en el reverso del carnet (debajo del QR).</summary>
     public string? IdCardPolicy { get; set; }
 
+    /// <summary>
+    /// Número de póliza institucional del colegio (seguro escolar u otro).
+    /// Dato único por institución: todos los estudiantes del colegio comparten este valor en su carnet.
+    /// Se configura en Create/EditSchool y se lee al generar el carnet (no se duplica por estudiante).
+    /// </summary>
+    public string? PolicyNumber { get; set; }
+
     public Guid? AdminId { get; set; }
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();

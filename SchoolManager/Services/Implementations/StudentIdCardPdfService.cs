@@ -128,6 +128,12 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             // 4) Asegurar carnet + token (con transacción — CONC-2 fix)
             var dto = await BuildStudentCardDtoAsync(studentId, createdBy, school.Name);
 
+            // 4b) Póliza institucional: dato del colegio, compartido por todos sus estudiantes.
+            //     Fallback claro si la escuela no la ha configurado todavía.
+            dto.PolicyNumber = string.IsNullOrWhiteSpace(school.PolicyNumber)
+                ? "POLIZA-PENDIENTE-CONFIGURACION"
+                : school.PolicyNumber.Trim();
+
             // 5) Logo principal, insignia secundaria, marca de agua y foto del estudiante
             byte[]? logoBytes = null;
             if (!string.IsNullOrWhiteSpace(school.LogoUrl))
@@ -893,10 +899,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // POL-TEMPORAL: número de póliza derivado del studentId hasta que exista campo real en BD.
-            // Para reemplazar con dato real: cambiar esta línea por la columna correspondiente del estudiante.
-            var tempPolicyNumber = $"POL-{studentId.ToString("N")[..8].ToUpper()}";
-
             return new StudentCardRenderDto
             {
                 StudentId = studentId,
@@ -912,8 +914,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 EmergencyContactName = student.EmergencyContactName,
                 EmergencyContactPhone = student.EmergencyContactPhone,
                 EmergencyRelationship = student.EmergencyRelationship,
-                // Campos del layout moderno
-                PolicyNumber = tempPolicyNumber,
+                // Campos del layout moderno — PolicyNumber se sobreescribe con school.PolicyNumber en GenerateCardPdfAsync
+                PolicyNumber = null,
                 AcademicYear = assignment.AcademicYear?.Name ?? null,
                 SecondaryLogoUrl = null // Se sobreescribe en GenerateCardPdfAsync desde settings
             };

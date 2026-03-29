@@ -45,6 +45,13 @@
                                 </div>
 
                                 <div class="mb-3">
+                                    <label asp-for="PolicyNumber" class="form-label"></label>
+                                    <input asp-for="PolicyNumber" class="form-control" autocomplete="off"
+                                           placeholder="Ej: POL-2025-001 (opcional)" />
+                                    <small class="text-muted">Número de póliza institucional. Todos los estudiantes de este colegio lo compartirán en su carnet.</small>
+                                </div>
+
+                                <div class="mb-3">
                                     <label class="form-label">Logo de la Escuela</label>
                                     <input type="file" name="logoFile" class="form-control" accept="image/*" />
                                     @if (!string.IsNullOrEmpty(Model.SchoolLogoUrl))

@@ -114,6 +114,7 @@ public class SuperAdminService : ISuperAdminService
             SchoolName = school.Name,
             SchoolAddress = school.Address,
             SchoolPhone = school.Phone,
+            PolicyNumber = school.PolicyNumber,
             AdminName = admin?.Name ?? "",
             AdminLastName = admin?.LastName ?? "",
             AdminEmail = admin?.Email ?? "",
@@ -149,6 +150,7 @@ public class SuperAdminService : ISuperAdminService
                 Address = model.SchoolAddress,
                 Phone = model.SchoolPhone,
                 LogoUrl = logoUrl,
+                PolicyNumber = string.IsNullOrWhiteSpace(model.PolicyNumber) ? null : model.PolicyNumber.Trim(),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -231,6 +233,7 @@ public class SuperAdminService : ISuperAdminService
             school.Name = model.SchoolName;
             school.Address = model.SchoolAddress;
             school.Phone = model.SchoolPhone;
+            school.PolicyNumber = string.IsNullOrWhiteSpace(model.PolicyNumber) ? null : model.PolicyNumber.Trim();
 
             // Guardar nuevo logo si se proporciona
             if (logoFile != null)

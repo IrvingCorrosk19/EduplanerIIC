@@ -25,6 +25,9 @@ public class SchoolAdminViewModel
 
     public string? SchoolLogoUrl { get; set; }
 
+    [Display(Name = "Número de póliza institucional")]
+    public string? PolicyNumber { get; set; }
+
     [Required(ErrorMessage = "El nombre del administrador es requerido")]
     [Display(Name = "Nombre del Administrador")]
     public string AdminName { get; set; } = string.Empty;
@@ -73,6 +76,9 @@ public class SchoolAdminEditViewModel
 
     public string? SchoolLogoUrl { get; set; }
 
+    [Display(Name = "Número de póliza institucional")]
+    public string? PolicyNumber { get; set; }
+
     [Required(ErrorMessage = "El nombre del administrador es requerido")]
     [Display(Name = "Nombre del Administrador")]
     public string AdminName { get; set; } = string.Empty;
@@ -89,4 +95,4 @@ public class SchoolAdminEditViewModel
     [Required(ErrorMessage = "El estado del administrador es requerido")]
     [Display(Name = "Estado del Administrador")]
     public string AdminStatus { get; set; } = "active";
-} 
+}
