@@ -1,4 +1,4 @@
-﻿using SchoolManager.Models;
+using SchoolManager.Models;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.ViewModels;
 
