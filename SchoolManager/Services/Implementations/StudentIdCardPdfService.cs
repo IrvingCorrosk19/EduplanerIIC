@@ -144,6 +144,12 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             if (settings.ShowSecondaryLogo && !string.IsNullOrWhiteSpace(settings.SecondaryLogoUrl))
                 secondaryLogoBytes = await SafeDownloadBytesAsync(settings.SecondaryLogoUrl);
 
+            // DEBUG TEMPORAL — verificar flags y datos del DTO
+            Console.WriteLine($"[IdCard-DEBUG] ShowDocumentId={settings.ShowDocumentId} DocumentId={dto.DocumentId}");
+            Console.WriteLine($"[IdCard-DEBUG] ShowPolicyNumber={settings.ShowPolicyNumber} PolicyNumber={dto.PolicyNumber}");
+            Console.WriteLine($"[IdCard-DEBUG] ShowAcademicYear={settings.ShowAcademicYear} AcademicYear={dto.AcademicYear}");
+            Console.WriteLine($"[IdCard-DEBUG] UseModernLayout={settings.UseModernLayout} ShowQr={settings.ShowQr}");
+
             // Inyectar SecondaryLogoUrl en el DTO de render (para que RenderCarnetModern lo reciba)
             dto.SecondaryLogoUrl = settings.SecondaryLogoUrl;
 
@@ -645,9 +651,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                 .FontColor(ParseColor(settings.PrimaryColor));
                             p.Item().Text(dto.PolicyNumber ?? "POLIZA-PENDIENTE-CONFIGURACION")
                                 .FontSize(6f).SemiBold()
-                                .FontColor(ParseColor(settings.TextColor));
-                            p.Item().Text($"ID: {dto.CardNumber}")
-                                .FontSize(5f)
                                 .FontColor(ParseColor(settings.TextColor));
                         });
                 }
