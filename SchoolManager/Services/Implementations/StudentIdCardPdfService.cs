@@ -197,23 +197,44 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             if (settings.ShowQr)
                                 row.Spacing(sheetGapMm, Unit.Millimetre);
 
-                            // ── Frente: layout clásico o moderno ────────────────────────────
+                            var isModern = settings.UseModernLayout;
+                            var isVertical = cardHeightMm > cardWidthMm; // 86 > 54
+
+                            // ── Frente ───────────────────────────────────────────────────────
                             row.ConstantItem(cardWidthMm, Unit.Millimetre)
                                 .Height(cardHeightMm, Unit.Millimetre)
                                 .Border(0.2f).BorderColor(Colors.Grey.Medium)
                                 .Element(c =>
                                 {
-                                    if (settings.UseModernLayout)
-                                        return RenderCarnetModernFront(c, schoolNamePdf, logoBytes, secondaryLogoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes);
-                                    return RenderCarnetQrFront(c, schoolNamePdf, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes);
+                                    // Diseño institucional vertical (moderno ON + orientación vertical)
+                                    if (isModern && isVertical)
+                                        return RenderCarnetInstitutionalVerticalFront(
+                                            c, schoolNamePdf, logoBytes, secondaryLogoBytes,
+                                            photoBytes, dto, settings, watermarkBytes);
+
+                                    // Diseño moderno horizontal (moderno ON + orientación horizontal)
+                                    if (isModern)
+                                        return RenderCarnetModernFront(c, schoolNamePdf, logoBytes,
+                                            secondaryLogoBytes, photoBytes, dto, settings,
+                                            cardWidthMm, cardHeightMm, watermarkBytes);
+
+                                    // Diseño clásico (moderno OFF)
+                                    return RenderCarnetQrFront(c, schoolNamePdf, logoBytes, photoBytes,
+                                        dto, settings, cardWidthMm, cardHeightMm, watermarkBytes);
                                 });
 
-                            // ── Reverso (siempre el mismo, respeta flags) ────────────────────
+                            // ── Reverso ──────────────────────────────────────────────────────
                             if (settings.ShowQr)
                                 row.ConstantItem(cardWidthMm, Unit.Millimetre)
                                     .Height(cardHeightMm, Unit.Millimetre)
                                     .Border(0.2f).BorderColor(Colors.Grey.Medium)
-                                    .Element(c => RenderCarnetQrBack(c, schoolNamePdf, phonePdf, policyPdf, dto, settings, watermarkBytes));
+                                    .Element(c =>
+                                    {
+                                        if (isModern && isVertical)
+                                            return RenderCarnetInstitutionalVerticalBack(
+                                                c, schoolNamePdf, phonePdf, policyPdf, dto, settings, watermarkBytes);
+                                        return RenderCarnetQrBack(c, schoolNamePdf, phonePdf, policyPdf, dto, settings, watermarkBytes);
+                                    });
                         });
                     });
                 }
@@ -460,6 +481,366 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}").FontSize(5).FontColor(ParseColor(settings.TextColor));
             });
         });
+        return container;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // DISEÑO INSTITUCIONAL VERTICAL — 54×86 mm
+    // RenderCarnetInstitutionalVerticalFront + RenderCarnetInstitutionalVerticalBack
+    // Activado cuando settings.UseModernLayout == true
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Frente institucional vertical (54×86 mm).
+    /// Zonas fijas sin Height() rígido interno — usa AutoItem/RelativeItem para evitar overflow.
+    ///
+    /// Distribución:
+    ///  ┌─────────────────────┐  ← Header 16 mm  (PrimaryColor, logo+nombre+insignia)
+    ///  │ HEADER              │
+    ///  ├─────────────────────┤  ← Datos 30 mm   (foto izq + columna datos der)
+    ///  │ FOTO  | Nombre      │
+    ///  │       | Cédula      │
+    ///  │       | Grado       │
+    ///  │       | Año lectivo │
+    ///  ├─────────────────────┤  ← Bloque póliza  ≈8 mm  (condicional ShowPolicyNumber)
+    ///  │ Póliza / ID         │
+    ///  ├─────────────────────┤  ← Zona QR         ≈24 mm (condicional ShowQr)
+    ///  │      [QR]           │
+    ///  └─────────────────────┘  ← Footer 6 mm   (fecha emisión)
+    /// </summary>
+    private IContainer RenderCarnetInstitutionalVerticalFront(
+        IContainer container,
+        string schoolName,
+        byte[]? logoBytes,
+        byte[]? secondaryLogoBytes,
+        byte[]? photoBytes,
+        StudentCardRenderDto dto,
+        SchoolIdCardSetting settings,
+        byte[]? watermarkBytes = null)
+    {
+        // ── Constantes de layout (todos en mm) ────────────────────────────────
+        const float cardW         = 54f;
+        const float cardH         = 86f;
+        const float headerH       = 16f;
+        const float footerH       = 6f;
+        const float hPad          = 3f;   // padding horizontal general
+        const float vPad          = 2f;   // padding vertical general
+        const float photoSize     = 22f;  // foto cuadrada
+        const float spacer        = 2f;   // separador entre columnas
+        const float policyBlockH  = 9f;   // altura del bloque póliza
+        const float wmPct         = 0.45f;
+
+        container.Layers(layers =>
+        {
+            // ── Capa 0: fondo sólido ──────────────────────────────────────────
+            layers.Layer().Background(ParseColor(settings.BackgroundColor));
+
+            // ── Capa 1: watermark centrado ────────────────────────────────────
+            if (watermarkBytes != null && watermarkBytes.Length > 0)
+                layers.Layer()
+                    .AlignCenter().AlignMiddle()
+                    .Width(cardW * wmPct, Unit.Millimetre)
+                    .Height(cardW * wmPct, Unit.Millimetre)
+                    .Image(watermarkBytes);
+
+            // ── Capa principal ────────────────────────────────────────────────
+            layers.PrimaryLayer().Column(col =>
+            {
+                // ── ZONA 1: Header ────────────────────────────────────────────
+                col.Item().Height(headerH, Unit.Millimetre)
+                    .Background(ParseColor(settings.PrimaryColor))
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .PaddingVertical(vPad, Unit.Millimetre)
+                    .Row(r =>
+                    {
+                        if (logoBytes != null)
+                        {
+                            r.ConstantItem(10f, Unit.Millimetre)
+                                .Height(10f, Unit.Millimetre)
+                                .AlignMiddle().AlignLeft()
+                                .Image(logoBytes);
+                            r.ConstantItem(spacer, Unit.Millimetre);
+                        }
+
+                        r.RelativeItem().AlignMiddle().AlignLeft()
+                            .Text(schoolName)
+                            .FontSize(6.5f).Bold().FontColor(Colors.White).LineHeight(1.15f);
+
+                        if (settings.ShowSecondaryLogo && secondaryLogoBytes != null)
+                        {
+                            r.ConstantItem(spacer, Unit.Millimetre);
+                            r.ConstantItem(10f, Unit.Millimetre)
+                                .Height(10f, Unit.Millimetre)
+                                .AlignMiddle().AlignRight()
+                                .Image(secondaryLogoBytes);
+                        }
+                    });
+
+                // ── ZONA 2: Datos del estudiante (foto + columna) ─────────────
+                col.Item()
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .PaddingTop(vPad, Unit.Millimetre)
+                    .Row(r =>
+                    {
+                        // Foto
+                        if (settings.ShowPhoto)
+                        {
+                            var photoSlot = r.ConstantItem(photoSize, Unit.Millimetre)
+                                .Height(photoSize, Unit.Millimetre)
+                                .Border(0.8f)
+                                .BorderColor(ParseColor(settings.PrimaryColor));
+                            if (photoBytes != null && photoBytes.Length > 0)
+                                photoSlot.Image(photoBytes).FitArea();
+                            else
+                                photoSlot.AlignCenter().AlignMiddle()
+                                    .Text("FOTO").FontSize(6f)
+                                    .FontColor(ParseColor(settings.TextColor));
+                            r.ConstantItem(spacer, Unit.Millimetre);
+                        }
+
+                        // Columna de datos
+                        r.RelativeItem().Column(info =>
+                        {
+                            info.Item().Text(dto.FullName)
+                                .FontSize(8f).Bold()
+                                .FontColor(ParseColor(settings.TextColor))
+                                .LineHeight(1.15f);
+
+                            info.Item().PaddingTop(1f, Unit.Millimetre)
+                                .Text($"{dto.Grade}  {dto.Group}")
+                                .FontSize(6.5f).SemiBold()
+                                .FontColor(ParseColor(settings.PrimaryColor));
+
+                            info.Item().Text(dto.Shift)
+                                .FontSize(5.5f)
+                                .FontColor(ParseColor(settings.TextColor));
+
+                            if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
+                                info.Item().PaddingTop(0.8f, Unit.Millimetre)
+                                    .Text($"Cédula: {dto.DocumentId}")
+                                    .FontSize(5.5f)
+                                    .FontColor(ParseColor(settings.TextColor));
+
+                            if (settings.ShowAcademicYear)
+                                info.Item()
+                                    .Text($"Año: {dto.AcademicYear ?? "N/A"}")
+                                    .FontSize(5.5f)
+                                    .FontColor(ParseColor(settings.TextColor));
+                        });
+                    });
+
+                // ── ZONA 3: Bloque póliza + número de carnet (condicional) ────
+                if (settings.ShowPolicyNumber)
+                {
+                    col.Item()
+                        .PaddingHorizontal(hPad, Unit.Millimetre)
+                        .PaddingTop(vPad, Unit.Millimetre)
+                        .Height(policyBlockH, Unit.Millimetre)
+                        .Background("#F0F4FF")
+                        .Padding(2f, Unit.Millimetre)
+                        .Column(p =>
+                        {
+                            p.Item().Text("Póliza de Seguro Educativo")
+                                .FontSize(5f).Bold()
+                                .FontColor(ParseColor(settings.PrimaryColor));
+                            p.Item().Text(dto.PolicyNumber ?? "POLIZA-PENDIENTE-CONFIGURACION")
+                                .FontSize(6f).SemiBold()
+                                .FontColor(ParseColor(settings.TextColor));
+                            p.Item().Text($"ID: {dto.CardNumber}")
+                                .FontSize(5f)
+                                .FontColor(ParseColor(settings.TextColor));
+                        });
+                }
+
+                // ── ZONA 4: QR centrado ───────────────────────────────────────
+                if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                {
+                    var qrBytes = SafeGenerateQrPng(dto.QrToken);
+                    if (qrBytes != null && qrBytes.Length > 0)
+                    {
+                        // Espacio disponible restante: total - header - footer - datos(~30) - póliza
+                        var usedMm = headerH + footerH + (settings.ShowPhoto ? photoSize + vPad : 0f)
+                                     + (settings.ShowPolicyNumber ? policyBlockH + vPad : 0f) + vPad * 3f;
+                        var availMm = cardH - usedMm;
+                        var qrMm = Math.Clamp(availMm - 2f, 15f, 22f);
+
+                        col.Item().Extend()
+                            .PaddingHorizontal(hPad, Unit.Millimetre)
+                            .AlignCenter().AlignMiddle()
+                            .Column(q =>
+                            {
+                                q.Item().AlignCenter()
+                                    .Width(qrMm, Unit.Millimetre)
+                                    .Height(qrMm, Unit.Millimetre)
+                                    .Image(qrBytes);
+                                q.Item().AlignCenter().PaddingTop(0.5f, Unit.Millimetre)
+                                    .Text("Escanea para verificar")
+                                    .FontSize(4.5f)
+                                    .FontColor(ParseColor(settings.TextColor));
+                            });
+                    }
+                }
+                else
+                {
+                    // Sin QR: ocupa el espacio restante con el número de carnet
+                    col.Item().Extend()
+                        .PaddingHorizontal(hPad, Unit.Millimetre)
+                        .AlignCenter().AlignMiddle()
+                        .Text($"N° {dto.CardNumber}")
+                        .FontSize(6f).SemiBold()
+                        .FontColor(ParseColor(settings.PrimaryColor));
+                }
+
+                // ── ZONA 5: Footer ────────────────────────────────────────────
+                col.Item().Height(footerH, Unit.Millimetre)
+                    .Background(ParseColor(settings.PrimaryColor))
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .AlignMiddle()
+                    .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}")
+                    .FontSize(4.5f).FontColor(Colors.White);
+            });
+        });
+
+        return container;
+    }
+
+    /// <summary>
+    /// Reverso institucional vertical (54×86 mm).
+    /// Zonas: watermark + header, QR grande centrado, bloque validación, datos adicionales opcionales,
+    /// política del colegio, footer.
+    /// </summary>
+    private IContainer RenderCarnetInstitutionalVerticalBack(
+        IContainer container,
+        string schoolName,
+        string? schoolPhone,
+        string? idCardPolicy,
+        StudentCardRenderDto dto,
+        SchoolIdCardSetting settings,
+        byte[]? watermarkBytes = null)
+    {
+        const float hPad     = 4f;
+        const float vPad     = 2.5f;
+        const float qrMm     = 26f;
+        const float headerH  = 10f;
+        const float footerH  = 6f;
+        const float wmPct    = 0.45f;
+        const float cardW    = 54f;
+
+        container.Layers(layers =>
+        {
+            // ── Capa 0: fondo ─────────────────────────────────────────────────
+            layers.Layer().Background(ParseColor(settings.BackgroundColor));
+
+            // ── Capa 1: watermark suave centrado ──────────────────────────────
+            if (watermarkBytes != null && watermarkBytes.Length > 0)
+                layers.Layer()
+                    .AlignCenter().AlignMiddle()
+                    .Width(cardW * wmPct, Unit.Millimetre)
+                    .Height(cardW * wmPct, Unit.Millimetre)
+                    .Image(watermarkBytes);
+
+            // ── Capa principal ────────────────────────────────────────────────
+            layers.PrimaryLayer().Column(col =>
+            {
+                // ── Header simple ─────────────────────────────────────────────
+                col.Item().Height(headerH, Unit.Millimetre)
+                    .Background(ParseColor(settings.PrimaryColor))
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .AlignMiddle().AlignCenter()
+                    .Text(schoolName)
+                    .FontSize(7f).Bold().FontColor(Colors.White).LineHeight(1.1f);
+
+                // ── QR grande centrado ────────────────────────────────────────
+                if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                {
+                    var qrBytes = SafeGenerateQrPng(dto.QrToken);
+                    if (qrBytes != null && qrBytes.Length > 0)
+                        col.Item()
+                            .PaddingTop(vPad, Unit.Millimetre)
+                            .AlignCenter()
+                            .Width(qrMm, Unit.Millimetre)
+                            .Height(qrMm, Unit.Millimetre)
+                            .Image(qrBytes);
+                }
+
+                // ── Bloque de validación ──────────────────────────────────────
+                col.Item()
+                    .PaddingTop(vPad, Unit.Millimetre)
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .AlignCenter()
+                    .Column(v =>
+                    {
+                        v.Item().AlignCenter()
+                            .Text("Escanea para verificar identidad")
+                            .FontSize(5.5f).SemiBold()
+                            .FontColor(ParseColor(settings.TextColor));
+                        v.Item().AlignCenter()
+                            .Text($"ID: {dto.CardNumber}")
+                            .FontSize(5.5f)
+                            .FontColor(ParseColor(settings.PrimaryColor));
+                    });
+
+                // ── Datos opcionales ──────────────────────────────────────────
+                col.Item()
+                    .PaddingTop(vPad, Unit.Millimetre)
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .Column(extra =>
+                    {
+                        if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone))
+                            extra.Item().AlignCenter()
+                                .Text($"Tel: {schoolPhone}")
+                                .FontSize(5.5f)
+                                .FontColor(ParseColor(settings.TextColor));
+
+                        if (settings.ShowEmergencyContact &&
+                            !string.IsNullOrWhiteSpace(dto.EmergencyContactName))
+                        {
+                            extra.Item().PaddingTop(1f, Unit.Millimetre).AlignCenter()
+                                .Text($"Emergencia: {dto.EmergencyContactName}")
+                                .FontSize(5f)
+                                .FontColor(ParseColor(settings.TextColor));
+                            if (!string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
+                                extra.Item().AlignCenter()
+                                    .Text($"Tel: {dto.EmergencyContactPhone}")
+                                    .FontSize(5f)
+                                    .FontColor(ParseColor(settings.TextColor));
+                        }
+
+                        if (settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
+                        {
+                            var txt = dto.Allergies.Length > MaxAllergiesCharsOnCard
+                                ? dto.Allergies[..(MaxAllergiesCharsOnCard - 3)] + "..."
+                                : dto.Allergies;
+                            extra.Item().PaddingTop(1f, Unit.Millimetre).AlignCenter()
+                                .Text($"Alergias: {txt}")
+                                .FontSize(4.5f)
+                                .FontColor(ParseColor(settings.TextColor));
+                        }
+                    });
+
+                // ── Política del colegio ──────────────────────────────────────
+                if (!string.IsNullOrWhiteSpace(idCardPolicy))
+                    col.Item()
+                        .PaddingTop(vPad, Unit.Millimetre)
+                        .PaddingHorizontal(hPad, Unit.Millimetre)
+                        .AlignCenter()
+                        .Text(idCardPolicy.Trim())
+                        .FontSize(4f)
+                        .FontColor(ParseColor(settings.TextColor))
+                        .LineHeight(1.2f);
+
+                // ── Extend + Footer ───────────────────────────────────────────
+                col.Item().Extend();
+
+                col.Item().Height(footerH, Unit.Millimetre)
+                    .Background(ParseColor(settings.PrimaryColor))
+                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .AlignMiddle().AlignCenter()
+                    .Text("Documento de identificación estudiantil")
+                    .FontSize(4.5f).FontColor(Colors.White);
+            });
+        });
+
         return container;
     }
 
