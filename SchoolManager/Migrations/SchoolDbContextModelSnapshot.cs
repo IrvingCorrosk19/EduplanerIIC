@@ -829,6 +829,90 @@ namespace SchoolManager.Migrations
                     b.ToTable("email_configurations", (string)null);
                 });
 
+            modelBuilder.Entity("SchoolManager.Models.EmailJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("FailedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("failed_count");
+
+                    b.Property<int>("RejectedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("rejected_count");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("school_id");
+
+                    b.Property<int>("SentCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("sent_count");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Accepted")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SummaryJson")
+                        .HasColumnType("text")
+                        .HasColumnName("summary_json");
+
+                    b.Property<int>("TotalItems")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("total_items");
+
+                    b.HasKey("Id")
+                        .HasName("email_jobs_pkey");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex(new[] { "CorrelationId" }, "IX_email_jobs_correlation_id");
+
+                    b.HasIndex(new[] { "RequestedAt" }, "IX_email_jobs_requested_at");
+
+                    b.HasIndex(new[] { "Status" }, "IX_email_jobs_status");
+
+                    b.ToTable("email_jobs", (string)null);
+                });
+
             modelBuilder.Entity("SchoolManager.Models.EmailQueue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -847,6 +931,10 @@ namespace SchoolManager.Migrations
                         .HasColumnType("text")
                         .HasColumnName("body");
 
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("correlation_id");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -859,10 +947,32 @@ namespace SchoolManager.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("error_code");
+
+                    b.Property<Guid?>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
                     b.Property<string>("LastError")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("last_error");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_at");
+
+                    b.Property<string>("LockedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("locked_by");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_until");
 
                     b.Property<int>("MaxAttempts")
                         .ValueGeneratedOnAdd()
@@ -870,15 +980,24 @@ namespace SchoolManager.Migrations
                         .HasDefaultValue(3)
                         .HasColumnName("max_attempts");
 
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
                     b.Property<DateTime?>("ProcessedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("processed_at");
 
+                    b.Property<string>("ProviderMessageId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("provider_message_id");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
                         .HasDefaultValue("Pending")
                         .HasColumnName("status");
 
@@ -897,6 +1016,12 @@ namespace SchoolManager.Migrations
                     b.HasIndex("UserId");
 
                     b.HasIndex(new[] { "CreatedAt" }, "IX_email_queues_created_at");
+
+                    b.HasIndex(new[] { "JobId" }, "IX_email_queues_job_id");
+
+                    b.HasIndex(new[] { "LockedUntil" }, "IX_email_queues_locked_until");
+
+                    b.HasIndex(new[] { "NextAttemptAt" }, "IX_email_queues_next_attempt_at");
 
                     b.HasIndex(new[] { "Status" }, "IX_email_queues_status");
 
@@ -1887,6 +2012,9 @@ namespace SchoolManager.Migrations
                         .HasColumnName("phone")
                         .HasDefaultValueSql("''::character varying");
 
+                    b.Property<string>("PolicyNumber")
+                        .HasColumnType("text");
+
                     b.HasKey("Id")
                         .HasName("schools_pkey");
 
@@ -1955,11 +2083,20 @@ namespace SchoolManager.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("school_id");
 
+                    b.Property<string>("SecondaryLogoUrl")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("ShowAcademicYear")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("ShowAllergies")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("show_allergies");
+
+                    b.Property<bool>("ShowDocumentId")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("ShowEmergencyContact")
                         .ValueGeneratedOnAdd()
@@ -1973,6 +2110,9 @@ namespace SchoolManager.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("show_photo");
 
+                    b.Property<bool>("ShowPolicyNumber")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("ShowQr")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -1984,6 +2124,9 @@ namespace SchoolManager.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("show_school_phone");
+
+                    b.Property<bool>("ShowSecondaryLogo")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("ShowWatermark")
                         .ValueGeneratedOnAdd()
@@ -2012,6 +2155,9 @@ namespace SchoolManager.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<bool>("UseModernLayout")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id")
                         .HasName("school_id_card_settings_pkey");
@@ -3640,13 +3786,31 @@ namespace SchoolManager.Migrations
                     b.Navigation("School");
                 });
 
+            modelBuilder.Entity("SchoolManager.Models.EmailJob", b =>
+                {
+                    b.HasOne("SchoolManager.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_email_jobs_users_created_by_user_id");
+                });
+
             modelBuilder.Entity("SchoolManager.Models.EmailQueue", b =>
                 {
+                    b.HasOne("SchoolManager.Models.EmailJob", "Job")
+                        .WithMany("QueueItems")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_email_queues_email_jobs_job_id");
+
                     b.HasOne("SchoolManager.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Job");
 
                     b.Navigation("User");
                 });
@@ -4649,6 +4813,11 @@ namespace SchoolManager.Migrations
                     b.Navigation("SubjectAssignments");
 
                     b.Navigation("Subjects");
+                });
+
+            modelBuilder.Entity("SchoolManager.Models.EmailJob", b =>
+                {
+                    b.Navigation("QueueItems");
                 });
 
             modelBuilder.Entity("SchoolManager.Models.GradeLevel", b =>
