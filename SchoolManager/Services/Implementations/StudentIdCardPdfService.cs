@@ -620,22 +620,26 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             info.Item().Text(dto.Shift)
                                 .FontSize(5.5f)
                                 .FontColor(ParseColor(settings.TextColor));
-
-                            if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
-                                info.Item().PaddingTop(0.8f, Unit.Millimetre)
-                                    .Text($"Cédula: {dto.DocumentId}")
-                                    .FontSize(5.5f)
-                                    .FontColor(ParseColor(settings.TextColor));
-
-                            if (settings.ShowAcademicYear)
-                                info.Item()
-                                    .Text($"Año: {dto.AcademicYear ?? "N/A"}")
-                                    .FontSize(5.5f)
-                                    .FontColor(ParseColor(settings.TextColor));
                         });
                     });
 
-                // ── ZONA 3: Bloque póliza + número de carnet (condicional) ────
+                // ── ZONA 2b: Cédula y año lectivo (ancho completo, fuera del row de foto) ──
+                if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
+                    col.Item()
+                        .PaddingHorizontal(hPad, Unit.Millimetre)
+                        .PaddingTop(0.8f, Unit.Millimetre)
+                        .Text($"Cédula: {dto.DocumentId}")
+                        .FontSize(5.5f)
+                        .FontColor(ParseColor(settings.TextColor));
+
+                if (settings.ShowAcademicYear && !string.IsNullOrWhiteSpace(dto.AcademicYear))
+                    col.Item()
+                        .PaddingHorizontal(hPad, Unit.Millimetre)
+                        .Text($"Año: {dto.AcademicYear}")
+                        .FontSize(5.5f)
+                        .FontColor(ParseColor(settings.TextColor));
+
+                // ── ZONA 3: Bloque póliza (condicional) ──────────────────────
                 if (settings.ShowPolicyNumber)
                 {
                     col.Item()
