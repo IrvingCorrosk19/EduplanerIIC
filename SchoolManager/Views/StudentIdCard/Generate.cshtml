@@ -226,9 +226,10 @@
                 Este carnet utiliza una plantilla PDF personalizada de la escuela. La vista previa web puede variar ligeramente del PDF final.
             </div>
         }
-        <div class="alert alert-info border-0 mx-auto mb-3 no-print" style="max-width:720px">
+        <div class="alert alert-info border-0 mx-auto mb-3" style="max-width:720px">
             <i class="fas fa-file-pdf text-primary me-2"></i>
             <strong>Descargue el PDF</strong> para imprimir el carnet completo (frente y reverso, impresión a doble cara según su impresora).
+            <br><small class="text-muted">Nota: el logo en el PDF se imprime con sus colores originales. Use un logo con fondo transparente o colores apropiados para el color primario configurado.</small>
         </div>
 
         <div class="row justify-content-center">
@@ -292,7 +293,7 @@
 
                     @if (showBackFace)
                     {
-                        <div class="idcard-face-back-screen no-print">
+                        <div class="idcard-face-back-screen">
                             <div class="idcard-face-label">Reverso</div>
                             <div class="idcard-face d-flex flex-column">
                                 @if (showWm)

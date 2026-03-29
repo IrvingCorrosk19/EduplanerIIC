@@ -38,7 +38,7 @@ public class IdCardSettingsController : Controller
             ViewBag.NeedSchoolSelection = true;
 
             if (!schoolId.HasValue || schoolId == Guid.Empty)
-                return View(new SchoolIdCardSetting { SchoolId = Guid.Empty, TemplateKey = "default_v1", PageWidthMm = 54, PageHeightMm = 86, BackgroundColor = "#FFFFFF", PrimaryColor = "#0D6EFD", TextColor = "#111111", ShowQr = true, ShowPhoto = false, Orientation = "Vertical" });
+                return View(new SchoolIdCardSetting { SchoolId = Guid.Empty, TemplateKey = "default_v1", PageWidthMm = 54, PageHeightMm = 86, BackgroundColor = "#FFFFFF", PrimaryColor = "#0D6EFD", TextColor = "#111111", ShowQr = true, ShowPhoto = true, ShowSchoolPhone = true, ShowWatermark = true, Orientation = "Vertical" });
 
             var selectedSchool = await _context.Schools.FindAsync(schoolId.Value);
             if (selectedSchool == null)
@@ -71,7 +71,7 @@ public class IdCardSettingsController : Controller
             PrimaryColor = "#0D6EFD",
             TextColor = "#111111",
             ShowQr = true,
-            ShowPhoto = false,
+            ShowPhoto = true,
             ShowSchoolPhone = true,
             ShowEmergencyContact = false,
             ShowAllergies = false,
