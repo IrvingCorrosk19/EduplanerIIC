@@ -64,6 +64,16 @@ public class StudentIdCardController : Controller
             });
         }
 
+        // PAY-GATE: solo estudiantes con carnet pagado pueden acceder a la vista
+        var hasPaidView = await _context.StudentPaymentAccesses
+            .AnyAsync(spa => spa.StudentId == studentId && spa.CarnetStatus == "Pagado");
+        if (!hasPaidView)
+        {
+            _logger.LogWarning(
+                "[StudentIdCard] GenerateView denegado: pago pendiente StudentId={StudentId}", studentId);
+            return RedirectToAction(nameof(Index));
+        }
+
         School? schoolEntity = null;
         if (student.SchoolId.HasValue)
         {
@@ -105,6 +115,21 @@ public class StudentIdCardController : Controller
         if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized("Usuario no autenticado.");
 
+        // PAY-GATE: bloquear generación de PDF sin pago confirmado
+        var hasPaidPdf = await _context.StudentPaymentAccesses
+            .AnyAsync(x => x.StudentId == studentId && x.CarnetStatus == "Pagado");
+        if (!hasPaidPdf)
+        {
+            _logger.LogWarning(
+                "[StudentIdCard] Print denegado: pago pendiente StudentId={StudentId}", studentId);
+            return new ContentResult
+            {
+                Content = "Acceso denegado: el estudiante no ha pagado el carnet.",
+                ContentType = "text/plain; charset=utf-8",
+                StatusCode = StatusCodes.Status403Forbidden
+            };
+        }
+
         try
         {
             var pdf = await _pdfService.GenerateCardPdfAsync(studentId, userId);
@@ -130,6 +155,16 @@ public class StudentIdCardController : Controller
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized("Usuario no autenticado");
+
+        // PAY-GATE doble guard (controller + service) — defensa en profundidad
+        var hasPaidGen = await _context.StudentPaymentAccesses
+            .AnyAsync(x => x.StudentId == studentId && x.CarnetStatus == "Pagado");
+        if (!hasPaidGen)
+        {
+            _logger.LogWarning(
+                "[StudentIdCard] GenerateApi denegado: pago pendiente StudentId={StudentId}", studentId);
+            return BadRequest(new { message = "El estudiante no ha pagado el carnet." });
+        }
 
         try
         {
@@ -195,8 +230,11 @@ public class StudentIdCardController : Controller
             schoolId,
             isSuperAdmin);
 
+        // PAY-GATE: solo estudiantes con CarnetStatus = "Pagado" en StudentPaymentAccess
         var query = _context.Users
-            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"));
+            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"))
+            .Where(u => _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
 
         if (schoolId.HasValue && !isSuperAdmin)
             query = query.Where(u => u.SchoolId == schoolId.Value);

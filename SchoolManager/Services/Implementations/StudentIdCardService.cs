@@ -120,6 +120,19 @@ public class StudentIdCardService : IStudentIdCardService
                 throw new Exception("Estudiante no encontrado");
             }
 
+            // PAY-GATE dentro de la transacción serializable — atomic check + write
+            var payment = await _context.StudentPaymentAccesses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.StudentId == studentId);
+
+            if (payment == null || payment.CarnetStatus != "Pagado")
+            {
+                _logger.LogWarning(
+                    "[StudentIdCard] GenerateAsync denegado: CarnetStatus={Status} StudentId={StudentId}",
+                    payment?.CarnetStatus ?? "sin registro", studentId);
+                throw new Exception("El estudiante no ha pagado el carnet.");
+            }
+
             var activeAssignment = student.StudentAssignments.FirstOrDefault(x => x.IsActive);
             if (activeAssignment == null)
             {

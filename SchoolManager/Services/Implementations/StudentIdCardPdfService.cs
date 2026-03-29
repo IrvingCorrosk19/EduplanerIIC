@@ -676,6 +676,19 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             throw new Exception("El estudiante no tiene asignación activa.");
         }
 
+        // PAY-GATE: no generar PDF sin pago confirmado (última línea de defensa)
+        var payment = await _context.StudentPaymentAccesses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StudentId == studentId);
+
+        if (payment == null || payment.CarnetStatus != "Pagado")
+        {
+            _logger.LogWarning(
+                "[StudentIdCardPdf] BuildStudentCardDtoAsync denegado: CarnetStatus={Status} StudentId={StudentId}",
+                payment?.CarnetStatus ?? "sin registro", studentId);
+            throw new Exception("El estudiante no ha pagado el carnet.");
+        }
+
         // CONC-2 fix: transacción serializable — previene creación simultánea de carnets duplicados
         using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         try
