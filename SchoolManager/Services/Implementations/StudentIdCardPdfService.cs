@@ -656,34 +656,31 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         });
                 }
 
-                // ── ZONA 5: QR abajo-derecha + ID centrado ────────────────────
-                col.Item().Extend()
-                    .PaddingHorizontal(hPad, Unit.Millimetre)
-                    .PaddingTop(1f, Unit.Millimetre)
-                    .Column(zone =>
-                    {
-                        // Fila: espacio vacío a la izquierda + QR a la derecha
-                        if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
-                        {
-                            var qrBytes = SafeGenerateQrPng(dto.QrToken);
-                            if (qrBytes != null && qrBytes.Length > 0)
-                            {
-                                zone.Item().AlignBottom().Row(r =>
-                                {
-                                    r.RelativeItem(); // empuja el QR a la derecha
-                                    r.ConstantItem(qrSize, Unit.Millimetre)
-                                        .Height(qrSize, Unit.Millimetre)
-                                        .Border(0.5f).BorderColor(primary)
-                                        .Image(qrBytes).FitArea();
-                                });
-                            }
-                        }
+                // ── ZONA 5: ID izquierda + QR derecha (misma fila, zona flex) ──
+                {
+                    byte[]? qrBytes = (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                        ? SafeGenerateQrPng(dto.QrToken)
+                        : null;
 
-                        // ID del carnet centrado
-                        zone.Item().AlignCenter().PaddingTop(1f, Unit.Millimetre)
-                            .Text($"ID: {dto.CardNumber}")
-                            .FontSize(5f).SemiBold().FontColor(primary);
-                    });
+                    col.Item().Extend()
+                        .PaddingHorizontal(hPad, Unit.Millimetre)
+                        .PaddingVertical(1.5f, Unit.Millimetre)
+                        .AlignBottom()
+                        .Row(r =>
+                        {
+                            // ID — izquierda, alineado al fondo
+                            r.RelativeItem().AlignBottom()
+                                .Text($"ID: {dto.CardNumber}")
+                                .FontSize(5f).SemiBold().FontColor(primary);
+
+                            // QR — derecha, tamaño fijo
+                            if (qrBytes != null && qrBytes.Length > 0)
+                                r.ConstantItem(qrSize, Unit.Millimetre)
+                                    .Height(qrSize, Unit.Millimetre)
+                                    .Border(0.5f).BorderColor(primary)
+                                    .Image(qrBytes).FitArea();
+                        });
+                }
 
                 // ── ZONA 6: Footer ────────────────────────────────────────────
                 col.Item().Height(footerH, Unit.Millimetre)
