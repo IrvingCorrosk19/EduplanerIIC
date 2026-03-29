@@ -30,6 +30,21 @@ public class SchoolIdCardSetting
     public string Orientation { get; set; } = "Vertical";
     /// <summary>Mostrar logo del colegio como marca de agua en el frente y reverso del carnet.</summary>
     public bool ShowWatermark { get; set; } = true;
+
+    // ── Campos del diseño moderno ──────────────────────────────────────────────
+    /// <summary>Activar el nuevo layout moderno (foto circular, bloques de datos, logos lado a lado).</summary>
+    public bool UseModernLayout { get; set; } = false;
+    /// <summary>Mostrar cédula/documento del estudiante en el carnet.</summary>
+    public bool ShowDocumentId { get; set; } = false;
+    /// <summary>Mostrar número de póliza en el carnet (temporal: calculado desde studentId hasta que exista campo en BD).</summary>
+    public bool ShowPolicyNumber { get; set; } = false;
+    /// <summary>Mostrar año lectivo activo del estudiante en el carnet.</summary>
+    public bool ShowAcademicYear { get; set; } = false;
+    /// <summary>Mostrar insignia/logo secundario en el carnet (esquina opuesta al logo principal).</summary>
+    public bool ShowSecondaryLogo { get; set; } = false;
+    /// <summary>URL o path de la insignia secundaria (escudo, sello, etc.). Diferente al LogoUrl principal de la escuela.</summary>
+    public string? SecondaryLogoUrl { get; set; }
+
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

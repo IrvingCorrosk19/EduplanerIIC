@@ -247,6 +247,75 @@
 
                         <section class="mb-4">
                             <h5 class="text-secondary border-bottom pb-2 mb-3">
+                                <i class="fas fa-star me-1"></i> Diseño moderno
+                                <span class="badge bg-info text-dark ms-2" style="font-size:0.65rem;">NUEVO</span>
+                            </h5>
+                            <div class="alert alert-info py-2 mb-3 small">
+                                <i class="fas fa-info-circle me-1"></i>
+                                El diseño moderno agrega soporte para cédula, póliza, año lectivo e insignia secundaria.
+                                El diseño clásico sigue disponible cuando esta opción está desactivada.
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" asp-for="UseModernLayout" class="form-check-input" id="UseModernLayout" />
+                                        <label class="form-check-label fw-semibold" for="UseModernLayout">
+                                            <i class="fas fa-magic me-1"></i> Activar diseño moderno
+                                        </label>
+                                    </div>
+                                    <small class="text-muted d-block ms-4">Cambia el frente del carnet al nuevo layout. El reverso siempre usa el diseño estándar.</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" asp-for="ShowDocumentId" class="form-check-input" id="ShowDocumentId" />
+                                        <label class="form-check-label fw-semibold" for="ShowDocumentId">
+                                            <i class="fas fa-id-badge me-1"></i> Mostrar cédula del estudiante
+                                        </label>
+                                    </div>
+                                    <small class="text-muted d-block ms-4">Solo en diseño moderno</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" asp-for="ShowPolicyNumber" class="form-check-input" id="ShowPolicyNumber" />
+                                        <label class="form-check-label fw-semibold" for="ShowPolicyNumber">
+                                            <i class="fas fa-shield-alt me-1"></i> Mostrar número de póliza
+                                        </label>
+                                    </div>
+                                    <small class="text-muted d-block ms-4 text-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Temporal: valor generado automáticamente hasta integrar campo real
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" asp-for="ShowAcademicYear" class="form-check-input" id="ShowAcademicYear" />
+                                        <label class="form-check-label fw-semibold" for="ShowAcademicYear">
+                                            <i class="fas fa-calendar-alt me-1"></i> Mostrar año lectivo
+                                        </label>
+                                    </div>
+                                    <small class="text-muted d-block ms-4">Tomado de la asignación activa del estudiante</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" asp-for="ShowSecondaryLogo" class="form-check-input" id="ShowSecondaryLogo" />
+                                        <label class="form-check-label fw-semibold" for="ShowSecondaryLogo">
+                                            <i class="fas fa-award me-1"></i> Mostrar insignia secundaria
+                                        </label>
+                                    </div>
+                                    <small class="text-muted d-block ms-4">Escudo, sello o logo adicional en el encabezado (derecha)</small>
+                                </div>
+                                <div class="col-12" id="secondaryLogoUrlGroup">
+                                    <label class="form-label fw-semibold">URL de la insignia secundaria</label>
+                                    <input type="url" asp-for="SecondaryLogoUrl" class="form-control"
+                                           placeholder="https://... o /uploads/insignia.png" />
+                                    <small class="text-muted">URL pública o ruta local bajo /uploads/. Solo se usa si "Mostrar insignia secundaria" está activo.</small>
+                                </div>
+                            </div>
+                        </section>
+
+                        <hr />
+
+                        <section class="mb-4">
+                            <h5 class="text-secondary border-bottom pb-2 mb-3">
                                 <i class="fas fa-file-contract me-1"></i> Política del carnet
                             </h5>
                             <p class="text-muted small">Texto único por escuela que se muestra en el reverso del carnet (debajo del código QR). Opcional.</p>

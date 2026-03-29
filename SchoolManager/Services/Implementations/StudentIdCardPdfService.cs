@@ -128,11 +128,18 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             // 4) Asegurar carnet + token (con transacción — CONC-2 fix)
             var dto = await BuildStudentCardDtoAsync(studentId, createdBy, school.Name);
 
-            // 5) Logo, marca de agua (logo con opacidad) y foto del estudiante
+            // 5) Logo principal, insignia secundaria, marca de agua y foto del estudiante
             byte[]? logoBytes = null;
             if (!string.IsNullOrWhiteSpace(school.LogoUrl))
                 logoBytes = await SafeDownloadBytesAsync(school.LogoUrl);
             byte[]? watermarkBytes = (settings.ShowWatermark && logoBytes != null) ? CreateWatermarkImage(logoBytes, 0.14f) : null;
+
+            byte[]? secondaryLogoBytes = null;
+            if (settings.ShowSecondaryLogo && !string.IsNullOrWhiteSpace(settings.SecondaryLogoUrl))
+                secondaryLogoBytes = await SafeDownloadBytesAsync(settings.SecondaryLogoUrl);
+
+            // Inyectar SecondaryLogoUrl en el DTO de render (para que RenderCarnetModern lo reciba)
+            dto.SecondaryLogoUrl = settings.SecondaryLogoUrl;
 
             byte[]? photoBytes = null;
             if (settings.ShowPhoto && !string.IsNullOrWhiteSpace(dto.PhotoUrl))
@@ -167,7 +174,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 }
                 else
                 {
-                    // CarnetQR: una sola hoja A4 con frente y reverso lado a lado (evita páginas en blanco por overflow).
+                    // CarnetQR / Moderno: una sola hoja A4 con frente y reverso lado a lado.
                     var (cardWidthMm, cardHeightMm) = GetCardDimensions(settings);
                     const float sheetGapMm = 6f;
                     const float sheetMarginMm = 10f;
@@ -182,27 +189,25 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         page.Content().AlignCenter().AlignMiddle().Row(row =>
                         {
                             if (settings.ShowQr)
-                            {
                                 row.Spacing(sheetGapMm, Unit.Millimetre);
+
+                            // ── Frente: layout clásico o moderno ────────────────────────────
+                            row.ConstantItem(cardWidthMm, Unit.Millimetre)
+                                .Height(cardHeightMm, Unit.Millimetre)
+                                .Border(0.2f).BorderColor(Colors.Grey.Medium)
+                                .Element(c =>
+                                {
+                                    if (settings.UseModernLayout)
+                                        return RenderCarnetModernFront(c, schoolNamePdf, logoBytes, secondaryLogoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes);
+                                    return RenderCarnetQrFront(c, schoolNamePdf, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes);
+                                });
+
+                            // ── Reverso (siempre el mismo, respeta flags) ────────────────────
+                            if (settings.ShowQr)
                                 row.ConstantItem(cardWidthMm, Unit.Millimetre)
                                     .Height(cardHeightMm, Unit.Millimetre)
-                                    .Border(0.2f)
-                                    .BorderColor(Colors.Grey.Medium)
-                                    .Element(c => RenderCarnetQrFront(c, schoolNamePdf, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes));
-                                row.ConstantItem(cardWidthMm, Unit.Millimetre)
-                                    .Height(cardHeightMm, Unit.Millimetre)
-                                    .Border(0.2f)
-                                    .BorderColor(Colors.Grey.Medium)
+                                    .Border(0.2f).BorderColor(Colors.Grey.Medium)
                                     .Element(c => RenderCarnetQrBack(c, schoolNamePdf, phonePdf, policyPdf, dto, settings, watermarkBytes));
-                            }
-                            else
-                            {
-                                row.ConstantItem(cardWidthMm, Unit.Millimetre)
-                                    .Height(cardHeightMm, Unit.Millimetre)
-                                    .Border(0.2f)
-                                    .BorderColor(Colors.Grey.Medium)
-                                    .Element(c => RenderCarnetQrFront(c, schoolNamePdf, logoBytes, photoBytes, dto, settings, cardWidthMm, cardHeightMm, watermarkBytes));
-                            }
                         });
                     });
                 }
@@ -453,6 +458,151 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     }
 
     /// <summary>
+    /// Frente del carnet — diseño MODERNO: watermark, fila de logos, foto circular (clipped), nombre,
+    /// grado-grupo, bloque de datos condicionales (cédula, póliza, año lectivo) y QR centrado abajo.
+    /// Soporta orientación Vertical y Horizontal. Todas las dimensiones en Unit.Millimetre.
+    /// </summary>
+    private IContainer RenderCarnetModernFront(IContainer container, string schoolName,
+        byte[]? logoBytes, byte[]? secondaryLogoBytes, byte[]? photoBytes,
+        StudentCardRenderDto dto, SchoolIdCardSetting settings,
+        float cardWidthMm, float cardHeightMm, byte[]? watermarkBytes = null)
+    {
+        const float paddingMm = 3f;
+        const float headerHeightMm = 12f;   // fila logos + nombre colegio
+        const float photoSizeMm = 18f;      // foto circular (cuadrado que se verá como círculo con clip)
+        const float qrSizeMm = 18f;
+        const float footerMm = 6f;
+        const float spacerMm = 2f;
+        const float watermarkPct = 0.40f;
+        var wMmWm = cardWidthMm * watermarkPct;
+
+        container.Layers(layers =>
+        {
+            // Capa 1: fondo sólido
+            layers.Layer().Background(ParseColor(settings.BackgroundColor));
+
+            // Capa 2: marca de agua centrada
+            if (watermarkBytes != null && watermarkBytes.Length > 0)
+                layers.Layer()
+                    .AlignCenter().AlignMiddle()
+                    .Width(wMmWm, Unit.Millimetre)
+                    .Height(wMmWm, Unit.Millimetre)
+                    .Image(watermarkBytes);
+
+            // Capa principal
+            layers.PrimaryLayer().Column(col =>
+            {
+                // ── Header: barra de color con logos y nombre ─────────────────────
+                col.Item().Height(headerHeightMm, Unit.Millimetre)
+                    .Background(ParseColor(settings.PrimaryColor))
+                    .PaddingHorizontal(paddingMm, Unit.Millimetre)
+                    .PaddingVertical(1.5f, Unit.Millimetre)
+                    .Row(r =>
+                    {
+                        // Logo principal (izquierda)
+                        if (logoBytes != null)
+                        {
+                            r.ConstantItem(9f, Unit.Millimetre)
+                                .Height(8f, Unit.Millimetre)
+                                .AlignLeft().AlignMiddle()
+                                .Image(logoBytes);
+                            r.ConstantItem(spacerMm, Unit.Millimetre);
+                        }
+
+                        // Nombre del colegio (centro, crece)
+                        r.RelativeItem().AlignLeft().AlignMiddle()
+                            .Text(schoolName)
+                            .FontSize(6f).Bold().FontColor(Colors.White).LineHeight(1.1f);
+
+                        // Insignia secundaria (derecha, condicional)
+                        if (settings.ShowSecondaryLogo && secondaryLogoBytes != null)
+                        {
+                            r.ConstantItem(spacerMm, Unit.Millimetre);
+                            r.ConstantItem(9f, Unit.Millimetre)
+                                .Height(8f, Unit.Millimetre)
+                                .AlignRight().AlignMiddle()
+                                .Image(secondaryLogoBytes);
+                        }
+                    });
+
+                // ── Body ─────────────────────────────────────────────────────────
+                var bodyMm = cardHeightMm - headerHeightMm - footerMm;
+                col.Item().Height(bodyMm, Unit.Millimetre)
+                    .Padding(paddingMm, Unit.Millimetre)
+                    .Column(body =>
+                    {
+                        // Fila: foto + datos
+                        body.Item().Row(r =>
+                        {
+                            // Foto (cuadrada — sin clip nativo en QuestPDF, borde redondeado lo simula)
+                            if (settings.ShowPhoto)
+                            {
+                                var photoBlock = r.ConstantItem(photoSizeMm, Unit.Millimetre)
+                                    .Height(photoSizeMm, Unit.Millimetre)
+                                    .Border(1f).BorderColor(ParseColor(settings.PrimaryColor));
+                                if (photoBytes != null && photoBytes.Length > 0)
+                                    photoBlock.Image(photoBytes);
+                                else
+                                    photoBlock.AlignCenter().AlignMiddle()
+                                        .Text("FOTO").FontSize(5f).FontColor(ParseColor(settings.TextColor));
+                                r.ConstantItem(spacerMm, Unit.Millimetre);
+                            }
+
+                            // Columna de datos del estudiante
+                            r.RelativeItem().Column(info =>
+                            {
+                                info.Item().Text(dto.FullName)
+                                    .FontSize(8f).Bold().FontColor(ParseColor(settings.TextColor)).LineHeight(1.1f);
+                                info.Item().Text($"{dto.Grade} · {dto.Group}")
+                                    .FontSize(6f).FontColor(ParseColor(settings.PrimaryColor)).SemiBold();
+                                info.Item().Text($"Carnet: {dto.CardNumber}")
+                                    .FontSize(5.5f).FontColor(ParseColor(settings.TextColor));
+
+                                // Bloque condicional: cédula, póliza, año lectivo
+                                if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
+                                    info.Item().Text($"Cédula: {dto.DocumentId}")
+                                        .FontSize(5.5f).FontColor(ParseColor(settings.TextColor));
+
+                                if (settings.ShowPolicyNumber && !string.IsNullOrWhiteSpace(dto.PolicyNumber))
+                                    info.Item().Text($"Póliza: {dto.PolicyNumber}")
+                                        .FontSize(5.5f).FontColor(ParseColor(settings.TextColor));
+
+                                if (settings.ShowAcademicYear)
+                                    info.Item().Text($"Año: {dto.AcademicYear ?? "N/A"}")
+                                        .FontSize(5.5f).FontColor(ParseColor(settings.TextColor));
+                            });
+                        });
+
+                        // QR centrado debajo (condicional)
+                        if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
+                        {
+                            var qrBytes = SafeGenerateQrPng(dto.QrToken);
+                            if (qrBytes != null && qrBytes.Length > 0)
+                            {
+                                var qrAvailMm = bodyMm - photoSizeMm - paddingMm * 2f - 2f;
+                                var qrActualMm = Math.Max(12f, Math.Min(qrSizeMm, qrAvailMm));
+                                body.Item().PaddingTop(spacerMm, Unit.Millimetre).AlignCenter()
+                                    .Width(qrActualMm, Unit.Millimetre)
+                                    .Height(qrActualMm, Unit.Millimetre)
+                                    .Image(qrBytes);
+                            }
+                        }
+                    });
+
+                // ── Footer ───────────────────────────────────────────────────────
+                col.Item().Height(footerMm, Unit.Millimetre)
+                    .PaddingHorizontal(paddingMm, Unit.Millimetre)
+                    .AlignMiddle()
+                    .BorderTop(0.5f).BorderColor(ParseColor("#e5e7eb"))
+                    .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}")
+                    .FontSize(4.5f).FontColor(ParseColor(settings.TextColor));
+            });
+        });
+
+        return container;
+    }
+
+    /// <summary>
     /// Reverso del carnet — marca de agua (opcional), QR centrado, política e información de emergencia.
     /// Todas las dimensiones usan Unit.Millimetre para renderizado físicamente correcto.
     /// </summary>
@@ -660,6 +810,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 .ThenInclude(a => a.Group)
             .Include(u => u.StudentAssignments)
                 .ThenInclude(a => a.Shift)
+            .Include(u => u.StudentAssignments)
+                .ThenInclude(a => a.AcademicYear)
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == studentId);
 
@@ -741,6 +893,10 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
+            // POL-TEMPORAL: número de póliza derivado del studentId hasta que exista campo real en BD.
+            // Para reemplazar con dato real: cambiar esta línea por la columna correspondiente del estudiante.
+            var tempPolicyNumber = $"POL-{studentId.ToString("N")[..8].ToUpper()}";
+
             return new StudentCardRenderDto
             {
                 StudentId = studentId,
@@ -755,7 +911,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 Allergies = student.Allergies,
                 EmergencyContactName = student.EmergencyContactName,
                 EmergencyContactPhone = student.EmergencyContactPhone,
-                EmergencyRelationship = student.EmergencyRelationship
+                EmergencyRelationship = student.EmergencyRelationship,
+                // Campos del layout moderno
+                PolicyNumber = tempPolicyNumber,
+                AcademicYear = assignment.AcademicYear?.Name ?? null,
+                SecondaryLogoUrl = null // Se sobreescribe en GenerateCardPdfAsync desde settings
             };
         }
         catch
@@ -780,5 +940,15 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         public string? EmergencyContactName { get; set; }
         public string? EmergencyContactPhone { get; set; }
         public string? EmergencyRelationship { get; set; }
+        // ── Campos del layout moderno ────────────────────────────────────────
+        /// <summary>
+        /// Número de póliza TEMPORAL — derivado del studentId mientras no exista columna en BD.
+        /// Fácil de reemplazar: buscar "POL-TEMPORAL" en este archivo para localizar el punto de origen.
+        /// </summary>
+        public string? PolicyNumber { get; set; }
+        /// <summary>Año lectivo activo del estudiante (ej. "2024-2025"). Null si AcademicYearId no está asignado.</summary>
+        public string? AcademicYear { get; set; }
+        /// <summary>URL o path de la insignia secundaria (escudo, sello). Distinto al logo principal de la escuela.</summary>
+        public string? SecondaryLogoUrl { get; set; }
     }
 }

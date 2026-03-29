@@ -120,10 +120,10 @@ public class IdCardSettingsController : Controller
         {
             model.Id = Guid.NewGuid();
             model.Orientation = model.Orientation ?? "Vertical";
-            model.ShowWatermark = model.ShowWatermark;
             var isHorizontal = string.Equals(model.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
             model.PageWidthMm = isHorizontal ? 86 : 54;
             model.PageHeightMm = isHorizontal ? 54 : 86;
+            model.SecondaryLogoUrl = string.IsNullOrWhiteSpace(model.SecondaryLogoUrl) ? null : model.SecondaryLogoUrl.Trim();
             model.CreatedAt = DateTime.UtcNow;
             model.UpdatedAt = DateTime.UtcNow;
             _context.Add(model);
@@ -148,6 +148,13 @@ public class IdCardSettingsController : Controller
             var isHorizontal = string.Equals(existing.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
             existing.PageWidthMm = isHorizontal ? 86 : 54;
             existing.PageHeightMm = isHorizontal ? 54 : 86;
+            // Campos del diseño moderno
+            existing.UseModernLayout = model.UseModernLayout;
+            existing.ShowDocumentId = model.ShowDocumentId;
+            existing.ShowPolicyNumber = model.ShowPolicyNumber;
+            existing.ShowAcademicYear = model.ShowAcademicYear;
+            existing.ShowSecondaryLogo = model.ShowSecondaryLogo;
+            existing.SecondaryLogoUrl = string.IsNullOrWhiteSpace(model.SecondaryLogoUrl) ? null : model.SecondaryLogoUrl.Trim();
             existing.UpdatedAt = DateTime.UtcNow;
             _context.Update(existing);
         }
