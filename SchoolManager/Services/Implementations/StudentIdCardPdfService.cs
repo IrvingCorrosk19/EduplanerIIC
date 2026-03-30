@@ -200,11 +200,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     {
                         page.Size(pageWidthMm, cardHeightMm, Unit.Millimetre);
                         page.Margin(0);
-                        // Página dimensionada exactamente al carnet: no hay riesgo de página 2
-                        page.Content()
-                            .Width(pageWidthMm, Unit.Millimetre)
-                            .Height(cardHeightMm, Unit.Millimetre)
-                            .Row(row =>
+                        // Sin Width/Height adicional en Content: la página ya tiene dimensiones exactas
+                        page.Content().Row(row =>
                         {
                             if (settings.ShowQr)
                                 row.Spacing(2f, Unit.Millimetre);
@@ -538,23 +535,28 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         // ══════════════════════════════════════════════════════════════════════
         // LAYOUT FLEXIBLE — card 54×86mm — sin overflow garantizado
         //
-        //  Header    AUTO  (logo+texto auto-escalan, sin Height fijo)
-        //  Foto      25mm  (fijo — 3mm pad + 22mm foto — sin texto, seguro)
-        //  Datos     AUTO  (texto auto-escala, sin Height fijo)
-        //  Spacer    var   (Extend absorbe el sobrante ≥10mm siempre)
-        //  Bottom    17mm  (fijo — contenido controlado: policy+ID+QR)
+        // Todas las dimensiones derivadas de los píxeles CSS del preview HTML:
+        //   PxToMm(px) = px * 54/210  (tarjeta 210px CSS = 54mm real)
         //
-        // En QuestPDF, Height() en zona de texto causa paginación si el texto
-        // desborda por 1px. La solución es NO fijar altura en zonas de texto.
+        //  Header    AUTO    (logo+texto auto-escalan, sin Height fijo)
+        //  Foto      27.26mm (fijo — PxToMm(106): 6px pad + 100px foto)
+        //  Datos     AUTO    (texto auto-escala, sin Height fijo)
+        //  Spacer    var     (Extend absorbe el sobrante — siempre ≥ 8mm)
+        //  Bottom    18.00mm (fijo — PxToMm(70): min-height:70px del preview)
+        //    └ QR    14.50mm (PxToMm(58)≈14.91, −0.41mm safety → cabe holgado)
+        //
+        // En QuestPDF, Height() en zona de texto causa paginación si desborda
+        // por 0.1mm. La solución es NO fijar altura en zonas de texto.
         // ══════════════════════════════════════════════════════════════════════
-        const float cardW      = 54f;
-        const float hPad       = 2f;
-        const float logoH      = 11f;
-        const float photoMm    = 22f;   // foto = 22mm (≈100px a escala 54/210)
-        const float photoPad   = 3f;    // padding superior de la zona de foto
-        const float bottomH    = 17f;   // bloque inferior fijo
-        const float qrBlockMm  = 13f;   // QR — 13mm < 14mm disponibles (17mm - 1.5×2 padding)
-        const float wmPct      = 0.45f;
+        const float cardW     = 54f;
+        // px → mm: preview card = 210 px = 54 mm
+        var logoH      = PxToMm(46f);   // 46px  → 11.83mm  (.idcard-logo-center max-width/height:46px)
+        var photoMm    = PxToMm(100f);  // 100px → 25.71mm  (.idcard-photo-inner width/height:100px)
+        var photoPad   = PxToMm(6f);    // 6px   →  1.54mm  (.idcard-photo-center padding-top:6px)
+        var bottomH    = PxToMm(70f);   // 70px  → 18.00mm  (.idcard-policy-section min-height:70px)
+        var qrBlockMm  = 14.5f;         // 58px = 14.91mm, −0.41 safety  (.policy-qr img 58px)
+        var hPad       = PxToMm(6f);    // 6px   →  1.54mm  (.idcard-policy-section padding:6px)
+        const float wmPct = 0.45f;
 
         var primary = ParseColor(settings.PrimaryColor);
         var textCol = ParseColor(settings.TextColor);
@@ -619,7 +621,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     });
 
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 2 — FOTO (25mm FIJO = 3mm pad + 22mm foto)
+                // ZONA 2 — FOTO (fijo = photoPad + photoMm = PxToMm(6+100) = 27.26mm)
                 // Altura fija segura: solo contiene una imagen, no texto
                 // ════════════════════════════════════════════════════════════════
                 col.Item()
@@ -647,8 +649,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 // Sin Height fijo: texto auto-escala, spacer absorbe el sobrante
                 // ════════════════════════════════════════════════════════════════
                 col.Item()
-                    .PaddingTop(2f, Unit.Millimetre)
-                    .PaddingHorizontal(hPad, Unit.Millimetre)
+                    .PaddingTop(PxToMm(6f), Unit.Millimetre)  // .idcard-data-center padding-top:6px
+                    .PaddingHorizontal(PxToMm(8f), Unit.Millimetre)  // .idcard-data-center padding:6px 8px
                     .Column(info =>
                     {
                         info.Item().AlignCenter()
@@ -689,7 +691,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         .Height(bottomH, Unit.Millimetre)
                         .Background("#E6EEF7")
                         .PaddingHorizontal(hPad, Unit.Millimetre)
-                        .PaddingVertical(1.5f, Unit.Millimetre)
+                        .PaddingVertical(hPad, Unit.Millimetre)  // padding:6px 6px → PxToMm(6)
                         .Row(r =>
                         {
                             // Izquierda: Póliza (condicional) + ID
@@ -733,6 +735,13 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         if (string.IsNullOrEmpty(text)) return string.Empty;
         return text.Length <= maxChars ? text : text[..(maxChars - 1)] + "…";
     }
+
+    /// <summary>
+    /// Convierte píxeles CSS a milímetros usando la escala real del carnet:
+    /// tarjeta CSS = 210 px → 54 mm → factor = 54/210 ≈ 0.2571 mm/px.
+    /// Garantiza que las dimensiones del PDF coincidan 1:1 con el preview HTML.
+    /// </summary>
+    private static float PxToMm(float px) => px * 54f / 210f;
 
     private IContainer RenderCarnetInstitutionalVerticalBack(
         IContainer container,
