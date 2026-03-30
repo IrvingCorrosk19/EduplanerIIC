@@ -177,7 +177,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         page.Content().Layers(layers =>
                         {
                             layers.Layer().Background(ParseColor(settings.BackgroundColor));
-                            layers.PrimaryLayer().Width(pw, Unit.Millimetre).Height(ph, Unit.Millimetre);
+                            // PrimaryLayer sin Width/Height explícitos — los hereda de page.Content() (pw×ph sin márgenes)
+                            layers.PrimaryLayer();
                             layers.Layer().Unconstrained()
                                 .TranslateX(0, Unit.Millimetre).TranslateY(0, Unit.Millimetre)
                                 .Width(pw, Unit.Millimetre).Height(12, Unit.Millimetre)
@@ -646,10 +647,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Height(CardUnitConverter.CardWidthMm * wmPct, Unit.Millimetre)
                     .Image(watermarkBytes).FitArea();
 
-            // ── PrimaryLayer: ancho+alto explícitos — fuente de la altura conocida ─
+            // ── PrimaryLayer: hereda Width+Height del ConstantItem exterior (no re-imponer — conflicting constraints) ─
             layers.PrimaryLayer()
-                .Width(CardUnitConverter.CardWidthMm, Unit.Millimetre)
-                .Height(CardUnitConverter.CardHeightMm, Unit.Millimetre)
                 .Column(col =>
                 {
                     // ══ ZONA 1 — HEADER  Height(headerH) ════════════════════════
@@ -665,28 +664,25 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         {
                             if (logoBytes != null && logoBytes.Length > 0)
                             {
-                                // Imagen centrada: Height fijo en el ítem, Width fijo en el Element interno
+                                // Logo: Width solo en el Element interno (Height la provee el slot padre)
                                 hdr.Item()
                                     .Height(logoH, Unit.Millimetre)
                                     .AlignCenter()
                                     .Element(e => e
                                         .Width(logoH, Unit.Millimetre)
-                                        .Height(logoH, Unit.Millimetre)
-                                        .Image(logoBytes).FitArea());
+                                        .SafeImage(logoBytes));
                                 hdr.Item().Height(Mm(4f), Unit.Millimetre); // gap:4px
                             }
-                            // Nombre — 2 líneas máx, MaxLines previene overflow
+                            // Nombre colegio — 2 líneas máx, SafeMultilineText garantiza no-overflow
                             hdr.Item()
                                 .Height(schoolLineH * 2f, Unit.Millimetre)
                                 .AlignCenter()
-                                .Text(schoolDisp)
-                                .ClampLines(2, "…")
-                                .FontSize(fontSchool).Bold()
-                                .FontColor(Colors.White).LineHeight(1.2f);
+                                .SafeMultilineText(schoolDisp, fontSchool, 2, 1.2f, Colors.White, bold: true);
                         });
 
                     // ══ ZONA 2 — FOTO  Height(photoZoneH) ══════════════════════
-                    // Height en el ítem, dimensión explícita dentro del Element
+                    // Height solo en el ítem; el slot dentro de AlignCenter ya tiene
+                    // la altura residual (photoZoneH − photoPadMm = photoMm) — no repetir.
                     col.Item()
                         .Height(photoZoneH, Unit.Millimetre)
                         .PaddingTop(photoPadMm, Unit.Millimetre)
@@ -695,17 +691,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         {
                             if (settings.ShowPhoto)
                             {
+                                // Width solo — Height la provee el slot padre (sin doble constraint)
                                 var ps = slot
                                     .Width(photoMm, Unit.Millimetre)
-                                    .Height(photoMm, Unit.Millimetre)
                                     .Border(0.3f).BorderColor(primary);
-                                if (photoBytes != null && photoBytes.Length > 0)
-                                    ps.Image(photoBytes).FitArea();
-                                else
-                                    ps.AlignCenter().AlignMiddle()
-                                        .Text("FOTO")
-                                        .ClampLines(1, "")
-                                        .FontSize(fontSmall).FontColor(textCol);
+                                ps.SafeImageOrPlaceholder(photoBytes, "FOTO", fontSmall, textCol);
                             }
                         });
 
@@ -721,9 +711,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             info.Item()
                                 .Height(nameLineH, Unit.Millimetre)
                                 .AlignCenter()
-                                .Text(nameDisplay)
-                                .ClampLines(1, "…")
-                                .FontSize(fontName).Bold().FontColor(textCol).LineHeight(1.15f);
+                                .SafeText(nameDisplay, fontName, bold: true, fontColor: textCol, lineHeight: 1.15f);
 
                             info.Item().Height(gapPx1, Unit.Millimetre);
 
@@ -732,18 +720,14 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                 info.Item()
                                     .Height(smallLineH, Unit.Millimetre)
                                     .AlignCenter()
-                                    .Text(cedDisplay)
-                                    .ClampLines(1, "…")
-                                    .FontSize(fontSmall).FontColor(textCol);
+                                    .SafeText(cedDisplay, fontSmall, fontColor: textCol);
                                 info.Item().Height(gapPx1, Unit.Millimetre);
                             }
 
                             info.Item()
                                 .Height(smallLineH, Unit.Millimetre)
                                 .AlignCenter()
-                                .Text(gradeDisplay)
-                                .ClampLines(1, "…")
-                                .FontSize(fontSmall).FontColor(textCol);
+                                .SafeText(gradeDisplay, fontSmall, fontColor: textCol);
 
                             if (showYear)
                             {
@@ -751,9 +735,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                 info.Item()
                                     .Height(smallLineH, Unit.Millimetre)
                                     .AlignCenter()
-                                    .Text(yearDisplay)
-                                    .ClampLines(1, "…")
-                                    .FontSize(fontSmall).FontColor(textCol);
+                                    .SafeText(yearDisplay, fontSmall, fontColor: textCol);
                             }
                         });
 
@@ -778,30 +760,22 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                 {
                                     left.Item()
                                         .Height(polLabelH, Unit.Millimetre)
-                                        .Text("Póliza de Seguro Educativo")
-                                        .ClampLines(1, "…")
-                                        .FontSize(fontPolLabel).Bold().FontColor(primary);
+                                        .SafeText("Póliza de Seguro Educativo", fontPolLabel, bold: true, fontColor: primary);
                                     left.Item()
                                         .Height(polNumH, Unit.Millimetre)
-                                        .Text(TruncateText(dto.PolicyNumber, 28))
-                                        .ClampLines(1, "…")
-                                        .FontSize(fontPolNum).FontColor(textCol);
+                                        .SafeText(TruncateText(dto.PolicyNumber, 28), fontPolNum, fontColor: textCol);
                                     left.Item().Height(Mm(3f), Unit.Millimetre); // margin-top:3px
                                 }
                                 left.Item()
                                     .Height(polIdH, Unit.Millimetre)
-                                    .Text(TruncateText($"ID: {dto.CardNumber}", 22))
-                                    .ClampLines(1, "…")
-                                    .FontSize(fontId).Bold().FontColor(textCol);
+                                    .SafeText(TruncateText($"ID: {dto.CardNumber}", 22), fontId, bold: true, fontColor: textCol);
                             });
 
-                            // Derecha: QR con dimensiones explícitas, sin AlignMiddle wrapper
+                            // Derecha: QR — ConstantItem fija Width; Height en el item; SafeImage garantiza FitArea
                             if (qrBytes != null && qrBytes.Length > 0)
                                 r.ConstantItem(qrMm, Unit.Millimetre)
-                                    .Element(qrSlot => qrSlot
-                                        .Width(qrMm, Unit.Millimetre)
-                                        .Height(qrMm, Unit.Millimetre)
-                                        .Image(qrBytes).FitArea());
+                                    .Height(qrMm, Unit.Millimetre)
+                                    .SafeImage(qrBytes);
                         });
                 });
         });
@@ -923,9 +897,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Height(cardW * wmPct, Unit.Millimetre)
                     .Image(watermarkBytes).FitArea();
 
+            // PrimaryLayer hereda Width+Height del ConstantItem exterior — no re-imponer
             layers.PrimaryLayer()
-                .Width(CardUnitConverter.CardWidthMm, Unit.Millimetre)
-                .Height(CardUnitConverter.CardHeightMm, Unit.Millimetre)
                 .Column(col =>
             {
                 // ── QR centrado ───────────────────────────────────────────────
@@ -939,10 +912,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         {
                             var qrBytes = SafeGenerateQrPng(dto.QrToken);
                             if (qrBytes != null && qrBytes.Length > 0)
-                                slot
-                                    .Width(qrMm, Unit.Millimetre)
-                                    .Height(qrMm, Unit.Millimetre)
-                                    .Image(qrBytes).FitArea();
+                                // Width solo — Height la provee PaddingTop (qrZoneH−2.6f = qrMm)
+                                slot.Width(qrMm, Unit.Millimetre).SafeImage(qrBytes);
                         }
                     });
 
@@ -952,9 +923,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .PaddingTop(vPad, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignCenter()
-                    .Text(TruncateText(schoolName, 50))
-                    .ClampLines(1, "…")
-                    .FontSize(9f).Bold().FontColor(textCol).LineHeight(1.1f);
+                    .SafeText(TruncateText(schoolName, 50), 9f, bold: true, fontColor: textCol, lineHeight: 1.1f);
 
                 // ── Instrucción de escaneo ────────────────────────────────────
                 col.Item()
@@ -962,9 +931,9 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .PaddingTop(vPad, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignCenter()
-                    .Text("Escanea el código QR para verificar la información del carnet")
-                    .ClampLines(2, "…")
-                    .FontSize(7f).FontColor(textCol).LineHeight(1.2f);
+                    .SafeMultilineText(
+                        "Escanea el código QR para verificar la información del carnet",
+                        7f, 2, 1.2f, textCol);
 
                 // ── Número de carnet ──────────────────────────────────────────
                 col.Item()
@@ -972,9 +941,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .PaddingTop(vPad, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignCenter()
-                    .Text(TruncateText($"Carnet: {dto.CardNumber}", 30))
-                    .ClampLines(1, "…")
-                    .FontSize(7f).SemiBold().FontColor(textCol);
+                    .SafeText(TruncateText($"Carnet: {dto.CardNumber}", 30), 7f, fontColor: textCol);
 
                 // ── Política del colegio ──────────────────────────────────────
                 if (showPolicy)
@@ -989,9 +956,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
-                        .Text(policyText)
-                        .ClampLines(3, "…")
-                        .FontSize(6.5f).FontColor(textCol).LineHeight(1.35f);
+                        .SafeMultilineText(policyText, 6.5f, 3, 1.35f, textCol);
                 }
 
                 // ── Teléfono del colegio ──────────────────────────────────────
@@ -1001,9 +966,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
-                        .Text(TruncateText($"Tel. colegio: {schoolPhone}", 35))
-                        .ClampLines(1, "…")
-                        .FontSize(7f).FontColor(textCol);
+                        .SafeText(TruncateText($"Tel. colegio: {schoolPhone}", 35), 7f, fontColor: textCol);
 
                 // ── Contacto de emergencia ────────────────────────────────────
                 if (showEmerg)
@@ -1013,17 +976,13 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
-                        .Text(TruncateText($"Emergencia: {dto.EmergencyContactName ?? "—"}", 35))
-                        .ClampLines(1, "…")
-                        .FontSize(7f).FontColor(textCol);
+                        .SafeText(TruncateText($"Emergencia: {dto.EmergencyContactName ?? "—"}", 35), 7f, fontColor: textCol);
                     if (showEmPhone)
                         col.Item()
                             .Height(emPhoneItemH, Unit.Millimetre)
                             .PaddingHorizontal(hPad, Unit.Millimetre)
                             .AlignCenter()
-                            .Text(TruncateText($"Tel: {dto.EmergencyContactPhone}", 30))
-                            .ClampLines(1, "…")
-                            .FontSize(7f).FontColor(textCol);
+                            .SafeText(TruncateText($"Tel: {dto.EmergencyContactPhone}", 30), 7f, fontColor: textCol);
                 }
 
                 // ── Alergias ──────────────────────────────────────────────────
@@ -1037,9 +996,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
-                        .Text($"Alergias: {txt}")
-                        .ClampLines(2, "…")
-                        .FontSize(6.5f).FontColor(textCol);
+                        .SafeMultilineText($"Alergias: {txt}", 6.5f, 2, 1.0f, textCol);
                 }
 
                 // ── Spacer determinístico ─────────────────────────────────────
@@ -1051,9 +1008,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Background(primary)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignMiddle().AlignCenter()
-                    .Text("Documento de identificación estudiantil")
-                    .ClampLines(1, "…")
-                    .FontSize(4.5f).FontColor(Colors.White);
+                    .SafeText("Documento de identificación estudiantil", 4.5f, fontColor: Colors.White);
             });
         });
 
@@ -1108,7 +1063,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             r.ConstantItem(9f, Unit.Millimetre)
                                 .Height(8f, Unit.Millimetre)
                                 .AlignLeft().AlignMiddle()
-                                .Image(logoBytes);
+                                .SafeImage(logoBytes);
                             r.ConstantItem(spacerMm, Unit.Millimetre);
                         }
 
@@ -1124,7 +1079,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             r.ConstantItem(9f, Unit.Millimetre)
                                 .Height(8f, Unit.Millimetre)
                                 .AlignRight().AlignMiddle()
-                                .Image(secondaryLogoBytes);
+                                .SafeImage(secondaryLogoBytes);
                         }
                     });
 
@@ -1143,11 +1098,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                 var photoBlock = r.ConstantItem(photoSizeMm, Unit.Millimetre)
                                     .Height(photoSizeMm, Unit.Millimetre)
                                     .Border(1f).BorderColor(ParseColor(settings.PrimaryColor));
-                                if (photoBytes != null && photoBytes.Length > 0)
-                                    photoBlock.Image(photoBytes);
-                                else
-                                    photoBlock.AlignCenter().AlignMiddle()
-                                        .Text("FOTO").FontSize(5f).FontColor(ParseColor(settings.TextColor));
+                                photoBlock.SafeImageOrPlaceholder(
+                                    photoBytes, "FOTO", 5f, ParseColor(settings.TextColor));
                                 r.ConstantItem(spacerMm, Unit.Millimetre);
                             }
 
@@ -1184,10 +1136,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             {
                                 var qrAvailMm = bodyMm - photoSizeMm - paddingMm * 2f - 2f;
                                 var qrActualMm = Math.Max(12f, Math.Min(qrSizeMm, qrAvailMm));
+                                // AlignCenter primero; Width+Height solo en el slot hijo (sin doble-constraint)
                                 body.Item().PaddingTop(spacerMm, Unit.Millimetre).AlignCenter()
                                     .Width(qrActualMm, Unit.Millimetre)
                                     .Height(qrActualMm, Unit.Millimetre)
-                                    .Image(qrBytes);
+                                    .SafeImage(qrBytes);
                             }
                         }
                     });
@@ -1235,8 +1188,13 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 {
                     var qrBytes = SafeGenerateQrPng(dto.QrToken);
                     if (qrBytes != null && qrBytes.Length > 0)
-                        col.Item().Width(qrBackSizeMm, Unit.Millimetre).Height(qrBackSizeMm, Unit.Millimetre)
-                            .AlignCenter().Image(qrBytes);
+                        // Height en el ítem; AlignCenter centra; Width constrains el contenido
+                        // (Width NO va en col.Item() — conflicto con expansión de columna)
+                        col.Item()
+                            .Height(qrBackSizeMm, Unit.Millimetre)
+                            .AlignCenter()
+                            .Width(qrBackSizeMm, Unit.Millimetre)
+                            .SafeImage(qrBytes);
                 }
                 col.Item().PaddingTop(3f, Unit.Millimetre).AlignCenter()
                     .Text(schoolName).FontSize(8).Bold().FontColor(ParseColor(settings.TextColor));
