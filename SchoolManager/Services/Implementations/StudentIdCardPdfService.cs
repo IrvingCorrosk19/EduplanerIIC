@@ -22,16 +22,16 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     private readonly IWebHostEnvironment _environment;
 
     /// <summary>
-    /// Dimensiones físicas exactas según orientación (estándar ISO ID-1):
-    ///   Vertical   = 53.98 × 85.60 mm  (portrait, tarjeta estudiantil)
-    ///   Horizontal = 85.60 × 53.98 mm  (landscape)
+    /// Dimensiones físicas reales del carnet según orientación (ISO 7810 ID-1):
+    ///   Vertical   = 85.60 × 53.98 mm  (WIDTH=85.60, HEIGHT=53.98 — dimensiones ID-1 reales)
+    ///   Horizontal = 53.98 × 85.60 mm  (rotación 90°)
     /// </summary>
     private static (float WidthMm, float HeightMm) GetCardDimensions(SchoolIdCardSetting settings)
     {
         var orientation = (settings?.Orientation ?? "Vertical").Trim();
         if (string.Equals(orientation, "Horizontal", StringComparison.OrdinalIgnoreCase))
-            return (CardUnitConverter.CardHeightMm, CardUnitConverter.CardWidthMm);  // 85.60 × 53.98
-        return (CardUnitConverter.CardWidthMm, CardUnitConverter.CardHeightMm);      // 53.98 × 85.60
+            return (CardUnitConverter.CardHeightMm, CardUnitConverter.CardWidthMm);  // 53.98 × 85.60
+        return (CardUnitConverter.CardWidthMm, CardUnitConverter.CardHeightMm);      // 85.60 × 53.98
     }
 
     /// <summary>Máximo de caracteres de alergias en el reverso del carnet impreso (BUG-3 fix).</summary>
@@ -211,7 +211,13 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                 row.Spacing(2f, Unit.Millimetre);
 
                             var isModern = settings.UseModernLayout;
-                            var isVertical = cardHeightMm > cardWidthMm; // 86 > 54
+                            // isVertical basado en la configuración de orientación, NO en comparación
+                            // de dimensiones — con CARD_WIDTH=85.60 > CARD_HEIGHT=53.98 la comparación
+                            // siempre devolvería false y nunca llamaría al renderer institucional.
+                            var isVertical = !string.Equals(
+                                (settings.Orientation ?? "Vertical").Trim(),
+                                "Horizontal",
+                                StringComparison.OrdinalIgnoreCase);
 
                             // ── Frente ───────────────────────────────────────────────────────
                             row.ConstantItem(cardWidthMm, Unit.Millimetre)
@@ -832,32 +838,39 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     }
 
     /// <summary>
-    /// Conversor canónico HTML px → mm físico para el carnet ID-1 (vertical).
+    /// Conversor canónico HTML px → mm físico (estándar ISO 7810 ID-1).
+    ///
+    /// Dimensiones físicas reales del carnet ID-1:
+    ///   WIDTH  = 85.60 mm  (lado largo — ancho del carnet)
+    ///   HEIGHT = 53.98 mm  (lado corto — alto del carnet)
     ///
     /// Fuente de verdad del HTML: .idcard-face { height: 334px }
-    /// Tamaño físico ID-1 portrait: 53.98 × 85.60 mm
     ///
-    /// Paso 1 — px a mm sin escala (CSS 96 dpi estándar):
+    /// Paso 1 — px a mm base (CSS 96 dpi estándar):
     ///     BasePxToMm(px) = px × (25.4 / 96)
+    ///     BasePxToMm(334) = 88.33 mm
     ///
-    /// Paso 2 — factor de escala para encajar exactamente en el lienzo físico:
-    ///     SCALE = 85.60 / BasePxToMm(334) = 85.60 / 88.33 = 0.9691
+    /// Paso 2 — SCALE se calcula SIEMPRE sobre la ALTURA física del carnet:
+    ///     SCALE = CARD_HEIGHT_MM / BasePxToMm(HTML_HEIGHT_PX)
+    ///           = 53.98 / 88.33
+    ///           = 0.6115
     ///
     /// Paso 3 — conversión final:
-    ///     PxToMm(px) = BasePxToMm(px) × SCALE = px × 85.60 / 334
+    ///     Mm(px) = BasePxToMm(px) × SCALE = px × 53.98 / 88.33
     ///
-    /// Sin este SCALE los tamaños exceden el lienzo físico y rompe el layout.
+    /// El lienzo del PDF tendrá exactamente 85.60 × 53.98 mm.
     /// </summary>
     private static class CardUnitConverter
     {
         private const float HtmlCardHeightPx = 334f;   // .idcard-face { height: 334px }
-        public  const float CardHeightMm     = 85.60f; // ID-1 portrait alto
-        public  const float CardWidthMm      = 53.98f; // ID-1 portrait ancho
+        public  const float CardWidthMm      = 85.60f; // ID-1 — lado largo (ancho)
+        public  const float CardHeightMm     = 53.98f; // ID-1 — lado corto (alto)
         private static readonly float BaseFactor = 25.4f / 96f;
+        // SCALE basado en HEIGHT (53.98mm) ← obligatorio según estándar
         public  static readonly float Scale = CardHeightMm / (HtmlCardHeightPx * BaseFactor);
-        // Scale ≈ 0.9691
+        // Scale = 53.98 / 88.33 ≈ 0.6115
 
-        /// <summary>Convierte píxeles CSS a milímetros físicos con la escala ID-1.</summary>
+        /// <summary>Convierte píxeles CSS a milímetros físicos ID-1.</summary>
         public static float Mm(float px) => px * BaseFactor * Scale;
 
         /// <summary>Escala proporcional de tamaño de fuente (CSS pt → QuestPDF pt).</summary>
