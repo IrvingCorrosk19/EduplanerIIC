@@ -369,7 +369,7 @@
                                         </div>
                                         <div class="policy-number">@Model.PolicyNumber</div>
                                     }
-                                    <div class="policy-id" title="@Model.Card!.CardNumber">ID: @Model.Card!.CardNumber</div>
+                                    @* Se omite el ID visual en la vista previa (se mantiene en PDF y trazabilidad interna). *@
                                 </div>
                                 @if (Model.ShowQr && !string.IsNullOrEmpty(Model.Card!.QrImageDataUrl))
                                 {

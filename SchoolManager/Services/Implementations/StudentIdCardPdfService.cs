@@ -573,7 +573,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         float logoH      = Mm(46f);   // max-height:46px
         float photoMm    = Mm(100f);  // width/height:100px
         float photoPadMm = Mm(6f);    // padding-top:6px
-        float qrMm       = Mm(56f);   // 58px − 2px safety; fits in bottomH−2×pad(6)=58px
+        // QR: mantener dentro del budget incluso con redondeos de layout (QuestPDF puede fallar si excede por décimas).
+        float qrMm       = Mm(54f);   // safety extra vs 56px
         float hPad       = Mm(6f);    // padding:6px (header h & bottom)
         float dataPadH   = Mm(8f);    // padding:6px 8px → horizontal 8px
         float gapPx1     = Mm(1f);    // gap:1px (data-center)
@@ -904,8 +905,9 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                        + (showEmerg   ? emNameItemH  : 0f)
                        + (showEmPhone ? emPhoneItemH : 0f)
                        + (showAllergy ? allergyItemH : 0f);
+        // No agregar altura artificial cuando el contenido ya excede el alto fijo del carnet.
         float safeSpacerBack = Math.Max(
-            CardUnitConverter.CardHeightMm - contentH - footerH, 0.5f);
+            CardUnitConverter.CardHeightMm - contentH - footerH, 0.0f);
 
         var primary = ParseColor(settings.PrimaryColor);
         var textCol = ParseColor(settings.TextColor);
