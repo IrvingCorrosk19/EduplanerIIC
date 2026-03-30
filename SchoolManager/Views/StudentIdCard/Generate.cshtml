@@ -113,8 +113,8 @@
         line-height: 1.15;
     }
 
-    /* ── FOTO: centrada y protagonista ── */
-    /* 78px = 20mm × (210px/54mm) — equivalente CSS exacto al PDF */
+    /* ── FOTO: protagonista ── */
+    /* 90px = tamaño dominante (~43% del ancho) */
     .idcard-photo-center {
         display: flex;
         justify-content: center;
@@ -122,9 +122,9 @@
     }
 
     .idcard-photo-inner {
-        width: 78px;
-        height: 78px;
-        border: 1px solid @primary;
+        width: 90px;
+        height: 90px;
+        border: 1.5px solid @primary;
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -147,38 +147,49 @@
         gap: 1px;
     }
 
-    /* ── BADGE PÓLIZA ── */
-    .idcard-policy-block {
-        margin: 4px 8px 0;
-        background: #E6EDF7;
-        border-radius: 4px;
-        padding: 3px 6px;
-        text-align: center;
-    }
-
-    /* ── FILA QR + ID ── */
-    .idcard-qr-id-row {
+    /* ── BLOQUE INFERIOR UNIFICADO: Póliza + ID + QR ── */
+    .idcard-policy-section {
         display: flex;
-        align-items: flex-end;
+        align-items: center;
         justify-content: space-between;
-        padding: 0 8px 5px;
+        background: #E6EEF7;
+        border-radius: 6px;
+        padding: 6px 7px;
+        margin: 0 5px 4px;
+    }
+
+    .idcard-policy-section .policy-text {
         flex: 1;
-        min-height: 0;
+        min-width: 0;
+        padding-right: 6px;
     }
 
-    .idcard-id-text {
-        font-size: 5.5pt;
-        font-weight: 600;
+    .idcard-policy-section .policy-label {
+        font-size: 5pt;
+        font-weight: 700;
         color: @primary;
-        line-height: 1;
-        align-self: flex-end;
+        line-height: 1.2;
     }
 
-    .idcard-qr-small {
-        width: 52px;
-        height: 52px;
-        border: 1px solid @primary;
-        background: #fff;
+    .idcard-policy-section .policy-number {
+        font-size: 5.5pt;
+        color: @text;
+        line-height: 1.2;
+        word-break: break-all;
+    }
+
+    .idcard-policy-section .policy-id {
+        font-size: 6pt;
+        font-weight: 700;
+        color: @primary;
+        margin-top: 2px;
+        line-height: 1;
+    }
+
+    .idcard-policy-section .policy-qr img {
+        width: 56px;
+        height: 56px;
+        display: block;
         flex-shrink: 0;
     }
 
@@ -186,7 +197,7 @@
     .idcard-footer-front {
         padding: 3px 8px;
         background: @primary;
-        font-size: 5.5pt;
+        font-size: 5pt;
         color: #fff;
         text-align: center;
     }
@@ -330,21 +341,24 @@
                                 }
                             </div>
 
-                            @* ZONA 4: Badge póliza *@
-                            @if (Model.ShowPolicyNumber)
-                            {
-                                <div class="idcard-policy-block idcard-z1">
-                                    <div style="font-size:5pt;font-weight:700;color:@primary">Póliza de Seguro Educativo</div>
-                                    <div style="font-size:6pt;font-weight:600;color:@text;margin-top:1px">@(Model.PolicyNumber ?? "POLIZA-PENDIENTE-CONFIGURACION")</div>
-                                </div>
-                            }
+                            @* SPACER: empuja el bloque inferior al fondo *@
+                            <div style="flex:1;min-height:0"></div>
 
-                            @* ZONA 5: ID izquierda + QR derecha (misma fila) *@
-                            <div class="idcard-qr-id-row idcard-z1">
-                                <span class="idcard-id-text">ID: @Model.Card!.CardNumber</span>
-                                @if (Model.ShowQr && !string.IsNullOrEmpty(Model.Card.QrImageDataUrl))
+                            @* ZONA 4+5: Bloque unificado — Póliza + ID + QR *@
+                            <div class="idcard-policy-section idcard-z1">
+                                <div class="policy-text">
+                                    @if (Model.ShowPolicyNumber && !string.IsNullOrWhiteSpace(Model.PolicyNumber))
+                                    {
+                                        <div class="policy-label">Póliza de Seguro Educativo</div>
+                                        <div class="policy-number">@Model.PolicyNumber</div>
+                                    }
+                                    <div class="policy-id">ID: @Model.Card!.CardNumber</div>
+                                </div>
+                                @if (Model.ShowQr && !string.IsNullOrEmpty(Model.Card!.QrImageDataUrl))
                                 {
-                                    <img class="idcard-qr-small" src="@Model.Card.QrImageDataUrl" alt="QR" />
+                                    <div class="policy-qr">
+                                        <img src="@Model.Card.QrImageDataUrl" alt="QR" />
+                                    </div>
                                 }
                             </div>
 
