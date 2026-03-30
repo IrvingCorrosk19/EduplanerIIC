@@ -557,7 +557,12 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Image(watermarkBytes);
 
             // ── Capa principal ────────────────────────────────────────────────
-            layers.PrimaryLayer().Column(col =>
+            // Width+Height explícito: sin esto Column no sabe cuánto mide →
+            // Extend() no puede calcular el espacio restante → QuestPDF pagina a hoja 2.
+            layers.PrimaryLayer()
+                .Width(54f, Unit.Millimetre)
+                .Height(86f, Unit.Millimetre)
+                .Column(col =>
             {
                 // ════════════════════════════════════════════════════════════════
                 // ZONA 1 — HEADER
@@ -768,7 +773,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Image(watermarkBytes);
 
             // ── Capa principal ────────────────────────────────────────────────
-            layers.PrimaryLayer().Column(col =>
+            // Width+Height explícito: necesario para que Extend() funcione y no se genere hoja 2.
+            layers.PrimaryLayer()
+                .Width(54f, Unit.Millimetre)
+                .Height(86f, Unit.Millimetre)
+                .Column(col =>
             {
                 // ── Header simple ─────────────────────────────────────────────
                 col.Item().Height(headerH, Unit.Millimetre)
@@ -846,16 +855,23 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         }
                     });
 
-                // ── Política del colegio ──────────────────────────────────────
+                // ── Política del colegio (max 150 chars para no desbordar 86mm) ──
                 if (!string.IsNullOrWhiteSpace(idCardPolicy))
+                {
+                    const int maxPolicyChars = 150;
+                    var policyTrimmed = idCardPolicy.Trim();
+                    var policyText = policyTrimmed.Length > maxPolicyChars
+                        ? policyTrimmed[..(maxPolicyChars - 3)] + "..."
+                        : policyTrimmed;
                     col.Item()
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
-                        .Text(idCardPolicy.Trim())
+                        .Text(policyText)
                         .FontSize(4f)
                         .FontColor(ParseColor(settings.TextColor))
                         .LineHeight(1.2f);
+                }
 
                 // ── Extend + Footer ───────────────────────────────────────────
                 col.Item().Extend();
