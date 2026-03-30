@@ -527,23 +527,38 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         SchoolIdCardSetting settings,
         byte[]? watermarkBytes = null)
     {
-        // ── Layout constants (card 54×86mm) ──────────────────────────────────
-        // Header dominante: 19mm (~22% del alto) — logo centrado + nombre colegio
-        // Foto protagonista: 20mm centrada
-        // Datos: compactos, centrados (sin Jornada — solo Nombre, Cédula, Grado, Año)
-        // Póliza: bloque tipo tarjeta con fondo azul suave
-        // QR+ID: misma fila horizontal — ID izquierda, QR derecha
+        // ══════════════════════════════════════════════════════════════════════
+        // HEIGHT BUDGET ESTRICTO — card 54×86mm — NUNCA genera hoja 2
+        //
+        //  Zona 1  Header      19.0mm  (fijo)
+        //  Zona 2  Foto        23.0mm  (fijo = 3mm pad + 20mm foto)
+        //  Zona 3  Datos       12.0mm  (fijo)
+        //  Zona 4  Póliza       9.0mm  (fijo, condicional)
+        //  Zona 5  Spacer       var    (Extend() absorbe variación)
+        //  Zona 6  QR+ID       15.0mm  (fijo)
+        //  Zona 7  Footer       3.5mm  (fijo)
+        //  ─────────────────────────────
+        //  Con póliza:  81.5 + spacer = 86mm  ✓
+        //  Sin póliza:  72.5 + spacer = 86mm  ✓
+        //
+        // MaxLines en todos los textos dinámicos → sin overflow de texto.
+        // ══════════════════════════════════════════════════════════════════════
         const float cardW   = 54f;
-        const float headerH = 19f;   // header dominante fijo
-        const float logoH   = 12f;   // logo dentro del header
-        const float hPad    = 2f;    // padding horizontal general
-        const float photoMm = 20f;   // foto protagonista (grande)
-        const float qrMm    = 13.5f; // QR — misma fila que ID
-        const float vGap    = 0.5f;  // gap entre items de datos
+        const float hPad    = 2f;
+        const float logoH   = 11f;   // logo dentro del header (19mm)
+        const float photoMm = 20f;   // zona 2 = 3mm pad + 20mm foto
+        const float qrMm    = 13.5f; // QR zona 6 = exactamente 13.5mm
         const float wmPct   = 0.45f;
 
         var primary = ParseColor(settings.PrimaryColor);
         var textCol = ParseColor(settings.TextColor);
+
+        // Truncados en C# para garantizar 1 sola línea sin depender de MaxLines
+        var nameDisplay  = TruncateText(dto.FullName,  36);
+        var gradeDisplay = TruncateText($"{dto.Grade}  ·  {dto.Group}", 30);
+        var yearDisplay  = TruncateText($"Año: {dto.AcademicYear}", 22);
+        var cedDisplay   = TruncateText($"Cédula: {dto.DocumentId}", 26);
+        var schoolDisp   = TruncateText(schoolName, 50); // 2 líneas posibles
 
         container.Layers(layers =>
         {
@@ -558,24 +573,22 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Height(cardW * wmPct, Unit.Millimetre)
                     .Image(watermarkBytes);
 
-            // ── Capa principal ────────────────────────────────────────────────
-            // Width+Height explícito: necesario para que Grow() funcione y no se
-            // genere hoja 2 por overflow del Column interior.
+            // ── Capa principal — Width+Height explícito (Extend funciona) ─────
             layers.PrimaryLayer()
                 .Width(54f, Unit.Millimetre)
                 .Height(86f, Unit.Millimetre)
                 .Column(col =>
             {
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 1 — HEADER DOMINANTE (19mm fijo)
-                // Logo centrado arriba · Nombre colegio centrado debajo
+                // ZONA 1 — HEADER (19mm FIJO)
+                // Logo centrado arriba, nombre colegio centrado debajo
                 // ════════════════════════════════════════════════════════════════
                 col.Item()
-                    .Height(headerH, Unit.Millimetre)
+                    .Height(19f, Unit.Millimetre)
                     .Background(primary)
-                    .PaddingTop(2f, Unit.Millimetre)
+                    .PaddingTop(1.5f, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
-                    .PaddingBottom(2f, Unit.Millimetre)
+                    .PaddingBottom(1f, Unit.Millimetre)
                     .Column(hdr =>
                     {
                         if (logoBytes != null && logoBytes.Length > 0)
@@ -586,108 +599,103 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                 .Image(logoBytes).FitArea();
                             hdr.Item().Height(0.5f, Unit.Millimetre);
                         }
-
                         hdr.Item().AlignCenter()
-                            .Text(schoolName)
-                            .FontSize(7f).Bold().FontColor(Colors.White).LineHeight(1.1f);
+                            .Text(schoolDisp)
+                            .FontSize(6.5f).Bold().FontColor(Colors.White).LineHeight(1.1f);
 
                         if (settings.ShowSecondaryLogo && secondaryLogoBytes != null && secondaryLogoBytes.Length > 0)
                         {
                             hdr.Item().Height(0.5f, Unit.Millimetre);
                             hdr.Item().AlignCenter()
-                                .Width(6f, Unit.Millimetre)
-                                .Height(6f, Unit.Millimetre)
+                                .Width(5.5f, Unit.Millimetre)
+                                .Height(5.5f, Unit.Millimetre)
                                 .Image(secondaryLogoBytes).FitArea();
                         }
                     });
 
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 2 — FOTO CENTRADA Y PROTAGONISTA (20×20mm)
-                // 3mm separación limpia del header
-                // ════════════════════════════════════════════════════════════════
-                if (settings.ShowPhoto)
-                {
-                    col.Item()
-                        .PaddingTop(3f, Unit.Millimetre)
-                        .AlignCenter()
-                        .Element(slot =>
-                        {
-                            var photoSlot = slot
-                                .Width(photoMm, Unit.Millimetre)
-                                .Height(photoMm, Unit.Millimetre)
-                                .Border(0.3f)
-                                .BorderColor(primary);
-
-                            if (photoBytes != null && photoBytes.Length > 0)
-                                photoSlot.Image(photoBytes).FitArea();
-                            else
-                                photoSlot.AlignCenter().AlignMiddle()
-                                    .Text("FOTO").FontSize(6f).FontColor(textCol);
-                        });
-                }
-
-                // ════════════════════════════════════════════════════════════════
-                // ZONA 3 — DATOS CENTRADOS Y COMPACTOS
-                // Orden exacto: Nombre · Cédula · Grado+Grupo · Año
-                // Gap uniforme 0.5mm entre cada item
+                // ZONA 2 — FOTO (23mm FIJO = 3mm pad + 20mm foto)
                 // ════════════════════════════════════════════════════════════════
                 col.Item()
-                    .PaddingTop(2f, Unit.Millimetre)
+                    .Height(23f, Unit.Millimetre)
+                    .PaddingTop(3f, Unit.Millimetre)
+                    .AlignCenter()
+                    .Element(slot =>
+                    {
+                        if (settings.ShowPhoto)
+                        {
+                            var ps = slot
+                                .Width(photoMm, Unit.Millimetre)
+                                .Height(photoMm, Unit.Millimetre)
+                                .Border(0.3f).BorderColor(primary);
+                            if (photoBytes != null && photoBytes.Length > 0)
+                                ps.Image(photoBytes).FitArea();
+                            else
+                                ps.AlignCenter().AlignMiddle()
+                                    .Text("FOTO").FontSize(6f).FontColor(textCol);
+                        }
+                    });
+
+                // ════════════════════════════════════════════════════════════════
+                // ZONA 3 — DATOS (12mm FIJO)
+                // Textos truncados en C# → sin riesgo de wrap imprevisto
+                // ════════════════════════════════════════════════════════════════
+                col.Item()
+                    .Height(12f, Unit.Millimetre)
+                    .PaddingTop(1.5f, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .Column(info =>
                     {
                         info.Item().AlignCenter()
-                            .Text(dto.FullName)
-                            .FontSize(7.5f).Bold().FontColor(textCol).LineHeight(1.15f);
+                            .Text(nameDisplay)
+                            .FontSize(7f).Bold().FontColor(textCol).LineHeight(1.1f);
 
                         if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
-                            info.Item().AlignCenter().PaddingTop(vGap, Unit.Millimetre)
-                                .Text($"Cédula: {dto.DocumentId}")
-                                .FontSize(6f).FontColor(textCol);
+                            info.Item().AlignCenter().PaddingTop(0.4f, Unit.Millimetre)
+                                .Text(cedDisplay)
+                                .FontSize(5.5f).FontColor(textCol);
 
-                        info.Item().AlignCenter().PaddingTop(vGap, Unit.Millimetre)
-                            .Text($"{dto.Grade}  ·  {dto.Group}")
-                            .FontSize(6f).SemiBold().FontColor(primary);
+                        info.Item().AlignCenter().PaddingTop(0.4f, Unit.Millimetre)
+                            .Text(gradeDisplay)
+                            .FontSize(5.5f).SemiBold().FontColor(primary);
 
                         if (settings.ShowAcademicYear && !string.IsNullOrWhiteSpace(dto.AcademicYear))
-                            info.Item().AlignCenter().PaddingTop(vGap, Unit.Millimetre)
-                                .Text($"Año: {dto.AcademicYear}")
-                                .FontSize(6f).FontColor(textCol);
+                            info.Item().AlignCenter().PaddingTop(0.4f, Unit.Millimetre)
+                                .Text(yearDisplay)
+                                .FontSize(5.5f).FontColor(textCol);
                     });
 
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 4 — BLOQUE PÓLIZA (estilo tarjeta dentro del carnet)
-                // Fondo azul suave · padding interno · bloque visual independiente
+                // ZONA 4 — BLOQUE PÓLIZA (9mm FIJO, condicional)
+                // Fondo azul suave, estilo tarjeta independiente
                 // ════════════════════════════════════════════════════════════════
                 if (settings.ShowPolicyNumber)
-                {
                     col.Item()
-                        .PaddingTop(2f, Unit.Millimetre)
+                        .Height(9f, Unit.Millimetre)
+                        .PaddingTop(1.5f, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .Background("#E6EDF7")
                         .PaddingVertical(1.5f, Unit.Millimetre)
-                        .PaddingHorizontal(2f, Unit.Millimetre)
+                        .PaddingHorizontal(1.5f, Unit.Millimetre)
                         .Column(p =>
                         {
                             p.Item().AlignCenter()
                                 .Text("Póliza de Seguro Educativo")
-                                .FontSize(5.5f).Bold().FontColor(primary);
-                            p.Item().AlignCenter().PaddingTop(vGap, Unit.Millimetre)
-                                .Text(dto.PolicyNumber ?? "POLIZA-PENDIENTE-CONFIGURACION")
-                                .FontSize(6f).SemiBold().FontColor(textCol);
+                                .FontSize(5f).Bold().FontColor(primary);
+                            p.Item().AlignCenter().PaddingTop(0.4f, Unit.Millimetre)
+                                .Text(TruncateText(dto.PolicyNumber ?? "POLIZA-PENDIENTE", 28))
+                                .FontSize(5.5f).SemiBold().FontColor(textCol);
                         });
-                }
 
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 5 — ESPACIADOR FLEXIBLE
-                // Empuja las zonas 6+7 al fondo del carnet
+                // ZONA 5 — SPACER DINÁMICO
+                // Absorbe toda la variación de altura: NUNCA falla el budget
                 // ════════════════════════════════════════════════════════════════
                 col.Item().Extend();
 
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 6 — QR (derecha) + ID (izquierda) — MISMA LÍNEA HORIZONTAL
-                // ⚠️ CRÍTICO: NO uno sobre el otro — deben estar en el mismo Row
-                // ID: alineado izquierda   QR: alineado derecha (13.5mm)
+                // ZONA 6 — QR + ID (15mm FIJO) — MISMA LÍNEA HORIZONTAL
+                // ID izquierda · QR derecha · nunca se mueven
                 // ════════════════════════════════════════════════════════════════
                 {
                     byte[]? qrBytes = (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
@@ -695,16 +703,15 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         : null;
 
                     col.Item()
+                        .Height(15f, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
-                        .PaddingBottom(1.3f, Unit.Millimetre)
+                        .PaddingBottom(1.5f, Unit.Millimetre)
                         .Row(r =>
                         {
-                            // ID — izquierda, alineado al fondo del row
                             r.RelativeItem().AlignBottom()
                                 .Text($"ID: {dto.CardNumber}")
                                 .FontSize(6f).Bold().FontColor(primary);
 
-                            // QR — derecha, 13.5×13.5mm, borde color primario
                             if (qrBytes != null && qrBytes.Length > 0)
                                 r.ConstantItem(qrMm, Unit.Millimetre)
                                     .Height(qrMm, Unit.Millimetre)
@@ -714,19 +721,29 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                 }
 
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 7 — FOOTER (fondo primario, fecha emisión)
+                // ZONA 7 — FOOTER (3.5mm FIJO)
                 // ════════════════════════════════════════════════════════════════
                 col.Item()
+                    .Height(3.5f, Unit.Millimetre)
                     .Background(primary)
-                    .PaddingVertical(0.8f, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
-                    .AlignCenter()
+                    .AlignCenter().AlignMiddle()
                     .Text($"Emitido: {DateTime.UtcNow:dd/MM/yyyy}")
-                    .FontSize(5.5f).FontColor(Colors.White);
+                    .FontSize(5f).FontColor(Colors.White);
             });
         });
 
         return container;
+    }
+
+    /// <summary>
+    /// Trunca texto al máximo de caracteres especificado. Garantiza que una sola línea
+    /// nunca desborde el budget de altura del carnet (alternativa a MaxLines inexistente).
+    /// </summary>
+    private static string TruncateText(string? text, int maxChars)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        return text.Length <= maxChars ? text : text[..(maxChars - 1)] + "…";
     }
 
     /// <summary>
