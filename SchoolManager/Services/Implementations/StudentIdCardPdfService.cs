@@ -161,6 +161,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
 
             // 6) Generar PDF
             QuestPDF.Settings.License = LicenseType.Community;
+            QuestPDF.Settings.EnableDebugging = false; // true para depurar conflictos de layout
 
             var pdf = Document.Create(container =>
             {
@@ -552,155 +553,136 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         // Invariante: Σ alturas siempre = CARD_HEIGHT_MM (ninguna zona es auto).
         // ══════════════════════════════════════════════════════════════════════
 
-        // ── Alias corto ──────────────────────────────────────────────────────
+        // ── Alias cortos ─────────────────────────────────────────────────────
         float Mm(float px) => CardUnitConverter.Mm(px);
         float Pt(float pt) => CardUnitConverter.Pt(pt);
 
-        // ── DIMENSIONES EXACTAS DEL HTML (valores de CSS, no estimados) ─────
-        //  Fuente: Generate.cshtml → .idcard-face { height:334px }
-        //
-        //  Header (.idcard-header):
-        //    padding: 6px 6px 5px → top=6, h=6, bottom=5
-        //    gap: 4px
-        //    logo max: 46px (.idcard-logo-center)
-        //    name: 8.5pt, line-height:1.2 → 8.5×(96/72)×1.2 = 13.6px/línea
-        //    2 líneas = 27.2px → header total = 6+46+4+27.2+5 = 88.2px
-        //    Usando 90px (+1.8px margen para evitar overflow por redondeo)
-        //
-        //  Foto (.idcard-photo-center + .idcard-photo-inner):
-        //    padding-top:6px + height:100px = 106px
-        //
-        //  Bottom (.idcard-policy-section):
-        //    min-height:70px, padding:6px 6px
-        //    QR: 58px (.policy-qr img) → cabe en 70-2×6=58px exactos
-        //    Usando 56px para QR (+2px margen)
-        //
-        //  Dato (.idcard-data-center): padding:6px 8px 0, gap:1px
-        //    name 9pt×1.15×(96/72)=13.8px, items 6.5pt×(96/72)=8.67px
+        // ── Dimensiones derivadas de CSS (exactas, sin estimaciones) ─────────
+        // Fuente: Generate.cshtml .idcard-face { height:334px }
+        //   Header:  padding 6px top, 5px bottom, 6px h; logo 46px; gap 4px; name 8.5pt×1.2
+        //   Foto:    padding-top 6px + photo 100px = 106px total
+        //   Bottom:  min-height 70px, padding 6px; QR 58px → usa 56px (−2px safety)
+        //   Data:    padding-top 6px 8px h; name 9pt×1.15; small 6.5pt; gap 1px
 
-        float headerH    = Mm(90f);   // .idcard-header  (2-line school name + logo + padding)
-        float photoZoneH = Mm(106f);  // .idcard-photo-center padding-top:6 + photo:100
-        float logoH      = Mm(46f);   // .idcard-logo-center max-height:46px
-        float photoMm    = Mm(100f);  // .idcard-photo-inner width/height:100px
-        float photoPadMm = Mm(6f);    // .idcard-photo-center padding-top:6px
-        float bottomH    = Mm(70f);   // .idcard-policy-section min-height:70px
-        float qrMm       = Mm(56f);   // .policy-qr img 58px − 2px safety → fits inside bottomH
-        float hPad       = Mm(6f);    // .idcard-header padding-h:6px / .idcard-policy padding:6px
-        float dataPadH   = Mm(8f);    // .idcard-data-center padding-h:8px
-        float gapPx1     = Mm(1f);    // .idcard-data-center gap:1px
-        float secLogoMm  = Mm(14f);   // secondary logo (~similar to gap between elements)
+        // Zona Heights (fijos — sumados determinan spacerH)
+        float headerH    = Mm(90f);   // logo(46)+gap(4)+name2lines(27.2)+pad(6+5) ≈ 88.2 → 90
+        float photoZoneH = Mm(106f);  // pad-top(6)+photo(100)
+        float bottomH    = Mm(70f);   // min-height:70px
+
+        // Elementos internos
+        float logoH      = Mm(46f);   // max-height:46px
+        float photoMm    = Mm(100f);  // width/height:100px
+        float photoPadMm = Mm(6f);    // padding-top:6px
+        float qrMm       = Mm(56f);   // 58px − 2px safety; fits in bottomH−2×pad(6)=58px
+        float hPad       = Mm(6f);    // padding:6px (header h & bottom)
+        float dataPadH   = Mm(8f);    // padding:6px 8px → horizontal 8px
+        float gapPx1     = Mm(1f);    // gap:1px (data-center)
         const float wmPct = 0.45f;
 
-        // ── Tamaños de fuente (proporcionales al SCALE ID-1) ─────────────────
-        // CSS pt y QuestPDF pt son iguales en unidad, pero escalar garantiza
-        // proporcionalidad con el HTML cuando se imprime en el tamaño físico.
-        float fontSchool   = Pt(8.5f);   // .idcard-school-name font-size:8.5pt
-        float fontName     = Pt(9f);     // data div font-size:9pt
-        float fontSmall    = Pt(6.5f);   // grade / docId / year font-size:6.5pt
-        float fontPolLabel = Pt(5.5f);   // .policy-label font-size:5.5pt
-        float fontPolNum   = Pt(5f);     // .policy-number font-size:5pt
-        float fontId       = Pt(7f);     // .policy-id font-size:7pt
+        // Fuentes (escaladas con SCALE ID-1 para fidelidad de proporciones)
+        float fontSchool   = Pt(8.5f);  // .idcard-school-name
+        float fontName     = Pt(9f);    // data nombre
+        float fontSmall    = Pt(6.5f);  // grado / cédula / año
+        float fontPolLabel = Pt(5.5f);  // .policy-label
+        float fontPolNum   = Pt(5f);    // .policy-number
+        float fontId       = Pt(7f);    // .policy-id
 
-        // ── Alturas de línea de texto (derivadas de CSS para uso en Height()) ──
-        // Fórmula: lineHeightPx = fontPt × (96/72) × CSS_line-height
-        float nameLineH   = Mm(9f  * (96f/72f) * 1.15f);  // 9pt × 1.15 = 13.80px
-        float smallLineH  = Mm(6.5f * (96f/72f) * 1.0f);  // 6.5pt × 1.0 =  8.67px
-        float schoolLineH = Mm(8.5f * (96f/72f) * 1.2f);  // 8.5pt × 1.2 = 13.60px
+        // Alturas de línea exactas = fontPt × (96/72) × lineHeight (CSS formula)
+        // Garantizan que Height(lineH) = texto renderizado sin overflow
+        float nameLineH   = Mm(9f   * (96f/72f) * 1.15f); // = 13.80px
+        float smallLineH  = Mm(6.5f * (96f/72f) * 1.00f); // =  8.67px
+        float schoolLineH = Mm(8.5f * (96f/72f) * 1.20f); // = 13.60px
+        float polLabelH   = Mm(5.5f * (96f/72f) * 1.25f); // =  9.17px
+        float polNumH     = Mm(5f   * (96f/72f) * 1.20f); // =  8.00px
+        float polIdH      = Mm(7f   * (96f/72f) * 1.00f); // =  9.33px
 
         var primary = ParseColor(settings.PrimaryColor);
         var textCol = ParseColor(settings.TextColor);
 
-        // ── Textos truncados (garantía de 1 sola línea) ──────────────────────
+        // Textos truncados en C# → garantía extra de 1 sola línea
         var nameDisplay  = TruncateText(dto.FullName, 36);
         var gradeDisplay = TruncateText($"Grado: {dto.Grade}", 30);
         var yearDisplay  = TruncateText($"Año: {dto.AcademicYear}", 22);
         var cedDisplay   = TruncateText($"Cédula: {dto.DocumentId}", 26);
-        var schoolDisp   = TruncateText(schoolName, 50);  // 2 líneas como máximo
+        var schoolDisp   = TruncateText(schoolName, 50);
 
-        // ── Visibilidad de campos opcionales ─────────────────────────────────
+        // Visibilidad de campos opcionales
         bool showDocId = settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId);
         bool showYear  = settings.ShowAcademicYear && !string.IsNullOrWhiteSpace(dto.AcademicYear);
         bool showPol   = settings.ShowPolicyNumber && !string.IsNullOrWhiteSpace(dto.PolicyNumber);
 
-        // ── Cómputo de altura de datos (Σ exacta de ítems visibles) ─────────
-        //  .idcard-data-center { padding:6px 8px 0; gap:1px }
-        float dataH = Mm(6f)      // padding-top:6px
-                    + nameLineH   // nombre (siempre)
-                    + gapPx1      // gap
-                    + (showDocId ? smallLineH + gapPx1 : 0f)  // cédula opcional
-                    + smallLineH  // grado (siempre)
-                    + (showYear ? gapPx1 + smallLineH : 0f);  // año opcional
+        // Altura zona datos = Σ exacta de ítems visibles (sin auto-sizing)
+        float dataH = Mm(6f)       // padding-top:6px
+                    + nameLineH    // nombre (siempre)
+                    + gapPx1       // gap
+                    + (showDocId ? smallLineH + gapPx1 : 0f)
+                    + smallLineH   // grado (siempre)
+                    + (showYear  ? gapPx1 + smallLineH   : 0f);
 
-        // ── Spacer explícito: Σ = exactamente CARD_HEIGHT_MM ────────────────
+        // Spacer determinístico: Σ todas las zonas = CARD_HEIGHT_MM exactamente
         float spacerH = CardUnitConverter.CardHeightMm
                       - headerH - photoZoneH - dataH - bottomH;
+        float safeSpacerH = Math.Max(spacerH, 2.0f);
 
-        // ── QR del frente ────────────────────────────────────────────────────
+        // QR del frente (generado una sola vez)
         byte[]? qrBytes = (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
             ? SafeGenerateQrPng(dto.QrToken)
             : null;
 
         container.Layers(layers =>
         {
-            // Capa 0: fondo sólido
+            // ── Capa 0: fondo ─────────────────────────────────────────────────
             layers.Layer().Background(ParseColor(settings.BackgroundColor));
 
-            // Capa 1: watermark centrado
+            // ── Capa 1: watermark (layer independiente — no genera conflictos) ─
             if (watermarkBytes != null && watermarkBytes.Length > 0)
                 layers.Layer()
                     .AlignCenter().AlignMiddle()
                     .Width(CardUnitConverter.CardWidthMm * wmPct, Unit.Millimetre)
                     .Height(CardUnitConverter.CardWidthMm * wmPct, Unit.Millimetre)
-                    .Image(watermarkBytes);
+                    .Image(watermarkBytes).FitArea();
 
-            // PrimaryLayer: dimensiones exactas ID-1 — aporta la altura conocida
-            // que necesita Extend() / Height() calculado del spacer
+            // ── PrimaryLayer: ancho+alto explícitos — fuente de la altura conocida ─
             layers.PrimaryLayer()
                 .Width(CardUnitConverter.CardWidthMm, Unit.Millimetre)
                 .Height(CardUnitConverter.CardHeightMm, Unit.Millimetre)
                 .Column(col =>
                 {
-                    // ══ ZONA 1 — HEADER  (Height fijo = 90px escalado) ════════
-                    //  .idcard-header { padding:6px 6px 5px; gap:4px }
-                    //  AlignMiddle centra logo+nombre verticalmente en el bloque
+                    // ══ ZONA 1 — HEADER  Height(headerH) ════════════════════════
+                    // FIX: AlignMiddle() sobre Column() con Height()-items causa
+                    //      "conflicting size constraints" — reemplazado por PaddingTop/Bottom
                     col.Item()
                         .Height(headerH, Unit.Millimetre)
                         .Background(primary)
+                        .PaddingTop(Mm(6f), Unit.Millimetre)     // CSS padding-top:6px
+                        .PaddingBottom(Mm(5f), Unit.Millimetre)  // CSS padding-bottom:5px
                         .PaddingHorizontal(hPad, Unit.Millimetre)
-                        .AlignMiddle()
                         .Column(hdr =>
                         {
                             if (logoBytes != null && logoBytes.Length > 0)
                             {
-                                hdr.Item().AlignCenter()
-                                    .Width(logoH, Unit.Millimetre)
+                                // Imagen centrada: Height fijo en el ítem, Width fijo en el Element interno
+                                hdr.Item()
                                     .Height(logoH, Unit.Millimetre)
-                                    .Image(logoBytes).FitArea();
-                                // gap:4px
-                                hdr.Item().Height(Mm(4f), Unit.Millimetre);
+                                    .AlignCenter()
+                                    .Element(e => e
+                                        .Width(logoH, Unit.Millimetre)
+                                        .Height(logoH, Unit.Millimetre)
+                                        .Image(logoBytes).FitArea());
+                                hdr.Item().Height(Mm(4f), Unit.Millimetre); // gap:4px
                             }
-                            // school name — altura = 2 líneas máximo (truncado a 50 chars)
+                            // Nombre — 2 líneas máx, MaxLines previene overflow
                             hdr.Item()
                                 .Height(schoolLineH * 2f, Unit.Millimetre)
                                 .AlignCenter()
-                                .AlignMiddle()
                                 .Text(schoolDisp)
+                                .ClampLines(2, "…")
                                 .FontSize(fontSchool).Bold()
                                 .FontColor(Colors.White).LineHeight(1.2f);
-
-                            if (settings.ShowSecondaryLogo && secondaryLogoBytes != null && secondaryLogoBytes.Length > 0)
-                            {
-                                hdr.Item().Height(Mm(3f), Unit.Millimetre);  // visual gap
-                                hdr.Item().AlignCenter()
-                                    .Width(secLogoMm, Unit.Millimetre)
-                                    .Height(secLogoMm, Unit.Millimetre)
-                                    .Image(secondaryLogoBytes).FitArea();
-                            }
                         });
 
-                    // ══ ZONA 2 — FOTO  (Height fijo = 106px escalado) ════════
-                    //  .idcard-photo-center { padding-top:6px }
-                    //  .idcard-photo-inner { width:100px; height:100px }
+                    // ══ ZONA 2 — FOTO  Height(photoZoneH) ══════════════════════
+                    // Height en el ítem, dimensión explícita dentro del Element
                     col.Item()
                         .Height(photoZoneH, Unit.Millimetre)
                         .PaddingTop(photoPadMm, Unit.Millimetre)
@@ -717,50 +699,48 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                     ps.Image(photoBytes).FitArea();
                                 else
                                     ps.AlignCenter().AlignMiddle()
-                                        .Text("FOTO").FontSize(fontSmall).FontColor(textCol);
+                                        .Text("FOTO")
+                                        .ClampLines(1, "")
+                                        .FontSize(fontSmall).FontColor(textCol);
                             }
                         });
 
-                    // ══ ZONA 3 — DATOS  (Height dinámico = Σ ítems visibles) ═
-                    //  .idcard-data-center { padding:6px 8px 0; gap:1px }
-                    //  Todos los ítems tienen Height() explícito para Σ = dataH
+                    // ══ ZONA 3 — DATOS  Height(dataH) ══════════════════════════
+                    // Todos los ítems internos tienen Height() explícito; Σ = dataH
                     col.Item()
                         .Height(dataH, Unit.Millimetre)
                         .PaddingHorizontal(dataPadH, Unit.Millimetre)
                         .Column(info =>
                         {
-                            // padding-top:6px como ítem separador
-                            info.Item().Height(Mm(6f), Unit.Millimetre);
+                            info.Item().Height(Mm(6f), Unit.Millimetre); // padding-top:6px
 
-                            // Nombre (font-size:9pt, line-height:1.15)
                             info.Item()
                                 .Height(nameLineH, Unit.Millimetre)
                                 .AlignCenter()
                                 .Text(nameDisplay)
+                                .ClampLines(1, "…")
                                 .FontSize(fontName).Bold().FontColor(textCol).LineHeight(1.15f);
 
-                            // gap:1px
                             info.Item().Height(gapPx1, Unit.Millimetre);
 
-                            // Cédula (condicional, font-size:6.5pt)
                             if (showDocId)
                             {
                                 info.Item()
                                     .Height(smallLineH, Unit.Millimetre)
                                     .AlignCenter()
                                     .Text(cedDisplay)
+                                    .ClampLines(1, "…")
                                     .FontSize(fontSmall).FontColor(textCol);
                                 info.Item().Height(gapPx1, Unit.Millimetre);
                             }
 
-                            // Grado (siempre, font-size:6.5pt)
                             info.Item()
                                 .Height(smallLineH, Unit.Millimetre)
                                 .AlignCenter()
                                 .Text(gradeDisplay)
+                                .ClampLines(1, "…")
                                 .FontSize(fontSmall).FontColor(textCol);
 
-                            // Año lectivo (condicional, font-size:6.5pt)
                             if (showYear)
                             {
                                 info.Item().Height(gapPx1, Unit.Millimetre);
@@ -768,18 +748,18 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                                     .Height(smallLineH, Unit.Millimetre)
                                     .AlignCenter()
                                     .Text(yearDisplay)
+                                    .ClampLines(1, "…")
                                     .FontSize(fontSmall).FontColor(textCol);
                             }
                         });
 
-                    // ══ ZONA 4 — SPACER  (Height explícito = 85.60 − Σ zonas) ═
-                    //  .idcard-spacer { flex:1; min-height:8px }
-                    //  Valor determinístico: no crece ni shrinks; Σ total = 85.60mm
-                    col.Item().Height(spacerH, Unit.Millimetre);
+                    // ══ ZONA 4 — SPACER  Height(safeSpacerH) ═══════════════════════
+                    // Determinístico: no Extend(), Math.Max(spacerH, 2.0f) — nunca negativo
+                    col.Item().Height(safeSpacerH, Unit.Millimetre);
 
-                    // ══ ZONA 5 — BOTTOM  (Height fijo = 70px escalado) ════════
-                    //  .idcard-policy-section { min-height:70px; padding:6px 6px }
-                    //  QR: .policy-qr img { width:58px; height:58px }
+                    // ══ ZONA 5 — BOTTOM  Height(bottomH) ════════════════════════
+                    // FIX: RelativeItem().AlignMiddle().Column() también causaba conflictos
+                    //      Reemplazado por Column sin AlignMiddle; QR sin wrapper AlignMiddle
                     col.Item()
                         .Height(bottomH, Unit.Millimetre)
                         .Background("#E6EEF7")
@@ -787,35 +767,33 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         .PaddingVertical(hPad, Unit.Millimetre)
                         .Row(r =>
                         {
-                            // Izquierda: Póliza (condicional) + ID  (.policy-text)
-                            r.RelativeItem().AlignMiddle().Column(left =>
+                            // Izquierda: texto en Column sin AlignMiddle
+                            r.RelativeItem().Column(left =>
                             {
                                 if (showPol)
                                 {
-                                    // .policy-label  font-size:5.5pt font-weight:700
                                     left.Item()
-                                        .Height(Mm(5.5f * (96f/72f) * 1.25f), Unit.Millimetre)
+                                        .Height(polLabelH, Unit.Millimetre)
                                         .Text("Póliza de Seguro Educativo")
+                                        .ClampLines(1, "…")
                                         .FontSize(fontPolLabel).Bold().FontColor(primary);
-                                    // .policy-number font-size:5pt
                                     left.Item()
-                                        .Height(Mm(5f * (96f/72f) * 1.2f), Unit.Millimetre)
+                                        .Height(polNumH, Unit.Millimetre)
                                         .Text(TruncateText(dto.PolicyNumber, 28))
+                                        .ClampLines(1, "…")
                                         .FontSize(fontPolNum).FontColor(textCol);
-                                    // margin-top:3px (.policy-id)
-                                    left.Item().Height(Mm(3f), Unit.Millimetre);
+                                    left.Item().Height(Mm(3f), Unit.Millimetre); // margin-top:3px
                                 }
-                                // .policy-id font-size:7pt font-weight:800
                                 left.Item()
-                                    .Height(Mm(7f * (96f/72f) * 1.0f), Unit.Millimetre)
+                                    .Height(polIdH, Unit.Millimetre)
                                     .Text(TruncateText($"ID: {dto.CardNumber}", 22))
+                                    .ClampLines(1, "…")
                                     .FontSize(fontId).Bold().FontColor(textCol);
                             });
 
-                            // Derecha: QR  (.policy-qr img width:58px height:58px)
+                            // Derecha: QR con dimensiones explícitas, sin AlignMiddle wrapper
                             if (qrBytes != null && qrBytes.Length > 0)
                                 r.ConstantItem(qrMm, Unit.Millimetre)
-                                    .AlignMiddle()
                                     .Element(qrSlot => qrSlot
                                         .Width(qrMm, Unit.Millimetre)
                                         .Height(qrMm, Unit.Millimetre)
@@ -886,12 +864,45 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         SchoolIdCardSetting settings,
         byte[]? watermarkBytes = null)
     {
-        float hPad    = CardUnitConverter.Mm(8f);   // 8px → 2.05mm
-        float vPad    = CardUnitConverter.Mm(4f);   // 4px → 1.03mm (back inner padding-top)
-        float qrMm    = CardUnitConverter.Mm(76f);  // .idcard-back-qr 76px → 19.49mm
-        float footerH = CardUnitConverter.Mm(23f);  // footer band ≈ 23px
+        float Mm(float px) => CardUnitConverter.Mm(px);
+
+        float hPad    = Mm(8f);
+        float vPad    = Mm(4f);
+        float qrMm    = Mm(76f);
+        float footerH = Mm(23f);
         float cardW   = CardUnitConverter.CardWidthMm;
         const float wmPct = 0.45f;
+
+        // ── Alturas explícitas de cada ítem (px → mm mediante Mm()) ──────────
+        // Fórmula: lineH = fontPt × (96/72) × cssLineHeight
+        float qrZoneH      = 2.6f + qrMm;                           // paddingTop + QR
+        float schoolItemH  = vPad + Mm(9f   * 96f/72f * 1.1f);      // 1 línea 9pt
+        float scanItemH    = vPad + Mm(7f   * 96f/72f * 1.2f * 2f); // 2 líneas 7pt
+        float cardNumItemH = vPad + Mm(7f   * 96f/72f * 1.0f);      // 1 línea 7pt
+        float polItemH     = vPad + Mm(6.5f * 96f/72f * 1.35f * 3f);// 3 líneas 6.5pt (opcional)
+        float phoneItemH   = vPad + Mm(7f   * 96f/72f * 1.0f);      // 1 línea 7pt (opcional)
+        float emNameItemH  = vPad + Mm(7f   * 96f/72f * 1.0f);      // 1 línea (opcional)
+        float emPhoneItemH =        Mm(7f   * 96f/72f * 1.0f);      // 1 línea sin vPad (opcional)
+        float allergyItemH = vPad + Mm(6.5f * 96f/72f * 1.0f * 2f); // 2 líneas 6.5pt (opcional)
+
+        // ── Visibilidad de campos opcionales ─────────────────────────────────
+        bool showPolicy    = !string.IsNullOrWhiteSpace(idCardPolicy);
+        bool showPhone     = settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone);
+        bool showEmerg     = settings.ShowEmergencyContact &&
+                             (!string.IsNullOrWhiteSpace(dto.EmergencyContactName) ||
+                              !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone));
+        bool showEmPhone   = showEmerg && !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone);
+        bool showAllergy   = settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies);
+
+        // ── Spacer determinístico: Σ ítems + spacer + footer = CardHeightMm ──
+        float contentH = qrZoneH + schoolItemH + scanItemH + cardNumItemH
+                       + (showPolicy  ? polItemH     : 0f)
+                       + (showPhone   ? phoneItemH   : 0f)
+                       + (showEmerg   ? emNameItemH  : 0f)
+                       + (showEmPhone ? emPhoneItemH : 0f)
+                       + (showAllergy ? allergyItemH : 0f);
+        float safeSpacerBack = Math.Max(
+            CardUnitConverter.CardHeightMm - contentH - footerH, 0.5f);
 
         var primary = ParseColor(settings.PrimaryColor);
         var textCol = ParseColor(settings.TextColor);
@@ -905,120 +916,138 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .AlignCenter().AlignMiddle()
                     .Width(cardW * wmPct, Unit.Millimetre)
                     .Height(cardW * wmPct, Unit.Millimetre)
-                    .Image(watermarkBytes);
+                    .Image(watermarkBytes).FitArea();
 
             layers.PrimaryLayer()
                 .Width(CardUnitConverter.CardWidthMm, Unit.Millimetre)
                 .Height(CardUnitConverter.CardHeightMm, Unit.Millimetre)
                 .Column(col =>
             {
-                // ── Padding superior + QR centrado (≈ 76px del preview) ──────
+                // ── QR centrado ───────────────────────────────────────────────
                 col.Item()
+                    .Height(qrZoneH, Unit.Millimetre)
                     .PaddingTop(2.6f, Unit.Millimetre)
                     .AlignCenter()
-                    .Width(qrMm, Unit.Millimetre)
-                    .Height(qrMm, Unit.Millimetre)
                     .Element(slot =>
                     {
                         if (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
                         {
                             var qrBytes = SafeGenerateQrPng(dto.QrToken);
                             if (qrBytes != null && qrBytes.Length > 0)
-                                slot.Image(qrBytes).FitArea();
+                                slot
+                                    .Width(qrMm, Unit.Millimetre)
+                                    .Height(qrMm, Unit.Millimetre)
+                                    .Image(qrBytes).FitArea();
                         }
                     });
 
-                // ── Nombre de la escuela 9pt bold ─────────────────────────────
+                // ── Nombre de la escuela ──────────────────────────────────────
                 col.Item()
+                    .Height(schoolItemH, Unit.Millimetre)
                     .PaddingTop(vPad, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignCenter()
                     .Text(TruncateText(schoolName, 50))
+                    .ClampLines(1, "…")
                     .FontSize(9f).Bold().FontColor(textCol).LineHeight(1.1f);
 
-                // ── Instrucción de escaneo ─────────────────────────────────────
+                // ── Instrucción de escaneo ────────────────────────────────────
                 col.Item()
+                    .Height(scanItemH, Unit.Millimetre)
                     .PaddingTop(vPad, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignCenter()
                     .Text("Escanea el código QR para verificar la información del carnet")
+                    .ClampLines(2, "…")
                     .FontSize(7f).FontColor(textCol).LineHeight(1.2f);
 
-                // ── Número de carnet ───────────────────────────────────────────
+                // ── Número de carnet ──────────────────────────────────────────
                 col.Item()
+                    .Height(cardNumItemH, Unit.Millimetre)
                     .PaddingTop(vPad, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignCenter()
-                    .Text($"Carnet: {dto.CardNumber}")
+                    .Text(TruncateText($"Carnet: {dto.CardNumber}", 30))
+                    .ClampLines(1, "…")
                     .FontSize(7f).SemiBold().FontColor(textCol);
 
-                // ── Política del colegio (6.5pt, max 150 chars) ───────────────
-                if (!string.IsNullOrWhiteSpace(idCardPolicy))
+                // ── Política del colegio ──────────────────────────────────────
+                if (showPolicy)
                 {
-                    const int maxPolicyChars = 150;
-                    var policyTrimmed = idCardPolicy.Trim();
+                    const int maxPolicyChars = 120;
+                    var policyTrimmed = idCardPolicy!.Trim();
                     var policyText = policyTrimmed.Length > maxPolicyChars
-                        ? policyTrimmed[..(maxPolicyChars - 3)] + "..."
+                        ? policyTrimmed[..(maxPolicyChars - 1)] + "…"
                         : policyTrimmed;
                     col.Item()
+                        .Height(polItemH, Unit.Millimetre)
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
                         .Text(policyText)
+                        .ClampLines(3, "…")
                         .FontSize(6.5f).FontColor(textCol).LineHeight(1.35f);
                 }
 
-                // ── Teléfono del colegio ───────────────────────────────────────
-                if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(schoolPhone))
+                // ── Teléfono del colegio ──────────────────────────────────────
+                if (showPhone)
                     col.Item()
+                        .Height(phoneItemH, Unit.Millimetre)
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
-                        .Text($"Tel. colegio: {schoolPhone}")
+                        .Text(TruncateText($"Tel. colegio: {schoolPhone}", 35))
+                        .ClampLines(1, "…")
                         .FontSize(7f).FontColor(textCol);
 
-                // ── Contacto de emergencia ─────────────────────────────────────
-                if (settings.ShowEmergencyContact &&
-                    (!string.IsNullOrWhiteSpace(dto.EmergencyContactName) ||
-                     !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone)))
+                // ── Contacto de emergencia ────────────────────────────────────
+                if (showEmerg)
                 {
                     col.Item()
+                        .Height(emNameItemH, Unit.Millimetre)
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
-                        .Text($"Contacto emergencia: {dto.EmergencyContactName ?? "—"}")
+                        .Text(TruncateText($"Emergencia: {dto.EmergencyContactName ?? "—"}", 35))
+                        .ClampLines(1, "…")
                         .FontSize(7f).FontColor(textCol);
-                    if (!string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
+                    if (showEmPhone)
                         col.Item()
+                            .Height(emPhoneItemH, Unit.Millimetre)
                             .PaddingHorizontal(hPad, Unit.Millimetre)
                             .AlignCenter()
-                            .Text($"Tel: {dto.EmergencyContactPhone}")
+                            .Text(TruncateText($"Tel: {dto.EmergencyContactPhone}", 30))
+                            .ClampLines(1, "…")
                             .FontSize(7f).FontColor(textCol);
                 }
 
-                // ── Alergias ───────────────────────────────────────────────────
-                if (settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
+                // ── Alergias ──────────────────────────────────────────────────
+                if (showAllergy)
                 {
-                    var txt = dto.Allergies.Length > MaxAllergiesCharsOnCard
-                        ? dto.Allergies[..(MaxAllergiesCharsOnCard - 3)] + "..."
-                        : dto.Allergies;
+                    var txt = dto.Allergies!.Length > MaxAllergiesCharsOnCard
+                        ? dto.Allergies![..(MaxAllergiesCharsOnCard - 1)] + "…"
+                        : dto.Allergies!;
                     col.Item()
+                        .Height(allergyItemH, Unit.Millimetre)
                         .PaddingTop(vPad, Unit.Millimetre)
                         .PaddingHorizontal(hPad, Unit.Millimetre)
                         .AlignCenter()
                         .Text($"Alergias: {txt}")
+                        .ClampLines(2, "…")
                         .FontSize(6.5f).FontColor(textCol);
                 }
 
-                // ── Spacer ─────────────────────────────────────────────────────
-                col.Item().Extend();
+                // ── Spacer determinístico ─────────────────────────────────────
+                col.Item().Height(safeSpacerBack, Unit.Millimetre);
 
-                // ── Footer ─────────────────────────────────────────────────────
-                col.Item().Height(footerH, Unit.Millimetre)
+                // ── Footer ────────────────────────────────────────────────────
+                col.Item()
+                    .Height(footerH, Unit.Millimetre)
                     .Background(primary)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .AlignMiddle().AlignCenter()
                     .Text("Documento de identificación estudiantil")
+                    .ClampLines(1, "…")
                     .FontSize(4.5f).FontColor(Colors.White);
             });
         });
