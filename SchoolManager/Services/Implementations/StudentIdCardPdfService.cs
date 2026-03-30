@@ -543,11 +543,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         //
         //  Zona 1  Header      22.0mm  (fijo — logo 11mm + nombre 8.5pt)
         //  Zona 2  Foto        27.0mm  (fijo = 3mm pad + 24mm foto ≈100px)
-        //  Zona 3  Datos       12.0mm  (fijo)
-        //  Zona 4  Spacer       var    (Extend() absorbe variación ≈7mm)
-        //  Zona 5  Bloque inf  18.0mm  (fijo — policy+ID izq, QR der, #E6EEF7)
+        //  Zona 3  Datos       14.0mm  (fijo — 9pt nombre + 6.5pt × 3 ítems)
+        //  Zona 4  Spacer       var    (Extend() absorbe variación ≈5mm)
+        //  Zona 5  Bloque inf  18.0mm  (fijo — policy+ID izq, QR 13mm der)
         //  ─────────────────────────────
-        //  Total fijo: 79mm + spacer 7mm = 86mm ✓
+        //  Total fijo: 81mm + spacer 5mm = 86mm ✓
         //
         // MaxLines en todos los textos dinámicos → sin overflow de texto.
         // ══════════════════════════════════════════════════════════════════════
@@ -555,7 +555,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         const float hPad       = 2f;
         const float logoH      = 11f;   // logo dentro del header (22mm)
         const float photoMm    = 24f;   // zona 2 = 3mm pad + 24mm foto (≈100px preview)
-        const float qrBlockMm  = 15f;   // QR en bloque inferior (≈58px preview = 14.9mm)
+        const float qrBlockMm  = 13f;   // QR en bloque inferior — 13mm < 14mm disponibles (18mm - 2×2mm padding)
         const float wmPct      = 0.45f;
 
         var primary = ParseColor(settings.PrimaryColor);
@@ -647,11 +647,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     });
 
                 // ════════════════════════════════════════════════════════════════
-                // ZONA 3 — DATOS (12mm FIJO)
+                // ZONA 3 — DATOS (14mm FIJO — 9pt nombre + 6.5pt × 3 ítems)
                 // Textos truncados en C# → sin riesgo de wrap imprevisto
                 // ════════════════════════════════════════════════════════════════
                 col.Item()
-                    .Height(12f, Unit.Millimetre)
+                    .Height(14f, Unit.Millimetre)
                     .PaddingTop(1.5f, Unit.Millimetre)
                     .PaddingHorizontal(hPad, Unit.Millimetre)
                     .Column(info =>
