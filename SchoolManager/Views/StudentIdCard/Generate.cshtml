@@ -185,13 +185,19 @@
         color: @text;
         margin-top: 3px;
         line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .idcard-policy-section .policy-qr {
+        flex-shrink: 0;
     }
 
     .idcard-policy-section .policy-qr img {
         width: 62px;
         height: 62px;
         display: block;
-        flex-shrink: 0;
     }
 
     /* ── FOOTER: oculto en preview (aparece en PDF) ── */
@@ -351,7 +357,7 @@
                                         </div>
                                         <div class="policy-number">@Model.PolicyNumber</div>
                                     }
-                                    <div class="policy-id">ID: @Model.Card!.CardNumber</div>
+                                    <div class="policy-id" title="@Model.Card!.CardNumber">ID: @Model.Card!.CardNumber</div>
                                 </div>
                                 @if (Model.ShowQr && !string.IsNullOrEmpty(Model.Card!.QrImageDataUrl))
                                 {
