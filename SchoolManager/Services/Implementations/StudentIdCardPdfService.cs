@@ -200,11 +200,10 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     {
                         page.Size(pageWidthMm, cardHeightMm, Unit.Millimetre);
                         page.Margin(0);
-                        // Dimensiones explícitas + ShowEntire: QuestPDF trata todo como una sola unidad visual
+                        // Página dimensionada exactamente al carnet: no hay riesgo de página 2
                         page.Content()
                             .Width(pageWidthMm, Unit.Millimetre)
                             .Height(cardHeightMm, Unit.Millimetre)
-                            .ShowEntire()
                             .Row(row =>
                         {
                             if (settings.ShowQr)
@@ -216,7 +215,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             // ── Frente ───────────────────────────────────────────────────────
                             row.ConstantItem(cardWidthMm, Unit.Millimetre)
                                 .Height(cardHeightMm, Unit.Millimetre)
-                                .ShowEntire()
                                 .Border(0.2f).BorderColor(Colors.Grey.Medium)
                                 .Element(c =>
                                 {
@@ -241,7 +239,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             if (settings.ShowQr)
                                 row.ConstantItem(cardWidthMm, Unit.Millimetre)
                                     .Height(cardHeightMm, Unit.Millimetre)
-                                    .ShowEntire()
                                     .Border(0.2f).BorderColor(Colors.Grey.Medium)
                                     .Element(c =>
                                     {
@@ -568,8 +565,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         var cedDisplay   = TruncateText($"Cédula: {dto.DocumentId}", 26);
         var schoolDisp   = TruncateText(schoolName, 50); // 2 líneas posibles
 
-        // ShowEntire: QuestPDF trata el carnet como una sola unidad — nunca lo parte
-        container.ShowEntire().Layers(layers =>
+        container.Layers(layers =>
         {
             // ── Capa 0: fondo sólido ──────────────────────────────────────────
             layers.Layer().Background(ParseColor(settings.BackgroundColor));
@@ -582,11 +578,10 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Height(cardW * wmPct, Unit.Millimetre)
                     .Image(watermarkBytes);
 
-            // ── Capa principal — Width+Height+ShowEntire → budget estricto ────
+            // ── Capa principal — Width+Height explícito: Extend() funciona sin ShowEntire ──
             layers.PrimaryLayer()
                 .Width(54f, Unit.Millimetre)
                 .Height(86f, Unit.Millimetre)
-                .ShowEntire()
                 .Column(col =>
             {
                 // ════════════════════════════════════════════════════════════════
@@ -758,8 +753,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         var primary = ParseColor(settings.PrimaryColor);
         var textCol = ParseColor(settings.TextColor);
 
-        // ShowEntire: el reverso es una sola unidad — nunca se parte
-        container.ShowEntire().Layers(layers =>
+        container.Layers(layers =>
         {
             layers.Layer().Background(ParseColor(settings.BackgroundColor));
 
@@ -773,7 +767,6 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             layers.PrimaryLayer()
                 .Width(54f, Unit.Millimetre)
                 .Height(86f, Unit.Millimetre)
-                .ShowEntire()
                 .Column(col =>
             {
                 // ── Padding superior + QR centrado (≈ 76px del preview) ──────
