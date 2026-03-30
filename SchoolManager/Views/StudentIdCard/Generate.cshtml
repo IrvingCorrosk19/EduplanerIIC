@@ -86,44 +86,45 @@
 
     .idcard-z1 { position: relative; z-index: 1; }
 
-    /* ── HEADER: columna centrada — más compacto para dar protagonismo a la foto ── */
+    /* ── HEADER: dominante — logo grande + nombre colegio prominente ── */
     .idcard-header {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 5px 8px 4px;
+        padding: 8px 8px 7px;
         background: @primary;
-        gap: 2px;
+        gap: 4px;
     }
 
     .idcard-logo-center {
-        max-width: 30px;
-        max-height: 30px;
+        max-width: 54px;
+        max-height: 54px;
         width: auto;
         height: auto;
         object-fit: contain;
     }
 
     .idcard-school-name {
-        font-size: 6pt;
-        font-weight: 700;
+        font-size: 8.5pt;
+        font-weight: 800;
         color: #fff;
         text-align: center;
-        line-height: 1.15;
+        line-height: 1.2;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
     }
 
-    /* ── FOTO: protagonista ── */
-    /* 90px = tamaño dominante (~43% del ancho) */
+    /* ── FOTO: protagonista absoluta ── */
     .idcard-photo-center {
         display: flex;
         justify-content: center;
-        padding-top: 6px;
+        padding-top: 8px;
     }
 
     .idcard-photo-inner {
-        width: 90px;
-        height: 90px;
+        width: 110px;
+        height: 110px;
         border: 1.5px solid @primary;
         overflow: hidden;
         display: flex;
@@ -133,29 +134,30 @@
         font-size: 6pt;
         font-weight: 600;
         color: @text;
+        border-radius: 3px;
     }
 
     .idcard-photo-inner img { width: 100%; height: 100%; object-fit: cover; }
 
-    /* ── DATOS: centrados, compactos ── */
+    /* ── DATOS: centrados, mayor jerarquía tipográfica ── */
     .idcard-data-center {
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        padding: 4px 8px 0;
-        gap: 1px;
+        padding: 6px 8px 0;
+        gap: 2px;
     }
 
-    /* ── BLOQUE INFERIOR UNIFICADO: Póliza + ID + QR ── */
+    /* ── BLOQUE INFERIOR UNIFICADO: Póliza + ID + QR (flush con los bordes) ── */
     .idcard-policy-section {
         display: flex;
         align-items: center;
         justify-content: space-between;
         background: #E6EEF7;
-        border-radius: 6px;
-        padding: 6px 7px;
-        margin: 0 5px 4px;
+        padding: 7px 8px;
+        margin: 0;
+        border-radius: 0 0 8px 8px;
     }
 
     .idcard-policy-section .policy-text {
@@ -165,41 +167,36 @@
     }
 
     .idcard-policy-section .policy-label {
-        font-size: 5pt;
+        font-size: 5.5pt;
         font-weight: 700;
         color: @primary;
-        line-height: 1.2;
+        line-height: 1.25;
     }
 
     .idcard-policy-section .policy-number {
-        font-size: 5.5pt;
+        font-size: 5pt;
         color: @text;
         line-height: 1.2;
-        word-break: break-all;
     }
 
     .idcard-policy-section .policy-id {
-        font-size: 6pt;
-        font-weight: 700;
-        color: @primary;
-        margin-top: 2px;
+        font-size: 7pt;
+        font-weight: 800;
+        color: @text;
+        margin-top: 3px;
         line-height: 1;
     }
 
     .idcard-policy-section .policy-qr img {
-        width: 56px;
-        height: 56px;
+        width: 62px;
+        height: 62px;
         display: block;
         flex-shrink: 0;
     }
 
-    /* ── FOOTER ── */
+    /* ── FOOTER: oculto en preview (aparece en PDF) ── */
     .idcard-footer-front {
-        padding: 3px 8px;
-        background: @primary;
-        font-size: 5pt;
-        color: #fff;
-        text-align: center;
+        display: none;
     }
 
     /* ── REVERSO (sin cambios) ── */
@@ -327,29 +324,31 @@
                                 </div>
                             }
 
-                            @* ZONA 3: Datos centrados y compactos (sin Jornada — igual que PDF) *@
+                            @* ZONA 3: Datos centrados — jerarquía tipográfica clara *@
                             <div class="idcard-data-center idcard-z1">
-                                <div style="font-size:7pt;font-weight:700;color:@text;line-height:1.1">@Model.Card!.FullName</div>
+                                <div style="font-size:9pt;font-weight:700;color:@text;line-height:1.15">@Model.Card!.FullName</div>
                                 @if (Model.ShowDocumentId && !string.IsNullOrWhiteSpace(Model.DocumentId))
                                 {
-                                    <div style="font-size:5.5pt;color:@text">Cédula: @Model.DocumentId</div>
+                                    <div style="font-size:6.5pt;color:@text">Cédula: @Model.DocumentId</div>
                                 }
-                                <div style="font-size:5.5pt;font-weight:600;color:@primary">@Model.Card.Grade &nbsp;·&nbsp; @Model.Card.Group</div>
+                                <div style="font-size:6.5pt;color:@text">Grado: @Model.Card.Grade</div>
                                 @if (Model.ShowAcademicYear && !string.IsNullOrWhiteSpace(Model.AcademicYear))
                                 {
-                                    <div style="font-size:5.5pt;color:@text">Año: @Model.AcademicYear</div>
+                                    <div style="font-size:6.5pt;color:@text">Año: @Model.AcademicYear</div>
                                 }
                             </div>
 
                             @* SPACER: empuja el bloque inferior al fondo *@
                             <div style="flex:1;min-height:0"></div>
 
-                            @* ZONA 4+5: Bloque unificado — Póliza + ID + QR *@
+                            @* ZONA 4+5: Bloque unificado — Póliza + ID + QR (flush con bordes) *@
                             <div class="idcard-policy-section idcard-z1">
                                 <div class="policy-text">
                                     @if (Model.ShowPolicyNumber && !string.IsNullOrWhiteSpace(Model.PolicyNumber))
                                     {
-                                        <div class="policy-label">Póliza de Seguro Educativo</div>
+                                        <div class="policy-label">
+                                            <i class="fas fa-shield-alt me-1" style="font-size:5pt"></i>Póliza de Seguro Educativo
+                                        </div>
                                         <div class="policy-number">@Model.PolicyNumber</div>
                                     }
                                     <div class="policy-id">ID: @Model.Card!.CardNumber</div>
