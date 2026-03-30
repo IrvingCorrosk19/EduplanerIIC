@@ -622,7 +622,10 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         // Spacer determinístico: Σ todas las zonas = CARD_HEIGHT_MM exactamente
         float spacerH = CardUnitConverter.CardHeightMm
                       - headerH - photoZoneH - dataH - bottomH;
-        float safeSpacerH = Math.Max(spacerH, 2.0f);
+        // Si spacerH resulta negativo por desajuste numérico o por flags visibles adicionales,
+        // no debemos "inventar" espacio (agregar 2.0mm) porque eso hace que Σ alturas exceda
+        // la altura fija del carnet y QuestPDF intente reacomodar sin poder.
+        float safeSpacerH = Math.Max(spacerH, 0.0f);
 
         // QR del frente (generado una sola vez)
         byte[]? qrBytes = (settings.ShowQr && !string.IsNullOrWhiteSpace(dto.QrToken))
@@ -754,7 +757,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                         });
 
                     // ══ ZONA 4 — SPACER  Height(safeSpacerH) ═══════════════════════
-                    // Determinístico: no Extend(), Math.Max(spacerH, 2.0f) — nunca negativo
+                    // Determinístico: no Extend(), Math.Max(spacerH, 0) — nunca negativo
                     col.Item().Height(safeSpacerH, Unit.Millimetre);
 
                     // ══ ZONA 5 — BOTTOM  Height(bottomH) ════════════════════════
