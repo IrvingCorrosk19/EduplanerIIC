@@ -200,7 +200,12 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     {
                         page.Size(pageWidthMm, cardHeightMm, Unit.Millimetre);
                         page.Margin(0);
-                        page.Content().Row(row =>
+                        // Dimensiones explícitas + ShowEntire: QuestPDF trata todo como una sola unidad visual
+                        page.Content()
+                            .Width(pageWidthMm, Unit.Millimetre)
+                            .Height(cardHeightMm, Unit.Millimetre)
+                            .ShowEntire()
+                            .Row(row =>
                         {
                             if (settings.ShowQr)
                                 row.Spacing(2f, Unit.Millimetre);
@@ -211,6 +216,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             // ── Frente ───────────────────────────────────────────────────────
                             row.ConstantItem(cardWidthMm, Unit.Millimetre)
                                 .Height(cardHeightMm, Unit.Millimetre)
+                                .ShowEntire()
                                 .Border(0.2f).BorderColor(Colors.Grey.Medium)
                                 .Element(c =>
                                 {
@@ -235,6 +241,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                             if (settings.ShowQr)
                                 row.ConstantItem(cardWidthMm, Unit.Millimetre)
                                     .Height(cardHeightMm, Unit.Millimetre)
+                                    .ShowEntire()
                                     .Border(0.2f).BorderColor(Colors.Grey.Medium)
                                     .Element(c =>
                                     {
@@ -561,7 +568,8 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         var cedDisplay   = TruncateText($"Cédula: {dto.DocumentId}", 26);
         var schoolDisp   = TruncateText(schoolName, 50); // 2 líneas posibles
 
-        container.Layers(layers =>
+        // ShowEntire: QuestPDF trata el carnet como una sola unidad — nunca lo parte
+        container.ShowEntire().Layers(layers =>
         {
             // ── Capa 0: fondo sólido ──────────────────────────────────────────
             layers.Layer().Background(ParseColor(settings.BackgroundColor));
@@ -574,10 +582,11 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
                     .Height(cardW * wmPct, Unit.Millimetre)
                     .Image(watermarkBytes);
 
-            // ── Capa principal — Width+Height explícito (Extend funciona) ─────
+            // ── Capa principal — Width+Height+ShowEntire → budget estricto ────
             layers.PrimaryLayer()
                 .Width(54f, Unit.Millimetre)
                 .Height(86f, Unit.Millimetre)
+                .ShowEntire()
                 .Column(col =>
             {
                 // ════════════════════════════════════════════════════════════════
