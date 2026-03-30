@@ -119,7 +119,8 @@
     .idcard-photo-center {
         display: flex;
         justify-content: center;
-        padding-top: 8px;
+        padding-top: 6px;
+        flex-shrink: 0;
     }
 
     .idcard-photo-inner {
@@ -147,6 +148,13 @@
         text-align: center;
         padding: 6px 8px 0;
         gap: 2px;
+        flex-shrink: 0;
+    }
+
+    /* ── SPACER: empuja bloque inferior al fondo ── */
+    .idcard-spacer {
+        flex: 1;
+        min-height: 4px;
     }
 
     /* ── BLOQUE INFERIOR UNIFICADO: Póliza + ID + QR (flush con los bordes) ── */
@@ -158,6 +166,7 @@
         padding: 7px 8px;
         margin: 0;
         border-radius: 0 0 8px 8px;
+        flex-shrink: 0;
     }
 
     .idcard-policy-section .policy-text {
@@ -345,7 +354,7 @@
                             </div>
 
                             @* SPACER: empuja el bloque inferior al fondo *@
-                            <div style="flex:1;min-height:0"></div>
+                            <div class="idcard-spacer"></div>
 
                             @* ZONA 4+5: Bloque unificado — Póliza + ID + QR (flush con bordes) *@
                             <div class="idcard-policy-section idcard-z1">
