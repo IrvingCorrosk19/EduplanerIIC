@@ -121,21 +121,25 @@ namespace SchoolManager.Services.Implementations
             {
                 _logger.LogInformation("Obteniendo asignaciones de consejeros para escuela: {SchoolId}", schoolId);
                 
+                // Lista completa de registros en counselor_assignments para la escuela (activas e inactivas).
+                // No usar navegación School con Include: School tiene HasQueryFilter(IsActive) y en algunos
+                // escenarios EF puede traducir el join de forma que excluya filas dependientes.
                 var assignments = await _context.CounselorAssignments
-                    .Include(ca => ca.School)
-                    .Include(ca => ca.User)
-                    .Include(ca => ca.GradeLevel)
-                    .Include(ca => ca.Group)
+                    .AsNoTracking()
                     .Where(ca => ca.SchoolId == schoolId)
+                    .OrderByDescending(ca => ca.CreatedAt)
                     .Select(ca => new CounselorAssignmentDto
                     {
                         Id = ca.Id,
                         SchoolId = ca.SchoolId,
-                        SchoolName = ca.School != null ? ca.School.Name : "N/A",
+                        SchoolName = _context.Schools.IgnoreQueryFilters()
+                            .Where(s => s.Id == ca.SchoolId)
+                            .Select(s => s.Name)
+                            .FirstOrDefault() ?? "N/A",
                         UserId = ca.UserId,
                         UserName = ca.User.Name,
                         UserLastName = ca.User.LastName,
-                        UserFullName = $"{ca.User.Name} {ca.User.LastName}",
+                        UserFullName = ca.User.Name + " " + ca.User.LastName,
                         UserEmail = ca.User.Email,
                         GradeId = ca.GradeId,
                         GradeName = ca.GradeLevel != null ? ca.GradeLevel.Name : null,
