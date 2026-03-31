@@ -179,7 +179,7 @@ builder.Services.AddScoped<IOrientationReportService, OrientationReportService>(
 builder.Services.AddScoped<ISecuritySettingService, SecuritySettingService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
-builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
+builder.Services.AddAutoMapper(_ => { }, typeof(AutoMapperProfile).Assembly);
 builder.Services.AddScoped<IStudentReportService, StudentReportService>();
 builder.Services.AddScoped<IGradeLevelService, GradeLevelService>();
 builder.Services.AddScoped<IAcademicAssignmentService, AcademicAssignmentService>();
@@ -207,6 +207,8 @@ builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IScheduleConfigurationService, ScheduleConfigurationService>();
 builder.Services.Configure<SchoolManager.Services.Security.QrSecurityOptions>(
     builder.Configuration.GetSection(SchoolManager.Services.Security.QrSecurityOptions.SectionName));
+builder.Services.Configure<StudentIdCardPdfPrintOptions>(
+    builder.Configuration.GetSection(StudentIdCardPdfPrintOptions.SectionName));
 builder.Services.AddSingleton<SchoolManager.Services.Security.IQrSignatureService, SchoolManager.Services.Security.QrSignatureService>();
 
 // SEG-2: Rate limiting para el endpoint público de escaneo QR.
