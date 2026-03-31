@@ -114,23 +114,12 @@ if (args.Length > 0 && args[0] == "--apply-render-student-payment-access")
     return;
 }
 
-// Homologar BD LOCAL con Render. Usa la misma conexión que CompareDbSchemas (localhost/schoolmanagement).
+// Homologar BD LOCAL con Render. Solo para desarrollo local.
 if (args.Length > 0 && args[0] == "--homologate-local")
 {
-    var connStr = SchoolManager.Scripts.CompareDbSchemas.LocalConnectionString;
-    Console.WriteLine("═══════════════════════════════════════════════════");
-    Console.WriteLine("   HOMOLOGANDO BD LOCAL (localhost/schoolmanagement)");
-    Console.WriteLine("═══════════════════════════════════════════════════\n");
-    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
-    using var ctx = new SchoolDbContext(opts);
-    Console.WriteLine("0/7 Aplicando schools.is_active..."); await SchoolManager.Scripts.ApplySchoolIsActive.RunAsync(ctx);
-    Console.WriteLine("1/7 Aplicando tabla shifts..."); await SchoolManager.Scripts.ApplyShiftsTable.ApplyAsync(ctx);
-    Console.WriteLine("2/7 Aplicando columnas groups (shift_id)..."); await SchoolManager.Scripts.ApplyGroupsColumns.ApplyAsync(ctx);
-    Console.WriteLine("3/7 Asegurando time_slots y schedule_entries..."); await SchoolManager.Scripts.EnsureScheduleTables.EnsureAsync(ctx);
-    Console.WriteLine("4/7 Asegurando school_schedule_configurations..."); await SchoolManager.Scripts.EnsureSchoolScheduleConfigurationTable.EnsureAsync(ctx);
-    Console.WriteLine("5/7 Aplicando teacher_work_plans..."); await SchoolManager.Scripts.ApplyTeacherWorkPlanTables.RunAsync(ctx);
-    Console.WriteLine("6/7 Aplicando director work plan governance..."); await SchoolManager.Scripts.ApplyDirectorWorkPlanGovernance.RunAsync(ctx);
-    Console.WriteLine("\n✅ Homologación local completada.");
+    Console.WriteLine("═════════════════════════════════════════════════");
+    Console.WriteLine("   COMANDO --homologate-local DESACTIVADO");
+    Console.WriteLine("═════════════════════════════════════════════════\n");
     return;
 }
 
@@ -384,18 +373,16 @@ if (args.Length > 0)
     }
     else if (args[0] == "--sync-ef-migrations-both")
     {
-        Console.WriteLine("Sincronizando __EFMigrationsHistory en LOCAL y RENDER...\n");
-        await SchoolManager.Scripts.SyncEfMigrationsHistory.RunAsync(SchoolManager.Scripts.CompareDbSchemas.LocalConnectionString, "LOCAL");
-        Console.WriteLine();
-        await SchoolManager.Scripts.SyncEfMigrationsHistory.RunAsync(
-            "Host=dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com;Database=schoolmanagement_xqks;Username=admin;Password=2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk;Port=5432;SSL Mode=Require;Trust Server Certificate=true",
-            "RENDER");
-        Console.WriteLine("\n✅ Ambas bases actualizadas. Comprueba con: dotnet ef migrations list");
+        Console.WriteLine("═══════════════════════════════════════════════");
+        Console.WriteLine("   COMANDO --sync-ef-migrations-both DESACTIVADO");
+        Console.WriteLine("═══════════════════════════════════════════════\n");
         return;
     }
     else if (args[0] == "--list-local-tables")
     {
-        await SchoolManager.Scripts.CompareDbSchemas.ListLocalTablesAsync();
+        Console.WriteLine("═══════════════════════════════════════════════");
+        Console.WriteLine("   COMANDO --list-local-tables DESACTIVADO");
+        Console.WriteLine("═════════════════════════════════════════════════\n");
         return;
     }
     else if (args[0] == "--add-render-indexes")
