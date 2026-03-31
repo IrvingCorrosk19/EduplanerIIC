@@ -145,8 +145,8 @@ public class StudentIdCardController : Controller
 
         try
         {
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
-            var pdf     = await _htmlCapture.GeneratePdfFromHtmlAsync(studentId, baseUrl, Request.Cookies);
+            var url = $"{Request.Scheme}://{Request.Host}/StudentIdCard/ui/generate/{studentId}";
+            var pdf = await _htmlCapture.GenerateFromUrl(url);
             return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
         }
         catch (Exception ex)
