@@ -2173,6 +2173,14 @@ public partial class SchoolDbContext : DbContext
                 .HasDefaultValue("active")
                 .HasColumnName("status");
 
+            entity.Property(e => e.IsPrinted)
+                .HasDefaultValue(false)
+                .HasColumnName("is_printed");
+
+            entity.Property(e => e.PrintedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("printed_at");
+
             entity.HasOne(d => d.Student)
                 .WithMany()
                 .HasForeignKey(d => d.StudentId)

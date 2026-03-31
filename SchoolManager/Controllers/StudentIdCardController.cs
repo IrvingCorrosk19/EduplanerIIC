@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.IO;
 using SchoolManager.Dtos;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
@@ -14,6 +16,8 @@ namespace SchoolManager.Controllers;
 [Route("StudentIdCard")]
 public class StudentIdCardController : Controller
 {
+    private const int BulkPrintMaxStudents = 30;
+
     private readonly IStudentIdCardService _service;
     private readonly IStudentIdCardPdfService _pdfService;
     private readonly IStudentIdCardHtmlCaptureService _htmlCapture;
@@ -149,6 +153,7 @@ public class StudentIdCardController : Controller
             try
             {
                 var pdf = await _htmlCapture.GenerateFromUrl(url);
+                await MarkCardAsPrintedAsync(studentId);
                 return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
             }
             catch (Exception htmlEx)
@@ -158,6 +163,7 @@ public class StudentIdCardController : Controller
                     "[StudentIdCard] PDF vía HTML/Chromium falló; usando generación nativa. StudentId={StudentId}",
                     studentId);
                 var pdf = await _pdfService.GenerateCardPdfAsync(studentId, userId);
+                await MarkCardAsPrintedAsync(studentId);
                 return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
             }
         }
@@ -203,6 +209,109 @@ public class StudentIdCardController : Controller
         }
     }
 
+    [HttpPost("api/print-bulk")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PrintBulk([FromBody] BulkPrintRequestDto request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized("Usuario no autenticado.");
+
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        var baseQuery = BuildEligibleStudentQuery(currentUser);
+
+        var gradeFilter = string.IsNullOrWhiteSpace(request.Grade) ? null : request.Grade.Trim();
+        var groupFilter = string.IsNullOrWhiteSpace(request.Group) ? null : request.Group.Trim();
+        var shiftFilter = string.IsNullOrWhiteSpace(request.Shift) ? null : request.Shift.Trim();
+
+        if (!string.IsNullOrWhiteSpace(gradeFilter))
+            baseQuery = baseQuery.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Grade != null && sa.Grade.Name == gradeFilter));
+        if (!string.IsNullOrWhiteSpace(groupFilter))
+            baseQuery = baseQuery.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Group != null && sa.Group.Name == groupFilter));
+        if (!string.IsNullOrWhiteSpace(shiftFilter))
+            baseQuery = baseQuery.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Shift != null && sa.Shift.Name == shiftFilter));
+
+        var selectedIds = request.StudentIds?.Distinct().ToList() ?? new List<Guid>();
+        if (selectedIds.Count == 0)
+            return BadRequest(new { message = "Seleccione al menos un estudiante para imprimir." });
+
+        if (selectedIds.Count > BulkPrintMaxStudents)
+        {
+            return BadRequest(new
+            {
+                message = $"Solo se permiten {BulkPrintMaxStudents} impresiones por operación. Reduzca la selección."
+            });
+        }
+
+        baseQuery = baseQuery.Where(u => selectedIds.Contains(u.Id));
+
+        var students = await baseQuery
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.Name)
+            .Select(u => new { u.Id, FullName = $"{u.Name} {u.LastName}" })
+            .Take(BulkPrintMaxStudents + 1)
+            .ToListAsync();
+
+        if (students.Count == 0)
+            return BadRequest(new { message = "No hay estudiantes con esos filtros para impresión masiva." });
+
+        if (students.Count > BulkPrintMaxStudents)
+        {
+            return BadRequest(new
+            {
+                message = $"La impresión masiva está limitada a {BulkPrintMaxStudents} estudiantes por operación. Ajuste los filtros."
+            });
+        }
+
+        var merged = new PdfDocument();
+        foreach (var student in students)
+        {
+            try
+            {
+                var bytes = await _pdfService.GenerateCardPdfAsync(student.Id, userId);
+                using var ms = new MemoryStream(bytes);
+                using var doc = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
+                for (var i = 0; i < doc.PageCount; i++)
+                    merged.AddPage(doc.Pages[i]);
+                await MarkCardAsPrintedAsync(student.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StudentIdCard] Bulk PDF failed for StudentId={StudentId}", student.Id);
+            }
+        }
+
+        if (merged.PageCount == 0)
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "No se pudo generar el PDF masivo." });
+
+        await using var outStream = new MemoryStream();
+        merged.Save(outStream, false);
+        var fileName = $"carnets-masivo-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
+        return File(outStream.ToArray(), "application/pdf", fileName);
+    }
+
+    [HttpPost("api/print-status/{studentId}")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdatePrintStatus(Guid studentId, [FromBody] UpdatePrintStatusRequestDto request)
+    {
+        var card = await _context.StudentIdCards
+            .FirstOrDefaultAsync(c => c.StudentId == studentId && c.Status == "active");
+
+        if (card == null)
+            return NotFound(new { message = "No se encontró carnet activo para este estudiante." });
+
+        card.IsPrinted = request.IsPrinted;
+        card.PrintedAt = request.IsPrinted ? DateTime.UtcNow : null;
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            success = true,
+            isPrinted = card.IsPrinted,
+            printedAt = card.PrintedAt
+        });
+    }
+
     /// <summary>
     /// Endpoint de escaneo QR. AllowAnonymous para compatibilidad con la APK móvil.
     /// CRÍTICO-1 fix: el rol se extrae del JWT autenticado (Cookie o Bearer token de la APK),
@@ -239,35 +348,21 @@ public class StudentIdCardController : Controller
     /// SCALE-4 fix: proyección SQL eficiente — sin doble evaluación de FirstOrDefault.
     /// </summary>
     [HttpGet("api/list-json")]
-    public async Task<IActionResult> ListJson(string? grade = null, string? group = null, string? shift = null)
+    public async Task<IActionResult> ListJson(string? grade = null, string? group = null, string? shift = null, string? printed = null)
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
-
-        // SuperAdmin puede tener SchoolId en su perfil (p. ej. escuela de referencia) pero debe ver
-        // todos los estudiantes del sistema para emitir carnets en cualquier institución.
         var isSuperAdmin = currentUser?.Role != null &&
-            string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
+                           string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
+        _logger.LogInformation("[StudentIdCard/ListJson] Usuario={UserId} SchoolId={SchoolId} IsSuperAdmin={IsSuperAdmin}",
+            currentUser?.Id, schoolId, isSuperAdmin);
 
-        _logger.LogInformation(
-            "[StudentIdCard/ListJson] Usuario={UserId} Nombre={Name} SchoolId={SchoolId} IsSuperAdmin={IsSuperAdmin}",
-            currentUser?.Id,
-            currentUser != null ? $"{currentUser.Name} {currentUser.LastName}" : "null",
-            schoolId,
-            isSuperAdmin);
-
-        // PAY-GATE: solo estudiantes con CarnetStatus = "Pagado" en StudentPaymentAccess
-        var query = _context.Users
-            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"))
-            .Where(u => _context.StudentPaymentAccesses
-                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
-
-        if (schoolId.HasValue && !isSuperAdmin)
-            query = query.Where(u => u.SchoolId == schoolId.Value);
+        var query = BuildEligibleStudentQuery(currentUser);
 
         var gradeFilter = string.IsNullOrWhiteSpace(grade) ? null : grade.Trim();
         var groupFilter = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
         var shiftFilter = string.IsNullOrWhiteSpace(shift) ? null : shift.Trim();
+        var printedFilter = string.IsNullOrWhiteSpace(printed) ? null : printed.Trim().ToLowerInvariant();
 
         // Filtros por grado/grupo/jornada sobre asignación activa del estudiante.
         if (!string.IsNullOrWhiteSpace(gradeFilter))
@@ -284,6 +379,16 @@ public class StudentIdCardController : Controller
         {
             query = query.Where(u => u.StudentAssignments
                 .Any(sa => sa.IsActive && sa.Shift != null && sa.Shift.Name == shiftFilter));
+        }
+        if (printedFilter is "printed")
+        {
+            query = query.Where(u => _context.StudentIdCards
+                .Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
+        }
+        else if (printedFilter is "not_printed")
+        {
+            query = query.Where(u => !_context.StudentIdCards
+                .Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
         }
 
         // SCALE-4 fix: usar Select anidado para que EF traduzca a subqueries SQL eficientes
@@ -303,7 +408,15 @@ public class StudentIdCardController : Controller
                 shift = u.StudentAssignments
                     .Where(sa => sa.IsActive)
                     .Select(sa => sa.Shift != null ? sa.Shift.Name : null)
-                    .FirstOrDefault() ?? "Sin jornada"
+                    .FirstOrDefault() ?? "Sin jornada",
+                isPrinted = _context.StudentIdCards
+                    .Where(c => c.StudentId == u.Id && c.Status == "active")
+                    .Select(c => (bool?)c.IsPrinted)
+                    .FirstOrDefault() ?? false,
+                printedAt = _context.StudentIdCards
+                    .Where(c => c.StudentId == u.Id && c.Status == "active")
+                    .Select(c => c.PrintedAt)
+                    .FirstOrDefault()
             })
             .ToListAsync();
 
@@ -318,17 +431,7 @@ public class StudentIdCardController : Controller
     public async Task<IActionResult> ListFilters()
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
-        var schoolId = currentUser?.SchoolId;
-        var isSuperAdmin = currentUser?.Role != null &&
-            string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
-
-        var query = _context.Users
-            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"))
-            .Where(u => _context.StudentPaymentAccesses
-                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
-
-        if (schoolId.HasValue && !isSuperAdmin)
-            query = query.Where(u => u.SchoolId == schoolId.Value);
+        var query = BuildEligibleStudentQuery(currentUser);
 
         var data = await query
             .Select(u => new
@@ -354,4 +457,73 @@ public class StudentIdCardController : Controller
 
         return Json(new { grades, groups, shifts });
     }
+
+    [HttpGet("api/list-ids")]
+    public async Task<IActionResult> ListIds(string? grade = null, string? group = null, string? shift = null, string? printed = null)
+    {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        var query = BuildEligibleStudentQuery(currentUser);
+
+        var gradeFilter = string.IsNullOrWhiteSpace(grade) ? null : grade.Trim();
+        var groupFilter = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
+        var shiftFilter = string.IsNullOrWhiteSpace(shift) ? null : shift.Trim();
+        var printedFilter = string.IsNullOrWhiteSpace(printed) ? null : printed.Trim().ToLowerInvariant();
+
+        if (!string.IsNullOrWhiteSpace(gradeFilter))
+            query = query.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Grade != null && sa.Grade.Name == gradeFilter));
+        if (!string.IsNullOrWhiteSpace(groupFilter))
+            query = query.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Group != null && sa.Group.Name == groupFilter));
+        if (!string.IsNullOrWhiteSpace(shiftFilter))
+            query = query.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Shift != null && sa.Shift.Name == shiftFilter));
+        if (printedFilter is "printed")
+            query = query.Where(u => _context.StudentIdCards.Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
+        else if (printedFilter is "not_printed")
+            query = query.Where(u => !_context.StudentIdCards.Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
+
+        var ids = await query.Select(u => u.Id).ToListAsync();
+        return Json(new { ids });
+    }
+
+    private IQueryable<User> BuildEligibleStudentQuery(User? currentUser)
+    {
+        var schoolId = currentUser?.SchoolId;
+        var isSuperAdmin = currentUser?.Role != null &&
+            string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
+
+        var query = _context.Users
+            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"))
+            .Where(u => _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
+
+        if (schoolId.HasValue && !isSuperAdmin)
+            query = query.Where(u => u.SchoolId == schoolId.Value);
+
+        return query;
+    }
+
+    private async Task MarkCardAsPrintedAsync(Guid studentId)
+    {
+        var card = await _context.StudentIdCards
+            .FirstOrDefaultAsync(c => c.StudentId == studentId && c.Status == "active");
+
+        if (card == null)
+            return;
+
+        card.IsPrinted = true;
+        card.PrintedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+}
+
+public class BulkPrintRequestDto
+{
+    public string? Grade { get; set; }
+    public string? Group { get; set; }
+    public string? Shift { get; set; }
+    public List<Guid>? StudentIds { get; set; }
+}
+
+public class UpdatePrintStatusRequestDto
+{
+    public bool IsPrinted { get; set; }
 }

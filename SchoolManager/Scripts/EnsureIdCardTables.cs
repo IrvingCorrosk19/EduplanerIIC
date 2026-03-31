@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS student_id_cards (
     issued_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at timestamp with time zone NULL,
     status character varying(20) NOT NULL DEFAULT 'active',
+    is_printed boolean NOT NULL DEFAULT false,
+    printed_at timestamp with time zone NULL,
     CONSTRAINT student_id_cards_pkey PRIMARY KEY (id),
     CONSTRAINT student_id_cards_student_id_fkey FOREIGN KEY (student_id) REFERENCES users (id) ON DELETE CASCADE
 );
@@ -113,6 +115,12 @@ CREATE INDEX IF NOT EXISTS IX_student_qr_tokens_student_id ON student_qr_tokens 
                     "ALTER TABLE scan_logs ALTER COLUMN student_id DROP NOT NULL;");
             }
             catch { /* Ignorar si ya es nullable o no existe */ }
+
+            // Compatibilidad: agregar columnas de estado de impresión en BDs existentes.
+            await context.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE student_id_cards ADD COLUMN IF NOT EXISTS is_printed boolean NOT NULL DEFAULT false;");
+            await context.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE student_id_cards ADD COLUMN IF NOT EXISTS printed_at timestamp with time zone NULL;");
 
             // Columna shift_id en student_assignments si no existe (compatibilidad con BDs antiguas)
             var hasShiftId = await context.Database.SqlQueryRaw<int>(
