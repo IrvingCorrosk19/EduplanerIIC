@@ -18,9 +18,28 @@ RUN dotnet publish "SchoolManager/SchoolManager.csproj" -c Release -o /app/publi
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
-# Instalar dependencias del sistema para PostgreSQL
-RUN apt-get update && apt-get install -y \
+# Dependencias: PostgreSQL client + librerías para Chromium/PuppeteerSharp (headless).
+# Sin libglib, nss, etc. Chrome descargado por Puppeteer falla en runtime en Linux.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar la aplicación publicada

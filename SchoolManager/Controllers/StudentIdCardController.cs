@@ -146,8 +146,20 @@ public class StudentIdCardController : Controller
         try
         {
             var url = $"{Request.Scheme}://{Request.Host}/StudentIdCard/ui/generate/{studentId}";
-            var pdf = await _htmlCapture.GenerateFromUrl(url);
-            return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
+            try
+            {
+                var pdf = await _htmlCapture.GenerateFromUrl(url);
+                return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
+            }
+            catch (Exception htmlEx)
+            {
+                // En Linux/Docker (p. ej. Render) a veces faltan .so de Chromium; intentar PDF nativo (Skia/QuestPDF).
+                _logger.LogWarning(htmlEx,
+                    "[StudentIdCard] PDF vía HTML/Chromium falló; usando generación nativa. StudentId={StudentId}",
+                    studentId);
+                var pdf = await _pdfService.GenerateCardPdfAsync(studentId, userId);
+                return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
+            }
         }
         catch (Exception ex)
         {
