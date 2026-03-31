@@ -81,6 +81,14 @@
     </div>
 </div>
 
+<div id="printLoadingOverlay" class="print-loading-overlay d-none" aria-live="polite" aria-busy="true">
+    <div class="print-loading-card">
+        <div class="print-loading-spinner"></div>
+        <h5 class="mb-1">Procesando impresion masiva...</h5>
+        <p id="printLoadingMessage" class="mb-0 text-muted">Preparando documentos, por favor espere.</p>
+    </div>
+</div>
+
 @section Scripts {
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script>
@@ -181,6 +189,15 @@ $(function(){
         };
     }
 
+    function showPrintLoading(message) {
+        $('#printLoadingMessage').text(message || 'Preparando documentos, por favor espere.');
+        $('#printLoadingOverlay').removeClass('d-none');
+    }
+
+    function hidePrintLoading() {
+        $('#printLoadingOverlay').addClass('d-none');
+    }
+
     function fillSelect(selector, values) {
         const current = $(selector).val() || '';
         const firstOption = $(selector).find('option').first().clone();
@@ -243,9 +260,12 @@ $(function(){
                 return;
             }
             const data = await res.json();
-            (data.ids || []).forEach(id => selectedStudentIds.add(String(id)));
-            if (selectedStudentIds.size > 30) {
-                alert('Seleccionaste más de 30. Para imprimir, reduce a 30 o menos.');
+            selectedStudentIds.clear();
+            const filteredIds = (data.ids || []).map(id => String(id));
+            const limitedIds = filteredIds.slice(0, 30);
+            limitedIds.forEach(id => selectedStudentIds.add(id));
+            if (filteredIds.length > 30) {
+                alert(`Se encontraron ${filteredIds.length} estudiantes filtrados. Solo se seleccionaron los primeros 30.`);
             }
             table.ajax.reload(null, false);
         } catch {
@@ -285,6 +305,7 @@ $(function(){
         btn.prop('disabled', true);
         const previousHtml = btn.html();
         btn.html('<i class="fas fa-spinner fa-spin"></i> Generando...');
+        showPrintLoading(`Generando carnetes para ${selectedIds.length} estudiante(s)...`);
 
         try {
             const response = await fetch('/StudentIdCard/api/print-bulk', {
@@ -315,6 +336,7 @@ $(function(){
             a.href = url;
             a.download = 'carnets-masivo.pdf';
             document.body.appendChild(a);
+            showPrintLoading('Descargando PDF, casi listo...');
             a.click();
             a.remove();
             window.URL.revokeObjectURL(url);
@@ -322,6 +344,7 @@ $(function(){
         } catch (e) {
             alert('Error de red al generar la impresión masiva.');
         } finally {
+            hidePrintLoading();
             btn.prop('disabled', false);
             btn.html(previousHtml);
         }
@@ -371,4 +394,38 @@ $(function(){
     #studentsTable td { vertical-align: middle; }
     .btn-xs { padding: .2rem .4rem; font-size: .75rem; line-height: 1.1; }
     .dataTables_wrapper .dataTables_paginate .paginate_button { padding: .2em .6em; }
+
+    .print-loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        background: rgba(15, 23, 42, 0.42);
+        backdrop-filter: blur(2px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .print-loading-card {
+        width: min(90vw, 420px);
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.2);
+        padding: 1.25rem 1.4rem;
+        text-align: center;
+    }
+
+    .print-loading-spinner {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto 0.85rem auto;
+        border-radius: 50%;
+        border: 4px solid #dbeafe;
+        border-top-color: #2563eb;
+        animation: spin-loading 0.9s linear infinite;
+    }
+
+    @@keyframes spin-loading {
+        to { transform: rotate(360deg); }
+    }
 </style>
