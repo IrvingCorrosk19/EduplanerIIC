@@ -239,7 +239,7 @@ public class StudentIdCardController : Controller
     /// SCALE-4 fix: proyección SQL eficiente — sin doble evaluación de FirstOrDefault.
     /// </summary>
     [HttpGet("api/list-json")]
-    public async Task<IActionResult> ListJson()
+    public async Task<IActionResult> ListJson(string? grade = null, string? group = null, string? shift = null)
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
@@ -265,6 +265,27 @@ public class StudentIdCardController : Controller
         if (schoolId.HasValue && !isSuperAdmin)
             query = query.Where(u => u.SchoolId == schoolId.Value);
 
+        var gradeFilter = string.IsNullOrWhiteSpace(grade) ? null : grade.Trim();
+        var groupFilter = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
+        var shiftFilter = string.IsNullOrWhiteSpace(shift) ? null : shift.Trim();
+
+        // Filtros por grado/grupo/jornada sobre asignación activa del estudiante.
+        if (!string.IsNullOrWhiteSpace(gradeFilter))
+        {
+            query = query.Where(u => u.StudentAssignments
+                .Any(sa => sa.IsActive && sa.Grade != null && sa.Grade.Name == gradeFilter));
+        }
+        if (!string.IsNullOrWhiteSpace(groupFilter))
+        {
+            query = query.Where(u => u.StudentAssignments
+                .Any(sa => sa.IsActive && sa.Group != null && sa.Group.Name == groupFilter));
+        }
+        if (!string.IsNullOrWhiteSpace(shiftFilter))
+        {
+            query = query.Where(u => u.StudentAssignments
+                .Any(sa => sa.IsActive && sa.Shift != null && sa.Shift.Name == shiftFilter));
+        }
+
         // SCALE-4 fix: usar Select anidado para que EF traduzca a subqueries SQL eficientes
         var students = await query
             .Select(u => new
@@ -278,7 +299,11 @@ public class StudentIdCardController : Controller
                 group = u.StudentAssignments
                     .Where(sa => sa.IsActive)
                     .Select(sa => sa.Group.Name)
-                    .FirstOrDefault() ?? "Sin asignar"
+                    .FirstOrDefault() ?? "Sin asignar",
+                shift = u.StudentAssignments
+                    .Where(sa => sa.IsActive)
+                    .Select(sa => sa.Shift != null ? sa.Shift.Name : null)
+                    .FirstOrDefault() ?? "Sin jornada"
             })
             .ToListAsync();
 
@@ -287,5 +312,46 @@ public class StudentIdCardController : Controller
             students.Count, schoolId);
 
         return Json(new { data = students });
+    }
+
+    [HttpGet("api/list-filters")]
+    public async Task<IActionResult> ListFilters()
+    {
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        var schoolId = currentUser?.SchoolId;
+        var isSuperAdmin = currentUser?.Role != null &&
+            string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
+
+        var query = _context.Users
+            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"))
+            .Where(u => _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
+
+        if (schoolId.HasValue && !isSuperAdmin)
+            query = query.Where(u => u.SchoolId == schoolId.Value);
+
+        var data = await query
+            .Select(u => new
+            {
+                grade = u.StudentAssignments
+                    .Where(sa => sa.IsActive)
+                    .Select(sa => sa.Grade.Name)
+                    .FirstOrDefault(),
+                group = u.StudentAssignments
+                    .Where(sa => sa.IsActive)
+                    .Select(sa => sa.Group.Name)
+                    .FirstOrDefault(),
+                shift = u.StudentAssignments
+                    .Where(sa => sa.IsActive)
+                    .Select(sa => sa.Shift != null ? sa.Shift.Name : null)
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+
+        var grades = data.Select(x => x.grade).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList();
+        var groups = data.Select(x => x.group).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList();
+        var shifts = data.Select(x => x.shift).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList();
+
+        return Json(new { grades, groups, shifts });
     }
 }

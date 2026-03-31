@@ -18,12 +18,33 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label for="filterGrade" class="form-label mb-1">Grado</label>
+                            <select id="filterGrade" class="form-select form-select-sm">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="filterGroup" class="form-label mb-1">Grupo</label>
+                            <select id="filterGroup" class="form-select form-select-sm">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="filterShift" class="form-label mb-1">Jornada</label>
+                            <select id="filterShift" class="form-select form-select-sm">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                    </div>
                     <table id="studentsTable" class="table table-bordered table-striped table-hover">
                         <thead>
                             <tr>
                                 <th>Estudiante</th>
                                 <th>Grado</th>
                                 <th>Grupo</th>
+                                <th>Jornada</th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
@@ -40,9 +61,14 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script>
 $(function(){
-    $('#studentsTable').DataTable({
+    const table = $('#studentsTable').DataTable({
         ajax: {
             url: '/StudentIdCard/api/list-json',
+            data: function(d) {
+                d.grade = $('#filterGrade').val();
+                d.group = $('#filterGroup').val();
+                d.shift = $('#filterShift').val();
+            },
             dataSrc: 'data',
             xhrFields: { withCredentials: true },
             error: function(xhr, err, msg) { console.error('[StudentIdCard] Ajax error:', xhr.status, msg, xhr.responseText?.substring(0,200)); }
@@ -51,6 +77,7 @@ $(function(){
             { data: 'fullName', title: 'Estudiante' },
             { data: 'grade', title: 'Grado' },
             { data: 'group', title: 'Grupo' },
+            { data: 'shift', title: 'Jornada' },
             {
                 data: 'id',
                 title: 'Acción',
@@ -69,6 +96,38 @@ $(function(){
         responsive: true,
         pageLength: 25
     });
+
+    function fillSelect(selector, values) {
+        const current = $(selector).val() || '';
+        const firstOption = $(selector).find('option').first().clone();
+        $(selector).empty().append(firstOption);
+        (values || []).forEach(v => {
+            $(selector).append(new Option(v, v));
+        });
+        if (current) $(selector).val(current);
+    }
+
+    function loadFilters() {
+        $.ajax({
+            url: '/StudentIdCard/api/list-filters',
+            type: 'GET',
+            xhrFields: { withCredentials: true },
+            success: function(res) {
+                fillSelect('#filterGrade', res.grades);
+                fillSelect('#filterGroup', res.groups);
+                fillSelect('#filterShift', res.shifts);
+            },
+            error: function(xhr, err, msg) {
+                console.error('[StudentIdCard] Filter ajax error:', xhr.status, msg);
+            }
+        });
+    }
+
+    $('#filterGrade, #filterGroup, #filterShift').on('change', function() {
+        table.ajax.reload();
+    });
+
+    loadFilters();
 });
 </script>
 }
