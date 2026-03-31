@@ -16,6 +16,7 @@ public class StudentIdCardController : Controller
 {
     private readonly IStudentIdCardService _service;
     private readonly IStudentIdCardPdfService _pdfService;
+    private readonly IStudentIdCardHtmlCaptureService _htmlCapture;
     private readonly SchoolDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<StudentIdCardController> _logger;
@@ -23,12 +24,14 @@ public class StudentIdCardController : Controller
     public StudentIdCardController(
         IStudentIdCardService service,
         IStudentIdCardPdfService pdfService,
+        IStudentIdCardHtmlCaptureService htmlCapture,
         SchoolDbContext context,
         ICurrentUserService currentUserService,
         ILogger<StudentIdCardController> logger)
     {
         _service = service;
         _pdfService = pdfService;
+        _htmlCapture = htmlCapture;
         _context = context;
         _currentUserService = currentUserService;
         _logger = logger;
@@ -142,7 +145,8 @@ public class StudentIdCardController : Controller
 
         try
         {
-            var pdf = await _pdfService.GenerateCardPdfAsync(studentId, userId);
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            var pdf     = await _htmlCapture.GeneratePdfFromHtmlAsync(studentId, baseUrl, Request.Cookies);
             return File(pdf, "application/pdf", $"carnet-{studentId:N}.pdf");
         }
         catch (Exception ex)

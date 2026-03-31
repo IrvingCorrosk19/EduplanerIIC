@@ -237,6 +237,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddScoped<IStudentIdCardService, StudentIdCardService>();
 builder.Services.AddScoped<IStudentIdCardImageService, StudentIdCardImageService>();
 builder.Services.AddScoped<IStudentIdCardPdfService, StudentIdCardPdfService>();
+builder.Services.AddScoped<IStudentIdCardHtmlCaptureService, StudentIdCardHtmlCaptureService>();
 builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
 builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService>();
 builder.Services.AddScoped<IDirectorWorkPlanService, DirectorWorkPlanService>();
