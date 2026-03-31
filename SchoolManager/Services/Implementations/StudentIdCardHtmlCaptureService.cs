@@ -28,12 +28,18 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
     public async Task<byte[]> GenerateFromUrl(string url)
     {
         var executablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
-        _logger.LogInformation("[CardPdf] Using Chromium path: {Path}", executablePath ?? "(default)");
+
+        if (string.IsNullOrEmpty(executablePath))
+            executablePath = "/usr/bin/chromium";
+
+        Console.WriteLine($"[CardPdf] Chromium path: {executablePath}");
+        _logger.LogInformation("[CardPdf] Using Chromium path: {Path}", executablePath);
 
         var launchOpts = new LaunchOptions
         {
-            Headless = true,
-            Args     =
+            Headless       = true,
+            ExecutablePath = executablePath,
+            Args           =
             [
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
@@ -43,9 +49,6 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
                 "--single-process"
             ]
         };
-
-        if (!string.IsNullOrWhiteSpace(executablePath))
-            launchOpts.ExecutablePath = executablePath;
 
         await using var browser = await Puppeteer.LaunchAsync(launchOpts);
         await using var page    = await browser.NewPageAsync();
