@@ -14,19 +14,6 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
     private const int   WidthPx  = 1011;
     private const int   HeightPx = 638;
 
-    private static readonly string[] KnownChromePaths =
-    [
-        "/usr/bin/google-chrome",
-        "/usr/bin/google-chrome-stable",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/chromium",
-        "/usr/local/bin/chromium",
-        "/snap/bin/chromium"
-    ];
-
-    private static string?                _chromiumPath;
-    private static readonly SemaphoreSlim _lock = new(1, 1);
-
     private readonly ILogger<StudentIdCardHtmlCaptureService> _logger;
     private readonly IHttpContextAccessor                     _http;
 
@@ -40,18 +27,25 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
 
     public async Task<byte[]> GenerateFromUrl(string url)
     {
-        _logger.LogInformation("[CardPdf] GenerateFromUrl {Url}", url);
-
-        var execPath = await ResolveChromiumAsync();
+        var executablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
+        _logger.LogInformation("[CardPdf] Using Chromium path: {Path}", executablePath ?? "(default)");
 
         var launchOpts = new LaunchOptions
         {
             Headless = true,
-            Args     = ["--no-sandbox", "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage", "--disable-gpu"]
+            Args     =
+            [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--no-zygote",
+                "--single-process"
+            ]
         };
-        if (!string.IsNullOrWhiteSpace(execPath))
-            launchOpts.ExecutablePath = execPath;
+
+        if (!string.IsNullOrWhiteSpace(executablePath))
+            launchOpts.ExecutablePath = executablePath;
 
         await using var browser = await Puppeteer.LaunchAsync(launchOpts);
         await using var page    = await browser.NewPageAsync();
@@ -71,18 +65,15 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         await page.WaitForSelectorAsync(".idcard-face");
         await Task.Delay(500);
 
-        // Selección de elementos
         var front = await page.QuerySelectorAsync("#idCardFront")
             ?? throw new InvalidOperationException("No se encontró #idCardFront.");
 
         var allFaces = await page.QuerySelectorAllAsync(".idcard-face");
         var back     = allFaces.Length > 1 ? allFaces[1] : null;
 
-        // Captura
         var frontImg = await Capture(front);
         var backImg  = back != null ? await Capture(back) : null;
 
-        // PDF
         QuestPDF.Settings.License         = LicenseType.Community;
         QuestPDF.Settings.EnableDebugging = false;
 
@@ -107,8 +98,6 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         }).GeneratePdf();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-
     private async Task<byte[]> Capture(IElementHandle el)
     {
         var img = await el.ScreenshotDataAsync(new ElementScreenshotOptions
@@ -121,28 +110,5 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         using var image   = SKImage.FromBitmap(resized);
         using var data    = image.Encode(SKEncodedImageFormat.Png, 100);
         return data.ToArray();
-    }
-
-    private async Task<string?> ResolveChromiumAsync()
-    {
-        var env = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
-        if (!string.IsNullOrWhiteSpace(env) && File.Exists(env)) return env;
-
-        foreach (var p in KnownChromePaths)
-            if (File.Exists(p)) return p;
-
-        if (_chromiumPath != null) return _chromiumPath;
-
-        await _lock.WaitAsync();
-        try
-        {
-            if (_chromiumPath != null) return _chromiumPath;
-            _logger.LogWarning("[CardPdf] Descargando Chromium (configure PUPPETEER_EXECUTABLE_PATH en prod)...");
-            var installed = await new BrowserFetcher().DownloadAsync();
-            _chromiumPath = installed.GetExecutablePath();
-            _logger.LogInformation("[CardPdf] Chromium listo: {P}", _chromiumPath);
-            return _chromiumPath;
-        }
-        finally { _lock.Release(); }
     }
 }
