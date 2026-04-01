@@ -1243,6 +1243,8 @@ public partial class SchoolDbContext : DbContext
 
             entity.HasIndex(e => e.SchoolId, "IX_users_school_id");
 
+            entity.HasIndex(e => e.Role, "IX_users_role");
+
             entity.HasIndex(e => e.DocumentId, "users_document_id_key").IsUnique();
 
             entity.HasIndex(e => e.Email, "users_email_key").IsUnique();
@@ -2145,6 +2147,8 @@ public partial class SchoolDbContext : DbContext
             entity.HasIndex(e => e.CardNumber, "IX_student_id_cards_card_number").IsUnique();
 
             entity.HasIndex(e => e.StudentId, "IX_student_id_cards_student_id");
+
+            entity.HasIndex(e => new { e.StudentId, e.Status }, "IX_student_id_cards_student_id_status");
 
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")

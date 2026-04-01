@@ -40,34 +40,41 @@ public class StudentIdCardService : IStudentIdCardService
 
     public async Task<StudentIdCardDto?> GetCurrentCardAsync(Guid studentId)
     {
-        var student = await _context.Users
-            .Include(x => x.StudentAssignments.Where(a => a.IsActive))
-                .ThenInclude(x => x.Grade)
-            .Include(x => x.StudentAssignments.Where(a => a.IsActive))
-                .ThenInclude(x => x.Group)
-            .Include(x => x.StudentAssignments.Where(a => a.IsActive))
-                .ThenInclude(x => x.Shift)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == studentId &&
-                (x.Role == "student" || x.Role == "estudiante"));
+        var row = await StudentRoleFilter.WhereIsStudent(_context.Users.AsNoTracking())
+            .Where(x => x.Id == studentId)
+            .Select(x => new
+            {
+                x.Name,
+                x.LastName,
+                x.PhotoUrl,
+                HasActiveAssignment = x.StudentAssignments.Any(a => a.IsActive),
+                Grade = x.StudentAssignments.Where(a => a.IsActive).Select(a => a.Grade.Name).FirstOrDefault(),
+                Group = x.StudentAssignments.Where(a => a.IsActive).Select(a => a.Group.Name).FirstOrDefault(),
+                ShiftName = x.StudentAssignments.Where(a => a.IsActive)
+                    .Select(a => a.Shift != null ? a.Shift.Name : null)
+                    .FirstOrDefault()
+            })
+            .FirstOrDefaultAsync();
 
-        if (student == null) return null;
-
-        var assignment = student.StudentAssignments.FirstOrDefault(x => x.IsActive);
-        if (assignment == null) return null;
+        if (row == null || !row.HasActiveAssignment)
+            return null;
 
         var card = await _context.StudentIdCards
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.StudentId == studentId && x.Status == "active");
+            .Where(x => x.StudentId == studentId && x.Status == "active")
+            .Select(x => new { x.CardNumber })
+            .FirstOrDefaultAsync();
 
-        if (card == null) return null;
+        if (card == null)
+            return null;
 
         var token = await _context.StudentQrTokens
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.StudentId == studentId && !x.IsRevoked &&
-                (x.ExpiresAt == null || x.ExpiresAt > DateTime.UtcNow));
+            .Where(x => x.StudentId == studentId && !x.IsRevoked &&
+                (x.ExpiresAt == null || x.ExpiresAt > DateTime.UtcNow))
+            .Select(x => new { x.Token })
+            .FirstOrDefaultAsync();
 
-        // Generar QR como data URI en el servidor para evitar dependencias de CDN en la vista
         string? qrImageDataUrl = null;
         if (token != null)
         {
@@ -79,13 +86,13 @@ public class StudentIdCardService : IStudentIdCardService
         {
             StudentId = studentId,
             CardNumber = card.CardNumber,
-            FullName = $"{student.Name} {student.LastName}",
-            Grade = assignment.Grade?.Name ?? "",
-            Group = assignment.Group?.Name ?? "",
-            Shift = assignment.Shift?.Name ?? "N/A",
+            FullName = $"{row.Name} {row.LastName}",
+            Grade = row.Grade ?? "",
+            Group = row.Group ?? "",
+            Shift = string.IsNullOrEmpty(row.ShiftName) ? "N/A" : row.ShiftName,
             QrToken = token?.Token ?? "",
             QrImageDataUrl = qrImageDataUrl,
-            PhotoUrl = student.PhotoUrl
+            PhotoUrl = row.PhotoUrl
         };
     }
 
@@ -103,15 +110,14 @@ public class StudentIdCardService : IStudentIdCardService
         using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         try
         {
-            var student = await _context.Users
+            var student = await StudentRoleFilter.WhereIsStudent(_context.Users)
                 .Include(x => x.StudentAssignments.Where(a => a.IsActive))
                     .ThenInclude(x => x.Grade)
                 .Include(x => x.StudentAssignments.Where(a => a.IsActive))
                     .ThenInclude(x => x.Group)
                 .Include(x => x.StudentAssignments.Where(a => a.IsActive))
                     .ThenInclude(x => x.Shift)
-                .FirstOrDefaultAsync(x => x.Id == studentId &&
-                    (x.Role == "student" || x.Role == "estudiante"));
+                .FirstOrDefaultAsync(x => x.Id == studentId);
 
             if (student == null)
             {

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PdfSharpCore.Pdf;
 using PdfSharpCore.Pdf.IO;
 using SchoolManager.Dtos;
+using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
@@ -55,11 +56,19 @@ public class StudentIdCardController : Controller
     [HttpGet("ui/generate/{studentId}")]
     public async Task<IActionResult> GenerateView(Guid studentId)
     {
-        // Comparación traducible a SQL (Equals con StringComparison no lo es en EF Core)
-        var student = await _context.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == studentId &&
-                u.Role != null &&
-                (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"));
+        var student = await StudentRoleFilter.WhereIsStudent(_context.Users.AsNoTracking())
+            .Where(u => u.Id == studentId)
+            .Select(u => new
+            {
+                u.SchoolId,
+                u.DocumentId,
+                u.EmergencyContactName,
+                u.EmergencyContactPhone,
+                u.Allergies,
+                HasPaid = _context.StudentPaymentAccesses.Any(spa =>
+                    spa.StudentId == u.Id && spa.CarnetStatus == "Pagado")
+            })
+            .FirstOrDefaultAsync();
 
         if (student == null)
         {
@@ -71,10 +80,7 @@ public class StudentIdCardController : Controller
             });
         }
 
-        // PAY-GATE: solo estudiantes con carnet pagado pueden acceder a la vista
-        var hasPaidView = await _context.StudentPaymentAccesses
-            .AnyAsync(spa => spa.StudentId == studentId && spa.CarnetStatus == "Pagado");
-        if (!hasPaidView)
+        if (!student.HasPaid)
         {
             _logger.LogWarning(
                 "[StudentIdCard] GenerateView denegado: pago pendiente StudentId={StudentId}", studentId);
@@ -82,37 +88,47 @@ public class StudentIdCardController : Controller
         }
 
         School? schoolEntity = null;
+        SchoolIdCardSetting? cardSettings = null;
+        var enabledTemplateFields = 0;
+        string? academicYearName = null;
+
         if (student.SchoolId.HasValue)
         {
-            schoolEntity = await _context.Schools.AsNoTracking().IgnoreQueryFilters()
-                .FirstOrDefaultAsync(s => s.Id == student.SchoolId.Value);
+            var schoolId = student.SchoolId.Value;
+            var bundle = await _context.Schools.AsNoTracking().IgnoreQueryFilters()
+                .Where(s => s.Id == schoolId)
+                .Select(s => new
+                {
+                    School = s,
+                    CardSettings = _context.Set<SchoolIdCardSetting>().AsNoTracking().IgnoreQueryFilters()
+                        .Where(x => x.SchoolId == s.Id)
+                        .FirstOrDefault(),
+                    EnabledFieldsCount = _context.Set<IdCardTemplateField>().AsNoTracking()
+                        .Count(x => x.SchoolId == s.Id && x.IsEnabled),
+                    AcademicYearName = _context.StudentAssignments
+                        .Where(a => a.StudentId == studentId && a.IsActive)
+                        .Select(a => a.AcademicYear == null ? null : a.AcademicYear.Name)
+                        .FirstOrDefault()
+                })
+                .FirstOrDefaultAsync();
+
+            if (bundle != null)
+            {
+                schoolEntity = bundle.School;
+                cardSettings = bundle.CardSettings;
+                enabledTemplateFields = bundle.EnabledFieldsCount;
+                academicYearName = bundle.AcademicYearName;
+            }
         }
-
-        var cardSettings = student.SchoolId.HasValue
-            ? await _context.Set<SchoolIdCardSetting>().AsNoTracking().IgnoreQueryFilters()
-                .FirstOrDefaultAsync(x => x.SchoolId == student.SchoolId.Value)
-            : null;
-
-        var enabledTemplateFields = student.SchoolId.HasValue
-            ? await _context.Set<IdCardTemplateField>().AsNoTracking()
-                .CountAsync(x => x.SchoolId == student.SchoolId.Value && x.IsEnabled)
-            : 0;
 
         var vm = StudentIdCardGenerateViewModel.ForStudent(studentId, schoolEntity, cardSettings);
         vm.UsesCustomPdfTemplate = enabledTemplateFields > 0;
         vm.EmergencyContactName = student.EmergencyContactName;
         vm.EmergencyContactPhone = student.EmergencyContactPhone;
         vm.Allergies = student.Allergies;
-
-        // Datos para bloques condicionales del frente (sincronizados con PDF)
         vm.DocumentId = student.DocumentId;
         vm.PolicyNumber = string.IsNullOrWhiteSpace(schoolEntity?.PolicyNumber) ? null : schoolEntity!.PolicyNumber.Trim();
-        vm.AcademicYear = student.SchoolId.HasValue
-            ? await _context.StudentAssignments
-                .Where(a => a.StudentId == studentId && a.IsActive)
-                .Select(a => a.AcademicYear == null ? null : a.AcademicYear.Name)
-                .FirstOrDefaultAsync()
-            : null;
+        vm.AcademicYear = academicYearName;
 
         vm.Card = await _service.GetCurrentCardAsync(studentId);
         return View("Generate", vm);
@@ -281,6 +297,7 @@ public class StudentIdCardController : Controller
         }
 
         var merged = new PdfDocument();
+        var printedStudentIds = new List<Guid>();
         for (var idx = 0; idx < students.Count; idx++)
         {
             var student = students[idx];
@@ -291,13 +308,16 @@ public class StudentIdCardController : Controller
                 using var doc = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
                 for (var i = 0; i < doc.PageCount; i++)
                     merged.AddPage(doc.Pages[i]);
-                await MarkCardAsPrintedAsync(student.Id);
+                printedStudentIds.Add(student.Id);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "[StudentIdCard] Bulk PDF failed for StudentId={StudentId}", student.Id);
             }
         }
+
+        if (printedStudentIds.Count > 0)
+            await MarkCardsAsPrintedAsync(printedStudentIds);
 
         if (merged.PageCount == 0)
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "No se pudo generar el PDF masivo." });
@@ -409,8 +429,8 @@ public class StudentIdCardController : Controller
                 .Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
         }
 
-        // SCALE-4 fix: usar Select anidado para que EF traduzca a subqueries SQL eficientes
-        var students = await query
+        // Una sola subconsulta a student_id_cards por fila (IsPrinted + PrintedAt) en lugar de dos correlacionadas.
+        var rawRows = await query
             .Select(u => new
             {
                 id = u.Id,
@@ -427,16 +447,25 @@ public class StudentIdCardController : Controller
                     .Where(sa => sa.IsActive)
                     .Select(sa => sa.Shift != null ? sa.Shift.Name : null)
                     .FirstOrDefault() ?? "Sin jornada",
-                isPrinted = _context.StudentIdCards
+                cardPrint = _context.StudentIdCards
                     .Where(c => c.StudentId == u.Id && c.Status == "active")
-                    .Select(c => (bool?)c.IsPrinted)
-                    .FirstOrDefault() ?? false,
-                printedAt = _context.StudentIdCards
-                    .Where(c => c.StudentId == u.Id && c.Status == "active")
-                    .Select(c => c.PrintedAt)
+                    .Select(c => new { c.IsPrinted, c.PrintedAt })
                     .FirstOrDefault()
             })
             .ToListAsync();
+
+        var students = rawRows
+            .Select(x => new
+            {
+                x.id,
+                x.fullName,
+                x.grade,
+                x.group,
+                x.shift,
+                isPrinted = x.cardPrint != null && x.cardPrint.IsPrinted,
+                printedAt = x.cardPrint == null ? (DateTime?)null : x.cardPrint.PrintedAt
+            })
+            .ToList();
 
         _logger.LogInformation(
             "[StudentIdCard/ListJson] Retornando {Count} estudiantes para SchoolId={SchoolId}",
@@ -451,27 +480,28 @@ public class StudentIdCardController : Controller
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var query = BuildEligibleStudentQuery(currentUser);
 
-        var data = await query
-            .Select(u => new
-            {
-                grade = u.StudentAssignments
-                    .Where(sa => sa.IsActive)
-                    .Select(sa => sa.Grade.Name)
-                    .FirstOrDefault(),
-                group = u.StudentAssignments
-                    .Where(sa => sa.IsActive)
-                    .Select(sa => sa.Group.Name)
-                    .FirstOrDefault(),
-                shift = u.StudentAssignments
-                    .Where(sa => sa.IsActive)
-                    .Select(sa => sa.Shift != null ? sa.Shift.Name : null)
-                    .FirstOrDefault()
-            })
+        var baseAssignments = query.SelectMany(u => u.StudentAssignments.Where(sa => sa.IsActive));
+
+        var grades = await baseAssignments
+            .Select(sa => sa.Grade.Name)
+            .Where(n => n != null && n != "")
+            .Distinct()
+            .OrderBy(n => n)
             .ToListAsync();
 
-        var grades = data.Select(x => x.grade).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList();
-        var groups = data.Select(x => x.group).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList();
-        var shifts = data.Select(x => x.shift).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList();
+        var groups = await baseAssignments
+            .Select(sa => sa.Group.Name)
+            .Where(n => n != null && n != "")
+            .Distinct()
+            .OrderBy(n => n)
+            .ToListAsync();
+
+        var shifts = await baseAssignments
+            .Select(sa => sa.Shift != null ? sa.Shift.Name : null)
+            .Where(n => n != null && n != "")
+            .Distinct()
+            .OrderBy(n => n)
+            .ToListAsync();
 
         return Json(new { grades, groups, shifts });
     }
@@ -508,8 +538,7 @@ public class StudentIdCardController : Controller
         var isSuperAdmin = currentUser?.Role != null &&
             string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
 
-        var query = _context.Users
-            .Where(u => u.Role != null && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante"))
+        var query = StudentRoleFilter.WhereIsStudent(_context.Users)
             .Where(u => _context.StudentPaymentAccesses
                 .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
 
@@ -519,16 +548,29 @@ public class StudentIdCardController : Controller
         return query;
     }
 
-    private async Task MarkCardAsPrintedAsync(Guid studentId)
-    {
-        var card = await _context.StudentIdCards
-            .FirstOrDefaultAsync(c => c.StudentId == studentId && c.Status == "active");
+    private Task MarkCardAsPrintedAsync(Guid studentId) =>
+        MarkCardsAsPrintedAsync(new[] { studentId });
 
-        if (card == null)
+    private async Task MarkCardsAsPrintedAsync(IReadOnlyList<Guid> studentIds)
+    {
+        if (studentIds == null || studentIds.Count == 0)
             return;
 
-        card.IsPrinted = true;
-        card.PrintedAt = DateTime.UtcNow;
+        var distinct = studentIds.Distinct().ToList();
+        var cards = await _context.StudentIdCards
+            .Where(c => distinct.Contains(c.StudentId) && c.Status == "active")
+            .ToListAsync();
+
+        if (cards.Count == 0)
+            return;
+
+        var now = DateTime.UtcNow;
+        foreach (var c in cards)
+        {
+            c.IsPrinted = true;
+            c.PrintedAt = now;
+        }
+
         await _context.SaveChangesAsync();
     }
 }
