@@ -12,8 +12,8 @@ public class SchoolIdCardSetting
     /// si las hay, se usa el layout posicional de una sola cara.
     /// </summary>
     public string TemplateKey { get; set; } = "default_v1";
-    public int PageWidthMm { get; set; } = 54;
-    public int PageHeightMm { get; set; } = 86;
+    public int PageWidthMm { get; set; } = 55;
+    public int PageHeightMm { get; set; } = 85;
     public int BleedMm { get; set; } = 0;
     public string BackgroundColor { get; set; } = "#FFFFFF";
     public string PrimaryColor { get; set; } = "#0D6EFD";
@@ -26,7 +26,7 @@ public class SchoolIdCardSetting
     public bool ShowEmergencyContact { get; set; } = false;
     /// <summary>Mostrar alergias en el reverso del carnet.</summary>
     public bool ShowAllergies { get; set; } = false;
-    /// <summary>Orientación del carnet: Vertical (54×86 mm) u Horizontal (86×54 mm).</summary>
+    /// <summary>Orientación del carnet: Vertical (55×85 mm) u Horizontal (85×55 mm), tipo CR.</summary>
     public string Orientation { get; set; } = "Vertical";
     /// <summary>Mostrar logo del colegio como marca de agua en el frente y reverso del carnet.</summary>
     public bool ShowWatermark { get; set; } = true;

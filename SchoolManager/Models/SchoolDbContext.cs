@@ -2499,11 +2499,11 @@ public partial class SchoolDbContext : DbContext
                 .HasColumnName("template_key");
 
             entity.Property(e => e.PageWidthMm)
-                .HasDefaultValue(54)
+                .HasDefaultValue(55)
                 .HasColumnName("page_width_mm");
 
             entity.Property(e => e.PageHeightMm)
-                .HasDefaultValue(86)
+                .HasDefaultValue(85)
                 .HasColumnName("page_height_mm");
 
             entity.Property(e => e.BleedMm)

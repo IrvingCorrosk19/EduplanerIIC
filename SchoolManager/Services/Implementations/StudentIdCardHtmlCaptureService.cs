@@ -1,4 +1,5 @@
 using PuppeteerSharp;
+using SchoolManager.Services;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -6,6 +7,7 @@ using SchoolManager.Services.Interfaces;
 using SkiaSharp;
 using Microsoft.Extensions.Options;
 using System.Runtime.InteropServices;
+using System.Security.Claims;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -14,44 +16,115 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
     private readonly ILogger<StudentIdCardHtmlCaptureService> _logger;
     private readonly IHttpContextAccessor                     _http;
     private readonly StudentIdCardPdfPrintOptions             _printOptions;
+    private readonly IStudentIdCardPdfService                 _pdfService;
 
     public StudentIdCardHtmlCaptureService(
         ILogger<StudentIdCardHtmlCaptureService> logger,
         IHttpContextAccessor http,
-        IOptions<StudentIdCardPdfPrintOptions> printOptions)
+        IOptions<StudentIdCardPdfPrintOptions> printOptions,
+        IStudentIdCardPdfService pdfService)
     {
         _logger       = logger;
         _http         = http;
         _printOptions = printOptions.Value ?? new StudentIdCardPdfPrintOptions();
+        _pdfService   = pdfService;
     }
 
     public async Task<byte[]> GenerateFromUrl(string url)
     {
         var executablePath = await ResolveChromiumExecutablePath();
         _logger.LogInformation("[CardPdf] Using Chromium path: {Path}", executablePath);
-        var pageSize = ResolvePageSize();
-
-        var launchOpts = new LaunchOptions
-        {
-            Headless       = true,
-            ExecutablePath = executablePath,
-            Timeout        = 60000,
-            Args           = BuildLaunchArgs()
-        };
+        var launchOpts = BuildLaunchOptions(executablePath);
 
         byte[] frontImg;
         byte[]? backImg;
-        try
+        await using (var browser = await Puppeteer.LaunchAsync(launchOpts))
         {
-            (frontImg, backImg) = await CaptureCardFaces(url, launchOpts);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[CardPdf] First capture attempt failed. Retrying once...");
-            await Task.Delay(500);
-            (frontImg, backImg) = await CaptureCardFaces(url, launchOpts);
+            try
+            {
+                (frontImg, backImg) = await CaptureCardFacesAsync(browser, url);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[CardPdf] First capture attempt failed. Retrying once...");
+                await Task.Delay(500);
+                (frontImg, backImg) = await CaptureCardFacesAsync(browser, url);
+            }
         }
 
+        return BuildPdfFromFaceImages(frontImg, backImg);
+    }
+
+    public async Task<IReadOnlyList<byte[]>> GenerateBulkFromUrls(IReadOnlyList<string> urls)
+    {
+        if (urls == null || urls.Count == 0)
+            return Array.Empty<byte[]>();
+
+        var executablePath = await ResolveChromiumExecutablePath();
+        _logger.LogInformation("[CardPdf] Bulk: Chromium path: {Path}, count={Count}", executablePath, urls.Count);
+        var launchOpts = BuildLaunchOptions(executablePath);
+
+        var results = new List<byte[]>(urls.Count);
+        await using var browser = await Puppeteer.LaunchAsync(launchOpts);
+
+        foreach (var url in urls)
+        {
+            try
+            {
+                byte[] frontImg;
+                byte[]? backImg;
+                try
+                {
+                    (frontImg, backImg) = await CaptureCardFacesAsync(browser, url);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[CardPdf] Bulk capture failed for {Url}, retry once", url);
+                    await Task.Delay(400);
+                    (frontImg, backImg) = await CaptureCardFacesAsync(browser, url);
+                }
+
+                results.Add(BuildPdfFromFaceImages(frontImg, backImg));
+            }
+            catch (Exception ex)
+            {
+                // Misma política que Print(): HTML/Chromium falló → PDF nativo solo para este carnet.
+                if (!TryParseStudentIdFromGenerateUrl(url, out var studentId))
+                    throw;
+
+                var userIdClaim = _http.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var currentUserId))
+                    throw;
+
+                _logger.LogWarning(ex,
+                    "[StudentIdCard] PDF masivo: HTML falló; generación nativa StudentId={StudentId} (igual que impresión única).",
+                    studentId);
+                results.Add(await _pdfService.GenerateCardPdfAsync(studentId, currentUserId));
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>Espera ruta …/StudentIdCard/ui/generate/{guid}.</summary>
+    private static bool TryParseStudentIdFromGenerateUrl(string url, out Guid studentId)
+    {
+        studentId = default;
+        try
+        {
+            var path = new Uri(url, UriKind.Absolute).AbsolutePath.TrimEnd('/');
+            var last = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
+            return last != null && Guid.TryParse(last, out studentId);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private byte[] BuildPdfFromFaceImages(byte[] frontImg, byte[]? backImg)
+    {
+        var pageSize = ResolvePageSize();
         QuestPDF.Settings.License         = LicenseType.Community;
         QuestPDF.Settings.EnableDebugging = false;
 
@@ -76,21 +149,31 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         }).GeneratePdf();
     }
 
-    private async Task<(byte[] Front, byte[]? Back)> CaptureCardFaces(string url, LaunchOptions launchOpts)
+    private LaunchOptions BuildLaunchOptions(string executablePath) =>
+        new()
+        {
+            Headless       = true,
+            ExecutablePath = executablePath,
+            Timeout        = 60000,
+            Args           = BuildLaunchArgs()
+        };
+
+    private async Task<(byte[] Front, byte[]? Back)> CaptureCardFacesAsync(IBrowser browser, string url)
     {
-        await using var browser = await Puppeteer.LaunchAsync(launchOpts);
-        await using var page    = await browser.NewPageAsync();
+        await using var page = await browser.NewPageAsync();
         var pageSize = ResolvePageSize();
 
         page.DefaultNavigationTimeout = 60000;
         page.DefaultTimeout           = 60000;
+
+        var dpr = Math.Clamp(_printOptions.DeviceScaleFactor, 1, 3);
         await page.SetViewportAsync(new ViewPortOptions
         {
-            Width  = pageSize.WidthPx + 120,
-            Height = pageSize.HeightPx + 120
+            Width             = pageSize.WidthPx + 120,
+            Height            = pageSize.HeightPx + 120,
+            DeviceScaleFactor = dpr
         });
 
-        // Auth: propagar cookies de la sesión actual
         var reqCookies = _http.HttpContext?.Request.Cookies;
         if (reqCookies?.Count > 0)
         {
@@ -131,13 +214,14 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
     private (float WidthMm, float HeightMm, int WidthPx, int HeightPx) ResolvePageSize()
     {
         if (string.Equals(_printOptions.Profile, "A4Portrait", StringComparison.OrdinalIgnoreCase))
-        {
-            // A4 retrato con proporción de preview vertical (sirve para impresión en hoja).
             return (148.0f, 235.0f, 1750, 2777);
-        }
 
-        // CardPrinter (default): ID-1 portrait (vertical): 53.98mm x 85.60mm
-        return (53.98f, 85.60f, 638, 1011);
+        // Carnet tipo CR: 55 mm (ancho) × 85 mm (alto) en vertical — mismo que IdCardPhysicalDimensions.
+        return (
+            IdCardPhysicalDimensions.ShortMm,
+            IdCardPhysicalDimensions.LongMm,
+            IdCardPhysicalDimensions.PortraitWidthPx,
+            IdCardPhysicalDimensions.PortraitHeightPx);
     }
 
     private static string[] BuildLaunchArgs()
@@ -151,7 +235,6 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
             "--disable-renderer-backgrounding"
         };
 
-        // En Linux de servidores sin sandbox habilitado estos flags suelen ser necesarios.
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             args.Add("--no-sandbox");

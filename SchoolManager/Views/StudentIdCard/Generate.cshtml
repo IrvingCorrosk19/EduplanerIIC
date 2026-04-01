@@ -51,7 +51,7 @@
     .idcard-face {
         width: @(isVertical ? "210px" : "342px");
         max-width: 100%;
-        aspect-ratio: @(isVertical ? "54 / 86" : "86 / 54");
+        aspect-ratio: @(isVertical ? "55 / 85" : "85 / 55");
         height: @(isVertical ? "334px" : "216px");
         max-height: @(isVertical ? "334px" : "216px");
         background: @bg;
@@ -349,7 +349,7 @@
                                 {
                                     <div style="font-size:6.5pt;color:@text">Cédula: @Model.DocumentId</div>
                                 }
-                                <div style="font-size:6.5pt;color:@text">Grado: @Model.Card.Grade</div>
+                                <div style="font-size:6.5pt;color:@text;line-height:1.25">Grado: @Model.Card.Grade  —  Grupo: @(string.IsNullOrWhiteSpace(Model.Card.Group) ? "—" : Model.Card.Group)</div>
                                 @if (Model.ShowAcademicYear && !string.IsNullOrWhiteSpace(Model.AcademicYear))
                                 {
                                     <div style="font-size:6.5pt;color:@text">Año: @Model.AcademicYear</div>

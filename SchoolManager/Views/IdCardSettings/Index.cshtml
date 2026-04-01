@@ -144,12 +144,12 @@
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Ancho (mm)</label>
                                     <input type="number" asp-for="PageWidthMm" class="form-control" min="30" max="100" />
-                                    <small class="text-muted">Recomendado: 85.6 (tarjeta estándar)</small>
+                                    <small class="text-muted">Vertical: 55 mm · Horizontal: 85 mm (tipo CR)</small>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Alto (mm)</label>
                                     <input type="number" asp-for="PageHeightMm" class="form-control" min="50" max="150" />
-                                    <small class="text-muted">Recomendado: 54 (tarjeta estándar)</small>
+                                    <small class="text-muted">Vertical: 85 mm · Horizontal: 55 mm</small>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Sangrado (mm)</label>
@@ -167,11 +167,11 @@
                                     <div class="d-flex gap-4">
                                         <div class="form-check">
                                             <input type="radio" asp-for="Orientation" value="Vertical" class="form-check-input" id="OrientationVertical" />
-                                            <label class="form-check-label" for="OrientationVertical">Vertical (54 × 86 mm)</label>
+                                            <label class="form-check-label" for="OrientationVertical">Vertical (55 × 85 mm)</label>
                                         </div>
                                         <div class="form-check">
                                             <input type="radio" asp-for="Orientation" value="Horizontal" class="form-check-input" id="OrientationHorizontal" />
-                                            <label class="form-check-label" for="OrientationHorizontal">Horizontal (86 × 54 mm)</label>
+                                            <label class="form-check-label" for="OrientationHorizontal">Horizontal (85 × 55 mm)</label>
                                         </div>
                                     </div>
                                     <small class="text-muted">Define el tamaño y orientación de la tarjeta impresa.</small>
@@ -387,7 +387,7 @@
                     </div>
                 </div>
                 <div class="mt-3 small text-muted">
-                    <span id="previewDimensions">Dimensiones: 54 × 86 mm</span>
+                    <span id="previewDimensions">Dimensiones: 55 × 85 mm</span>
                     <span class="ms-2">·</span>
                     <span id="previewOptions">QR: Sí · Foto: No</span>
                 </div>
@@ -433,8 +433,8 @@
                 var text = (form.querySelector('[name="TextColor"]') || form.querySelector('#TextColorPicker'))?.value || '#111111';
                 var bg = (form.querySelector('[name="BackgroundColor"]') || form.querySelector('#BackgroundColorPicker'))?.value || '#FFFFFF';
                 var orientation = (form.querySelector('[name="Orientation"]:checked') || form.querySelector('input[name="Orientation"][value="Vertical"]'))?.value || 'Vertical';
-                var wMm = 54, hMm = 86;
-                if (orientation === 'Horizontal') { wMm = 86; hMm = 54; } else { wMm = 54; hMm = 86; }
+                var wMm = 55, hMm = 85;
+                if (orientation === 'Horizontal') { wMm = 85; hMm = 55; } else { wMm = 55; hMm = 85; }
                 var showQr = (form.querySelector('[name="ShowQr"]') || form.querySelector('#ShowQr'))?.checked !== false;
                 var showPhoto = (form.querySelector('[name="ShowPhoto"]') || form.querySelector('#ShowPhoto'))?.checked === true;
 

@@ -263,12 +263,30 @@ public class StudentIdCardController : Controller
             });
         }
 
-        var merged = new PdfDocument();
-        foreach (var student in students)
+        // Igual que Print() por estudiante: HTML /ui/generate/{id} → captura; si falla, nativo solo para ese id (ver GenerateBulkFromUrls).
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var generateUrls = students
+            .Select(s => $"{baseUrl}/StudentIdCard/ui/generate/{s.Id}")
+            .ToList();
+
+        var studentPdfs = await _htmlCapture.GenerateBulkFromUrls(generateUrls);
+
+        if (studentPdfs.Count != students.Count)
         {
+            _logger.LogError(
+                "[StudentIdCard] Bulk: se esperaban {Expected} PDFs, se obtuvieron {Actual}.",
+                students.Count, studentPdfs.Count);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new { message = "Error interno al armar el PDF masivo." });
+        }
+
+        var merged = new PdfDocument();
+        for (var idx = 0; idx < students.Count; idx++)
+        {
+            var student = students[idx];
             try
             {
-                var bytes = await _pdfService.GenerateCardPdfAsync(student.Id, userId);
+                var bytes = studentPdfs[idx];
                 using var ms = new MemoryStream(bytes);
                 using var doc = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
                 for (var i = 0; i < doc.PageCount; i++)

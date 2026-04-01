@@ -1,4 +1,5 @@
 using SkiaSharp;
+using SchoolManager.Services;
 using SchoolManager.Dtos;
 using SchoolManager.Helpers;
 using SchoolManager.Models;
@@ -9,14 +10,10 @@ namespace SchoolManager.Services.Implementations;
 
 public class StudentIdCardImageService : IStudentIdCardImageService
 {
-    private const float Dpi          = 300f;
-    private const float CardWidthMm  = 85.60f;
-    private const float CardHeightMm = 53.98f;
-
-    private static readonly int LandW = (int)(CardWidthMm  / 25.4f * Dpi);  // 1011
-    private static readonly int LandH = (int)(CardHeightMm / 25.4f * Dpi);  // 638
-    private static readonly int PortW = (int)(CardHeightMm / 25.4f * Dpi);  // 638
-    private static readonly int PortH = (int)(CardWidthMm  / 25.4f * Dpi);  // 1011
+    private static readonly int LandW = IdCardPhysicalDimensions.LandscapeWidthPx;
+    private static readonly int LandH = IdCardPhysicalDimensions.LandscapeHeightPx;
+    private static readonly int PortW = IdCardPhysicalDimensions.PortraitWidthPx;
+    private static readonly int PortH = IdCardPhysicalDimensions.PortraitHeightPx;
 
     private readonly IQrSignatureService _qrSig;
 
@@ -30,7 +27,9 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         IsInstitutionalVertical(s) ? (PortW, PortH) : (LandW, LandH);
 
     public (float WidthMm, float HeightMm) GetCardMmDimensions(SchoolIdCardSetting s) =>
-        IsInstitutionalVertical(s) ? (CardHeightMm, CardWidthMm) : (CardWidthMm, CardHeightMm);
+        IsInstitutionalVertical(s)
+            ? (IdCardPhysicalDimensions.ShortMm, IdCardPhysicalDimensions.LongMm)
+            : (IdCardPhysicalDimensions.LongMm, IdCardPhysicalDimensions.ShortMm);
 
     // ─────────────────────────────────────────────────────────────────────────
     public byte[] GenerateCardImage(StudentCardRenderDto dto, SchoolIdCardSetting settings,
@@ -62,7 +61,7 @@ public class StudentIdCardImageService : IStudentIdCardImageService
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // CLÁSICO — landscape 1011×638
+    // CLÁSICO — landscape (85×55 mm @300dpi)
     // ══════════════════════════════════════════════════════════════════════════
     private void DrawClassicFront(SKCanvas canvas, int w, int h,
         StudentCardRenderDto dto, SchoolIdCardSetting settings)
@@ -130,7 +129,8 @@ public class StudentIdCardImageService : IStudentIdCardImageService
 
         AutoText(canvas, dto.FullName,              dataX, ty, dataW, nameFs,  textCol, bold: true); ty += lineH;
         AutoText(canvas, $"Carnet: {dto.CardNumber}", dataX, ty, dataW, cardFs,  primary);            ty += lineH;
-        AutoText(canvas, $"{dto.Grade} - {dto.Group}", dataX, ty, dataW, smallFs, textCol);           ty += lineH;
+        var gradeGroup = $"Grado: {dto.Grade}  —  Grupo: {(string.IsNullOrWhiteSpace(dto.Group) ? "—" : dto.Group)}";
+        AutoText(canvas, gradeGroup, dataX, ty, dataW, smallFs, textCol);           ty += lineH;
         AutoText(canvas, dto.Shift,                  dataX, ty, dataW, smallFs, textCol);
 
         // ── Footer ────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ public class StudentIdCardImageService : IStudentIdCardImageService
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // INSTITUCIONAL VERTICAL — portrait 638×1011
+    // INSTITUCIONAL VERTICAL — portrait (55×85 mm @300dpi)
     // ══════════════════════════════════════════════════════════════════════════
     private void DrawInstitutionalVerticalFront(SKCanvas canvas, int w, int h,
         StudentCardRenderDto dto, SchoolIdCardSetting settings)
@@ -233,7 +233,8 @@ public class StudentIdCardImageService : IStudentIdCardImageService
             AutoText(canvas, $"Cédula: {dto.DocumentId}", hPad, ty, textW, smallFs, textCol, center: true);
             ty += lineH;
         }
-        AutoText(canvas, $"Grado: {dto.Grade}  —  {dto.Group}", hPad, ty, textW, smallFs, textCol, center: true);
+        var gradeGroupV = $"Grado: {dto.Grade}  —  Grupo: {(string.IsNullOrWhiteSpace(dto.Group) ? "—" : dto.Group)}";
+        AutoText(canvas, gradeGroupV, hPad, ty, textW, smallFs, textCol, center: true);
         ty += lineH;
         if (settings.ShowAcademicYear && !string.IsNullOrWhiteSpace(dto.AcademicYear))
             AutoText(canvas, $"Año: {dto.AcademicYear}", hPad, ty, textW, smallFs, textCol, center: true);
@@ -270,7 +271,7 @@ public class StudentIdCardImageService : IStudentIdCardImageService
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // MODERNO HORIZONTAL — landscape 1011×638
+    // MODERNO HORIZONTAL — landscape (85×55 mm @300dpi)
     // ══════════════════════════════════════════════════════════════════════════
     private void DrawModernHorizontalFront(SKCanvas canvas, int w, int h,
         StudentCardRenderDto dto, SchoolIdCardSetting settings)
@@ -350,7 +351,8 @@ public class StudentIdCardImageService : IStudentIdCardImageService
 
         AutoText(canvas, dto.FullName,               dataX, ty, dataW, nameFs,  textCol, bold: true); ty += lineH;
         AutoText(canvas, $"Carnet: {dto.CardNumber}", dataX, ty, dataW, cardFs,  primary);             ty += lineH;
-        AutoText(canvas, $"{dto.Grade} - {dto.Group}", dataX, ty, dataW, smallFs, textCol);            ty += lineH;
+        var gradeGroupH = $"Grado: {dto.Grade}  —  Grupo: {(string.IsNullOrWhiteSpace(dto.Group) ? "—" : dto.Group)}";
+        AutoText(canvas, gradeGroupH, dataX, ty, dataW, smallFs, textCol);            ty += lineH;
         AutoText(canvas, dto.Shift,                   dataX, ty, dataW, smallFs, textCol);             ty += lineH;
         if (settings.ShowDocumentId && !string.IsNullOrWhiteSpace(dto.DocumentId))
             AutoText(canvas, $"Cédula: {dto.DocumentId}", dataX, ty, dataW, smallFs, textCol);
@@ -381,13 +383,13 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         {
             if (!f.IsEnabled) continue;
             // Coordenadas absolutas desde la DB, convertidas a px proporcional al canvas
-            float scaleX = w / 85.60f;
-            float scaleY = h / 53.98f;
+            float scaleX = w / IdCardPhysicalDimensions.LongMm;
+            float scaleY = h / IdCardPhysicalDimensions.ShortMm;
             float fx = (float)f.XMm * scaleX;
             float fy = (float)f.YMm * scaleY;
             float fw = (float)f.WMm * scaleX;
             float fh = (float)f.HMm * scaleY;
-            float fs = (float)f.FontSize * (h / 53.98f) * 0.38f;
+            float fs = (float)f.FontSize * (h / IdCardPhysicalDimensions.ShortMm) * 0.38f;
 
             switch (f.FieldKey)
             {

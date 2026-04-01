@@ -38,7 +38,7 @@ public class IdCardSettingsController : Controller
             ViewBag.NeedSchoolSelection = true;
 
             if (!schoolId.HasValue || schoolId == Guid.Empty)
-                return View(new SchoolIdCardSetting { SchoolId = Guid.Empty, TemplateKey = "default_v1", PageWidthMm = 54, PageHeightMm = 86, BackgroundColor = "#FFFFFF", PrimaryColor = "#0D6EFD", TextColor = "#111111", ShowQr = true, ShowPhoto = true, ShowSchoolPhone = true, ShowWatermark = true, Orientation = "Vertical" });
+                return View(new SchoolIdCardSetting { SchoolId = Guid.Empty, TemplateKey = "default_v1", PageWidthMm = 55, PageHeightMm = 85, BackgroundColor = "#FFFFFF", PrimaryColor = "#0D6EFD", TextColor = "#111111", ShowQr = true, ShowPhoto = true, ShowSchoolPhone = true, ShowWatermark = true, Orientation = "Vertical" });
 
             var selectedSchool = await _context.Schools.FindAsync(schoolId.Value);
             if (selectedSchool == null)
@@ -65,8 +65,8 @@ public class IdCardSettingsController : Controller
         { 
             SchoolId = school.Id,
             TemplateKey = "default_v1",
-            PageWidthMm = 54,
-            PageHeightMm = 86,
+            PageWidthMm = 55,
+            PageHeightMm = 85,
             BackgroundColor = "#FFFFFF",
             PrimaryColor = "#0D6EFD",
             TextColor = "#111111",
@@ -121,8 +121,8 @@ public class IdCardSettingsController : Controller
             model.Id = Guid.NewGuid();
             model.Orientation = model.Orientation ?? "Vertical";
             var isHorizontal = string.Equals(model.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
-            model.PageWidthMm = isHorizontal ? 86 : 54;
-            model.PageHeightMm = isHorizontal ? 54 : 86;
+            model.PageWidthMm = isHorizontal ? 85 : 55;
+            model.PageHeightMm = isHorizontal ? 55 : 85;
             model.SecondaryLogoUrl = string.IsNullOrWhiteSpace(model.SecondaryLogoUrl) ? null : model.SecondaryLogoUrl.Trim();
             model.CreatedAt = DateTime.UtcNow;
             model.UpdatedAt = DateTime.UtcNow;
@@ -146,8 +146,8 @@ public class IdCardSettingsController : Controller
             existing.ShowWatermark = model.ShowWatermark;
             // Sincronizar dimensiones con orientación para que el PDF y la vista previa sean consistentes
             var isHorizontal = string.Equals(existing.Orientation, "Horizontal", StringComparison.OrdinalIgnoreCase);
-            existing.PageWidthMm = isHorizontal ? 86 : 54;
-            existing.PageHeightMm = isHorizontal ? 54 : 86;
+            existing.PageWidthMm = isHorizontal ? 85 : 55;
+            existing.PageHeightMm = isHorizontal ? 55 : 85;
             // Campos del diseño moderno
             existing.UseModernLayout = model.UseModernLayout;
             existing.ShowDocumentId = model.ShowDocumentId;
