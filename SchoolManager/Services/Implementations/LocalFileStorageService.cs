@@ -101,9 +101,114 @@ public sealed class LocalFileStorageService : IFileStorageService
         return relativePath;
     }
 
+    /// <summary>
+    /// Decodifica la imagen y aplica EXIF Orientation (p. ej. fotos verticales desde móvil)
+    /// para que los píxeles queden “de pie” antes de redimensionar o comprimir.
+    /// </summary>
+    private static SKBitmap DecodeBitmapWithOrientationApplied(byte[] source)
+    {
+        using var data = SKData.CreateCopy(source);
+        using var codec = SKCodec.Create(data);
+        var origin = SKEncodedOrigin.TopLeft;
+        SKBitmap? bitmap = null;
+        if (codec != null)
+        {
+            origin = codec.EncodedOrigin;
+            bitmap = SKBitmap.Decode(codec);
+        }
+
+        bitmap ??= SKBitmap.Decode(source);
+        if (bitmap == null)
+            throw new InvalidOperationException("No se pudo leer la imagen. Use un JPEG o PNG válido.");
+
+        if (origin == SKEncodedOrigin.TopLeft)
+            return bitmap;
+
+        try
+        {
+            return TransformBitmapToUpright(bitmap, origin);
+        }
+        finally
+        {
+            bitmap.Dispose();
+        }
+    }
+
+    private static SKBitmap TransformBitmapToUpright(SKBitmap original, SKEncodedOrigin origin)
+    {
+        var useW = original.Width;
+        var useH = original.Height;
+        Action<SKCanvas> transform = _ => { };
+
+        switch (origin)
+        {
+            case SKEncodedOrigin.TopRight:
+                transform = c => c.Scale(-1, 1, useW / 2f, useH / 2f);
+                break;
+            case SKEncodedOrigin.BottomRight:
+                transform = c => c.RotateDegrees(180, useW / 2f, useH / 2f);
+                break;
+            case SKEncodedOrigin.BottomLeft:
+                transform = c => c.Scale(1, -1, useW / 2f, useH / 2f);
+                break;
+            case SKEncodedOrigin.LeftTop:
+                useW = original.Height;
+                useH = original.Width;
+                transform = c =>
+                {
+                    c.RotateDegrees(90, useW / 2f, useH / 2f);
+                    c.Scale(useH * 1f / useW, -useW * 1f / useH, useW / 2f, useH / 2f);
+                };
+                break;
+            case SKEncodedOrigin.RightTop:
+                useW = original.Height;
+                useH = original.Width;
+                transform = c =>
+                {
+                    c.RotateDegrees(90, useW / 2f, useH / 2f);
+                    c.Scale(useH * 1f / useW, useW * 1f / useH, useW / 2f, useH / 2f);
+                };
+                break;
+            case SKEncodedOrigin.RightBottom:
+                useW = original.Height;
+                useH = original.Width;
+                transform = c =>
+                {
+                    c.RotateDegrees(90, useW / 2f, useH / 2f);
+                    c.Scale(-useH * 1f / useW, useW * 1f / useH, useW / 2f, useH / 2f);
+                };
+                break;
+            case SKEncodedOrigin.LeftBottom:
+                useW = original.Height;
+                useH = original.Width;
+                transform = c =>
+                {
+                    c.RotateDegrees(90, useW / 2f, useH / 2f);
+                    c.Scale(-useH * 1f / useW, -useW * 1f / useH, useW / 2f, useH / 2f);
+                };
+                break;
+            default:
+                throw new InvalidOperationException($"Origen de imagen no soportado: {origin}.");
+        }
+
+        var info = new SKImageInfo(useW, useH, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+        var canvas = surface.Canvas;
+        using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
+        transform(canvas);
+        canvas.DrawBitmap(original, new SKRect(0, 0, useW, useH), paint);
+        canvas.Flush();
+
+        using var snapshot = surface.Snapshot();
+        var result = SKBitmap.FromImage(snapshot);
+        if (result == null)
+            throw new InvalidOperationException("No se pudo corregir la orientación de la imagen.");
+        return result;
+    }
+
     private static byte[] CompressImageToMaxBytes(byte[] source, int maxBytes)
     {
-        var decoded = SKBitmap.Decode(source);
+        var decoded = DecodeBitmapWithOrientationApplied(source);
         if (decoded == null || decoded.Width < 1 || decoded.Height < 1)
         {
             throw new InvalidOperationException(
