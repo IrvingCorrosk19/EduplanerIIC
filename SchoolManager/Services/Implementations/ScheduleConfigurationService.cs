@@ -53,17 +53,6 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
             && (model.AfternoonBlockCount ?? 0) > 0
             && (model.AfternoonBlockDurationMinutes ?? 0) > 0;
 
-        if (afternoonActive)
-        {
-            var aCnt = model.AfternoonBlockCount!.Value;
-            var kA = model.RecessAfterAfternoonBlockNumber;
-            if (kA < 1 || kA > aCnt)
-            {
-                return (false,
-                    $"Indique después de qué bloque de tarde va el recreo (1 a {aCnt}). Valor actual: {kA}.");
-            }
-        }
-
         if (!afternoonActive)
         {
             if (model.MorningBlockCount < 2)
@@ -83,6 +72,10 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
             if (afternoonCount < 1 || afternoonDuration < 1)
                 return (false, "Si configura jornada tarde, complete duración (min) y cantidad de bloques con valores mayores a 0.");
         }
+
+        // Tarde usa el mismo "después del bloque n.º" que mañana (misma duración de recreo), acotado a la cantidad de bloques de tarde.
+        if (afternoonActive)
+            model.RecessAfterAfternoonBlockNumber = model.RecessAfterMorningBlockNumber;
 
         var lastMorningClassEnd = ComputeLastClassEndMorning(model);
         if (afternoonActive)
@@ -253,7 +246,7 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
             {
                 var count = model.AfternoonBlockCount!.Value;
                 var duration = model.AfternoonBlockDurationMinutes!.Value;
-                var kAfternoon = model.RecessAfterAfternoonBlockNumber;
+                var kAfternoon = Math.Clamp(model.RecessAfterMorningBlockNumber, 1, count);
                 start = model.AfternoonStartTime!.Value;
 
                 void AddAfternoonClassBlock(int blockIndex1Based)

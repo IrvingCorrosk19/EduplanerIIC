@@ -35,11 +35,10 @@ public class SchoolScheduleConfiguration
     public int RecessAfterMorningBlockNumber { get; set; } = 4;
 
     /// <summary>
-    /// Después de qué bloque de clase de tarde (1..N) se coloca el recreo.
-    /// Si es igual a la cantidad de bloques de tarde, no hay recreo entre clases de esa jornada.
+    /// Copia del índice de recreo de mañana (misma posición en tarde); se asigna al guardar. Solo persistencia/compatibilidad.
     /// </summary>
     [Range(1, 40)]
-    public int RecessAfterAfternoonBlockNumber { get; set; } = 2;
+    public int RecessAfterAfternoonBlockNumber { get; set; } = 4;
 
     /// <summary>Hora de inicio de la jornada de tarde (formato 24 h, ej. 13:00); null si solo hay mañana.</summary>
     [DisplayFormat(DataFormatString = "{0:HH:mm}", ApplyFormatInEditMode = true)]

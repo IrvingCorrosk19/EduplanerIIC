@@ -29,6 +29,9 @@ public class ScheduleConfigurationController : Controller
             return RedirectToAction("Index", "Home");
 
         var config = await _configService.GetBySchoolIdAsync(user.SchoolId.Value);
+        if (config != null)
+            config.RecessAfterAfternoonBlockNumber = config.RecessAfterMorningBlockNumber;
+
         var model = config ?? new SchoolScheduleConfiguration
         {
             SchoolId = user.SchoolId.Value,
@@ -37,7 +40,7 @@ public class ScheduleConfigurationController : Controller
             MorningBlockCount = 8,
             RecessDurationMinutes = 30,
             RecessAfterMorningBlockNumber = 4,
-            RecessAfterAfternoonBlockNumber = 2,
+            RecessAfterAfternoonBlockNumber = 4,
             AfternoonStartTime = null,
             AfternoonBlockDurationMinutes = null,
             AfternoonBlockCount = null
@@ -73,9 +76,7 @@ public class ScheduleConfigurationController : Controller
         if (!string.IsNullOrEmpty(afterBlockStr) && int.TryParse(afterBlockStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var afterBlock))
             model.RecessAfterMorningBlockNumber = Math.Clamp(afterBlock, 1, 40);
 
-        var afterAftStr = Request.Form["RecessAfterAfternoonBlockNumber"].ToString().Trim();
-        if (!string.IsNullOrEmpty(afterAftStr) && int.TryParse(afterAftStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var afterAft))
-            model.RecessAfterAfternoonBlockNumber = Math.Clamp(afterAft, 1, 40);
+        model.RecessAfterAfternoonBlockNumber = model.RecessAfterMorningBlockNumber;
 
         var (success, message) = await _configService.SaveAndGenerateBlocksAsync(model, user.SchoolId.Value, forceRegenerate);
         if (success)

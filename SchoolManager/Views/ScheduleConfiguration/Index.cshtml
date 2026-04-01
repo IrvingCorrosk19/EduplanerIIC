@@ -36,6 +36,7 @@
                     <form asp-action="SaveConfiguration" method="post">
                         <input type="hidden" asp-for="SchoolId" />
                         <input type="hidden" asp-for="Id" />
+                        <input type="hidden" asp-for="RecessAfterAfternoonBlockNumber" />
                         <div asp-validation-summary="All" class="text-danger"></div>
 
                         <h5 class="mb-3">Mañana</h5>
@@ -71,10 +72,10 @@
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label asp-for="RecessAfterMorningBlockNumber" class="control-label">Después del bloque n.º</label>
+                                    <label asp-for="RecessAfterMorningBlockNumber" class="control-label">Después del bloque n.º (mañana y tarde)</label>
                                     <input asp-for="RecessAfterMorningBlockNumber" type="number" min="1" max="20" class="form-control" placeholder="4" />
                                     <span asp-validation-for="RecessAfterMorningBlockNumber" class="text-danger"></span>
-                                    <small class="form-text text-muted">El recreo de <strong>medio de mañana</strong> va inmediatamente después de ese bloque de clase (1 = tras el 1.º, …). Si coincide con la <strong>cantidad de bloques de mañana</strong> y hay tarde, no hay recreo entre clases: solo el intervalo hasta la hora de inicio de tarde (≥ duración indicada abajo).</small>
+                                    <small class="form-text text-muted">El mismo número en <strong>ambas jornadas</strong>: recreo justo después de ese bloque de clase (1 = tras el 1.º, …), con la <strong>misma duración en minutos</strong>. Si coincide con la cantidad de bloques de <strong>mañana</strong> y hay tarde, en mañana no hay recreo entre clases (solo el hueco hasta la hora de inicio de tarde). Si en tarde hay menos bloques que ese número, en tarde tampoco habrá recreo intermedio.</small>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -108,14 +109,6 @@
                                 <div class="form-group">
                                     <label asp-for="AfternoonBlockCount" class="control-label">Cantidad de bloques</label>
                                     <input asp-for="AfternoonBlockCount" type="number" min="0" max="20" class="form-control" placeholder="0" />
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label asp-for="RecessAfterAfternoonBlockNumber" class="control-label">Recreo después del bloque n.º (tarde)</label>
-                                    <input asp-for="RecessAfterAfternoonBlockNumber" type="number" min="1" max="20" class="form-control" placeholder="2" />
-                                    <span asp-validation-for="RecessAfterAfternoonBlockNumber" class="text-danger"></span>
-                                    <small class="form-text text-muted">Igual que en mañana: el recreo de <strong>medio de tarde</strong> va tras ese bloque. Si coincide con la <strong>cantidad de bloques de tarde</strong>, las clases de tarde van seguidas (sin recreo intermedio en esa jornada).</small>
                                 </div>
                             </div>
                         </div>
@@ -171,7 +164,7 @@
                 var aftStartEl = document.querySelector('input[name="AfternoonStartTime"]');
                 var aftDurEl = document.querySelector('input[name="AfternoonBlockDurationMinutes"]');
                 var aftCntEl = document.querySelector('input[name="AfternoonBlockCount"]');
-                var aftAfterEl = document.querySelector('input[name="RecessAfterAfternoonBlockNumber"]');
+                var aftRecessHidden = document.querySelector('input[name="RecessAfterAfternoonBlockNumber"]');
                 if (!startInput || !durationInput || !countInput || !morningDiv) return;
                 var recessMin = Math.max(1, parseInt(recessInput && recessInput.value, 10) || 30);
                 var startMin = parseTime(startInput.value);
@@ -202,34 +195,29 @@
                     morningHtml = '<strong>Sin recreo entre clases de mañana</strong> (valor = cantidad de bloques). Fin de la última clase: <strong>' + lastClassTime + '</strong>. Con tarde, el bloque <strong>Recreo</strong> será desde ahí hasta la hora de inicio de tarde (mín. ' + recessMin + ' min).';
                 }
                 morningDiv.innerHTML = morningHtml;
+                if (aftRecessHidden) aftRecessHidden.value = String(k);
                 var earliestAfternoonMin = lastClassEndMin + recessMin;
                 var baseAfternoonLine = 'Si hay jornada de tarde, la primera hora posible de inicio es <strong>' + formatMinutes(earliestAfternoonMin) + '</strong> (tras última clase mañana + <strong>' + recessMin + '</strong> min mín.).';
                 var aCnt = parseInt(aftCntEl && aftCntEl.value, 10) || 0;
                 var aDur = parseInt(aftDurEl && aftDurEl.value, 10) || 0;
                 var aftStartMin = parseTime(aftStartEl && aftStartEl.value);
-                if (aftAfterEl && aCnt > 0) {
-                    aftAfterEl.max = String(aCnt);
-                    var ak = parseInt(aftAfterEl.value, 10);
-                    if (isNaN(ak) || ak < 1) ak = 1;
-                    if (ak > aCnt) { ak = aCnt; aftAfterEl.value = String(aCnt); }
-                }
                 var afternoonExtra = '';
-                if (aftStartMin != null && aDur > 0 && aCnt > 0 && aftAfterEl) {
-                    var kA = Math.max(1, Math.min(aCnt, parseInt(aftAfterEl.value, 10) || 2));
+                if (aftStartMin != null && aDur > 0 && aCnt > 0) {
+                    var kA = Math.min(k, aCnt);
                     var lastAftEndMin = kA < aCnt
                         ? aftStartMin + kA * aDur + recessMin + (aCnt - kA) * aDur
                         : aftStartMin + aCnt * aDur;
                     var recAStartMin = aftStartMin + kA * aDur;
                     var recAEndMin = recAStartMin + recessMin;
                     if (kA < aCnt) {
-                        afternoonExtra = '<br/><strong>Recreo en tarde:</strong> después del <strong>bloque ' + kA + '</strong>, de <strong>' + formatMinutes(recAStartMin) + '</strong> a <strong>' + formatMinutes(recAEndMin) + '</strong>. Fin de la última clase de tarde: <strong>' + formatMinutes(lastAftEndMin) + '</strong>.';
+                        afternoonExtra = '<br/><strong>Recreo en tarde (mismo n.º y minutos):</strong> después del <strong>bloque ' + kA + '</strong>, de <strong>' + formatMinutes(recAStartMin) + '</strong> a <strong>' + formatMinutes(recAEndMin) + '</strong>. Fin de la última clase de tarde: <strong>' + formatMinutes(lastAftEndMin) + '</strong>.';
                     } else {
-                        afternoonExtra = '<br/><strong>Sin recreo entre clases de tarde</strong> (valor = cantidad de bloques). Fin de la última clase: <strong>' + formatMinutes(lastAftEndMin) + '</strong>.';
+                        afternoonExtra = '<br/><strong>Sin recreo entre clases de tarde</strong> (el número supera la cantidad de bloques de tarde o es igual). Fin de la última clase: <strong>' + formatMinutes(lastAftEndMin) + '</strong>.';
                     }
                 }
                 afternoonDiv.innerHTML = baseAfternoonLine + afternoonExtra;
             }
-            document.querySelectorAll('input[name="MorningStartTime"], input[name="MorningBlockDurationMinutes"], input[name="MorningBlockCount"], input[name="RecessDurationMinutes"], input[name="RecessAfterMorningBlockNumber"], input[name="AfternoonStartTime"], input[name="AfternoonBlockDurationMinutes"], input[name="AfternoonBlockCount"], input[name="RecessAfterAfternoonBlockNumber"]').forEach(function (el) {
+            document.querySelectorAll('input[name="MorningStartTime"], input[name="MorningBlockDurationMinutes"], input[name="MorningBlockCount"], input[name="RecessDurationMinutes"], input[name="RecessAfterMorningBlockNumber"], input[name="AfternoonStartTime"], input[name="AfternoonBlockDurationMinutes"], input[name="AfternoonBlockCount"]').forEach(function (el) {
                 el.addEventListener('change', updateCalc);
                 el.addEventListener('input', updateCalc);
             });
