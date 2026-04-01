@@ -196,12 +196,24 @@
                         <i class="fas fa-user fa-2x"></i>
                     </div>
                 </div>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button type="button" id="btnTakePhotoNow" class="btn btn-primary">
+                        <i class="fas fa-camera me-1"></i> Tomar foto ahora
+                    </button>
+                    <button type="button" id="btnChoosePhoto" class="btn btn-outline-secondary">
+                        <i class="fas fa-image me-1"></i> Elegir desde galería
+                    </button>
+                </div>
                 <input type="file"
                        id="studentPhotoInput"
-                       class="form-control"
+                       class="d-none"
                        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                        capture="environment" />
-                <small class="text-muted">En tablet/celular abre la cámara trasera para tomar foto. También permite subir imagen.</small>
+                <input type="file"
+                       id="studentPhotoInputGallery"
+                       class="d-none"
+                       accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
+                <small class="text-muted">Toca “Tomar foto ahora” para abrir cámara. En iPad/iPhone puede mostrar menú Cámara/Fotos.</small>
             </div>
             <div class="modal-footer">
                 <button type="button" id="btnRemoveStudentPhoto" class="btn btn-outline-danger">
@@ -227,6 +239,9 @@
             var photoModalEl = document.getElementById('studentPhotoModal');
             var photoModal = photoModalEl ? new bootstrap.Modal(photoModalEl) : null;
             var photoInput = document.getElementById('studentPhotoInput');
+            var photoInputGallery = document.getElementById('studentPhotoInputGallery');
+            var btnTakePhotoNow = document.getElementById('btnTakePhotoNow');
+            var btnChoosePhoto = document.getElementById('btnChoosePhoto');
             var previewImg = document.getElementById('studentPhotoPreviewImg');
             var previewPlaceholder = document.getElementById('studentPhotoPreviewPlaceholder');
             var meta = document.getElementById('studentPhotoMeta');
@@ -459,8 +474,7 @@
                 photoModal.show();
             });
 
-            photoInput.addEventListener('change', async function () {
-                var file = this.files && this.files[0];
+            async function handlePickedFile(file) {
                 if (!file) return;
                 var objectUrl = URL.createObjectURL(file);
                 previewImg.src = objectUrl;
@@ -468,6 +482,26 @@
                 previewPlaceholder.style.display = 'none';
                 // Subida automática inmediata, como flujo tipo app.
                 await processPhoto(file, true);
+            }
+
+            photoInput.addEventListener('change', async function () {
+                var file = this.files && this.files[0];
+                await handlePickedFile(file);
+            });
+
+            photoInputGallery.addEventListener('change', async function () {
+                var file = this.files && this.files[0];
+                await handlePickedFile(file);
+            });
+
+            btnTakePhotoNow.addEventListener('click', function () {
+                photoInput.value = '';
+                photoInput.click();
+            });
+
+            btnChoosePhoto.addEventListener('click', function () {
+                photoInputGallery.value = '';
+                photoInputGallery.click();
             });
 
             btnSave.addEventListener('click', async function () {
