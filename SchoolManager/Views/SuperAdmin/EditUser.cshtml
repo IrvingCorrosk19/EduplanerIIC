@@ -71,7 +71,7 @@
                                     <form asp-action="UpdateUserPhoto" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="d-inline">
                                         @Html.AntiForgeryToken()
                                         <input type="file" name="photo" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="form-control form-control-sm mb-1" style="max-width:220px;" />
-                                        <small class="text-muted d-block mb-1">JPEG o PNG, máx. 2 MB</small>
+                                        <small class="text-muted d-block mb-1">JPEG o PNG; hasta 12 MB de subida, se guarda a máx. 2 MB</small>
                                         <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-upload me-1"></i>Subir foto</button>
                                     </form>
                                     @if (!string.IsNullOrEmpty(Model.PhotoUrl))

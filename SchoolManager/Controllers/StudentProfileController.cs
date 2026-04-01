@@ -211,7 +211,7 @@ namespace SchoolManager.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [RequestSizeLimit(2 * 1024 * 1024)]
+        [RequestSizeLimit(12 * 1024 * 1024)]
         public async Task<IActionResult> UpdatePhoto(IFormFile? photo)
         {
             var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
@@ -220,7 +220,7 @@ namespace SchoolManager.Controllers
 
             if (photo == null || photo.Length == 0)
             {
-                TempData["Error"] = "Seleccione una imagen (JPEG o PNG, máx. 2 MB).";
+                TempData["Error"] = "Seleccione una imagen (JPEG o PNG; si supera 2 MB se comprimirá automáticamente, máx. de subida 12 MB).";
                 return RedirectToAction("Index");
             }
 
@@ -236,7 +236,7 @@ namespace SchoolManager.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error actualizando foto del estudiante");
-                TempData["Error"] = "No se pudo actualizar la foto. Verifique que sea JPEG o PNG y no supere 2 MB.";
+                TempData["Error"] = "No se pudo actualizar la foto. Use JPEG o PNG (máx. de subida 12 MB).";
             }
 
             return RedirectToAction("Index");

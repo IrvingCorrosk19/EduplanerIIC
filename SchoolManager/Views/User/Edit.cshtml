@@ -35,7 +35,7 @@
 
                         <div class="mb-4">
                             <label class="form-label">Foto del usuario</label>
-                            <p class="text-muted small mb-2">Se usará en el carnet estudiantil si es estudiante. JPEG o PNG, máx. 2 MB.</p>
+                            <p class="text-muted small mb-2">Se usará en el carnet estudiantil si es estudiante. JPEG o PNG; si supera 2 MB se comprimirá automáticamente (máx. de subida 12 MB).</p>
                             <div class="d-flex align-items-start gap-3">
                                 @if (!string.IsNullOrEmpty(Model.PhotoUrl))
                                 {

@@ -513,7 +513,7 @@
                 <div class="row mb-3" id="userPhotoSection" style="display: none;">
                     <div class="col-12">
                         <label class="form-label">Foto del usuario</label>
-                        <p class="text-muted small mb-2">Se usará en el carnet estudiantil si es estudiante. JPEG o PNG, máx. 2 MB.</p>
+                        <p class="text-muted small mb-2">Se usará en el carnet estudiantil si es estudiante. JPEG o PNG; si supera 2 MB se comprimirá automáticamente (máx. de subida 12 MB).</p>
                         <div class="d-flex align-items-start gap-3 flex-wrap">
                             <div id="userPhotoPreview" class="rounded shadow-sm bg-light d-flex align-items-center justify-content-center text-muted" style="width:100px;height:100px;">
                                 <i class="fas fa-user-circle fa-3x"></i>
@@ -1334,7 +1334,7 @@
                 if (!userId) return;
                 var fileInput = document.getElementById('userPhotoInput');
                 if (!fileInput.files || !fileInput.files.length) {
-                    Swal.fire({ icon: 'warning', title: 'Sin archivo', text: 'Seleccione una imagen (JPEG o PNG, máx. 2 MB).' });
+                    Swal.fire({ icon: 'warning', title: 'Sin archivo', text: 'Seleccione una imagen (JPEG o PNG; máx. de subida 12 MB).' });
                     return;
                 }
                 var formData = new FormData();

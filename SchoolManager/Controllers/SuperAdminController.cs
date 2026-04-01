@@ -119,11 +119,11 @@ public class SuperAdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequestSizeLimit(2 * 1024 * 1024)]
+    [RequestSizeLimit(12 * 1024 * 1024)]
     public async Task<IActionResult> StudentDirectoryUpdatePhoto(Guid userId, IFormFile? photo)
     {
         if (photo == null || photo.Length == 0)
-            return Json(new { success = false, message = "Seleccione una imagen (JPEG o PNG, máx. 2 MB)." });
+            return Json(new { success = false, message = "Seleccione una imagen (JPEG o PNG; si supera 2 MB se comprimirá automáticamente, máx. de subida 12 MB)." });
 
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)
@@ -329,12 +329,12 @@ public class SuperAdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequestSizeLimit(2 * 1024 * 1024)]
+    [RequestSizeLimit(12 * 1024 * 1024)]
     public async Task<IActionResult> UpdateUserPhoto(Guid id, IFormFile? photo)
     {
         if (photo == null || photo.Length == 0)
         {
-            TempData["ErrorMessage"] = "Seleccione una imagen (JPEG o PNG, máx. 2 MB).";
+            TempData["ErrorMessage"] = "Seleccione una imagen (JPEG o PNG; si supera 2 MB se comprimirá automáticamente, máx. de subida 12 MB).";
             return RedirectToAction(nameof(EditUser), new { id });
         }
         try
@@ -349,7 +349,7 @@ public class SuperAdminController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error actualizando foto del usuario {UserId}", id);
-            TempData["ErrorMessage"] = "No se pudo actualizar la foto. Verifique que sea JPEG o PNG y no supere 2 MB.";
+            TempData["ErrorMessage"] = "No se pudo actualizar la foto. Use JPEG o PNG (máx. de subida 12 MB).";
         }
         return RedirectToAction(nameof(EditUser), new { id });
     }

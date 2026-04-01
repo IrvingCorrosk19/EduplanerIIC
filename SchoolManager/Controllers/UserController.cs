@@ -203,7 +203,7 @@ public class UserController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequestSizeLimit(2 * 1024 * 1024)]
+    [RequestSizeLimit(12 * 1024 * 1024)]
     public async Task<IActionResult> UpdatePhoto(Guid id, IFormFile? photo)
     {
         var user = await _userService.GetByIdAsync(id);
@@ -216,7 +216,7 @@ public class UserController : Controller
         }
         if (photo == null || photo.Length == 0)
         {
-            TempData["Error"] = "Seleccione una imagen (JPEG o PNG, máx. 2 MB).";
+            TempData["Error"] = "Seleccione una imagen (JPEG o PNG; si supera 2 MB se comprimirá automáticamente, máx. de subida 12 MB).";
             return RedirectToAction(nameof(Edit), new { id });
         }
         try
@@ -238,7 +238,7 @@ public class UserController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error actualizando foto del usuario {UserId}", id);
-            var errMsg = "No se pudo actualizar la foto. Verifique que sea JPEG o PNG y no supere 2 MB.";
+            var errMsg = "No se pudo actualizar la foto. Use JPEG o PNG (máx. de subida 12 MB).";
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 return Json(new { success = false, message = errMsg });
             TempData["Error"] = errMsg;
