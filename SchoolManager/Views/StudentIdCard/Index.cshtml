@@ -54,6 +54,15 @@
                         <button id="btnSelectFiltered" type="button" class="btn btn-outline-primary btn-sm ms-1">
                             <i class="fas fa-check-double"></i> Seleccionar filtrados
                         </button>
+                        <button id="btnSelectVisible" type="button" class="btn btn-outline-info btn-sm ms-1">
+                            <i class="fas fa-list-check"></i> Seleccionar visibles
+                        </button>
+                        <button id="btnUnselectVisible" type="button" class="btn btn-outline-warning btn-sm ms-1">
+                            <i class="fas fa-list"></i> Desmarcar visibles
+                        </button>
+                        <button id="btnUnselectPrinted" type="button" class="btn btn-outline-dark btn-sm ms-1">
+                            <i class="fas fa-rotate-left"></i> Desmarcar impresos (pruebas)
+                        </button>
                         <button id="btnClearSelection" type="button" class="btn btn-outline-secondary btn-sm ms-1">
                             <i class="fas fa-eraser"></i> Limpiar selección
                         </button>
@@ -94,6 +103,7 @@
 <script>
 $(function(){
     const selectedStudentIds = new Set();
+    const printedByStudentId = new Map();
     const table = $('#studentsTable').DataTable({
         ajax: {
             url: '/StudentIdCard/api/list-json',
@@ -160,6 +170,11 @@ $(function(){
         responsive: true,
         pageLength: 25,
         drawCallback: function() {
+            const pageData = table.rows({ page: 'current' }).data().toArray();
+            pageData.forEach(row => {
+                printedByStudentId.set(String(row.id), !!row.isPrinted);
+            });
+
             $('.student-check').each(function() {
                 const id = String($(this).val());
                 $(this).prop('checked', selectedStudentIds.has(id));
@@ -225,7 +240,7 @@ $(function(){
     }
 
     $('#filterGrade, #filterGroup, #filterShift, #filterPrinted').on('change', function() {
-        selectedStudentIds.clear();
+        // Mantener selección entre filtros ayuda a probar lotes sin perder el trabajo previo.
         table.ajax.reload();
     });
 
@@ -273,6 +288,52 @@ $(function(){
         } finally {
             btn.prop('disabled', false);
             btn.html(prev);
+        }
+    });
+
+    $('#btnSelectVisible').on('click', function() {
+        $('.student-check').each(function() {
+            const id = String($(this).val());
+            selectedStudentIds.add(id);
+            $(this).prop('checked', true);
+        });
+        updateSelectedLabel();
+        const pageChecks = $('.student-check');
+        $('#selectAllStudents').prop('checked', pageChecks.length > 0);
+    });
+
+    $('#btnUnselectVisible').on('click', function() {
+        $('.student-check').each(function() {
+            const id = String($(this).val());
+            selectedStudentIds.delete(id);
+            $(this).prop('checked', false);
+        });
+        updateSelectedLabel();
+        $('#selectAllStudents').prop('checked', false);
+    });
+
+    $('#btnUnselectPrinted').on('click', function() {
+        let removed = 0;
+        selectedStudentIds.forEach(id => {
+            if (printedByStudentId.get(id) === true) {
+                selectedStudentIds.delete(id);
+                removed++;
+            }
+        });
+
+        $('.student-check').each(function() {
+            const id = String($(this).val());
+            $(this).prop('checked', selectedStudentIds.has(id));
+        });
+        const pageChecks = $('.student-check');
+        const checkedOnPage = pageChecks.filter(':checked').length;
+        $('#selectAllStudents').prop('checked', pageChecks.length > 0 && checkedOnPage === pageChecks.length);
+        updateSelectedLabel();
+
+        if (removed > 0) {
+            alert(`Se desmarcaron ${removed} estudiante(s) con estado Impreso. (Modo pruebas)`);
+        } else {
+            alert('No había estudiantes impresos dentro de la selección actual.');
         }
     });
 

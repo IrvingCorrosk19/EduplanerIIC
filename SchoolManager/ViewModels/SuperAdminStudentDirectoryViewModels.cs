@@ -20,6 +20,7 @@ public class SuperAdminStudentDirectoryRowVm
 {
     public Guid UserId { get; set; }
     public Guid? AssignmentId { get; set; }
+    public string? PhotoUrl { get; set; }
     public string FullName { get; set; } = "";
     public string? DocumentId { get; set; }
     public string Email { get; set; } = "";

@@ -1075,6 +1075,7 @@ public class SuperAdminService : ISuperAdminService
             {
                 UserId = sa.StudentId,
                 AssignmentId = sa.Id,
+                PhotoUrl = sa.Student.PhotoUrl,
                 FullName = sa.Student.Name + " " + sa.Student.LastName,
                 DocumentId = sa.Student.DocumentId,
                 Email = sa.Student.Email,
@@ -1121,6 +1122,7 @@ public class SuperAdminService : ISuperAdminService
             {
                 UserId = u.Id,
                 AssignmentId = null,
+                PhotoUrl = u.PhotoUrl,
                 FullName = u.Name + " " + u.LastName,
                 DocumentId = u.DocumentId,
                 Email = u.Email,

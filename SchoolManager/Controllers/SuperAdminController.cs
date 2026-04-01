@@ -119,6 +119,63 @@ public class SuperAdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> StudentDirectoryUpdatePhoto(Guid userId, IFormFile? photo)
+    {
+        if (photo == null || photo.Length == 0)
+            return Json(new { success = false, message = "Seleccione una imagen (JPEG o PNG, máx. 2 MB)." });
+
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+            return Json(new { success = false, message = "Estudiante no encontrado." });
+
+        var role = (user.Role ?? "").ToLowerInvariant();
+        if (role != "student" && role != "estudiante" && role != "alumno")
+            return Json(new { success = false, message = "El usuario no es estudiante." });
+
+        try
+        {
+            await _userPhotoService.UpdatePhotoAsync(userId, photo);
+            var updated = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            return Json(new { success = true, photoUrl = updated?.PhotoUrl });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Json(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error actualizando foto de estudiante {UserId} desde StudentDirectory", userId);
+            return Json(new { success = false, message = "No se pudo actualizar la foto." });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StudentDirectoryRemovePhoto(Guid userId)
+    {
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+            return Json(new { success = false, message = "Estudiante no encontrado." });
+
+        var role = (user.Role ?? "").ToLowerInvariant();
+        if (role != "student" && role != "estudiante" && role != "alumno")
+            return Json(new { success = false, message = "El usuario no es estudiante." });
+
+        try
+        {
+            await _userPhotoService.RemovePhotoAsync(userId);
+            return Json(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error eliminando foto de estudiante {UserId} desde StudentDirectory", userId);
+            return Json(new { success = false, message = "No se pudo eliminar la foto." });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteSchool(Guid id)
     {
         Console.WriteLine($"🔍 [DeleteSchool] Iniciando eliminación de escuela con ID: {id}");
