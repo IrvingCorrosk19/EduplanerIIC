@@ -2769,6 +2769,15 @@ public partial class SchoolDbContext : DbContext
                 .HasColumnName("morning_start_time");
             entity.Property(e => e.MorningBlockDurationMinutes).HasColumnName("morning_block_duration_minutes");
             entity.Property(e => e.MorningBlockCount).HasColumnName("morning_block_count");
+            entity.Property(e => e.RecessDurationMinutes)
+                .HasColumnName("recess_duration_minutes")
+                .HasDefaultValue(30);
+            entity.Property(e => e.RecessAfterMorningBlockNumber)
+                .HasColumnName("recess_after_morning_block_number")
+                .HasDefaultValue(4);
+            entity.Property(e => e.RecessAfterAfternoonBlockNumber)
+                .HasColumnName("recess_after_afternoon_block_number")
+                .HasDefaultValue(2);
             entity.Property(e => e.AfternoonStartTime)
                 .HasColumnType("time")
                 .HasColumnName("afternoon_start_time");

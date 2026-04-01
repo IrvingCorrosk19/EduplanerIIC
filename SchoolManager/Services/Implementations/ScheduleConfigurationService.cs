@@ -22,12 +22,59 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
             .FirstOrDefaultAsync(c => c.SchoolId == schoolId, cancellationToken);
     }
 
+    /// <summary>Fin de la última clase de mañana (sin el hueco previo a tarde).</summary>
+    private static TimeOnly ComputeLastClassEndMorning(SchoolScheduleConfiguration model)
+    {
+        var d = model.MorningBlockDurationMinutes;
+        var m = model.MorningBlockCount;
+        var k = model.RecessAfterMorningBlockNumber;
+        var t = model.MorningStartTime;
+        if (k < m)
+            return t.AddMinutes(k * d + model.RecessDurationMinutes + (m - k) * d);
+        return t.AddMinutes(m * d);
+    }
+
     public async Task<(bool Success, string Message)> SaveAndGenerateBlocksAsync(SchoolScheduleConfiguration model, Guid schoolId, bool forceRegenerate = false, CancellationToken cancellationToken = default)
     {
         if (model.MorningBlockCount < 1 || model.MorningBlockDurationMinutes < 1)
             return (false, "La jornada de mañana debe tener al menos 1 bloque y duración positiva.");
 
-        // Tarde: si pone hora de inicio, duración y cantidad deben ser ambas positivas (o ambas vacías/0 para no usar tarde)
+        if (model.RecessDurationMinutes < 1 || model.RecessDurationMinutes > 180)
+            return (false, "La duración del recreo debe estar entre 1 y 180 minutos.");
+
+        var k = model.RecessAfterMorningBlockNumber;
+        if (k < 1 || k > model.MorningBlockCount)
+        {
+            return (false,
+                $"Indique después de qué bloque va el recreo (1 a {model.MorningBlockCount}). Valor actual: {k}.");
+        }
+
+        var afternoonActive = model.AfternoonStartTime.HasValue
+            && (model.AfternoonBlockCount ?? 0) > 0
+            && (model.AfternoonBlockDurationMinutes ?? 0) > 0;
+
+        if (afternoonActive)
+        {
+            var aCnt = model.AfternoonBlockCount!.Value;
+            var kA = model.RecessAfterAfternoonBlockNumber;
+            if (kA < 1 || kA > aCnt)
+            {
+                return (false,
+                    $"Indique después de qué bloque de tarde va el recreo (1 a {aCnt}). Valor actual: {kA}.");
+            }
+        }
+
+        if (!afternoonActive)
+        {
+            if (model.MorningBlockCount < 2)
+                return (false,
+                    "Con jornada solo mañana hacen falta al menos 2 bloques para colocar un recreo entre clases, o bien configure jornada de tarde.");
+            if (k >= model.MorningBlockCount)
+                return (false,
+                    "Con jornada solo mañana el recreo debe ir después de un bloque anterior al último (elija un número menor que la cantidad de bloques de mañana).");
+        }
+
+        // Tarde: si pone hora de inicio, duración y cantidad deben ser ambas positivas
         var hasAfternoonStart = model.AfternoonStartTime.HasValue;
         var afternoonCount = model.AfternoonBlockCount ?? 0;
         var afternoonDuration = model.AfternoonBlockDurationMinutes ?? 0;
@@ -37,12 +84,19 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
                 return (false, "Si configura jornada tarde, complete duración (min) y cantidad de bloques con valores mayores a 0.");
         }
 
-        // No solapamientos: si hay tarde, debe empezar después del último bloque de mañana
-        var lastMorningEnd = model.MorningStartTime.AddMinutes(model.MorningBlockCount * model.MorningBlockDurationMinutes);
-        if (model.AfternoonStartTime.HasValue && model.AfternoonBlockCount.GetValueOrDefault() > 0)
+        var lastMorningClassEnd = ComputeLastClassEndMorning(model);
+        if (afternoonActive)
         {
-            if (model.AfternoonStartTime.Value < lastMorningEnd)
+            var afternoonStart = model.AfternoonStartTime!.Value;
+            if (afternoonStart < lastMorningClassEnd)
                 return (false, "La jornada de tarde debe comenzar después del último bloque de mañana (sin solapamientos).");
+
+            var gapMinutes = (int)(afternoonStart - lastMorningClassEnd).TotalMinutes;
+            if (gapMinutes < model.RecessDurationMinutes)
+            {
+                return (false,
+                    $"Entre el fin de la última clase de mañana ({lastMorningClassEnd:HH:mm}) y el inicio de tarde debe haber al menos {model.RecessDurationMinutes} min de recreo (ahora hay {gapMinutes} min). Ajuste la hora de inicio de tarde o la configuración de bloques.");
+            }
         }
 
         var slotIds = await _context.TimeSlots
@@ -61,7 +115,6 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
         using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            // Si se fuerza regeneración, eliminar antes todas las entradas de horario de los bloques de esta escuela
             if (slotIds.Count > 0)
             {
                 var entriesToRemove = await _context.ScheduleEntries
@@ -83,6 +136,9 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
                 existing.MorningStartTime = model.MorningStartTime;
                 existing.MorningBlockDurationMinutes = model.MorningBlockDurationMinutes;
                 existing.MorningBlockCount = model.MorningBlockCount;
+                existing.RecessDurationMinutes = model.RecessDurationMinutes;
+                existing.RecessAfterMorningBlockNumber = model.RecessAfterMorningBlockNumber;
+                existing.RecessAfterAfternoonBlockNumber = model.RecessAfterAfternoonBlockNumber;
                 existing.AfternoonStartTime = model.AfternoonStartTime;
                 existing.AfternoonBlockDurationMinutes = model.AfternoonBlockDurationMinutes;
                 existing.AfternoonBlockCount = model.AfternoonBlockCount;
@@ -97,6 +153,9 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
                     MorningStartTime = model.MorningStartTime,
                     MorningBlockDurationMinutes = model.MorningBlockDurationMinutes,
                     MorningBlockCount = model.MorningBlockCount,
+                    RecessDurationMinutes = model.RecessDurationMinutes,
+                    RecessAfterMorningBlockNumber = model.RecessAfterMorningBlockNumber,
+                    RecessAfterAfternoonBlockNumber = model.RecessAfterAfternoonBlockNumber,
                     AfternoonStartTime = model.AfternoonStartTime,
                     AfternoonBlockDurationMinutes = model.AfternoonBlockDurationMinutes,
                     AfternoonBlockCount = model.AfternoonBlockCount,
@@ -107,31 +166,32 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            // Eliminar TimeSlots existentes de esta escuela
             var toRemove = await _context.TimeSlots
                 .Where(t => t.SchoolId == schoolId)
                 .ToListAsync(cancellationToken);
             _context.TimeSlots.RemoveRange(toRemove);
             await _context.SaveChangesAsync(cancellationToken);
 
-            // Jornadas: obtener o crear Mañana y Tarde para esta escuela (se asignan a los bloques)
             var shiftManana = await _shiftService.GetOrCreateBySchoolAndNameAsync(schoolId, "Mañana");
             Shift? shiftTarde = null;
-            if (model.AfternoonStartTime.HasValue && (model.AfternoonBlockCount ?? 0) > 0 && (model.AfternoonBlockDurationMinutes ?? 0) > 0)
+            if (afternoonActive)
                 shiftTarde = await _shiftService.GetOrCreateBySchoolAndNameAsync(schoolId, "Tarde");
 
-            // Generar bloques de mañana (con jornada Mañana)
-            int displayOrder = 0;
+            var displayOrder = 0;
             var start = model.MorningStartTime;
-            for (var i = 0; i < model.MorningBlockCount; i++)
+            var m = model.MorningBlockCount;
+            var d = model.MorningBlockDurationMinutes;
+            var recMin = model.RecessDurationMinutes;
+
+            void AddClassBlock(int blockIndex1Based)
             {
-                var end = start.AddMinutes(model.MorningBlockDurationMinutes);
+                var end = start.AddMinutes(d);
                 _context.TimeSlots.Add(new TimeSlot
                 {
                     Id = Guid.NewGuid(),
                     SchoolId = schoolId,
                     ShiftId = shiftManana.Id,
-                    Name = $"Bloque {i + 1}",
+                    Name = $"Bloque {blockIndex1Based}",
                     StartTime = start,
                     EndTime = end,
                     DisplayOrder = displayOrder++,
@@ -141,13 +201,62 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
                 start = end;
             }
 
-            // Generar bloques de tarde (con jornada Tarde)
+            if (k < m)
+            {
+                for (var i = 1; i <= k; i++)
+                    AddClassBlock(i);
+                var recessEnd = start.AddMinutes(recMin);
+                _context.TimeSlots.Add(new TimeSlot
+                {
+                    Id = Guid.NewGuid(),
+                    SchoolId = schoolId,
+                    ShiftId = shiftManana.Id,
+                    Name = "Recreo",
+                    StartTime = start,
+                    EndTime = recessEnd,
+                    DisplayOrder = displayOrder++,
+                    IsActive = true,
+                    CreatedAt = now
+                });
+                start = recessEnd;
+                for (var i = k + 1; i <= m; i++)
+                    AddClassBlock(i);
+            }
+            else
+            {
+                for (var i = 1; i <= m; i++)
+                    AddClassBlock(i);
+            }
+
+            if (afternoonActive && model.AfternoonStartTime.HasValue)
+            {
+                var aft = model.AfternoonStartTime.Value;
+                if (aft > start)
+                {
+                    _context.TimeSlots.Add(new TimeSlot
+                    {
+                        Id = Guid.NewGuid(),
+                        SchoolId = schoolId,
+                        ShiftId = shiftManana.Id,
+                        Name = "Recreo",
+                        StartTime = start,
+                        EndTime = aft,
+                        DisplayOrder = displayOrder++,
+                        IsActive = true,
+                        CreatedAt = now
+                    });
+                }
+                start = aft;
+            }
+
             if (shiftTarde != null && model.AfternoonStartTime.HasValue && (model.AfternoonBlockCount ?? 0) > 0 && (model.AfternoonBlockDurationMinutes ?? 0) > 0)
             {
                 var count = model.AfternoonBlockCount!.Value;
                 var duration = model.AfternoonBlockDurationMinutes!.Value;
-                start = model.AfternoonStartTime.Value;
-                for (var i = 0; i < count; i++)
+                var kAfternoon = model.RecessAfterAfternoonBlockNumber;
+                start = model.AfternoonStartTime!.Value;
+
+                void AddAfternoonClassBlock(int blockIndex1Based)
                 {
                     var end = start.AddMinutes(duration);
                     _context.TimeSlots.Add(new TimeSlot
@@ -155,7 +264,7 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
                         Id = Guid.NewGuid(),
                         SchoolId = schoolId,
                         ShiftId = shiftTarde.Id,
-                        Name = $"Bloque {displayOrder + 1}",
+                        Name = $"Bloque {blockIndex1Based}",
                         StartTime = start,
                         EndTime = end,
                         DisplayOrder = displayOrder++,
@@ -163,6 +272,33 @@ public class ScheduleConfigurationService : IScheduleConfigurationService
                         CreatedAt = now
                     });
                     start = end;
+                }
+
+                if (kAfternoon < count)
+                {
+                    for (var i = 1; i <= kAfternoon; i++)
+                        AddAfternoonClassBlock(i);
+                    var recessEndAfternoon = start.AddMinutes(recMin);
+                    _context.TimeSlots.Add(new TimeSlot
+                    {
+                        Id = Guid.NewGuid(),
+                        SchoolId = schoolId,
+                        ShiftId = shiftTarde.Id,
+                        Name = "Recreo",
+                        StartTime = start,
+                        EndTime = recessEndAfternoon,
+                        DisplayOrder = displayOrder++,
+                        IsActive = true,
+                        CreatedAt = now
+                    });
+                    start = recessEndAfternoon;
+                    for (var i = kAfternoon + 1; i <= count; i++)
+                        AddAfternoonClassBlock(i);
+                }
+                else
+                {
+                    for (var i = 1; i <= count; i++)
+                        AddAfternoonClassBlock(i);
                 }
             }
 

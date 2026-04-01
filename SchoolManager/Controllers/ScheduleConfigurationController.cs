@@ -35,6 +35,9 @@ public class ScheduleConfigurationController : Controller
             MorningStartTime = new TimeOnly(7, 0),
             MorningBlockDurationMinutes = 45,
             MorningBlockCount = 8,
+            RecessDurationMinutes = 30,
+            RecessAfterMorningBlockNumber = 4,
+            RecessAfterAfternoonBlockNumber = 2,
             AfternoonStartTime = null,
             AfternoonBlockDurationMinutes = null,
             AfternoonBlockCount = null
@@ -61,6 +64,18 @@ public class ScheduleConfigurationController : Controller
             model.AfternoonStartTime = afternoonTime;
         else if (string.IsNullOrEmpty(afternoonStr))
             model.AfternoonStartTime = null;
+
+        var recessStr = Request.Form["RecessDurationMinutes"].ToString().Trim();
+        if (!string.IsNullOrEmpty(recessStr) && int.TryParse(recessStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var recessMin))
+            model.RecessDurationMinutes = Math.Clamp(recessMin, 1, 180);
+
+        var afterBlockStr = Request.Form["RecessAfterMorningBlockNumber"].ToString().Trim();
+        if (!string.IsNullOrEmpty(afterBlockStr) && int.TryParse(afterBlockStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var afterBlock))
+            model.RecessAfterMorningBlockNumber = Math.Clamp(afterBlock, 1, 40);
+
+        var afterAftStr = Request.Form["RecessAfterAfternoonBlockNumber"].ToString().Trim();
+        if (!string.IsNullOrEmpty(afterAftStr) && int.TryParse(afterAftStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var afterAft))
+            model.RecessAfterAfternoonBlockNumber = Math.Clamp(afterAft, 1, 40);
 
         var (success, message) = await _configService.SaveAndGenerateBlocksAsync(model, user.SchoolId.Value, forceRegenerate);
         if (success)
