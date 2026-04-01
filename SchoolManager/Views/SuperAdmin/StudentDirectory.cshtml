@@ -1,0 +1,166 @@
+@model SchoolManager.ViewModels.SuperAdminStudentDirectoryPageVm
+@{
+    ViewData["Title"] = "Directorio de estudiantes";
+    Layout = "_SuperAdminLayout";
+    var f = Model.Filter;
+}
+
+<div class="card card-outline card-primary shadow-sm mb-4">
+    <div class="card-header">
+        <h3 class="card-title mb-0"><i class="fas fa-filter me-2"></i>Filtros</h3>
+    </div>
+    <div class="card-body">
+        <form asp-action="StudentDirectory" method="get" id="filterForm">
+            <div class="row g-3">
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label" for="Search">Buscar</label>
+                    <input type="text" class="form-control" id="Search" name="Search" value="@f.Search"
+                           placeholder="Nombre, apellido, correo o cédula" autocomplete="off" />
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label" for="SchoolId">Escuela</label>
+                    <select class="form-select" id="SchoolId" name="SchoolId" asp-items="Model.SchoolOptions"></select>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label" for="GradeId">Nivel / grado</label>
+                    <select class="form-select" id="GradeId" name="GradeId" asp-items="Model.GradeOptions"></select>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label" for="GroupId">Grupo</label>
+                    <select class="form-select" id="GroupId" name="GroupId" asp-items="Model.GroupOptions"></select>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label" for="ShiftId">Jornada (matrícula)</label>
+                    <select class="form-select" id="ShiftId" name="ShiftId" asp-items="Model.ShiftOptions"></select>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label" for="UserStatus">Estado del usuario</label>
+                    <select class="form-select" id="UserStatus" name="UserStatus">
+                        @{
+                            var statusOpts = new[] { ("", "Todos"), ("active", "Activo"), ("inactive", "Inactivo") };
+                        }
+                        @foreach (var o in statusOpts)
+                        {
+                            if (string.Equals(f.UserStatus ?? "", o.Item1, StringComparison.Ordinal))
+                            {
+                                <option value="@o.Item1" selected>@o.Item2</option>
+                            }
+                            else
+                            {
+                                <option value="@o.Item1">@o.Item2</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="OnlyWithoutAssignment" name="OnlyWithoutAssignment" value="true"
+                               checked="@(f.OnlyWithoutAssignment)" />
+                        <label class="form-check-label" for="OnlyWithoutAssignment">
+                            Solo estudiantes sin matrícula activa (sin asignación de grado/grupo vigente)
+                        </label>
+                    </div>
+                </div>
+                <div class="col-12 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i> Aplicar filtros
+                    </button>
+                    <a asp-action="StudentDirectory" class="btn btn-outline-secondary">
+                        <i class="fas fa-undo me-1"></i> Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <p class="text-muted mb-0">
+        <i class="fas fa-info-circle me-1"></i>
+        @Model.Rows.Count registro(s). La jornada en matrícula y la del perfil del usuario pueden diferir.
+    </p>
+    <div class="input-group" style="max-width: 280px;">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" class="form-control" id="tableQuickFilter" placeholder="Filtrar filas visibles…" autocomplete="off" />
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover table-striped align-middle mb-0" id="studentDirectoryTable">
+            <thead class="table-light">
+                <tr>
+                    <th>Estudiante</th>
+                    <th>Cédula</th>
+                    <th>Correo</th>
+                    <th>Escuela</th>
+                    <th>Nivel / grado</th>
+                    <th>Grupo</th>
+                    <th>Jornada (matrícula)</th>
+                    <th>Jornada (perfil)</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Rows.Any())
+                {
+                    <tr class="no-results-row">
+                        <td colspan="9" class="text-center text-muted py-4">No hay resultados con los filtros actuales.</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var row in Model.Rows)
+                    {
+                        <tr data-search="@($"{row.FullName} {row.DocumentId} {row.Email} {row.SchoolName} {row.GradeLevelName} {row.GroupName} {row.ShiftName} {row.UserShift} {row.Status}")">
+                            <td>@row.FullName</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.DocumentId) ? "—" : row.DocumentId)</td>
+                            <td><small>@row.Email</small></td>
+                            <td>@(string.IsNullOrWhiteSpace(row.SchoolName) ? "—" : row.SchoolName)</td>
+                            <td>
+                                @if (row.HasActiveAssignment)
+                                {
+                                    @row.GradeLevelName
+                                }
+                                else
+                                {
+                                    <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Sin matrícula</span>
+                                }
+                            </td>
+                            <td>@(row.HasActiveAssignment && !string.IsNullOrWhiteSpace(row.GroupName) ? row.GroupName : "—")</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.ShiftName) ? "—" : row.ShiftName)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.UserShift) ? "—" : row.UserShift)</td>
+                            <td>
+                                @if (string.Equals(row.Status, "active", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-success">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@(string.IsNullOrWhiteSpace(row.Status) ? "—" : row.Status)</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var input = document.getElementById('tableQuickFilter');
+            if (!input) return;
+            input.addEventListener('input', function () {
+                var q = (this.value || '').toLowerCase().trim();
+                var rows = document.querySelectorAll('#studentDirectoryTable tbody tr[data-search]');
+                rows.forEach(function (tr) {
+                    var hay = (tr.getAttribute('data-search') || '').toLowerCase();
+                    tr.style.display = !q || hay.indexOf(q) !== -1 ? '' : 'none';
+                });
+            });
+        })();
+    </script>
+}

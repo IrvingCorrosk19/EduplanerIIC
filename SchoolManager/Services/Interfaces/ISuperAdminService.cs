@@ -33,4 +33,6 @@ public interface ISuperAdminService
     // Estadísticas y Configuración
     Task<SystemStatsViewModel> GetSystemStatsAsync();
     Task<PagedResult<AuditLogViewModel>> GetActivityLogsAsync(int page = 1, int pageSize = 50);
+
+    Task<SuperAdminStudentDirectoryPageVm> GetStudentDirectoryPageAsync(SuperAdminStudentDirectoryFilterVm filter);
 } 

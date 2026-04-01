@@ -108,6 +108,15 @@ public class SuperAdminController : Controller
         return View(admins);
     }
 
+    // GET: SuperAdmin/StudentDirectory
+    [HttpGet]
+    public async Task<IActionResult> StudentDirectory([FromQuery] SuperAdminStudentDirectoryFilterVm? filter)
+    {
+        filter ??= new SuperAdminStudentDirectoryFilterVm();
+        var page = await _superAdminService.GetStudentDirectoryPageAsync(filter);
+        return View(page);
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteSchool(Guid id)
