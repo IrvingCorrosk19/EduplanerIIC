@@ -392,10 +392,28 @@
                 var res = await fetch('/SuperAdmin/StudentDirectoryUpdatePhoto', {
                     method: 'POST',
                     body: fd,
-                    credentials: 'same-origin'
+                    credentials: 'same-origin',
+                    headers: {
+                        'RequestVerificationToken': token,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
-                var data = await res.json();
-                if (!data.success) throw new Error(data.message || 'No se pudo guardar la foto.');
+
+                var raw = await res.text();
+                var data = null;
+                try {
+                    data = raw ? JSON.parse(raw) : null;
+                } catch {
+                    data = null;
+                }
+
+                if (!res.ok) {
+                    var msg = (data && data.message) ? data.message : ('Error HTTP ' + res.status + ' al guardar la foto.');
+                    throw new Error(msg);
+                }
+                if (!data || !data.success) {
+                    throw new Error((data && data.message) ? data.message : 'No se pudo guardar la foto.');
+                }
                 return data.photoUrl || '';
             }
 
@@ -524,9 +542,23 @@
                     var res = await fetch('/SuperAdmin/StudentDirectoryRemovePhoto', {
                         method: 'POST',
                         body: fd,
-                        credentials: 'same-origin'
+                        credentials: 'same-origin',
+                        headers: {
+                            'RequestVerificationToken': token,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
                     });
-                    var data = await res.json();
+                    var raw = await res.text();
+                    var data = null;
+                    try {
+                        data = raw ? JSON.parse(raw) : null;
+                    } catch {
+                        data = null;
+                    }
+                    if (!res.ok) {
+                        alert((data && data.message) ? data.message : ('Error HTTP ' + res.status + ' al eliminar la foto.'));
+                        return;
+                    }
                     if (!data.success) {
                         alert(data.message || 'No se pudo eliminar la foto.');
                         return;
