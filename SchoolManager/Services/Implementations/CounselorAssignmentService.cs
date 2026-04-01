@@ -722,39 +722,31 @@ namespace SchoolManager.Services.Implementations
             try
             {
                 _logger.LogInformation("Obteniendo combinaciones válidas de grado-grupo para escuela: {SchoolId}", schoolId);
-                
-                // Obtener todas las combinaciones únicas de grade_id + group_id desde student_assignments
-                // que pertenezcan a estudiantes de la escuela específica, con JOIN a grade_levels y groups
-                // MEJORADO: EXCLUYENDO las que ya tienen consejero asignado (por combinación específica o por grupo)
-                // Solo considerar asignaciones activas de estudiantes
-                var combinations = await _context.StudentAssignments
-                    .Include(sa => sa.Student)
+
+                var rawRows = await _context.StudentAssignments
+                    .AsNoTracking()
                     .Where(sa => sa.Student != null && sa.Student.SchoolId == schoolId && sa.IsActive)
-                    .GroupBy(sa => new { sa.GradeId, sa.GroupId })
-                    .Where(g => !_context.CounselorAssignments
-                        .Any(ca => (ca.GradeId == g.Key.GradeId && ca.GroupId == g.Key.GroupId) || 
-                                   (ca.GroupId == g.Key.GroupId && ca.IsActive)))
-                    .Select(g => new GradeGroupCombinationDto
+                    .Where(sa => !_context.CounselorAssignments.Any(ca =>
+                        ca.SchoolId == schoolId &&
+                        ca.IsActive &&
+                        ca.GradeId == sa.GradeId &&
+                        ca.GroupId == sa.GroupId))
+                    .Select(sa => new
                     {
-                        GradeId = g.Key.GradeId,
-                        GradeName = _context.GradeLevels
-                            .Where(gl => gl.Id == g.Key.GradeId)
-                            .Select(gl => gl.Name)
-                            .FirstOrDefault() ?? "Sin grado",
-                        GroupId = g.Key.GroupId,
-                        GroupName = _context.Groups
-                            .Where(gr => gr.Id == g.Key.GroupId)
-                            .Select(gr => gr.Name)
-                            .FirstOrDefault() ?? "Sin grupo",
-                        GroupGrade = _context.Groups
-                            .Where(gr => gr.Id == g.Key.GroupId)
-                            .Select(gr => gr.Grade)
-                            .FirstOrDefault() ?? "",
-                        StudentCount = g.Count()
+                        sa.GradeId,
+                        sa.GroupId,
+                        GradeName = sa.Grade.Name,
+                        GroupName = sa.Group.Name,
+                        GroupGrade = sa.Group.Grade ?? "",
+                        ShiftName = sa.Shift != null ? sa.Shift.Name : (string?)null
                     })
-                    .OrderBy(c => c.GradeName)
-                    .ThenBy(c => c.GroupName)
                     .ToListAsync();
+
+                var rows = rawRows
+                    .Select(r => new GradeGroupFlatRow(r.GradeId, r.GroupId, r.GradeName, r.GroupName, r.GroupGrade, r.ShiftName))
+                    .ToList();
+
+                var combinations = ToGradeGroupCombinationDtos(rows);
 
                 _logger.LogInformation("Se encontraron {Count} combinaciones válidas de grado-grupo", combinations?.Count ?? 0);
                 return combinations ?? new List<GradeGroupCombinationDto>();
@@ -772,41 +764,31 @@ namespace SchoolManager.Services.Implementations
             {
                 _logger.LogInformation("Obteniendo combinaciones válidas de grado-grupo para edición en escuela: {SchoolId}, excluyendo asignación: {ExcludeId}", schoolId, excludeAssignmentId);
                 
-                // Obtener todas las combinaciones únicas de grade_id + group_id desde student_assignments
-                // que pertenezcan a estudiantes de la escuela específica, con JOIN a grade_levels y groups
-                // EXCLUYENDO las que ya tienen consejero asignado (por combinación específica o por grupo)
-                // MEJORADO: excepto la que estamos editando
-                // Solo considerar asignaciones activas de estudiantes
-                var combinations = await _context.StudentAssignments
-                    .Include(sa => sa.Student)
+                var rawRows = await _context.StudentAssignments
+                    .AsNoTracking()
                     .Where(sa => sa.Student != null && sa.Student.SchoolId == schoolId && sa.IsActive)
-                    .GroupBy(sa => new { sa.GradeId, sa.GroupId })
-                    .Where(g => !_context.CounselorAssignments
-                        .Any(ca => ((ca.GradeId == g.Key.GradeId && ca.GroupId == g.Key.GroupId) || 
-                                    (ca.GroupId == g.Key.GroupId)) && 
-                                   ca.IsActive &&
-                                   (excludeAssignmentId == null || ca.Id != excludeAssignmentId)))
-                    .Select(g => new GradeGroupCombinationDto
+                    .Where(sa => !_context.CounselorAssignments.Any(ca =>
+                        ca.SchoolId == schoolId &&
+                        ca.IsActive &&
+                        ca.GradeId == sa.GradeId &&
+                        ca.GroupId == sa.GroupId &&
+                        (excludeAssignmentId == null || ca.Id != excludeAssignmentId)))
+                    .Select(sa => new
                     {
-                        GradeId = g.Key.GradeId,
-                        GradeName = _context.GradeLevels
-                            .Where(gl => gl.Id == g.Key.GradeId)
-                            .Select(gl => gl.Name)
-                            .FirstOrDefault() ?? "Sin grado",
-                        GroupId = g.Key.GroupId,
-                        GroupName = _context.Groups
-                            .Where(gr => gr.Id == g.Key.GroupId)
-                            .Select(gr => gr.Name)
-                            .FirstOrDefault() ?? "Sin grupo",
-                        GroupGrade = _context.Groups
-                            .Where(gr => gr.Id == g.Key.GroupId)
-                            .Select(gr => gr.Grade)
-                            .FirstOrDefault() ?? "",
-                        StudentCount = g.Count()
+                        sa.GradeId,
+                        sa.GroupId,
+                        GradeName = sa.Grade.Name,
+                        GroupName = sa.Group.Name,
+                        GroupGrade = sa.Group.Grade ?? "",
+                        ShiftName = sa.Shift != null ? sa.Shift.Name : (string?)null
                     })
-                    .OrderBy(c => c.GradeName)
-                    .ThenBy(c => c.GroupName)
                     .ToListAsync();
+
+                var rows = rawRows
+                    .Select(r => new GradeGroupFlatRow(r.GradeId, r.GroupId, r.GradeName, r.GroupName, r.GroupGrade, r.ShiftName))
+                    .ToList();
+
+                var combinations = ToGradeGroupCombinationDtos(rows);
 
                 _logger.LogInformation("Se encontraron {Count} combinaciones válidas de grado-grupo para edición", combinations?.Count ?? 0);
                 return combinations ?? new List<GradeGroupCombinationDto>();
@@ -883,6 +865,43 @@ namespace SchoolManager.Services.Implementations
             if (gradeId != null && groupId != null)
                 return "Por Combinación";
             return "Por Combinación"; // Siempre será por combinación ahora
+        }
+
+        private readonly record struct GradeGroupFlatRow(
+            Guid GradeId,
+            Guid GroupId,
+            string GradeName,
+            string GroupName,
+            string GroupGrade,
+            string? ShiftName);
+
+        private static List<GradeGroupCombinationDto> ToGradeGroupCombinationDtos(IReadOnlyList<GradeGroupFlatRow> rows)
+        {
+            return rows
+                .GroupBy(r => (r.GradeId, r.GroupId))
+                .Select(g =>
+                {
+                    var first = g.First();
+                    var shifts = g
+                        .Select(x => x.ShiftName)
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    return new GradeGroupCombinationDto
+                    {
+                        GradeId = g.Key.GradeId,
+                        GroupId = g.Key.GroupId,
+                        GradeName = string.IsNullOrWhiteSpace(first.GradeName) ? "Sin grado" : first.GradeName,
+                        GroupName = string.IsNullOrWhiteSpace(first.GroupName) ? "Sin grupo" : first.GroupName,
+                        GroupGrade = first.GroupGrade ?? "",
+                        StudentCount = g.Count(),
+                        ShiftNamesSummary = shifts.Count > 0 ? string.Join(", ", shifts) : ""
+                    };
+                })
+                .OrderBy(c => c.GradeName)
+                .ThenBy(c => c.GroupName)
+                .ToList();
         }
     }
 }
