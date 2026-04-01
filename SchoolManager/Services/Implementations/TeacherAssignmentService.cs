@@ -45,9 +45,21 @@ public class TeacherAssignmentService : ITeacherAssignmentService
     // Elimina todas las asignaciones existentes de un profesor
     public async Task DeleteAllAssignmentsByTeacherIdAsync(Guid teacherId)
     {
-        var assignments = _context.TeacherAssignments
-            .Where(ta => ta.TeacherId == teacherId);
+        var assignmentIds = await _context.TeacherAssignments
+            .Where(ta => ta.TeacherId == teacherId)
+            .Select(ta => ta.Id)
+            .ToListAsync();
 
+        if (assignmentIds.Count == 0)
+            return;
+
+        var scheduleEntries = await _context.ScheduleEntries
+            .Where(se => assignmentIds.Contains(se.TeacherAssignmentId))
+            .ToListAsync();
+        if (scheduleEntries.Count > 0)
+            _context.ScheduleEntries.RemoveRange(scheduleEntries);
+
+        var assignments = _context.TeacherAssignments.Where(ta => ta.TeacherId == teacherId);
         _context.TeacherAssignments.RemoveRange(assignments);
         await _context.SaveChangesAsync();
     }
@@ -191,6 +203,12 @@ public class TeacherAssignmentService : ITeacherAssignmentService
 
     public async Task DeleteAsync(Guid assignmentId)
     {
+        var scheduleEntries = await _context.ScheduleEntries
+            .Where(se => se.TeacherAssignmentId == assignmentId)
+            .ToListAsync();
+        if (scheduleEntries.Count > 0)
+            _context.ScheduleEntries.RemoveRange(scheduleEntries);
+
         var assignment = await _context.TeacherAssignments.FindAsync(assignmentId);
         if (assignment != null)
         {

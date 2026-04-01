@@ -326,23 +326,24 @@
         /*----------------------------------
           Helpers
         ----------------------------------*/
-        const distinct = (arr, key) => [...new Map(arr.map(o => [o[key], o])).values()];
+        const distinct = (arr, key) => [...new Map(arr.map(o => [String(o[key]), o])).values()];
         const opt = (val, txt, sel) => `<option value="${val}" ${sel ? "selected" : ""}>${txt}</option>`;
         const opts = (list, idKey, nameKey, sel) =>
             '<option value="">-- Seleccione --</option>' +
-            list.map(o => opt(o[idKey], o[nameKey], o[idKey] === sel)).join("");
+            list.map(o => opt(o[idKey], o[nameKey], String(o[idKey] || '') === String(sel || ''))).join("");
 
         function createRowHtml(d = null) {
+            const taId = (d && d.teacherAssignmentId) ? d.teacherAssignmentId : '';
             const spList = distinct(window.allAssignments, "specialtyId");
-            const areaList    = d ? distinct(window.allAssignments.filter(a => a.specialtyId === d.specialtyId), "areaId") : [];
+            const areaList    = d ? distinct(window.allAssignments.filter(a => String(a.specialtyId) === String(d.specialtyId)), "areaId") : [];
             const subjectList = d ? distinct(window.allAssignments.filter(a =>
-                                 a.specialtyId === d.specialtyId && a.areaId === d.areaId), "subjectId") : [];
+                                 String(a.specialtyId) === String(d.specialtyId) && String(a.areaId) === String(d.areaId)), "subjectId") : [];
             const gradeList   = d ? distinct(window.allAssignments.filter(a =>
-                                 a.specialtyId === d.specialtyId && a.areaId === d.areaId && a.subjectId === d.subjectId), "gradeLevelId") : [];
+                                 String(a.specialtyId) === String(d.specialtyId) && String(a.areaId) === String(d.areaId) && String(a.subjectId) === String(d.subjectId)), "gradeLevelId") : [];
             const groupList   = d ? distinct(window.allAssignments.filter(a =>
-                                 a.specialtyId === d.specialtyId && a.areaId === d.areaId && a.subjectId === d.subjectId && a.gradeLevelId === d.gradeLevelId), "groupId") : [];
+                                 String(a.specialtyId) === String(d.specialtyId) && String(a.areaId) === String(d.areaId) && String(a.subjectId) === String(d.subjectId) && String(a.gradeLevelId) === String(d.gradeLevelId)), "groupId") : [];
 
-            return `<tr>
+            return `<tr data-teacher-assignment-id="${taId}">
                 <td><select class="form-select select-specialty-modal">${opts(spList,'specialtyId','specialtyName',d?.specialtyId)}</select></td>
                 <td><select class="form-select select-area-modal">${opts(areaList,'areaId','areaName',d?.areaId)}</select></td>
                 <td><select class="form-select select-subject-modal">${opts(subjectList,'subjectId','subjectName',d?.subjectId)}</select></td>
@@ -425,53 +426,96 @@
         ----------------------------------*/
         $(document).on('change','.select-specialty-modal',function(){
             const $row=$(this).closest('tr');
-            const sp=$(this).val();
-            const areas=distinct(window.allAssignments.filter(x=>x.specialtyId===sp),'areaId');
+            const sp=String($(this).val() || '');
+            const areas=distinct(window.allAssignments.filter(x=>String(x.specialtyId)===sp),'areaId');
             $row.find('.select-area-modal').html(opts(areas,'areaId','areaName'));
             $row.find('.select-subject-modal,.select-grade-modal,.select-group-modal').html('<option value=\"\">-- Seleccione --</option>');
+            $row.removeAttr('data-teacher-assignment-id');
         });
 
         $(document).on('change','.select-area-modal',function(){
-            const $row=$(this).closest('tr'), sp=$row.find('.select-specialty-modal').val(), ar=$(this).val();
-            const subjects=distinct(window.allAssignments.filter(x=>x.specialtyId===sp&&x.areaId===ar),'subjectId');
+            const $row=$(this).closest('tr'), sp=String($row.find('.select-specialty-modal').val()||''), ar=String($(this).val()||'');
+            const subjects=distinct(window.allAssignments.filter(x=>String(x.specialtyId)===sp&&String(x.areaId)===ar),'subjectId');
             $row.find('.select-subject-modal').html(opts(subjects,'subjectId','subjectName'));
             $row.find('.select-grade-modal,.select-group-modal').html('<option value=\"\">-- Seleccione --</option>');
+            $row.removeAttr('data-teacher-assignment-id');
         });
 
         $(document).on('change','.select-subject-modal',function(){
             const $row=$(this).closest('tr'),
-                  sp=$row.find('.select-specialty-modal').val(),
-                  ar=$row.find('.select-area-modal').val(),
-                  sb=$(this).val();
-            const grades=distinct(window.allAssignments.filter(x=>x.specialtyId===sp&&x.areaId===ar&&x.subjectId===sb),'gradeLevelId');
+                  sp=String($row.find('.select-specialty-modal').val()||''),
+                  ar=String($row.find('.select-area-modal').val()||''),
+                  sb=String($(this).val()||'');
+            const grades=distinct(window.allAssignments.filter(x=>String(x.specialtyId)===sp&&String(x.areaId)===ar&&String(x.subjectId)===sb),'gradeLevelId');
             $row.find('.select-grade-modal').html(opts(grades,'gradeLevelId','gradeLevelName'));
             $row.find('.select-group-modal').html('<option value=\"\">-- Seleccione --</option>');
+            $row.removeAttr('data-teacher-assignment-id');
         });
 
         $(document).on('change','.select-grade-modal',function(){
             const $row=$(this).closest('tr'),
-                  sp=$row.find('.select-specialty-modal').val(),
-                  ar=$row.find('.select-area-modal').val(),
-                  sb=$row.find('.select-subject-modal').val(),
-                  gr=$(this).val();
-            const groups=distinct(window.allAssignments.filter(x=>x.specialtyId===sp&&x.areaId===ar&&x.subjectId===sb&&x.gradeLevelId===gr),'groupId');
+                  sp=String($row.find('.select-specialty-modal').val()||''),
+                  ar=String($row.find('.select-area-modal').val()||''),
+                  sb=String($row.find('.select-subject-modal').val()||''),
+                  gr=String($(this).val()||'');
+            const groups=distinct(window.allAssignments.filter(x=>String(x.specialtyId)===sp&&String(x.areaId)===ar&&String(x.subjectId)===sb&&String(x.gradeLevelId)===gr),'groupId');
             $row.find('.select-group-modal').html(opts(groups,'groupId','groupName'));
+            $row.removeAttr('data-teacher-assignment-id');
+        });
+
+        $(document).on('change', '.select-group-modal', function () {
+            $(this).closest('tr').removeAttr('data-teacher-assignment-id');
         });
 
         /*----------------------------------
-          Eliminar fila individual
+          Eliminar fila: persistir en servidor si ya existía (teacherAssignmentId)
         ----------------------------------*/
-        $(document).on('click', '.delete-row', function() {
+        $(document).on('click', '.delete-row', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
             const $row = $(this).closest('tr');
+            const taId = $row.data('teacher-assignment-id');
             const rowCount = $('#editAssignmentsTableBody tr').length;
-            
-            if(rowCount > 1) {
-                $row.remove();
-            } else {
-                // Si es la última fila, solo la limpiamos
-                $row.find('select').each(function() {
-                    $(this).val('').trigger('change');
+
+            const replaceWithBlankRow = () => {
+                if (rowCount > 1) {
+                    $row.remove();
+                } else {
+                    $('#editAssignmentsTableBody').html(createRowHtml());
+                }
+            };
+
+            if (taId) {
+                Swal.fire({
+                    title: '¿Eliminar esta asignación?',
+                    text: 'Se quitará la materia/grupo de este docente. Si tenía horario en el módulo de horarios, esas celdas también se eliminan.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (!result.isConfirmed) return;
+                    $.ajax({
+                        url: '@Url.Action("DeleteTeacherAssignment", "TeacherAssignment")',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ teacherAssignmentId: taId }),
+                        success: function (r) {
+                            if (r.success) {
+                                replaceWithBlankRow();
+                                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: r.message, showConfirmButton: false, timer: 2200 });
+                            } else {
+                                Swal.fire('No se pudo eliminar', r.message || '', 'error');
+                            }
+                        },
+                        error: function (xhr) {
+                            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Error al eliminar.';
+                            Swal.fire('Error', msg, 'error');
+                        }
+                    });
                 });
+            } else {
+                replaceWithBlankRow();
             }
         });
 

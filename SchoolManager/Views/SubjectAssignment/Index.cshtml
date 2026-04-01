@@ -379,13 +379,14 @@
 
     <script>
         /*----------------------------------
-          DataTable
+          DataTable + filtros (ext.search: no mezclar .show/.hide con DataTables)
         ----------------------------------*/
+        var subjectAssignmentDataTable = null;
+
         $(function () {
-            const table = $('#asignacionTable').DataTable({
-                dom: '<"search-bar"f>rt<"row"<"col-sm-12"p>>',
+            subjectAssignmentDataTable = $('#asignacionTable').DataTable({
+                dom: 'rt<"row mt-2"<"col-sm-12"p>>',
                 language: {
-                    search: "",
                     paginate: {
                         first: "«",
                         last: "»",
@@ -399,10 +400,78 @@
                 ordering: false
             });
 
-            // Personalizar el input de búsqueda
-            $('.dataTables_filter input')
-                .attr('placeholder', 'Buscar asignación por nombre, código o descripción...')
-                .addClass('form-control');
+            function updateResultCounts() {
+                if (!subjectAssignmentDataTable) return;
+                var filtered = subjectAssignmentDataTable.rows({ search: 'applied' }).count();
+                var total = subjectAssignmentDataTable.rows().count();
+                var searchValue = $('#searchAssignments').val().toLowerCase().trim();
+                var hasColumnFilters = $('#filterSpecialty').val() || $('#filterArea').val() || $('#filterSubject').val() ||
+                    $('#filterStatus').val() || $('#filterGrade').val() || $('#filterGroup').val();
+                if (filtered === 0 && (searchValue !== '' || hasColumnFilters)) {
+                    $('#searchResultsCount').html('<small class="text-danger">No se encontraron asignaciones que coincidan con los filtros aplicados</small>');
+                } else {
+                    $('#searchResultsCount').html('<small class="text-muted">Mostrando <span id="visibleCount">' + filtered + '</span> de <span id="totalCount">' + total + '</span> asignaciones</small>');
+                }
+            }
+
+            $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+                if (settings.nTable.id !== 'asignacionTable') return true;
+
+                var api = new $.fn.dataTable.Api(settings);
+                var rowNode = api.row(dataIndex).node();
+                if (!rowNode) return true;
+                var $row = $(rowNode);
+
+                var searchValue = $('#searchAssignments').val().toLowerCase().trim();
+                if (searchValue !== '') {
+                    var found = false;
+                    $row.find('td').each(function (index) {
+                        var $td = $(this);
+                        if (index === $row.find('td').length - 1) return;
+                        var cellText = $td.text().toLowerCase().trim();
+                        if (cellText.indexOf(searchValue) !== -1) {
+                            found = true;
+                            return false;
+                        }
+                    });
+                    if (!found) return false;
+                }
+
+                var specialtyFilter = $('#filterSpecialty').val();
+                if (specialtyFilter && $row.find('td:eq(1)').text().trim() !== specialtyFilter) return false;
+
+                var areaFilter = $('#filterArea').val();
+                if (areaFilter && $row.find('td:eq(2)').text().trim() !== areaFilter) return false;
+
+                var subjectFilter = $('#filterSubject').val();
+                if (subjectFilter && $row.find('td:eq(3)').text().trim() !== subjectFilter) return false;
+
+                var statusFilter = $('#filterStatus').val();
+                if (statusFilter) {
+                    var statusText = $row.find('td:eq(4)').text().trim();
+                    var statusValue = statusText === 'Activo' ? 'Activo' : 'Inactivo';
+                    if (statusValue !== statusFilter) return false;
+                }
+
+                var gradeFilter = $('#filterGrade').val();
+                if (gradeFilter && $row.find('td:eq(5)').text().trim() !== gradeFilter) return false;
+
+                var groupFilter = $('#filterGroup').val();
+                if (groupFilter && $row.find('td:eq(6)').text().trim() !== groupFilter) return false;
+
+                return true;
+            });
+
+            subjectAssignmentDataTable.on('draw', updateResultCounts);
+
+            window.subjectAssignmentApplyFilters = function () {
+                if (subjectAssignmentDataTable) {
+                    subjectAssignmentDataTable.draw();
+                }
+            };
+
+            populateFilterDropdowns();
+            updateResultCounts();
         });
 
         /*----------------------------------
@@ -676,8 +745,19 @@
                     success: function (response) {
                         if (response.success) {
                             showSuccess(response.message);
-                            // Eliminar la fila de la tabla
-                            $('tr[data-assignment-id="' + assignmentId + '"]').fadeOut(400, function () { $(this).remove(); });
+                            var $tr = $('tr[data-assignment-id="' + assignmentId + '"]');
+                            if ($.fn.DataTable.isDataTable('#asignacionTable')) {
+                                var dt = $('#asignacionTable').DataTable();
+                                dt.row($tr).remove().draw(false);
+                                if (typeof populateFilterDropdowns === 'function') {
+                                    populateFilterDropdowns();
+                                }
+                                if (typeof window.subjectAssignmentApplyFilters === 'function') {
+                                    window.subjectAssignmentApplyFilters();
+                                }
+                            } else {
+                                $tr.fadeOut(400, function () { $(this).remove(); });
+                            }
                         } else {
                             showError(response.message);
                         }
@@ -698,51 +778,31 @@
         });
 
         /*----------------------------------
-          Poblar dropdowns de filtros
+          Poblar dropdowns de filtros (todas las filas del DataTable)
         ----------------------------------*/
         function populateFilterDropdowns() {
-            // Obtener valores únicos de cada columna
+            if (!subjectAssignmentDataTable) return;
+
             var specialties = [];
             var areas = [];
             var subjects = [];
             var grades = [];
             var groups = [];
 
-            $('#asignacionTable tbody tr').each(function() {
-                var row = $(this);
-                
-                // Especialidad (columna 1)
+            subjectAssignmentDataTable.rows().every(function () {
+                var row = $(this.node());
                 var specialty = row.find('td:eq(1)').text().trim();
-                if (specialty && specialties.indexOf(specialty) === -1) {
-                    specialties.push(specialty);
-                }
-                
-                // Área (columna 2)
+                if (specialty && specialties.indexOf(specialty) === -1) specialties.push(specialty);
                 var area = row.find('td:eq(2)').text().trim();
-                if (area && areas.indexOf(area) === -1) {
-                    areas.push(area);
-                }
-                
-                // Materia (columna 3)
+                if (area && areas.indexOf(area) === -1) areas.push(area);
                 var subject = row.find('td:eq(3)').text().trim();
-                if (subject && subjects.indexOf(subject) === -1) {
-                    subjects.push(subject);
-                }
-                
-                // Grado (columna 5)
+                if (subject && subjects.indexOf(subject) === -1) subjects.push(subject);
                 var grade = row.find('td:eq(5)').text().trim();
-                if (grade && grades.indexOf(grade) === -1) {
-                    grades.push(grade);
-                }
-                
-                // Grupo (columna 6)
+                if (grade && grades.indexOf(grade) === -1) grades.push(grade);
                 var group = row.find('td:eq(6)').text().trim();
-                if (group && groups.indexOf(group) === -1) {
-                    groups.push(group);
-                }
+                if (group && groups.indexOf(group) === -1) groups.push(group);
             });
 
-            // Poblar dropdowns
             populateDropdown('#filterSpecialty', specialties);
             populateDropdown('#filterArea', areas);
             populateDropdown('#filterSubject', subjects);
@@ -753,112 +813,26 @@
         function populateDropdown(selector, values) {
             var dropdown = $(selector);
             var currentValue = dropdown.val();
-            
-            // Limpiar opciones existentes (excepto "Todas")
             dropdown.find('option:not(:first)').remove();
-            
-            // Ordenar valores alfabéticamente
-            values.sort();
-            
-            // Agregar opciones
-            values.forEach(function(value) {
-                dropdown.append('<option value="' + value + '">' + value + '</option>');
+            values.sort(function (a, b) {
+                return a.localeCompare(b, 'es', { sensitivity: 'base' });
             });
-            
-            // Restaurar valor seleccionado si existe
+            values.forEach(function (value) {
+                var esc = $('<div/>').text(value).html();
+                dropdown.append('<option value="' + esc + '">' + esc + '</option>');
+            });
             if (currentValue) {
                 dropdown.val(currentValue);
             }
         }
 
-        // Poblar dropdowns al cargar la página
-        $(document).ready(function() {
-            populateFilterDropdowns();
-        });
-
-        /*----------------------------------
-          Filtros por dropdown
-        ----------------------------------*/
-        function applyFilters() {
-            var searchValue = $('#searchAssignments').val().toLowerCase().trim();
-            var specialtyFilter = $('#filterSpecialty').val();
-            var areaFilter = $('#filterArea').val();
-            var subjectFilter = $('#filterSubject').val();
-            var statusFilter = $('#filterStatus').val();
-            var gradeFilter = $('#filterGrade').val();
-            var groupFilter = $('#filterGroup').val();
-            
-            var totalRows = $('#asignacionTable tbody tr').length;
-            var visibleRows = 0;
-            
-            $('#asignacionTable tbody tr').each(function() {
-                var row = $(this);
-                var showRow = true;
-                
-                // Aplicar filtro de búsqueda general
-                if (searchValue !== '') {
-                    var found = false;
-                    row.find('td').each(function(index) {
-                        if (index === row.find('td').length - 1) return; // Saltar acciones
-                        var cellText = $(this).text().toLowerCase().trim();
-                        if (cellText.includes(searchValue)) {
-                            found = true;
-                            return false;
-                        }
-                    });
-                    if (!found) showRow = false;
-                }
-                
-                // Aplicar filtros específicos
-                if (showRow && specialtyFilter && row.find('td:eq(1)').text().trim() !== specialtyFilter) {
-                    showRow = false;
-                }
-                if (showRow && areaFilter && row.find('td:eq(2)').text().trim() !== areaFilter) {
-                    showRow = false;
-                }
-                if (showRow && subjectFilter && row.find('td:eq(3)').text().trim() !== subjectFilter) {
-                    showRow = false;
-                }
-                if (showRow && statusFilter) {
-                    var statusText = row.find('td:eq(4)').text().trim();
-                    var statusValue = statusText === 'Activo' ? 'Activo' : 'Inactivo';
-                    if (statusValue !== statusFilter) {
-                        showRow = false;
-                    }
-                }
-                if (showRow && gradeFilter && row.find('td:eq(5)').text().trim() !== gradeFilter) {
-                    showRow = false;
-                }
-                if (showRow && groupFilter && row.find('td:eq(6)').text().trim() !== groupFilter) {
-                    showRow = false;
-                }
-                
-                if (showRow) {
-                    row.show();
-                    visibleRows++;
-                } else {
-                    row.hide();
-                }
-            });
-            
-            // Actualizar contador
-            $('#visibleCount').text(visibleRows);
-            $('#totalCount').text(totalRows);
-            
-            if (visibleRows === 0 && (searchValue !== '' || specialtyFilter || areaFilter || subjectFilter || statusFilter || gradeFilter || groupFilter)) {
-                $('#searchResultsCount').html('<small class="text-danger">No se encontraron asignaciones que coincidan con los filtros aplicados</small>');
-            } else {
-                $('#searchResultsCount').html('<small class="text-muted">Mostrando <span id="visibleCount">' + visibleRows + '</span> de <span id="totalCount">' + totalRows + '</span> asignaciones</small>');
+        $('#filterSpecialty, #filterArea, #filterSubject, #filterStatus, #filterGrade, #filterGroup').on('change', function () {
+            if (typeof window.subjectAssignmentApplyFilters === 'function') {
+                window.subjectAssignmentApplyFilters();
             }
-        }
-
-        // Eventos para los filtros
-        $('#filterSpecialty, #filterArea, #filterSubject, #filterStatus, #filterGrade, #filterGroup').on('change', function() {
-            applyFilters();
         });
 
-        // Botón para limpiar todos los filtros
-        $('#clearAllFilters').on('click', function() {
+        $('#clearAllFilters').on('click', function () {
             $('#searchAssignments').val('');
             $('#filterSpecialty').val('');
             $('#filterArea').val('');
@@ -866,13 +840,16 @@
             $('#filterStatus').val('');
             $('#filterGrade').val('');
             $('#filterGroup').val('');
-            applyFilters();
+            if (typeof window.subjectAssignmentApplyFilters === 'function') {
+                window.subjectAssignmentApplyFilters();
+            }
             $('#searchAssignments').focus();
         });
 
-        // Actualizar la función de búsqueda para usar applyFilters
         $(document).on('input', '#searchAssignments', function () {
-            applyFilters();
+            if (typeof window.subjectAssignmentApplyFilters === 'function') {
+                window.subjectAssignmentApplyFilters();
+            }
         });
     </script>
 }

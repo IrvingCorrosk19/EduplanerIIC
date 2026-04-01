@@ -3,6 +3,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Dtos;
+using System.Linq;
 using SchoolManager.Models;
 using SchoolManager.Services;
 using SchoolManager.Services.Interfaces;
@@ -103,6 +104,38 @@ public class TeacherAssignmentController : Controller
         catch (Exception ex)
         {
             return Json(new { success = false, message = "Error al guardar las asignaciones: " + ex.Message });
+        }
+    }
+
+    /// <summary>Elimina una fila de asignación docente–materia desde el modal (quita entradas de horario vinculadas).</summary>
+    [HttpPost]
+    public async Task<IActionResult> DeleteTeacherAssignment([FromBody] DeleteTeacherAssignmentRequest? body)
+    {
+        if (body == null || body.TeacherAssignmentId == Guid.Empty)
+            return Json(new { success = false, message = "Identificador inválido." });
+
+        try
+        {
+            var assignment = await _teacherAssignmentService.GetByIdAsync(body.TeacherAssignmentId);
+            if (assignment == null)
+                return Json(new { success = false, message = "La asignación no existe." });
+
+            var role = await _currentUserService.GetCurrentUserRoleAsync();
+            var isTeacher = string.Equals(role, "teacher", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(role, "docente", StringComparison.OrdinalIgnoreCase);
+            if (isTeacher)
+            {
+                var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+                if (currentUserId == null || assignment.TeacherId != currentUserId.Value)
+                    return Json(new { success = false, message = "No puede modificar asignaciones de otro docente." });
+            }
+
+            await _teacherAssignmentService.DeleteAsync(body.TeacherAssignmentId);
+            return Json(new { success = true, message = "Asignación eliminada correctamente." });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = "Error al eliminar: " + ex.Message });
         }
     }
 
