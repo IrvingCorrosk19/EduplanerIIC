@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using SchoolManager.Repositories.Implementations;
 using SchoolManager.Repositories.Interfaces;
 using SchoolManager.Services.Background;
+using SchoolManager.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,8 +33,8 @@ if (!string.IsNullOrEmpty(port))
 // Tabla email_queues (cola de envío de contraseñas por correo). Idempotente.
 if (args.Length > 0 && args[0] == "--apply-email-queues-table")
 {
-    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.ApplyEmailQueuesTable.RunAsync(ctx);
@@ -43,8 +44,8 @@ if (args.Length > 0 && args[0] == "--apply-email-queues-table")
 // Aplicar columna schools.is_active sin arrancar la app (evita usar Schools antes de que exista la columna)
 if (args.Length > 0 && args[0] == "--apply-email-jobs")
 {
-    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.ApplyEmailJobsAndQueueColumns.RunAsync(ctx);
@@ -54,8 +55,8 @@ if (args.Length > 0 && args[0] == "--apply-email-jobs")
 
 if (args.Length > 0 && args[0] == "--apply-school-is-active")
 {
-    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.ApplySchoolIsActive.RunAsync(ctx);
@@ -66,8 +67,8 @@ if (args.Length > 0 && args[0] == "--apply-school-is-active")
 // Crear tablas Plan de Trabajo Trimestral (teacher_work_plans, teacher_work_plan_details)
 if (args.Length > 0 && args[0] == "--apply-teacher-work-plan-tables")
 {
-    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.ApplyTeacherWorkPlanTables.RunAsync(ctx);
@@ -77,8 +78,8 @@ if (args.Length > 0 && args[0] == "--apply-teacher-work-plan-tables")
 // Columnas gobernanza + tabla teacher_work_plan_review_logs (Dirección Académica)
 if (args.Length > 0 && args[0] == "--apply-director-work-plan-governance")
 {
-    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.ApplyDirectorWorkPlanGovernance.RunAsync(ctx);
@@ -88,8 +89,8 @@ if (args.Length > 0 && args[0] == "--apply-director-work-plan-governance")
 // Crear superadmin inicial (superadmin@schoolmanager.com / Admin123!). Usa la conexión configurada.
 if (args.Length > 0 && args[0] == "--create-initial-superadmin")
 {
-    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.CreateInitialSuperAdminScript.RunAsync(ctx);
@@ -99,8 +100,8 @@ if (args.Length > 0 && args[0] == "--create-initial-superadmin")
 // Crear admin local (admin@local.com / Admin123!). Crea escuela si no existe.
 if (args.Length > 0 && args[0] == "--create-local-admin")
 {
-    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); Environment.Exit(1); return; }
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
     var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
     using var ctx = new SchoolDbContext(opts);
     await SchoolManager.Scripts.CreateLocalAdminScript.RunAsync(ctx);
@@ -149,11 +150,14 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "RequestVerificationToken";
 });
 
-// Conexión a la base de datos PostgreSQL
+// Conexión a la base de datos PostgreSQL (appsettings, ConnectionStrings__DefaultConnection o DATABASE_URL en Render)
+var npgsqlConnectionString = PostgresConnectionResolver.Resolve(builder.Configuration)
+    ?? throw new InvalidOperationException(
+        "Falta cadena de base de datos. Configure ConnectionStrings:DefaultConnection, la variable de entorno ConnectionStrings__DefaultConnection o DATABASE_URL (Render PostgreSQL).");
 builder.Services.AddDbContext<SchoolDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-    
+    options.UseNpgsql(npgsqlConnectionString);
+
     // Configurar Entity Framework para manejar DateTime automáticamente
     options.ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.RowLimitingOperationWithoutOrderByWarning));
 });
@@ -365,8 +369,8 @@ if (args.Length > 0)
     }
     else if (args[0] == "--sync-ef-migrations-history")
     {
-        var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-        if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("No hay ConnectionStrings:DefaultConnection."); return; }
+        var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+        if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); return; }
         var label = builder.Environment.IsDevelopment() ? "LOCAL" : "RENDER";
         Console.WriteLine($"Sincronizando __EFMigrationsHistory en {label}...\n");
         await SchoolManager.Scripts.SyncEfMigrationsHistory.RunAsync(connStr, label);
