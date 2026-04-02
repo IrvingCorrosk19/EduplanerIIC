@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -104,6 +104,12 @@ namespace SchoolManager.Controllers
                             Trimester = alumno.Trimester
                         });
                     }
+                }
+
+                if (registros.Count == 0)
+                {
+                    return BadRequest(
+                        "No hay celdas de notas para guardar. Debe existir al menos una actividad en la tabla y filas con celdas editables.");
                 }
 
                 await _scoreSvc.SaveBulkFromNotasAsync(registros);

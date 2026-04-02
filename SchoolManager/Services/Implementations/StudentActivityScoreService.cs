@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -146,10 +146,33 @@ namespace SchoolManager.Services
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                var currentUserSchool = await _currentUserService.GetCurrentUserSchoolAsync();
+                if (currentUserSchool == null)
+                {
+                    throw new InvalidOperationException("No se pudo determinar la escuela del usuario actual.");
+                }
+
+                var trimesterIdByCode = new Dictionary<string, Guid>(StringComparer.Ordinal);
+
                 foreach (var dto in registros)
                 {
                     // Validar trimestre activo antes de procesar
                     await _trimesterService.ValidateTrimesterActiveAsync(dto.Trimester);
+
+                    if (!trimesterIdByCode.TryGetValue(dto.Trimester, out var trimesterId))
+                    {
+                        var trimesterRow = await _context.Trimesters
+                            .FirstOrDefaultAsync(t =>
+                                t.Name == dto.Trimester && t.SchoolId == currentUserSchool.Id);
+                        if (trimesterRow == null)
+                        {
+                            throw new InvalidOperationException(
+                                $"No se encontró el trimestre '{dto.Trimester}' para la escuela actual.");
+                        }
+
+                        trimesterIdByCode[dto.Trimester] = trimesterRow.Id;
+                        trimesterId = trimesterRow.Id;
+                    }
 
                     // Buscar o crear la actividad por nombre, docente, grupo, trimestre y grado
                     var activity = await _context.Activities
@@ -175,11 +198,23 @@ namespace SchoolManager.Services
                             GroupId = dto.GroupId,
                             GradeLevelId = dto.GradeLevelId,
                             Trimester = dto.Trimester,
+                            TrimesterId = trimesterId,
+                            SchoolId = currentUserSchool.Id,
                             CreatedAt = DateTime.UtcNow
                         };
 
+                        await AuditHelper.SetAuditFieldsForCreateAsync(activity, _currentUserService);
                         _context.Activities.Add(activity);
                         await _context.SaveChangesAsync();
+                    }
+                    else if (activity.SchoolId == null || activity.TrimesterId == null)
+                    {
+                        // Actividades creadas antes sin escuela/trimestre FK: alineado con GetByTeacherGroupTrimesterAsync
+                        if (activity.SchoolId == null)
+                            activity.SchoolId = currentUserSchool.Id;
+                        if (activity.TrimesterId == null)
+                            activity.TrimesterId = trimesterId;
+                        await AuditHelper.SetAuditFieldsForUpdateAsync(activity, _currentUserService);
                     }
 
                     // Verificamos si ya hay nota para ese alumno y esa actividad
@@ -191,10 +226,8 @@ namespace SchoolManager.Services
                     if (existing == null)
                     {
                         // MEJORADO: Obtener año académico activo para la nueva nota
-                        var currentUserSchool = await _currentUserService.GetCurrentUserSchoolAsync();
-                        var activeAcademicYear = currentUserSchool != null
-                            ? await _academicYearService.GetActiveAcademicYearAsync(currentUserSchool.Id)
-                            : null;
+                        var activeAcademicYear =
+                            await _academicYearService.GetActiveAcademicYearAsync(currentUserSchool.Id);
 
                         // Si no existe, lo añadimos (incluso si la nota es nula)
                         _context.StudentActivityScores.Add(new StudentActivityScore
