@@ -173,27 +173,37 @@ namespace SchoolManager.Controllers
             var allGrades = await _gradeLevelService.GetAllAsync();
             var allShifts = await _shiftService.GetAllAsync(); // Obtener jornadas del catálogo
 
+            var assignmentsByStudent =
+                await _studentAssignmentService.GetActiveAssignmentsForCurrentSchoolAsync();
+
+            var gradeById = allGrades.ToDictionary(g => g.Id);
+            var groupById = allGroups.ToDictionary(g => g.Id);
+            var shiftById = allShifts.ToDictionary(s => s.Id);
+
             var viewModelList = new List<StudentAssignmentOverviewViewModel>();
 
             foreach (var student in students)
             {
-                var assignments = await _studentAssignmentService.GetAssignmentsByStudentIdAsync(student.Id);
+                assignmentsByStudent.TryGetValue(student.Id, out var assignments);
+                assignments ??= new List<StudentAssignment>();
 
                 var gradeGroupPairs = assignments
                     .Select(a =>
                     {
-                        var gradeName = allGrades.FirstOrDefault(g => g.Id == a.GradeId)?.Name ?? "?";
-                        var group = allGroups.FirstOrDefault(g => g.Id == a.GroupId);
+                        var gradeName = gradeById.TryGetValue(a.GradeId, out var gr) ? gr.Name : "?";
+                        groupById.TryGetValue(a.GroupId, out var group);
                         var groupName = group?.Name ?? "?";
-                        
-                        // Obtener jornada desde StudentAssignment.ShiftId (relación directa)
-                        var shift = allShifts.FirstOrDefault(s => s.Id == a.ShiftId);
-                        var shiftName = shift?.Name ?? 
-                                       // Si no hay jornada en StudentAssignment, intentar desde Group
-                                       (allShifts.FirstOrDefault(s => s.Id == group?.ShiftId)?.Name ?? 
-                                       // Si tampoco hay, usar el string legacy de Group
-                                       (!string.IsNullOrEmpty(group?.Shift) ? group.Shift : "Sin jornada"));
-                        
+
+                        string shiftName;
+                        if (a.ShiftId.HasValue && shiftById.TryGetValue(a.ShiftId.Value, out var shDirect))
+                            shiftName = shDirect.Name ?? "Sin jornada";
+                        else if (group?.ShiftId != null && shiftById.TryGetValue(group.ShiftId.Value, out var shGroup))
+                            shiftName = shGroup.Name ?? "Sin jornada";
+                        else if (!string.IsNullOrEmpty(group?.Shift))
+                            shiftName = group.Shift;
+                        else
+                            shiftName = "Sin jornada";
+
                         // Formato: Grado - Grupo | Jornada: [Mañana/Tarde/Noche]
                         return $"{gradeName} - {groupName} | Jornada: {shiftName}";
                     })

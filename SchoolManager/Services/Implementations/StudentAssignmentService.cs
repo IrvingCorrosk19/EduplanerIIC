@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
@@ -119,6 +119,40 @@ namespace SchoolManager.Services.Implementations
                 .OrderByDescending(sa => sa.CreatedAt) // Más recientes primero
                 .AsNoTracking()
                 .ToListAsync();
+        }
+
+        public async Task<Dictionary<Guid, List<StudentAssignment>>> GetActiveAssignmentsForCurrentSchoolAsync()
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser?.SchoolId == null)
+                return new Dictionary<Guid, List<StudentAssignment>>();
+
+            var schoolId = currentUser.SchoolId.Value;
+
+            // JOIN por escuela: el planificador usa ix_users_school_id_lower_role + ix_student_assignments_active_student_created_at
+            // (evita WHERE student_id IN (~1800 valores) que encarece parseo y plan).
+            var rows = await (
+                from sa in _context.StudentAssignments.AsNoTracking()
+                join u in _context.Users.AsNoTracking() on sa.StudentId equals u.Id
+                where sa.IsActive
+                    && u.SchoolId == schoolId
+                    && (u.Role.ToLower() == "student" || u.Role.ToLower() == "estudiante")
+                orderby sa.StudentId, sa.CreatedAt descending
+                select new StudentAssignment
+                {
+                    Id = sa.Id,
+                    StudentId = sa.StudentId,
+                    GradeId = sa.GradeId,
+                    GroupId = sa.GroupId,
+                    ShiftId = sa.ShiftId,
+                    IsActive = sa.IsActive,
+                    EndDate = sa.EndDate,
+                    CreatedAt = sa.CreatedAt
+                }).ToListAsync();
+
+            return rows
+                .GroupBy(sa => sa.StudentId)
+                .ToDictionary(g => g.Key, g => g.ToList());
         }
 
         public async Task AssignAsync(Guid studentId, List<(Guid SubjectId, Guid GradeId, Guid GroupId)> assignments)

@@ -351,6 +351,7 @@
 
         $(function () {
             // Inicializar DataTables
+            // Muchas filas (~1.8k): evita clases CSS de orden por celda (reduce trabajo al inicializar).
             var table = $('#asignacionesTable').DataTable({
                 language: {
                     search: "", lengthMenu: "Mostrar _MENU_",
@@ -360,6 +361,8 @@
                 },
                 pageLength: 10,
                 responsive: true,
+                autoWidth: false,
+                orderClasses: false,
                 dom: 'rtip', // Oculta el buscador nativo
             });
 
