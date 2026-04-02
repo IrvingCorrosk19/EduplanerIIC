@@ -143,6 +143,9 @@ namespace SchoolManager.Services
 
         public async Task SaveBulkFromNotasAsync(List<StudentActivityScoreCreateDto> registros)
         {
+            if (registros == null || registros.Count == 0)
+                return;
+
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -152,42 +155,66 @@ namespace SchoolManager.Services
                     throw new InvalidOperationException("No se pudo determinar la escuela del usuario actual.");
                 }
 
+                static (Guid TeacherId, Guid SubjectId, Guid GroupId, Guid GradeLevelId, string Trimester, string Name, string Type) ActivityKey(
+                    StudentActivityScoreCreateDto dto) =>
+                    (dto.TeacherId, dto.SubjectId, dto.GroupId, dto.GradeLevelId, dto.Trimester ?? "",
+                        dto.ActivityName ?? "", dto.Type ?? "");
+
+                static (Guid TeacherId, Guid SubjectId, Guid GroupId, Guid GradeLevelId, string Trimester, string Name, string Type) ActivityKeyEntity(Activity a) =>
+                    (a.TeacherId ?? Guid.Empty, a.SubjectId ?? Guid.Empty, a.GroupId ?? Guid.Empty, a.GradeLevelId ?? Guid.Empty,
+                        a.Trimester ?? "", a.Name, a.Type);
+
+                foreach (var trimCode in registros.Select(r => r.Trimester).Distinct())
+                {
+                    await _trimesterService.ValidateTrimesterActiveAsync(trimCode);
+                }
+
                 var trimesterIdByCode = new Dictionary<string, Guid>(StringComparer.Ordinal);
+                foreach (var trimCode in registros.Select(r => r.Trimester).Distinct())
+                {
+                    var trimesterRow = await _context.Trimesters
+                        .FirstOrDefaultAsync(t =>
+                            t.Name == trimCode && t.SchoolId == currentUserSchool.Id);
+                    if (trimesterRow == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"No se encontró el trimestre '{trimCode}' para la escuela actual.");
+                    }
+
+                    trimesterIdByCode[trimCode] = trimesterRow.Id;
+                }
+
+                var scopes = registros
+                    .Select(r => (r.TeacherId, r.SubjectId, r.GroupId, r.GradeLevelId, r.Trimester))
+                    .Distinct()
+                    .ToList();
+
+                var allActivities = new List<Activity>();
+                foreach (var scope in scopes)
+                {
+                    var batch = await _context.Activities
+                        .Where(a =>
+                            a.TeacherId == scope.TeacherId &&
+                            a.SubjectId == scope.SubjectId &&
+                            a.GroupId == scope.GroupId &&
+                            a.GradeLevelId == scope.GradeLevelId &&
+                            a.Trimester == scope.Trimester)
+                        .ToListAsync();
+                    allActivities.AddRange(batch);
+                }
+
+                var activityByKey = allActivities
+                    .GroupBy(ActivityKeyEntity)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var activeAcademicYear = await _academicYearService.GetActiveAcademicYearAsync(currentUserSchool.Id);
 
                 foreach (var dto in registros)
                 {
-                    // Validar trimestre activo antes de procesar
-                    await _trimesterService.ValidateTrimesterActiveAsync(dto.Trimester);
-
-                    if (!trimesterIdByCode.TryGetValue(dto.Trimester, out var trimesterId))
+                    var key = ActivityKey(dto);
+                    if (!activityByKey.TryGetValue(key, out var activity))
                     {
-                        var trimesterRow = await _context.Trimesters
-                            .FirstOrDefaultAsync(t =>
-                                t.Name == dto.Trimester && t.SchoolId == currentUserSchool.Id);
-                        if (trimesterRow == null)
-                        {
-                            throw new InvalidOperationException(
-                                $"No se encontró el trimestre '{dto.Trimester}' para la escuela actual.");
-                        }
-
-                        trimesterIdByCode[dto.Trimester] = trimesterRow.Id;
-                        trimesterId = trimesterRow.Id;
-                    }
-
-                    // Buscar o crear la actividad por nombre, docente, grupo, trimestre y grado
-                    var activity = await _context.Activities
-                        .FirstOrDefaultAsync(a =>
-                            a.Name == dto.ActivityName &&
-                            a.TeacherId == dto.TeacherId &&
-                            a.Trimester == dto.Trimester &&
-                            a.SubjectId == dto.SubjectId &&
-                            a.GroupId == dto.GroupId &&
-                            a.GradeLevelId == dto.GradeLevelId &&
-                            a.Type == dto.Type);
-
-                    // Si no existe, la creamos
-                    if (activity == null)
-                    {
+                        var trimesterId = trimesterIdByCode[dto.Trimester];
                         activity = new Activity
                         {
                             Id = Guid.NewGuid(),
@@ -205,49 +232,52 @@ namespace SchoolManager.Services
 
                         await AuditHelper.SetAuditFieldsForCreateAsync(activity, _currentUserService);
                         _context.Activities.Add(activity);
-                        await _context.SaveChangesAsync();
+                        activityByKey[key] = activity;
                     }
                     else if (activity.SchoolId == null || activity.TrimesterId == null)
                     {
-                        // Actividades creadas antes sin escuela/trimestre FK: alineado con GetByTeacherGroupTrimesterAsync
                         if (activity.SchoolId == null)
                             activity.SchoolId = currentUserSchool.Id;
                         if (activity.TrimesterId == null)
-                            activity.TrimesterId = trimesterId;
+                            activity.TrimesterId = trimesterIdByCode[dto.Trimester];
                         await AuditHelper.SetAuditFieldsForUpdateAsync(activity, _currentUserService);
                     }
+                }
 
-                    // Verificamos si ya hay nota para ese alumno y esa actividad
-                    var existing = await _context.StudentActivityScores
-                        .FirstOrDefaultAsync(s =>
-                            s.StudentId == dto.StudentId &&
-                            s.ActivityId == activity.Id);
+                var activityIds = activityByKey.Values.Select(a => a.Id).Distinct().ToList();
+                var studentIds = registros.Select(r => r.StudentId).Distinct().ToList();
 
-                    if (existing == null)
+                var existingScores = await _context.StudentActivityScores
+                    .Where(s => activityIds.Contains(s.ActivityId) && studentIds.Contains(s.StudentId))
+                    .ToListAsync();
+
+                var scoreByStudentActivity = existingScores.ToDictionary(s => (s.StudentId, s.ActivityId));
+
+                foreach (var dto in registros)
+                {
+                    var activity = activityByKey[ActivityKey(dto)];
+                    var pair = (dto.StudentId, activity.Id);
+
+                    if (!scoreByStudentActivity.TryGetValue(pair, out var row))
                     {
-                        // MEJORADO: Obtener año académico activo para la nueva nota
-                        var activeAcademicYear =
-                            await _academicYearService.GetActiveAcademicYearAsync(currentUserSchool.Id);
-
-                        // Si no existe, lo añadimos (incluso si la nota es nula)
-                        _context.StudentActivityScores.Add(new StudentActivityScore
+                        row = new StudentActivityScore
                         {
                             Id = Guid.NewGuid(),
                             StudentId = dto.StudentId,
                             ActivityId = activity.Id,
-                            Score = dto.Score, // Puede ser nulo
-                            AcademicYearId = activeAcademicYear?.Id, // Asignar año académico si existe
+                            Score = dto.Score,
+                            AcademicYearId = activeAcademicYear?.Id,
                             CreatedAt = DateTime.UtcNow
-                        });
+                        };
+                        _context.StudentActivityScores.Add(row);
+                        scoreByStudentActivity[pair] = row;
                     }
                     else
                     {
-                        // Si ya existe, actualizamos la nota (puede ser nula)
-                        existing.Score = dto.Score;
+                        row.Score = dto.Score;
                     }
                 }
 
-                // Guardamos todos los cambios a la base de datos
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }

@@ -1217,6 +1217,32 @@
             return trimmed || '(Sin nombre)';
         }
 
+        const TZ_PANAMA = 'America/Panama';
+
+        /** Muestra fechas según calendario en Panamá (evita desfase por UTC). */
+        function formatDatePanama(value) {
+            if (value == null || value === '') return '';
+            const s = String(value).trim();
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+            if (m) {
+                const y = +m[1], mo = +m[2], d = +m[3];
+                const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+                return `${d} ${months[mo - 1]}. de ${y}`;
+            }
+            const dt = new Date(s);
+            if (isNaN(dt.getTime())) return '';
+            return dt.toLocaleDateString('es-PA', { day: 'numeric', month: 'short', year: 'numeric', timeZone: TZ_PANAMA });
+        }
+
+        function todayDateInputPanama() {
+            return new Intl.DateTimeFormat('en-CA', { timeZone: TZ_PANAMA, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        }
+
+        function nowTimeInputPanama() {
+            const t = new Date().toLocaleTimeString('en-GB', { timeZone: TZ_PANAMA, hour: '2-digit', minute: '2-digit', hour12: false });
+            return t.length >= 5 ? t.substring(0, 5) : t;
+        }
+
         $(document).ready(() => {
             const teacherId = '@Model.TeacherId';
             const students = [];
@@ -1376,7 +1402,7 @@
                             // Botón de eliminar
                             const deleteButton = a.id ? `<button class='btn btn-sm btn-outline-danger mb-1 btn-delete-activity' data-activity-id='${a.id}' title='Eliminar actividad'><i class='bi bi-trash'></i></button>` : '';
                             // Fecha de entrega bonita
-                            let fechaEntrega = a.dueDate ? new Date(a.dueDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+                            let fechaEntrega = a.dueDate ? formatDatePanama(a.dueDate) : '';
                             hdrRow.append(
                               `<th>
                                 <div class='d-flex flex-column align-items-center'>
@@ -2159,13 +2185,14 @@
 
                 console.log('Datos a enviar (con promedios):', notasParaGuardar);
 
-                const $btnGuardar = $('#btnGuardarNotas');
-                if (!$btnGuardar.data('orig-html')) {
-                    $btnGuardar.data('orig-html', $btnGuardar.html());
-                }
-                $btnGuardar.prop('disabled', true).html(
-                    '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...'
-                );
+                Swal.fire({
+                    title: 'Guardando notas',
+                    html: 'Por favor espere mientras se guardan las calificaciones…',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
 
                 // Enviar al servidor
                 $.ajax({
@@ -2191,10 +2218,6 @@
                             title: 'Error',
                             text: mensaje
                         });
-                    },
-                    complete: function() {
-                        $btnGuardar.prop('disabled', false);
-                        $btnGuardar.html($btnGuardar.data('orig-html'));
                     }
                 });
             }
@@ -2242,7 +2265,7 @@
                     const header = $('#attendanceHeader');
                     header.html('<th>Estudiante</th>');
                     asistenciaFechas.forEach(fecha => {
-                        const formatted = new Date(fecha).toLocaleDateString();
+                        const formatted = formatDatePanama(fecha);
                         header.append(`<th>${formatted}</th>`);
                     });
                     header.append('<th>Estado</th>');
@@ -2861,13 +2884,7 @@
                 }
                 const historial = $('<div class="list-group"></div>');
                 response.forEach(registro => {
-                    // Formatear la fecha correctamente
-                    const fecha = new Date(registro.date);
-                    const fechaFormateada = !isNaN(fecha.getTime()) ? fecha.toLocaleDateString('es-ES', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric'
-                    }) : 'Fecha no válida';
+                    const fechaFormateada = registro.date ? (formatDatePanama(registro.date) || 'Fecha no válida') : 'Fecha no válida';
 
                     // Badge para categoría
                     let categoriaBadge = '';
@@ -3016,9 +3033,8 @@
             $('#nombreEstudianteSeleccionado').text(studentName);
             $('#msgSeleccionEstudianteDisciplina').hide();
             $('#formDisciplina').show();
-            const now = new Date();
-            $('#fechaDisciplina').val(now.toISOString().split('T')[0]);
-            $('#horaDisciplina').val(now.toTimeString().slice(0,5));
+            $('#fechaDisciplina').val(todayDateInputPanama());
+            $('#horaDisciplina').val(nowTimeInputPanama());
             window.cargarHistorialEstudiante(studentId);
         });
     };
