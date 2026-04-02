@@ -2159,6 +2159,14 @@
 
                 console.log('Datos a enviar (con promedios):', notasParaGuardar);
 
+                const $btnGuardar = $('#btnGuardarNotas');
+                if (!$btnGuardar.data('orig-html')) {
+                    $btnGuardar.data('orig-html', $btnGuardar.html());
+                }
+                $btnGuardar.prop('disabled', true).html(
+                    '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...'
+                );
+
                 // Enviar al servidor
                 $.ajax({
                     url: '/TeacherGradebook/GuardarNotasTemp',
@@ -2183,6 +2191,10 @@
                             title: 'Error',
                             text: mensaje
                         });
+                    },
+                    complete: function() {
+                        $btnGuardar.prop('disabled', false);
+                        $btnGuardar.html($btnGuardar.data('orig-html'));
                     }
                 });
             }
