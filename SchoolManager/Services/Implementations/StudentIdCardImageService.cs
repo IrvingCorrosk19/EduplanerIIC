@@ -85,7 +85,7 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         // ── Header ────────────────────────────────────────────────────────────
         using (var p = Fill(primary)) canvas.DrawRect(0, 0, w, headerH, p);
 
-        float logoSz = headerH * 0.70f;
+        float logoSz = headerH * 0.7304f;
         float nameX  = hPad;
         if (dto.LogoBytes != null)
         {
@@ -174,7 +174,7 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         // ── Header ────────────────────────────────────────────────────────────
         using (var p = Fill(primary)) canvas.DrawRect(0, 0, w, headerH, p);
 
-        float logoSz = headerH * 0.52f;
+        float logoSz = headerH * 0.5435f;
         float logoY  = headerH * 0.06f;
         if (dto.LogoBytes != null)
         {
@@ -294,7 +294,7 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         // ── Header ────────────────────────────────────────────────────────────
         using (var p = Fill(primary)) canvas.DrawRect(0, 0, w, headerH, p);
 
-        float logoSz = headerH * 0.70f;
+        float logoSz = headerH * 0.7304f;
         float nameX  = hPad;
         float nameW  = w - hPad * 2f;
 
