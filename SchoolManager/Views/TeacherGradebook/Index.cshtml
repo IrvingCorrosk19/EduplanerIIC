@@ -3720,6 +3720,24 @@
                     }
                 });
             });
+
+            // Usar la misma materia/grado/grupo que "Registrar Notas" (#selGroup) en filtros de disciplina, asistencia e historiales.
+            function syncSelGroupToTeacherContextSelects() {
+                var v = $('#selGroup').val();
+                if (!v) return;
+                function apply($sel) {
+                    if (!$sel.length) return;
+                    if ($sel.find('option').filter(function () { return $(this).val() === v; }).length) {
+                        $sel.val(v).trigger('change');
+                    }
+                }
+                apply($('#filtroGrupoHistorial'));
+                apply($('#filtroGrupoHistorialDisciplina'));
+                apply($('#filtroGradoDisciplina'));
+                apply($('#filtroGradoAsistencia'));
+            }
+            $('#selGroup').on('change.syncTeacherCtx', syncSelGroupToTeacherContextSelects);
+            syncSelGroupToTeacherContextSelects();
         });
     </script>
 
