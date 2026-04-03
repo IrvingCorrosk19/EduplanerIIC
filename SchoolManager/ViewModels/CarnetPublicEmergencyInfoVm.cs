@@ -20,4 +20,10 @@ public class CarnetPublicEmergencyInfoVm
     public string? Shift { get; set; }
     public string? UserShift { get; set; }
     public string? PhotoUrl { get; set; }
+
+    /// <summary>True si <c>users.status</c> es <c>active</c> (insensible a mayúsculas).</summary>
+    public bool IsUserAccountActive { get; set; }
+
+    /// <summary>Valor crudo de <c>users.status</c> para matizar inactivo (ej. retirado, inactive).</summary>
+    public string? UserAccountStatusRaw { get; set; }
 }

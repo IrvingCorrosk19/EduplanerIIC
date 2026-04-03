@@ -447,89 +447,93 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         float contentW = w - hPad * 2f;
         float footerH  = h * 0.12f;
         float availH   = h - footerH;
+        float footerY  = h - footerH;
+
+        var hasEmergencyQr = settings.ShowQr && !string.IsNullOrWhiteSpace(dto.EmergencyInfoPageUrl);
+        float emgQrSz = hasEmergencyQr ? Math.Min(w, h) * 0.26f : 0f;
+        float emgCaptionFs = h * 0.032f;
+        float emgGap = h * 0.014f;
+        float emgBlockH = hasEmergencyQr ? emgQrSz + emgCaptionFs + emgGap + h * 0.01f : 0f;
+        float emgQrTop = hasEmergencyQr ? footerY - emgBlockH : footerY;
+        float middleCeiling = hasEmergencyQr ? emgQrTop - h * 0.02f : footerY - h * 0.02f;
 
         float qrY = h * 0.03f;
-        float labelFs = h * 0.028f;
         float qrBlockBottom = qrY;
 
         if (settings.ShowQr)
         {
-            if (!string.IsNullOrWhiteSpace(dto.EmergencyInfoPageUrl))
-            {
-                float qrSz = Math.Min(w, availH) * 0.30f;
-                float gap = w * 0.03f;
-                float pairW = qrSz * 2f + gap;
-                float startX = (w - pairW) / 2f;
-                DrawQr(canvas, dto.QrToken, SKRect.Create(startX, qrY, qrSz, qrSz));
-                DrawPlainUrlQr(canvas, dto.EmergencyInfoPageUrl!, SKRect.Create(startX + qrSz + gap, qrY, qrSz, qrSz));
-                float labelY = qrY + qrSz + h * 0.008f;
-                using (var tf = SKTypeface.FromFamilyName(null, SKFontStyle.Normal))
-                using (var lp = new SKPaint { Color = textCol, TextSize = labelFs, IsAntialias = true, Typeface = tf })
-                {
-                    var t1 = "Verificación";
-                    canvas.DrawText(t1, startX + (qrSz - lp.MeasureText(t1)) / 2f, labelY + labelFs, lp);
-                    var t2 = "Emergencia";
-                    canvas.DrawText(t2, startX + qrSz + gap + (qrSz - lp.MeasureText(t2)) / 2f, labelY + labelFs, lp);
-                }
-                qrBlockBottom = labelY + labelFs + h * 0.02f;
-            }
-            else
-            {
-                float qrSz = Math.Min(w, availH) * 0.45f;
-                float qrX = (w - qrSz) / 2f;
-                DrawQr(canvas, dto.QrToken, SKRect.Create(qrX, qrY, qrSz, qrSz));
-                qrBlockBottom = qrY + qrSz + h * 0.02f;
-            }
+            float verifySz = hasEmergencyQr ? Math.Min(w, availH) * 0.36f : Math.Min(w, availH) * 0.45f;
+            float qrX = (w - verifySz) / 2f;
+            DrawQr(canvas, dto.QrToken, SKRect.Create(qrX, qrY, verifySz, verifySz));
+            qrBlockBottom = qrY + verifySz + h * 0.018f;
         }
 
         float nameFs  = h * 0.050f;
         float smallFs = h * 0.038f;
         float lineH   = h * 0.085f;
         float sLineH  = h * 0.068f;
-        float ty      = qrBlockBottom + h * 0.025f + nameFs;
+        float ty      = qrBlockBottom + h * 0.02f + nameFs;
+
+        bool Room(float nextLineH) => ty + nextLineH <= middleCeiling;
 
         AutoText(canvas, Trunc(dto.SchoolName, 50), hPad, ty, contentW, nameFs, textCol, bold: true, center: true);
         ty += lineH;
-        var hint = !string.IsNullOrWhiteSpace(dto.EmergencyInfoPageUrl)
-            ? "QR izq.: verificación carnet · QR der.: emergencia y datos (cualquier teléfono)"
-            : "Escanea el código QR para verificar la información del carnet";
-        AutoText(canvas, hint,
-            hPad, ty, contentW, smallFs * 0.88f, textCol, center: true);
-        ty += sLineH;
-        AutoText(canvas, Trunc($"Carnet: {dto.CardNumber}", 30), hPad, ty, contentW, smallFs, textCol, center: true);
-        ty += sLineH;
+        if (Room(sLineH))
+        {
+            AutoText(canvas, "Escanea el código superior para verificar el carnet",
+                hPad, ty, contentW, smallFs * 0.88f, textCol, center: true);
+            ty += sLineH;
+        }
+        if (Room(sLineH))
+        {
+            AutoText(canvas, Trunc($"Carnet: {dto.CardNumber}", 30), hPad, ty, contentW, smallFs, textCol, center: true);
+            ty += sLineH;
+        }
 
-        if (!string.IsNullOrWhiteSpace(dto.IdCardPolicy))
+        if (Room(sLineH) && !string.IsNullOrWhiteSpace(dto.IdCardPolicy))
         {
             var pol = dto.IdCardPolicy.Trim();
             if (pol.Length > 120) pol = pol[..119] + "…";
             AutoText(canvas, pol, hPad, ty, contentW, smallFs * 0.82f, textCol, center: true);
             ty += sLineH;
         }
-        if (settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(dto.SchoolPhone))
+        if (Room(sLineH) && settings.ShowSchoolPhone && !string.IsNullOrWhiteSpace(dto.SchoolPhone))
         {
             AutoText(canvas, $"Tel: {dto.SchoolPhone}", hPad, ty, contentW, smallFs, textCol, center: true);
             ty += sLineH;
         }
-        if (settings.ShowEmergencyContact && !string.IsNullOrWhiteSpace(dto.EmergencyContactName))
+        if (Room(sLineH) && settings.ShowEmergencyContact && !string.IsNullOrWhiteSpace(dto.EmergencyContactName))
         {
             AutoText(canvas, $"Emergencia: {Trunc(dto.EmergencyContactName, 30)}",
                 hPad, ty, contentW, smallFs, textCol, center: true);
             ty += sLineH;
-            if (!string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
+            if (Room(sLineH) && !string.IsNullOrWhiteSpace(dto.EmergencyContactPhone))
             {
                 AutoText(canvas, $"Tel: {dto.EmergencyContactPhone}", hPad, ty, contentW, smallFs, textCol, center: true);
                 ty += sLineH;
             }
         }
-        if (settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
+        if (Room(sLineH) && settings.ShowAllergies && !string.IsNullOrWhiteSpace(dto.Allergies))
         {
             var allg = dto.Allergies.Length > 100 ? dto.Allergies[..99] + "…" : dto.Allergies;
             AutoText(canvas, $"Alergias: {allg}", hPad, ty, contentW, smallFs * 0.88f, textCol, center: true);
         }
 
+        if (hasEmergencyQr)
+        {
+            float emgX = (w - emgQrSz) / 2f;
+            DrawPlainUrlQr(canvas, dto.EmergencyInfoPageUrl!, SKRect.Create(emgX, emgQrTop, emgQrSz, emgQrSz));
+            var cap = "Escaneame en caso de emergencia";
+            using var tf = SKTypeface.FromFamilyName(null, SKFontStyle.Bold);
+            using var cp = new SKPaint { Color = textCol, TextSize = emgCaptionFs, IsAntialias = true, Typeface = tf };
+            while (cp.MeasureText(cap) > contentW && cp.TextSize > 8f)
+                cp.TextSize -= 0.5f;
+            float capY = emgQrTop + emgQrSz + emgCaptionFs + emgGap * 0.35f;
+            float capX = hPad + (contentW - cp.MeasureText(cap)) / 2f;
+            canvas.DrawText(cap, capX, capY, cp);
+        }
+
         // Footer
-        float footerY = h - footerH;
         using (var p = Fill(primary)) canvas.DrawRect(0, footerY, w, footerH, p);
         AutoText(canvas, "Documento de identificación estudiantil",
             hPad, footerY + footerH * 0.65f, contentW, footerH * 0.38f, SKColors.White, center: true);

@@ -169,7 +169,8 @@ public class StudentIdCardController : Controller
                 u.Allergies,
                 u.PhotoUrl,
                 u.Shift,
-                u.SchoolId
+                u.SchoolId,
+                u.Status
             })
             .FirstOrDefaultAsync();
 
@@ -199,6 +200,9 @@ public class StudentIdCardController : Controller
         if (row.DateOfBirth.HasValue)
             dob = row.DateOfBirth.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
 
+        var statusRaw = row.Status?.Trim();
+        var isUserActive = string.Equals(statusRaw, "active", StringComparison.OrdinalIgnoreCase);
+
         var vm = new CarnetPublicEmergencyInfoVm
         {
             FullName = $"{row.Name} {row.LastName}".Trim(),
@@ -217,7 +221,9 @@ public class StudentIdCardController : Controller
             Group = assign?.Group,
             Shift = assign?.Shift,
             UserShift = row.Shift,
-            PhotoUrl = row.PhotoUrl
+            PhotoUrl = row.PhotoUrl,
+            IsUserAccountActive = isUserActive,
+            UserAccountStatusRaw = statusRaw
         };
 
         return View("PublicEmergencyInfo", vm);
