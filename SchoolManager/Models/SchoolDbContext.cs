@@ -1322,6 +1322,10 @@ public partial class SchoolDbContext : DbContext
                 .HasMaxLength(500)
                 .HasColumnName("photo_url");
 
+            entity.Property(e => e.BloodType)
+                .HasMaxLength(10)
+                .HasColumnName("blood_type");
+
             entity.Property(e => e.Allergies)
                 .HasMaxLength(500)
                 .HasColumnName("allergies");

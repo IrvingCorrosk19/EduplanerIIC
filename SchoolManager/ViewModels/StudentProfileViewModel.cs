@@ -65,6 +65,10 @@ namespace SchoolManager.ViewModels
         public string? EmergencyContactPhone { get; set; }
         [Display(Name = "Relación")]
         public string? EmergencyRelationship { get; set; }
+        [Display(Name = "Tipo de sangre")]
+        [StringLength(10)]
+        public string? BloodType { get; set; }
+
         [Display(Name = "Alergias")]
         public string? Allergies { get; set; }
         /// <summary>Si true, la vista puede mostrar la sección de información de emergencia (solo para roles inspector/teacher/admin).</summary>

@@ -184,6 +184,13 @@
                     </div>
                 </div>
                 <div class="info-item">
+                    <i class="bi bi-droplet"></i>
+                    <div>
+                        <small class="text-muted d-block">Tipo de sangre</small>
+                        <strong>@(string.IsNullOrWhiteSpace(Model.BloodType) ? "—" : Model.BloodType)</strong>
+                    </div>
+                </div>
+                <div class="info-item">
                     <i class="bi bi-heart-pulse"></i>
                     <div>
                         <small class="text-muted d-block">Alergias</small>
@@ -295,6 +302,26 @@
                             </label>
                             <input asp-for="DateOfBirth" type="date" class="form-control" />
                             <span asp-validation-for="DateOfBirth" class="text-danger"></span>
+                        </div>
+
+                        <!-- Tipo de sangre -->
+                        <div class="mb-3">
+                            <label asp-for="BloodType" class="form-label">
+                                <i class="bi bi-droplet me-1"></i>@Html.DisplayNameFor(m => m.BloodType)
+                            </label>
+                            <select asp-for="BloodType" class="form-select">
+                                <option value="">— No indicar —</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                            <small class="form-text text-muted">Opcional. Útil en caso de emergencia o para el carnet si tu escuela lo muestra.</small>
+                            <span asp-validation-for="BloodType" class="text-danger"></span>
                         </div>
 
                         <div class="row">

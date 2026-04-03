@@ -51,6 +51,9 @@ public partial class User
     
     public string? Shift { get; set; } // Jornada actual del estudiante: Mañana, Tarde, Noche
 
+    /// <summary>Tipo de sangre (A+, O-, etc.); opcional.</summary>
+    public string? BloodType { get; set; }
+
     /// <summary>Alergias o información médica relevante del estudiante.</summary>
     public string? Allergies { get; set; }
 

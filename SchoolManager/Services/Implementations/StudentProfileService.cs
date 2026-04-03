@@ -10,6 +10,11 @@ namespace SchoolManager.Services.Implementations
     /// </summary>
     public class StudentProfileService : IStudentProfileService
     {
+        private static readonly HashSet<string> AllowedBloodTypes = new(StringComparer.Ordinal)
+        {
+            "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"
+        };
+
         private readonly SchoolDbContext _context;
         private readonly ILogger<StudentProfileService> _logger;
 
@@ -43,6 +48,7 @@ namespace SchoolManager.Services.Implementations
                         u.EmergencyContactName,
                         u.EmergencyContactPhone,
                         u.EmergencyRelationship,
+                        u.BloodType,
                         u.Allergies
                     })
                     .FirstOrDefaultAsync();
@@ -92,6 +98,7 @@ namespace SchoolManager.Services.Implementations
                     EmergencyContactName = user.EmergencyContactName,
                     EmergencyContactPhone = user.EmergencyContactPhone,
                     EmergencyRelationship = user.EmergencyRelationship,
+                    BloodType = user.BloodType,
                     Allergies = user.Allergies
                 };
 
@@ -153,6 +160,7 @@ namespace SchoolManager.Services.Implementations
                 user.DateOfBirth = model.DateOfBirth;
                 user.CellphonePrimary = model.CellphonePrimary;
                 user.CellphoneSecondary = model.CellphoneSecondary;
+                user.BloodType = NormalizeBloodType(model.BloodType);
                 user.Allergies = model.Allergies;
                 user.EmergencyContactName = model.EmergencyContactName;
                 user.EmergencyContactPhone = model.EmergencyContactPhone;
@@ -205,6 +213,14 @@ namespace SchoolManager.Services.Implementations
                 _logger.LogError(ex, "❌ Error validando disponibilidad de documento: {DocumentId}", documentId);
                 return false;
             }
+        }
+
+        private static string? NormalizeBloodType(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+            var t = value.Trim();
+            return AllowedBloodTypes.Contains(t) ? t : null;
         }
     }
 }

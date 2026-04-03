@@ -96,6 +96,7 @@ namespace SchoolManager.Controllers
                         model.GroupName = currentProfile.GroupName;
                         model.SchoolName = currentProfile.SchoolName;
                         model.Role = currentProfile.Role;
+                        model.PhotoUrl = currentProfile.PhotoUrl;
                     }
                     
                     return View("Index", model);
@@ -117,6 +118,7 @@ namespace SchoolManager.Controllers
                         model.GroupName = currentProfile.GroupName;
                         model.SchoolName = currentProfile.SchoolName;
                         model.Role = currentProfile.Role;
+                        model.PhotoUrl = currentProfile.PhotoUrl;
                     }
                     
                     return View("Index", model);
@@ -140,6 +142,7 @@ namespace SchoolManager.Controllers
                             model.GroupName = currentProfile.GroupName;
                             model.SchoolName = currentProfile.SchoolName;
                             model.Role = currentProfile.Role;
+                            model.PhotoUrl = currentProfile.PhotoUrl;
                         }
                         
                         return View("Index", model);
