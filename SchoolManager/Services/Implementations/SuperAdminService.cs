@@ -965,6 +965,10 @@ public class SuperAdminService : ISuperAdminService
     public async Task<SuperAdminStudentDirectoryPageVm> GetStudentDirectoryPageAsync(SuperAdminStudentDirectoryFilterVm filter)
     {
         filter ??= new SuperAdminStudentDirectoryFilterVm();
+        if (filter.Page < 1)
+            filter.Page = 1;
+        filter.PageSize = Math.Clamp(filter.PageSize <= 0 ? 25 : filter.PageSize, 1, 100);
+
         var page = new SuperAdminStudentDirectoryPageVm { Filter = filter };
 
         var optionsBase = WhereAssignmentStudentRole(
@@ -978,29 +982,39 @@ public class SuperAdminService : ISuperAdminService
             .ToListAsync();
         page.SchoolOptions.Insert(0, new SelectListItem { Value = "", Text = "Todas las escuelas" });
 
-        page.GradeOptions = await optionsBase
-            .Select(sa => new { sa.GradeId, Name = sa.Grade.Name })
-            .Distinct()
-            .OrderBy(x => x.Name)
-            .Select(x => new SelectListItem { Value = x.GradeId.ToString(), Text = x.Name })
+        // Una sola lectura para armar combos grado / grupo / jornada (menos round-trips).
+        var comboFlat = await optionsBase
+            .Select(sa => new
+            {
+                sa.GradeId,
+                GradeName = sa.Grade.Name,
+                sa.GroupId,
+                GroupName = sa.Group.Name,
+                sa.ShiftId,
+                ShiftName = sa.Shift != null ? sa.Shift.Name : (string?)null
+            })
             .ToListAsync();
+
+        page.GradeOptions = comboFlat
+            .GroupBy(x => x.GradeId)
+            .Select(g => new SelectListItem { Value = g.Key.ToString(), Text = g.First().GradeName })
+            .OrderBy(x => x.Text)
+            .ToList();
         page.GradeOptions.Insert(0, new SelectListItem { Value = "", Text = "Todos los niveles / grados" });
 
-        page.GroupOptions = await optionsBase
-            .Select(sa => new { sa.GroupId, Name = sa.Group.Name })
-            .Distinct()
-            .OrderBy(x => x.Name)
-            .Select(x => new SelectListItem { Value = x.GroupId.ToString(), Text = x.Name })
-            .ToListAsync();
+        page.GroupOptions = comboFlat
+            .GroupBy(x => x.GroupId)
+            .Select(g => new SelectListItem { Value = g.Key.ToString(), Text = g.First().GroupName })
+            .OrderBy(x => x.Text)
+            .ToList();
         page.GroupOptions.Insert(0, new SelectListItem { Value = "", Text = "Todos los grupos" });
 
-        page.ShiftOptions = await optionsBase
-            .Where(sa => sa.ShiftId != null)
-            .Select(sa => new { Id = sa.Shift!.Id, Name = sa.Shift.Name })
-            .Distinct()
-            .OrderBy(x => x.Name)
-            .Select(x => new SelectListItem { Value = x.Id.ToString(), Text = x.Name })
-            .ToListAsync();
+        page.ShiftOptions = comboFlat
+            .Where(x => x.ShiftId != null && x.ShiftName != null)
+            .GroupBy(x => x.ShiftId!.Value)
+            .Select(g => new SelectListItem { Value = g.Key.ToString(), Text = g.First().ShiftName! })
+            .OrderBy(x => x.Text)
+            .ToList();
         page.ShiftOptions.Insert(0, new SelectListItem { Value = "", Text = "Todas las jornadas" });
 
         MarkSelected(page.SchoolOptions, filter.SchoolId);
@@ -1008,24 +1022,39 @@ public class SuperAdminService : ISuperAdminService
         MarkSelected(page.GroupOptions, filter.GroupId);
         MarkSelected(page.ShiftOptions, filter.ShiftId);
 
-        var rows = new List<SuperAdminStudentDirectoryRowVm>();
-
+        IQueryable<SuperAdminStudentDirectoryRowVm> rowsQuery;
         if (filter.OnlyWithoutAssignment)
         {
-            rows.AddRange(await QueryOrphanStudentRowsAsync(filter));
+            rowsQuery = BuildOrphanDirectoryRowsQuery(filter);
         }
         else
         {
-            rows.AddRange(await QueryAssignmentStudentRowsAsync(filter));
+            var assigned = BuildAssignmentDirectoryRowsQuery(filter);
             var narrowByEnrollment = filter.GradeId.HasValue || filter.GroupId.HasValue || filter.ShiftId.HasValue;
-            if (!narrowByEnrollment)
-                rows.AddRange(await QueryOrphanStudentRowsAsync(filter));
+            rowsQuery = narrowByEnrollment
+                ? assigned
+                : assigned.Concat(BuildOrphanDirectoryRowsQuery(filter));
         }
 
-        page.Rows = rows
+        var ordered = rowsQuery
             .OrderBy(r => r.SchoolName ?? "")
-            .ThenBy(r => r.FullName)
-            .ToList();
+            .ThenBy(r => r.FullName);
+
+        page.TotalCount = await ordered.CountAsync();
+        page.TotalPages = page.TotalCount == 0 ? 0 : (int)Math.Ceiling(page.TotalCount / (double)filter.PageSize);
+
+        if (filter.Page > page.TotalPages && page.TotalPages > 0)
+        {
+            filter.Page = page.TotalPages;
+            ordered = rowsQuery
+                .OrderBy(r => r.SchoolName ?? "")
+                .ThenBy(r => r.FullName);
+        }
+
+        page.Rows = await ordered
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync();
 
         return page;
     }
@@ -1038,7 +1067,7 @@ public class SuperAdminService : ISuperAdminService
             o.Selected = o.Value == s;
     }
 
-    private async Task<List<SuperAdminStudentDirectoryRowVm>> QueryAssignmentStudentRowsAsync(SuperAdminStudentDirectoryFilterVm filter)
+    private IQueryable<SuperAdminStudentDirectoryRowVm> BuildAssignmentDirectoryRowsQuery(SuperAdminStudentDirectoryFilterVm filter)
     {
         var saQuery = WhereAssignmentStudentRole(
             _context.StudentAssignments.AsNoTracking().Where(sa => sa.IsActive));
@@ -1067,31 +1096,26 @@ public class SuperAdminService : ISuperAdminService
                 (sa.Student.DocumentId != null && EF.Functions.ILike(sa.Student.DocumentId, p)));
         }
 
-        return await saQuery
-            .OrderBy(sa => sa.Student.SchoolNavigation == null ? "" : sa.Student.SchoolNavigation.Name)
-            .ThenBy(sa => sa.Student.LastName)
-            .ThenBy(sa => sa.Student.Name)
-            .Select(sa => new SuperAdminStudentDirectoryRowVm
-            {
-                UserId = sa.StudentId,
-                AssignmentId = sa.Id,
-                PhotoUrl = sa.Student.PhotoUrl,
-                FullName = sa.Student.Name + " " + sa.Student.LastName,
-                DocumentId = sa.Student.DocumentId,
-                Email = sa.Student.Email,
-                SchoolName = sa.Student.SchoolNavigation != null ? sa.Student.SchoolNavigation.Name : null,
-                SchoolId = sa.Student.SchoolId,
-                GradeLevelName = sa.Grade.Name,
-                GroupName = sa.Group.Name,
-                ShiftName = sa.Shift != null ? sa.Shift.Name : null,
-                UserShift = sa.Student.Shift,
-                Status = sa.Student.Status ?? "",
-                HasActiveAssignment = true
-            })
-            .ToListAsync();
+        return saQuery.Select(sa => new SuperAdminStudentDirectoryRowVm
+        {
+            UserId = sa.StudentId,
+            AssignmentId = sa.Id,
+            PhotoUrl = sa.Student.PhotoUrl,
+            FullName = sa.Student.Name + " " + sa.Student.LastName,
+            DocumentId = sa.Student.DocumentId,
+            Email = sa.Student.Email ?? "",
+            SchoolName = sa.Student.SchoolNavigation != null ? sa.Student.SchoolNavigation.Name : null,
+            SchoolId = sa.Student.SchoolId,
+            GradeLevelName = sa.Grade.Name,
+            GroupName = sa.Group.Name,
+            ShiftName = sa.Shift != null ? sa.Shift.Name : null,
+            UserShift = sa.Student.Shift,
+            Status = sa.Student.Status ?? "",
+            HasActiveAssignment = true
+        });
     }
 
-    private async Task<List<SuperAdminStudentDirectoryRowVm>> QueryOrphanStudentRowsAsync(SuperAdminStudentDirectoryFilterVm filter)
+    private IQueryable<SuperAdminStudentDirectoryRowVm> BuildOrphanDirectoryRowsQuery(SuperAdminStudentDirectoryFilterVm filter)
     {
         var q = WhereUserStudentRole(_context.Users.AsNoTracking());
         q = q.Where(u => !_context.StudentAssignments.Any(sa => sa.StudentId == u.Id && sa.IsActive));
@@ -1114,28 +1138,23 @@ public class SuperAdminService : ISuperAdminService
                 (u.DocumentId != null && EF.Functions.ILike(u.DocumentId, p)));
         }
 
-        return await q
-            .OrderBy(u => u.SchoolNavigation == null ? "" : u.SchoolNavigation.Name)
-            .ThenBy(u => u.LastName)
-            .ThenBy(u => u.Name)
-            .Select(u => new SuperAdminStudentDirectoryRowVm
-            {
-                UserId = u.Id,
-                AssignmentId = null,
-                PhotoUrl = u.PhotoUrl,
-                FullName = u.Name + " " + u.LastName,
-                DocumentId = u.DocumentId,
-                Email = u.Email,
-                SchoolName = u.SchoolNavigation != null ? u.SchoolNavigation.Name : null,
-                SchoolId = u.SchoolId,
-                GradeLevelName = null,
-                GroupName = null,
-                ShiftName = null,
-                UserShift = u.Shift,
-                Status = u.Status ?? "",
-                HasActiveAssignment = false
-            })
-            .ToListAsync();
+        return q.Select(u => new SuperAdminStudentDirectoryRowVm
+        {
+            UserId = u.Id,
+            AssignmentId = null,
+            PhotoUrl = u.PhotoUrl,
+            FullName = u.Name + " " + u.LastName,
+            DocumentId = u.DocumentId,
+            Email = u.Email ?? "",
+            SchoolName = u.SchoolNavigation != null ? u.SchoolNavigation.Name : null,
+            SchoolId = u.SchoolId,
+            GradeLevelName = null,
+            GroupName = null,
+            ShiftName = null,
+            UserShift = u.Shift,
+            Status = u.Status ?? "",
+            HasActiveAssignment = false
+        });
     }
 
     #endregion

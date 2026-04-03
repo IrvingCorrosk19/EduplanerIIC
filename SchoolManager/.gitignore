@@ -11,3 +11,6 @@ obj/
 *.exe
 *.db
 appsettings.Development.json
+
+# Volcados completos de PostgreSQL (datos sensibles; no versionar)
+Backups/
