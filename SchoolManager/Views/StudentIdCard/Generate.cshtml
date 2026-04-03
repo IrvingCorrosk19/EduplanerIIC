@@ -230,8 +230,11 @@
         min-height: 0;
     }
 
-    .idcard-back-qr { width: 76px; height: 76px; margin: 4px 0; }
+    .idcard-back-qrs-wrap { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: flex-start; margin: 4px 0; }
+    .idcard-back-qr-col { text-align: center; }
+    .idcard-back-qr { width: 68px; height: 68px; margin: 0 auto 2px; }
     .idcard-back-qr img { width: 100%; height: 100%; display: block; }
+    .idcard-back-qr-caption { font-size: 5.5pt; color: @text; opacity: 0.9; line-height: 1.2; max-width: 78px; }
     .idcard-policy { font-size: 6.5pt; line-height: 1.35; color: @text; max-height: 72px; overflow-y: auto; text-align: center; margin-top: 4px; white-space: pre-wrap; }
     .idcard-back-line { font-size: 7pt; margin-top: 3px; color: @text; }
 
@@ -394,12 +397,31 @@
                                     <div class="idcard-watermark" aria-hidden="true"><img src="/File/GetSchoolLogo?logoUrl=@Uri.EscapeDataString(Model.SchoolLogoUrl ?? "")" alt="" onerror="this.parentElement.style.display='none'" /></div>
                                 }
                                 <div class="idcard-back-inner idcard-z1">
-                                    @if (Model.ShowQr && !string.IsNullOrEmpty(Model.Card!.QrImageDataUrl))
+                                    @if (Model.ShowQr && (!string.IsNullOrEmpty(Model.Card!.QrImageDataUrl) || !string.IsNullOrEmpty(Model.Card.EmergencyInfoQrImageDataUrl)))
                                     {
-                                        <div class="idcard-back-qr"><img src="@Model.Card.QrImageDataUrl" alt="QR" /></div>
+                                        <div class="idcard-back-qrs-wrap">
+                                            @if (!string.IsNullOrEmpty(Model.Card.QrImageDataUrl))
+                                            {
+                                                <div class="idcard-back-qr-col">
+                                                    <div class="idcard-back-qr"><img src="@Model.Card.QrImageDataUrl" alt="QR verificación" /></div>
+                                                    <div class="idcard-back-qr-caption">Verificación carnet</div>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(Model.Card.EmergencyInfoQrImageDataUrl))
+                                            {
+                                                <div class="idcard-back-qr-col">
+                                                    <div class="idcard-back-qr"><img src="@Model.Card.EmergencyInfoQrImageDataUrl" alt="QR emergencia" /></div>
+                                                    <div class="idcard-back-qr-caption">Emergencia y datos (cualquier celular)</div>
+                                                </div>
+                                            }
+                                        </div>
                                     }
                                     <div class="fw-bold" style="font-size:9pt">@Model.SchoolName</div>
-                                    <div class="idcard-back-line opacity-90">Escanea el código QR para verificar la información del carnet</div>
+                                    <div class="idcard-back-line opacity-90">
+                                        @(string.IsNullOrEmpty(Model.Card?.EmergencyInfoQrImageDataUrl)
+                                            ? "Escanea el código QR para verificar la información del carnet"
+                                            : "QR derecho: abre tipo de sangre, contacto de emergencia e información personal en el navegador.")
+                                    </div>
                                     <div class="idcard-back-line fw-semibold">Carnet: @Model.Card!.CardNumber</div>
                                     @if (!string.IsNullOrWhiteSpace(Model.IdCardPolicy))
                                     {

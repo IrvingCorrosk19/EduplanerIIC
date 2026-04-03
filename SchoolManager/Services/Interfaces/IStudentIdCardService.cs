@@ -4,7 +4,7 @@ namespace SchoolManager.Services.Interfaces;
 
 public interface IStudentIdCardService
 {
-    Task<StudentIdCardDto> GenerateAsync(Guid studentId, Guid createdBy);
+    Task<StudentIdCardDto> GenerateAsync(Guid studentId, Guid createdBy, string? siteBaseUrl = null);
     Task<ScanResultDto> ScanAsync(ScanRequestDto request);
 
     /// <summary>
@@ -12,5 +12,5 @@ public interface IStudentIdCardService
     /// Retorna null si el estudiante no tiene carnet activo o no existe.
     /// Usar en el GET de la vista de generación para no modificar estado en un GET.
     /// </summary>
-    Task<StudentIdCardDto?> GetCurrentCardAsync(Guid studentId);
+    Task<StudentIdCardDto?> GetCurrentCardAsync(Guid studentId, string? siteBaseUrl = null);
 }

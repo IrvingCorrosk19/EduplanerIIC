@@ -448,23 +448,52 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         float footerH  = h * 0.12f;
         float availH   = h - footerH;
 
-        // QR grande centrado (45% del lado menor)
-        float qrSz = Math.Min(w, availH) * 0.45f;
-        float qrX  = (w - qrSz) / 2f;
-        float qrY  = h * 0.04f;
+        float qrY = h * 0.03f;
+        float labelFs = h * 0.028f;
+        float qrBlockBottom = qrY;
 
         if (settings.ShowQr)
-            DrawQr(canvas, dto.QrToken, SKRect.Create(qrX, qrY, qrSz, qrSz));
+        {
+            if (!string.IsNullOrWhiteSpace(dto.EmergencyInfoPageUrl))
+            {
+                float qrSz = Math.Min(w, availH) * 0.30f;
+                float gap = w * 0.03f;
+                float pairW = qrSz * 2f + gap;
+                float startX = (w - pairW) / 2f;
+                DrawQr(canvas, dto.QrToken, SKRect.Create(startX, qrY, qrSz, qrSz));
+                DrawPlainUrlQr(canvas, dto.EmergencyInfoPageUrl!, SKRect.Create(startX + qrSz + gap, qrY, qrSz, qrSz));
+                float labelY = qrY + qrSz + h * 0.008f;
+                using (var tf = SKTypeface.FromFamilyName(null, SKFontStyle.Normal))
+                using (var lp = new SKPaint { Color = textCol, TextSize = labelFs, IsAntialias = true, Typeface = tf })
+                {
+                    var t1 = "Verificación";
+                    canvas.DrawText(t1, startX + (qrSz - lp.MeasureText(t1)) / 2f, labelY + labelFs, lp);
+                    var t2 = "Emergencia";
+                    canvas.DrawText(t2, startX + qrSz + gap + (qrSz - lp.MeasureText(t2)) / 2f, labelY + labelFs, lp);
+                }
+                qrBlockBottom = labelY + labelFs + h * 0.02f;
+            }
+            else
+            {
+                float qrSz = Math.Min(w, availH) * 0.45f;
+                float qrX = (w - qrSz) / 2f;
+                DrawQr(canvas, dto.QrToken, SKRect.Create(qrX, qrY, qrSz, qrSz));
+                qrBlockBottom = qrY + qrSz + h * 0.02f;
+            }
+        }
 
         float nameFs  = h * 0.050f;
         float smallFs = h * 0.038f;
         float lineH   = h * 0.085f;
         float sLineH  = h * 0.068f;
-        float ty      = qrY + qrSz + h * 0.04f + nameFs;
+        float ty      = qrBlockBottom + h * 0.025f + nameFs;
 
         AutoText(canvas, Trunc(dto.SchoolName, 50), hPad, ty, contentW, nameFs, textCol, bold: true, center: true);
         ty += lineH;
-        AutoText(canvas, "Escanea el código QR para verificar la información del carnet",
+        var hint = !string.IsNullOrWhiteSpace(dto.EmergencyInfoPageUrl)
+            ? "QR izq.: verificación carnet · QR der.: emergencia y datos (cualquier teléfono)"
+            : "Escanea el código QR para verificar la información del carnet";
+        AutoText(canvas, hint,
             hPad, ty, contentW, smallFs * 0.88f, textCol, center: true);
         ty += sLineH;
         AutoText(canvas, Trunc($"Carnet: {dto.CardNumber}", 30), hPad, ty, contentW, smallFs, textCol, center: true);
@@ -516,6 +545,22 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         if (b == null) return;
         using var bmp = Decode(b);
         if (bmp != null) BmpDraw(canvas, bmp, dest);
+    }
+
+    /// <summary>QR con contenido literal (p. ej. URL https) sin firma adicional.</summary>
+    private static void DrawPlainUrlQr(SKCanvas canvas, string url, SKRect dest)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            var b = QrHelper.GenerateQrPng(url, null);
+            using var bmp = Decode(b);
+            if (bmp != null) BmpDraw(canvas, bmp, dest);
+        }
+        catch
+        {
+            /* ignore */
+        }
     }
 
     private static void DrawWatermark(SKCanvas canvas, byte[]? bytes, int w, int h, float pct)

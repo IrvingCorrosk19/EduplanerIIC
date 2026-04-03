@@ -20,6 +20,7 @@ using SchoolManager.Repositories.Implementations;
 using SchoolManager.Repositories.Interfaces;
 using SchoolManager.Services.Background;
 using SchoolManager.Infrastructure;
+using SchoolManager.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -213,6 +214,8 @@ builder.Services.Configure<SchoolManager.Services.Security.QrSecurityOptions>(
     builder.Configuration.GetSection(SchoolManager.Services.Security.QrSecurityOptions.SectionName));
 builder.Services.Configure<StudentIdCardPdfPrintOptions>(
     builder.Configuration.GetSection(StudentIdCardPdfPrintOptions.SectionName));
+builder.Services.Configure<StudentIdCardOptions>(
+    builder.Configuration.GetSection(StudentIdCardOptions.SectionName));
 builder.Services.AddSingleton<SchoolManager.Services.Security.IQrSignatureService, SchoolManager.Services.Security.QrSignatureService>();
 
 // SEG-2: Rate limiting para el endpoint público de escaneo QR.

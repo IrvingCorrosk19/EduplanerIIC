@@ -10,6 +10,9 @@ public class StudentCardRenderDto
     public string Shift { get; set; } = "";
     public string CardNumber { get; set; } = "";
     public string QrToken { get; set; } = "";
+
+    /// <summary>URL absoluta para segundo QR (emergencia / datos personales). Null = no dibujar.</summary>
+    public string? EmergencyInfoPageUrl { get; set; }
     public string? PhotoUrl { get; set; }
     public string? Allergies { get; set; }
     public string? EmergencyContactName { get; set; }

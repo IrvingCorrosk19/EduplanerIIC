@@ -5,6 +5,8 @@ using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Security;
+using SchoolManager.Options;
+using Microsoft.Extensions.Options;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -13,6 +15,7 @@ public class StudentIdCardService : IStudentIdCardService
     private readonly SchoolDbContext _context;
     private readonly ILogger<StudentIdCardService> _logger;
     private readonly IQrSignatureService _qrSignatureService;
+    private readonly IOptions<StudentIdCardOptions> _cardOptions;
 
     /// <summary>
     /// Vida del token QR. Constante pública para que PdfService use el mismo valor.
@@ -27,18 +30,38 @@ public class StudentIdCardService : IStudentIdCardService
     public StudentIdCardService(
         SchoolDbContext context,
         ILogger<StudentIdCardService> logger,
-        IQrSignatureService qrSignatureService)
+        IQrSignatureService qrSignatureService,
+        IOptions<StudentIdCardOptions> cardOptions)
     {
         _context = context;
         _logger = logger;
         _qrSignatureService = qrSignatureService;
+        _cardOptions = cardOptions;
+    }
+
+    private string? ResolveSiteBaseUrl(string? siteBaseUrlOverride)
+    {
+        if (!string.IsNullOrWhiteSpace(siteBaseUrlOverride))
+            return siteBaseUrlOverride.TrimEnd('/');
+        var o = _cardOptions.Value.PublicBaseUrl;
+        return string.IsNullOrWhiteSpace(o) ? null : o.TrimEnd('/');
+    }
+
+    private string? BuildEmergencyQrDataUrl(Guid studentId, string? siteBaseUrlOverride)
+    {
+        var baseUrl = ResolveSiteBaseUrl(siteBaseUrlOverride);
+        var url = CarnetEmergencyInfoLink.BuildPublicUrl(baseUrl, studentId, _qrSignatureService);
+        if (url == null)
+            return null;
+        var png = QrHelper.GenerateQrPng(url, null);
+        return "data:image/png;base64," + Convert.ToBase64String(png);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
     // GetCurrentCardAsync — solo lectura, nunca modifica estado
     // ──────────────────────────────────────────────────────────────────────────
 
-    public async Task<StudentIdCardDto?> GetCurrentCardAsync(Guid studentId)
+    public async Task<StudentIdCardDto?> GetCurrentCardAsync(Guid studentId, string? siteBaseUrl = null)
     {
         var row = await StudentRoleFilter.WhereIsStudent(_context.Users.AsNoTracking())
             .Where(x => x.Id == studentId)
@@ -92,6 +115,7 @@ public class StudentIdCardService : IStudentIdCardService
             Shift = string.IsNullOrEmpty(row.ShiftName) ? "N/A" : row.ShiftName,
             QrToken = token?.Token ?? "",
             QrImageDataUrl = qrImageDataUrl,
+            EmergencyInfoQrImageDataUrl = BuildEmergencyQrDataUrl(studentId, siteBaseUrl),
             PhotoUrl = row.PhotoUrl
         };
     }
@@ -100,7 +124,7 @@ public class StudentIdCardService : IStudentIdCardService
     // GenerateAsync — crea nuevo carnet revocando el anterior
     // ──────────────────────────────────────────────────────────────────────────
 
-    public async Task<StudentIdCardDto> GenerateAsync(Guid studentId, Guid createdBy)
+    public async Task<StudentIdCardDto> GenerateAsync(Guid studentId, Guid createdBy, string? siteBaseUrl = null)
     {
         _logger.LogInformation(
             "[StudentIdCard] GenerateAsync inicio StudentId={StudentId} CreatedBy={CreatedBy}",
@@ -215,6 +239,7 @@ public class StudentIdCardService : IStudentIdCardService
                 Shift = activeAssignment.Shift?.Name ?? "N/A",
                 QrToken = newToken.Token,
                 QrImageDataUrl = qrImageDataUrl,
+                EmergencyInfoQrImageDataUrl = BuildEmergencyQrDataUrl(studentId, siteBaseUrl),
                 PhotoUrl = student.PhotoUrl
             };
         }

@@ -8,6 +8,7 @@ using SchoolManager.Dtos;
 using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
+using SchoolManager.Services.Security;
 using SchoolManager.ViewModels;
 using System.Security.Claims;
 
@@ -24,6 +25,7 @@ public class StudentIdCardController : Controller
     private readonly IStudentIdCardHtmlCaptureService _htmlCapture;
     private readonly SchoolDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IQrSignatureService _qrSignatureService;
     private readonly ILogger<StudentIdCardController> _logger;
 
     public StudentIdCardController(
@@ -32,6 +34,7 @@ public class StudentIdCardController : Controller
         IStudentIdCardHtmlCaptureService htmlCapture,
         SchoolDbContext context,
         ICurrentUserService currentUserService,
+        IQrSignatureService qrSignatureService,
         ILogger<StudentIdCardController> logger)
     {
         _service = service;
@@ -39,6 +42,7 @@ public class StudentIdCardController : Controller
         _htmlCapture = htmlCapture;
         _context = context;
         _currentUserService = currentUserService;
+        _qrSignatureService = qrSignatureService;
         _logger = logger;
     }
 
@@ -130,8 +134,93 @@ public class StudentIdCardController : Controller
         vm.PolicyNumber = string.IsNullOrWhiteSpace(schoolEntity?.PolicyNumber) ? null : schoolEntity!.PolicyNumber.Trim();
         vm.AcademicYear = academicYearName;
 
-        vm.Card = await _service.GetCurrentCardAsync(studentId);
+        var siteBase = $"{Request.Scheme}://{Request.Host.Value}";
+        vm.Card = await _service.GetCurrentCardAsync(studentId, siteBase);
         return View("Generate", vm);
+    }
+
+    /// <summary>
+    /// Página pública lectora (cualquier teléfono): datos de emergencia e información personal.
+    /// Enlace firmado en el segundo QR del reverso del carnet.
+    /// </summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("ScanApiPolicy")]
+    [HttpGet("public/emergency-info")]
+    public async Task<IActionResult> PublicEmergencyInfo([FromQuery] string? t)
+    {
+        if (!CarnetEmergencyInfoLink.TryResolveStudentId(t, _qrSignatureService, out var studentId))
+            return View("PublicEmergencyInfoInvalid");
+
+        var row = await StudentRoleFilter.WhereIsStudent(_context.Users.AsNoTracking())
+            .Where(u => u.Id == studentId)
+            .Select(u => new
+            {
+                u.Name,
+                u.LastName,
+                u.DocumentId,
+                u.Email,
+                u.DateOfBirth,
+                u.CellphonePrimary,
+                u.CellphoneSecondary,
+                u.BloodType,
+                u.EmergencyContactName,
+                u.EmergencyContactPhone,
+                u.EmergencyRelationship,
+                u.Allergies,
+                u.PhotoUrl,
+                u.Shift,
+                u.SchoolId
+            })
+            .FirstOrDefaultAsync();
+
+        if (row == null)
+            return View("PublicEmergencyInfoInvalid");
+
+        string? schoolName = null;
+        if (row.SchoolId.HasValue)
+        {
+            schoolName = await _context.Schools.AsNoTracking().IgnoreQueryFilters()
+                .Where(s => s.Id == row.SchoolId.Value)
+                .Select(s => s.Name)
+                .FirstOrDefaultAsync();
+        }
+
+        var assign = await _context.StudentAssignments.AsNoTracking()
+            .Where(sa => sa.StudentId == studentId && sa.IsActive)
+            .Select(sa => new
+            {
+                Grade = sa.Grade.Name,
+                Group = sa.Group.Name,
+                Shift = sa.Shift != null ? sa.Shift.Name : null
+            })
+            .FirstOrDefaultAsync();
+
+        string? dob = null;
+        if (row.DateOfBirth.HasValue)
+            dob = row.DateOfBirth.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
+        var vm = new CarnetPublicEmergencyInfoVm
+        {
+            FullName = $"{row.Name} {row.LastName}".Trim(),
+            DocumentId = row.DocumentId,
+            Email = row.Email,
+            DateOfBirthDisplay = dob,
+            CellphonePrimary = row.CellphonePrimary,
+            CellphoneSecondary = row.CellphoneSecondary,
+            BloodType = row.BloodType,
+            EmergencyContactName = row.EmergencyContactName,
+            EmergencyContactPhone = row.EmergencyContactPhone,
+            EmergencyRelationship = row.EmergencyRelationship,
+            Allergies = row.Allergies,
+            SchoolName = schoolName,
+            Grade = assign?.Grade,
+            Group = assign?.Group,
+            Shift = assign?.Shift,
+            UserShift = row.Shift,
+            PhotoUrl = row.PhotoUrl
+        };
+
+        return View("PublicEmergencyInfo", vm);
     }
 
     [HttpGet("ui/scan")]
@@ -216,7 +305,8 @@ public class StudentIdCardController : Controller
 
         try
         {
-            var result = await _service.GenerateAsync(studentId, userId);
+            var siteBase = $"{Request.Scheme}://{Request.Host.Value}";
+            var result = await _service.GenerateAsync(studentId, userId, siteBase);
             return Ok(result);
         }
         catch (Exception ex)
