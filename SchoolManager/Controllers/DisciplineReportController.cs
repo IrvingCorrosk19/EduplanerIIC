@@ -1,9 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using SchoolManager.Models;
 using SchoolManager.Dtos;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using SchoolManager.Services.Interfaces;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Http;
 
 public class DisciplineReportController : Controller
 {
@@ -104,8 +107,16 @@ public class DisciplineReportController : Controller
                         });
                     }
                 }
-                documentsJson = System.Text.Json.JsonSerializer.Serialize(documentList);
+                documentsJson = JsonSerializer.Serialize(documentList);
             }
+
+            var disciplineActionList = ParseDisciplineActionList(Request.Form);
+            if (disciplineActionList.Count == 0)
+            {
+                return Json(new { success = false, error = "Debe seleccionar al menos una acción observada" });
+            }
+
+            var disciplineActionsJson = JsonSerializer.Serialize(disciplineActionList);
 
             // Obtener usuario autenticado y su school_id
             var currentUser = await _currentUserService.GetCurrentUserAsync();
@@ -126,6 +137,7 @@ public class DisciplineReportController : Controller
                 Description = description,
                 Category = category,
                 Documents = documentsJson,
+                DisciplineActionsJson = disciplineActionsJson,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = currentUserId, // ✅ ID del usuario autenticado
                 UpdatedBy = currentUserId  // ✅ ID del usuario autenticado
@@ -146,6 +158,179 @@ public class DisciplineReportController : Controller
         {
             _logger.LogError(ex, "Error al crear el reporte de disciplina");
             return Json(new { success = false, error = "Error al crear el reporte", details = ex.Message });
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateWithFilesForTeacher()
+    {
+        try
+        {
+            var reportIdStr = Request.Form["ReportId"].ToString();
+            if (string.IsNullOrEmpty(reportIdStr) || !Guid.TryParse(reportIdStr, out var reportId))
+                return Json(new { success = false, error = "ID de reporte inválido" });
+
+            var report = await GetOwnedDisciplineReportForTeacherAsync(reportId);
+            if (report == null)
+                return Json(new { success = false, error = "No autorizado o registro no encontrado" });
+
+            var date = Request.Form["Date"].ToString();
+            var hora = Request.Form["Hora"].ToString();
+            var reportType = Request.Form["ReportType"].ToString();
+            var status = Request.Form["Status"].ToString();
+            var description = Request.Form["Description"].ToString();
+            var category = Request.Form["Category"].ToString();
+
+            if (string.IsNullOrEmpty(date) || string.IsNullOrEmpty(hora))
+                return Json(new { success = false, error = "Fecha y hora son requeridas" });
+
+            var disciplineActionList = ParseDisciplineActionList(Request.Form);
+            if (disciplineActionList.Count == 0)
+                return Json(new { success = false, error = "Debe seleccionar al menos una acción observada" });
+
+            var files = Request.Form.Files.Where(f => f.Name == "Documents").ToList();
+            if (files.Any(f => f.Length > 0))
+            {
+                var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "discipline");
+                if (!Directory.Exists(uploadsPath))
+                    Directory.CreateDirectory(uploadsPath);
+
+                JsonArray arr;
+                if (string.IsNullOrWhiteSpace(report.Documents))
+                    arr = new JsonArray();
+                else
+                {
+                    try
+                    {
+                        var node = JsonNode.Parse(report.Documents!);
+                        arr = node as JsonArray ?? new JsonArray();
+                    }
+                    catch
+                    {
+                        arr = new JsonArray();
+                    }
+                }
+
+                foreach (var file in files.Where(f => f.Length > 0))
+                {
+                    var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+                    var filePath = Path.Combine(uploadsPath, fileName);
+                    await using (var stream = new FileStream(filePath, FileMode.Create))
+                        await file.CopyToAsync(stream);
+
+                    arr.Add(new JsonObject
+                    {
+                        ["fileName"] = file.FileName,
+                        ["savedName"] = fileName,
+                        ["size"] = file.Length,
+                        ["uploadDate"] = DateTime.UtcNow
+                    });
+                }
+
+                report.Documents = arr.ToJsonString();
+            }
+
+            var currentUserId = await _currentUserService.GetCurrentUserIdAsync();
+            report.Date = DateTime.SpecifyKind(DateTime.Parse($"{date} {hora}"), DateTimeKind.Local).ToUniversalTime();
+            report.ReportType = reportType;
+            report.Status = status;
+            report.Description = description;
+            report.Category = category;
+            report.DisciplineActionsJson = JsonSerializer.Serialize(disciplineActionList);
+            report.UpdatedBy = currentUserId;
+
+            await _disciplineReportService.UpdateAsync(report);
+            return Json(new { success = true, message = "Registro actualizado correctamente" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar reporte de disciplina (profesor)");
+            return Json(new { success = false, error = "Error al actualizar el registro", details = ex.Message });
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> TeacherDeleteReport([FromBody] TeacherDisciplineReportIdDto dto)
+    {
+        try
+        {
+            if (dto.ReportId == Guid.Empty)
+                return Json(new { success = false, error = "ID inválido" });
+
+            var report = await GetOwnedDisciplineReportForTeacherAsync(dto.ReportId);
+            if (report == null)
+                return Json(new { success = false, error = "No autorizado o registro no encontrado" });
+
+            TryDeleteDisciplineUploadedFiles(report.Documents, _logger);
+            await _disciplineReportService.DeleteAsync(dto.ReportId);
+            return Json(new { success = true, message = "Registro eliminado" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al eliminar reporte de disciplina (profesor)");
+            return Json(new { success = false, error = "Error al eliminar el registro", details = ex.Message });
+        }
+    }
+
+    private async Task<DisciplineReport?> GetOwnedDisciplineReportForTeacherAsync(Guid reportId)
+    {
+        var teacherUserId = await _currentUserService.GetCurrentUserIdAsync();
+        if (!teacherUserId.HasValue)
+            return null;
+
+        var currentUser = await _currentUserService.GetCurrentUserAsync();
+        if (currentUser == null)
+            return null;
+
+        var report = await _disciplineReportService.GetByIdAsync(reportId);
+        if (report == null || report.TeacherId != teacherUserId.Value)
+            return null;
+
+        if (currentUser.SchoolId.HasValue && report.SchoolId.HasValue && report.SchoolId != currentUser.SchoolId)
+            return null;
+
+        return report;
+    }
+
+    private static void TryDeleteDisciplineUploadedFiles(string? documentsJson, ILogger logger)
+    {
+        if (string.IsNullOrWhiteSpace(documentsJson))
+            return;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(documentsJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return;
+
+            var basePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "discipline");
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                if (!el.TryGetProperty("savedName", out var sn))
+                    continue;
+                var name = sn.GetString();
+                if (string.IsNullOrEmpty(name))
+                    continue;
+                var safe = Path.GetFileName(name);
+                var full = Path.Combine(basePath, safe);
+                if (!full.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (System.IO.File.Exists(full))
+                {
+                    try
+                    {
+                        System.IO.File.Delete(full);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "No se pudo borrar archivo disciplina {Path}", full);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Error al interpretar documentos para borrar");
         }
     }
 
@@ -182,10 +367,32 @@ public class DisciplineReportController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetForTeacherEdit(Guid id)
+    {
+        var report = await GetOwnedDisciplineReportForTeacherAsync(id);
+        if (report == null)
+            return Json(new { success = false, error = "No autorizado o registro no encontrado" });
+
+        return Json(new
+        {
+            success = true,
+            id = report.Id,
+            studentId = report.StudentId,
+            date = report.Date,
+            reportType = report.ReportType,
+            status = report.Status,
+            description = report.Description,
+            category = report.Category,
+            disciplineActionsJson = report.DisciplineActionsJson
+        });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> GetByStudent(Guid studentId)
     {
         var reports = await _disciplineReportService.GetByStudentDtoAsync(studentId);
         return Json(reports.Select(r => new {
+            id = r.Id,
             date = r.Date,
             time = r.Date.ToString("HH:mm"),
             type = r.Type,
@@ -193,6 +400,8 @@ public class DisciplineReportController : Controller
             status = r.Status,
             description = r.Description,
             documents = r.Documents,
+            disciplineActionsJson = r.DisciplineActionsJson,
+            reportTeacherId = r.TeacherId,
             teacher = r.Teacher,
             subjectId = r.SubjectId, // ✅ Agregado
             subjectName = r.SubjectName // ✅ Agregado
@@ -212,6 +421,9 @@ public class DisciplineReportController : Controller
             var reports = await _disciplineReportService.GetFilteredAsync(fechaInicio, fechaFin, gradoId, groupId, studentId);
             
             var result = reports.Select(r => new {
+                id = r.Id,
+                studentId = r.StudentId,
+                reportTeacherId = r.TeacherId,
                 estudiante = r.Student != null ? $"{r.Student.Name} {r.Student.LastName}" : null,
                 documentId = r.Student?.DocumentId,
                 fecha = r.Date.ToString("dd/MM/yyyy"),
@@ -221,6 +433,7 @@ public class DisciplineReportController : Controller
                 status = r.Status,
                 description = r.Description,
                 documents = r.Documents,
+                disciplineActionsJson = r.DisciplineActionsJson,
                 grupo = r.Group?.Name,
                 grado = r.GradeLevel?.Name
             });
@@ -298,6 +511,7 @@ public class DisciplineReportController : Controller
                 status = r.Status,
                 description = r.Description,
                 documents = r.Documents,
+                disciplineActionsJson = r.DisciplineActionsJson,
                 teacher = r.Teacher,
                 subjectName = r.SubjectName
             }));
@@ -320,12 +534,15 @@ public class DisciplineReportController : Controller
                 return Unauthorized(new { error = "Usuario no autenticado" });
             }
 
-            // Verificar permisos según el rol
-            var canView = currentUser.Role?.ToLower() switch
+            // Verificar permisos según el rol (app escáner: inspector/docente/teacher de la misma escuela que el estudiante)
+            var role = (currentUser.Role ?? "").Trim().ToLowerInvariant();
+            var canView = role switch
             {
-                "director" => true, // El director puede ver todo
-                "teacher" => await CanTeacherViewStudentDiscipline(currentUser.Id, studentId), // Profesores pueden ver si tienen relación
-                "parent" => await CanParentViewStudentDiscipline(currentUser.Id, studentId), // Padres pueden ver de sus hijos
+                "director" => true,
+                "inspector" or "docente" => await CanSameSchoolStaffViewStudentDisciplineAsync(currentUser, studentId),
+                "teacher" => await CanTeacherViewStudentDiscipline(currentUser.Id, studentId)
+                    || await CanSameSchoolStaffViewStudentDisciplineAsync(currentUser, studentId),
+                "parent" => await CanParentViewStudentDiscipline(currentUser.Id, studentId),
                 _ => false
             };
 
@@ -345,6 +562,8 @@ public class DisciplineReportController : Controller
                 status = r.Status,
                 description = r.Description,
                 documents = r.Documents,
+                disciplineActionsJson = r.DisciplineActionsJson,
+                reportTeacherId = r.TeacherId,
                 teacher = r.Teacher,
                 subjectName = r.SubjectName
             }));
@@ -354,6 +573,55 @@ public class DisciplineReportController : Controller
             _logger.LogError(ex, "Error al obtener información de disciplina visible");
             return BadRequest(new { error = "Error al obtener la información de disciplina" });
         }
+    }
+
+    private static List<string> ParseDisciplineActionList(IFormCollection form)
+    {
+        var list = new List<string>();
+        var jsonRaw = form["DisciplineActionsJson"].ToString();
+        if (!string.IsNullOrWhiteSpace(jsonRaw))
+        {
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<List<string>>(jsonRaw);
+                if (parsed != null)
+                {
+                    foreach (var x in parsed)
+                    {
+                        if (!string.IsNullOrWhiteSpace(x))
+                            list.Add(x.Trim());
+                    }
+                }
+            }
+            catch
+            {
+                // ignorar JSON inválido; se intentará con campos repetidos
+            }
+        }
+
+        if (list.Count == 0)
+        {
+            foreach (var v in form["DisciplineActions"])
+            {
+                if (!string.IsNullOrWhiteSpace(v))
+                    list.Add(v.Trim());
+            }
+        }
+
+        return list;
+    }
+
+    private async Task<bool> CanSameSchoolStaffViewStudentDisciplineAsync(User staffUser, Guid studentId)
+    {
+        if (staffUser.SchoolId == null)
+            return false;
+
+        var studentSchoolId = await _context.Users.AsNoTracking()
+            .Where(u => u.Id == studentId)
+            .Select(u => u.SchoolId)
+            .FirstOrDefaultAsync();
+
+        return studentSchoolId.HasValue && studentSchoolId == staffUser.SchoolId;
     }
 
     private async Task<bool> CanTeacherViewStudentDiscipline(Guid teacherId, Guid studentId)

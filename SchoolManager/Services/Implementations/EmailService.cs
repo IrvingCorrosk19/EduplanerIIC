@@ -151,6 +151,7 @@ namespace SchoolManager.Services.Implementations
         <p><strong>Tipo:</strong> {disciplineReport.ReportType}</p>
         <p><strong>Categoría:</strong> {disciplineReport.Category ?? "No especificada"}</p>
         <p><strong>Estado:</strong> {disciplineReport.Status}</p>
+        <p><strong>Acciones observadas:</strong> {WebUtility.HtmlEncode(FormatDisciplineActionsForEmail(disciplineReport.DisciplineActionsJson))}</p>
         
         <div class='highlight'>
             <h4>Descripción:</h4>
@@ -588,6 +589,21 @@ namespace SchoolManager.Services.Implementations
             {
                 _logger.LogError(ex, "SendEmailAsync Resend falló para {Email}", toEmail);
                 return (false, ex.Message);
+            }
+        }
+
+        private static string FormatDisciplineActionsForEmail(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return "No especificadas";
+            try
+            {
+                var list = JsonSerializer.Deserialize<List<string>>(json);
+                if (list == null || list.Count == 0) return "No especificadas";
+                return string.Join(", ", list.Where(s => !string.IsNullOrWhiteSpace(s)));
+            }
+            catch
+            {
+                return "No especificadas";
             }
         }
     }

@@ -1,7 +1,21 @@
 @model SchoolManager.Models.DisciplineReport
+@using System.Text.Json
 @{
     Layout = "_AdminLayout";
     ViewData["Title"] = "Detalles de Reporte de Disciplina";
+
+    List<string>? disciplinaAccionesLista = null;
+    if (!string.IsNullOrWhiteSpace(Model.DisciplineActionsJson))
+    {
+        try
+        {
+            disciplinaAccionesLista = JsonSerializer.Deserialize<List<string>>(Model.DisciplineActionsJson);
+        }
+        catch
+        {
+            disciplinaAccionesLista = null;
+        }
+    }
 }
 
 <div class="container-fluid">
@@ -44,6 +58,23 @@
                             <span class="badge @(Model.Status?.ToLower() == "resuelto" ? "bg-success" : "bg-warning")">
                                 @Model.Status
                             </span>
+                        </dd>
+
+                        <dt class="col-sm-4">Acciones observadas:</dt>
+                        <dd class="col-sm-8">
+                            @if (disciplinaAccionesLista != null && disciplinaAccionesLista.Count > 0)
+                            {
+                                <ul class="mb-0 ps-3">
+                                    @foreach (var act in disciplinaAccionesLista)
+                                    {
+                                        <li>@act</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No registradas</span>
+                            }
                         </dd>
 
                         <dt class="col-sm-4">Descripción:</dt>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SchoolManager.Models;
@@ -38,6 +38,9 @@ public partial class DisciplineReport
     public string? Category { get; set; }
 
     public string? Documents { get; set; }
+
+    /// <summary>JSON array of selected disciplinary action labels (e.g. ["Uniforme Inapropiado", ...]).</summary>
+    public string? DisciplineActionsJson { get; set; }
 
     public virtual GradeLevel? GradeLevel { get; set; }
 

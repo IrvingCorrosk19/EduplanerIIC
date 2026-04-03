@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -574,6 +574,7 @@ namespace SchoolManager.Services.Implementations
                         Type = dr.ReportType ?? "Sin tipo",
                         Status = dr.Status ?? "Sin estado",
                         Description = dr.Description ?? "Sin descripción",
+                        DisciplineActionsJson = dr.DisciplineActionsJson,
                         Teacher = dr.Teacher != null ? $"{dr.Teacher.Name} {dr.Teacher.LastName}" : "Sin profesor"
                     })
                     .ToListAsync();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -145,12 +145,15 @@ namespace SchoolManager.Services
 
             return reports.Select(r => new DisciplineReportDto
             {
+                Id = r.Id,
                 Type = r.ReportType,
                 Category = r.Category,
                 Status = r.Status,
                 Description = r.Description,
                 Date = r.Date,
                 Documents = r.Documents,
+                DisciplineActionsJson = r.DisciplineActionsJson,
+                TeacherId = r.TeacherId,
                 Teacher = r.Teacher != null ? $"{r.Teacher.Name} {r.Teacher.LastName}" : null,
                 SubjectId = r.SubjectId, // ✅ SubjectId (puede ser NULL)
                 SubjectName = r.Subject?.Name // ✅ SubjectName (puede ser NULL)
@@ -228,6 +231,8 @@ namespace SchoolManager.Services
                 Description = r.Description,
                 Date = r.Date,
                 Documents = r.Documents,
+                DisciplineActionsJson = r.DisciplineActionsJson,
+                TeacherId = r.TeacherId,
                 Teacher = r.Teacher != null ? $"{r.Teacher.Name} {r.Teacher.LastName}" : null,
                 SubjectId = r.SubjectId,
                 SubjectName = r.Subject?.Name,

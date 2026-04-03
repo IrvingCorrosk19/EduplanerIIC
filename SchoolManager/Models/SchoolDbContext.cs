@@ -453,6 +453,9 @@ public partial class SchoolDbContext : DbContext
                 .HasColumnName("report_type");
             entity.Property(e => e.Category).HasColumnName("category");
             entity.Property(e => e.Documents).HasColumnName("documents");
+            entity.Property(e => e.DisciplineActionsJson)
+                .HasColumnType("text")
+                .HasColumnName("discipline_actions_json");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasColumnName("status");

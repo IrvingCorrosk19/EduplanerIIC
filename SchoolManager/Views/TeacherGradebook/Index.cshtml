@@ -943,6 +943,23 @@
                                     <div class="card h-100">
                                         <div class="card-header bg-light fw-semibold">Nuevo Registro</div>
                                         <div class="card-body" id="formDisciplinaContainer">
+                                            @{
+                                                var accionesDisc = new[]
+                                                {
+                                                    "Uniforme Inapropiado",
+                                                    "Corte Inapropiado",
+                                                    "Llegada fuera de la hora de entrada",
+                                                    "Uso de maquillaje",
+                                                    "Uso de lenguaje inapropiado",
+                                                    "Burlas o acoso a compañeros",
+                                                    "Agresiones verbales",
+                                                    "Agresiones físicas",
+                                                    "Dañar mobiliario o infraestructura",
+                                                    "Ensuciar áreas comunes",
+                                                    "Uso indebido de baños",
+                                                    "Otras acciones"
+                                                };
+                                            }
                                             <div class="text-center text-muted" id="msgSeleccionEstudianteDisciplina">
                                                 <i class="bi bi-person fs-1"></i><br />
                                                 Seleccione un estudiante para crear un registro
@@ -986,6 +1003,24 @@
                                                 <div class="mb-3">
                                                     <label class="form-label">Descripción</label>
                                                     <textarea class="form-control" id="descripcionDisciplina" rows="3" placeholder="Describa el comportamiento o incidente..." required></textarea>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Acciones observadas <span class="text-danger">*</span> <span class="text-muted fw-normal small">(al menos una)</span></label>
+                                                    <div class="border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;">
+                                                        <div class="row g-1 small">
+                                                            @for (var ia = 0; ia < accionesDisc.Length; ia++)
+                                                            {
+                                                                var a = accionesDisc[ia];
+                                                                var aid = "discAct_" + ia;
+                                                                <div class="col-md-6">
+                                                                    <div class="form-check mb-1">
+                                                                        <input class="form-check-input disciplina-accion-check" type="checkbox" name="DisciplineActions" id="@aid" value="@a" />
+                                                                        <label class="form-check-label" for="@aid">@a</label>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <div class="mb-3" id="categoriaSeleccionadaContainer" style="display: none;">
                                                     <label class="form-label">Categoría seleccionada:</label>
@@ -1036,6 +1071,86 @@
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            <div class="modal fade" id="modalEditDisciplina" tabindex="-1" aria-labelledby="modalEditDisciplinaLabel" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="modalEditDisciplinaLabel"><i class="bi bi-pencil-square me-2"></i>Editar registro disciplinario</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <input type="hidden" id="modalEditDisciplinaReportId" />
+                                                            <input type="hidden" id="modalEditDisciplinaStudentId" />
+                                                            <div class="row g-2 mb-3">
+                                                                <div class="col-md-6">
+                                                                    <label class="form-label">Fecha</label>
+                                                                    <input type="date" class="form-control" id="modalEditDisciplinaFecha" required autocomplete="off" />
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <label class="form-label">Hora</label>
+                                                                    <input type="time" class="form-control" id="modalEditDisciplinaHora" required autocomplete="off" />
+                                                                </div>
+                                                            </div>
+                                                            <div class="row g-2 mb-3">
+                                                                <div class="col-md-6">
+                                                                    <label class="form-label">Tipo</label>
+                                                                    <select class="form-select" id="modalEditDisciplinaTipo" required>
+                                                                        <option value="Comentario">Comentario</option>
+                                                                        <option value="Citacion">Citacion</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <label class="form-label">Estado</label>
+                                                                    <select class="form-select" id="modalEditDisciplinaEstado" required>
+                                                                        <option value="Pendiente">Pendiente</option>
+                                                                        <option value="Resuelto">Resuelto</option>
+                                                                        <option value="Escalado">Escalado</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Categoría</label>
+                                                                <select class="form-select" id="modalEditDisciplinaCategoria" required>
+                                                                    <option value="Comportamiento">Comportamiento</option>
+                                                                    <option value="Rendimiento">Rendimiento</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Descripción</label>
+                                                                <textarea class="form-control" id="modalEditDisciplinaDescripcion" rows="3" required></textarea>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Acciones observadas <span class="text-danger">*</span></label>
+                                                                <div class="border rounded p-2 bg-light" style="max-height: 180px; overflow-y: auto;">
+                                                                    <div class="row g-1 small">
+                                                                        @for (var ie = 0; ie < accionesDisc.Length; ie++)
+                                                                        {
+                                                                            var ae = accionesDisc[ie];
+                                                                            var eid = "ediscAct_" + ie;
+                                                                            <div class="col-md-6">
+                                                                                <div class="form-check mb-1">
+                                                                                    <input class="form-check-input modal-edit-disciplina-accion-check" type="checkbox" id="@eid" value="@ae" />
+                                                                                    <label class="form-check-label" for="@eid">@ae</label>
+                                                                                </div>
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Agregar evidencias (opcional)</label>
+                                                                <input type="file" class="form-control" id="modalEditDisciplinaDocs" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif" />
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="button" class="btn btn-primary" id="btnGuardarEditDisciplina"><i class="bi bi-save me-1"></i>Guardar cambios</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div class="mt-4">
                                                 <div class="fw-semibold mb-2"><i class="bi bi-clock-history"></i> Historial del Estudiante</div>
                                                 <div id="historialEstudianteDisciplina" class="bg-light p-3 rounded">No hay registros para este estudiante</div>
@@ -2871,6 +2986,184 @@
     // =================== DISCIPLINA ===================
     window.estudianteSeleccionado = null;
 
+    function disciplinaFormatAcciones(jsonStr) {
+        if (!jsonStr) return '';
+        try {
+            const arr = JSON.parse(jsonStr);
+            if (!Array.isArray(arr) || arr.length === 0) return '';
+            const esc = (s) => $('<div/>').text(s).html();
+            return '<div class="small text-muted mt-1"><i class="bi bi-list-check me-1"></i>' + arr.map(esc).join(' · ') + '</div>';
+        } catch (e) { return ''; }
+    }
+
+    function disciplinaAccionesTablaHtml(jsonStr) {
+        if (!jsonStr) return '—';
+        try {
+            const arr = JSON.parse(jsonStr);
+            if (!Array.isArray(arr) || arr.length === 0) return '—';
+            return arr.map(s => $('<div/>').text(s).html()).join('<br>');
+        } catch (e) { return '—'; }
+    }
+
+    function disciplineUtcToDateInputPanama(isoUtc) {
+        if (isoUtc == null || isoUtc === '') return '';
+        const d = new Date(isoUtc);
+        if (isNaN(d.getTime())) return '';
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    }
+
+    function disciplineUtcToTimeInputPanama(isoUtc) {
+        if (isoUtc == null || isoUtc === '') return '';
+        const d = new Date(isoUtc);
+        if (isNaN(d.getTime())) return '';
+        const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Panama', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+        const h = (parts.find(p => p.type === 'hour') || {}).value || '00';
+        const m = (parts.find(p => p.type === 'minute') || {}).value || '00';
+        return (String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')).substring(0, 5);
+    }
+
+    window.teacherDisciplinaIdNorm = '@Model.TeacherId'.toString().toLowerCase();
+
+    function disciplinaEsPropioRegistro(registro) {
+        if (!registro || !registro.reportTeacherId) return false;
+        return String(registro.reportTeacherId).toLowerCase() === (window.teacherDisciplinaIdNorm || '');
+    }
+
+    window.abrirModalEditarDisciplina = function(reportId, studentId) {
+        $.ajax({
+            url: '/DisciplineReport/GetForTeacherEdit',
+            method: 'GET',
+            data: { id: reportId },
+            success: function(res) {
+                if (!res || !res.success) {
+                    Swal.fire({ icon: 'error', title: 'No permitido', text: (res && res.error) || 'No se pudo cargar el registro' });
+                    return;
+                }
+                $('#modalEditDisciplinaReportId').val(res.id);
+                $('#modalEditDisciplinaStudentId').val(studentId || res.studentId || '');
+                $('#modalEditDisciplinaFecha').val(disciplineUtcToDateInputPanama(res.date));
+                $('#modalEditDisciplinaHora').val(disciplineUtcToTimeInputPanama(res.date));
+                $('#modalEditDisciplinaTipo').val(res.reportType || 'Comentario');
+                $('#modalEditDisciplinaEstado').val(res.status || 'Pendiente');
+                $('#modalEditDisciplinaDescripcion').val(res.description || '');
+                const cat = res.category || 'Comportamiento';
+                if (cat === 'Rendimiento' || cat === 'Comportamiento') {
+                    $('#modalEditDisciplinaCategoria').val(cat);
+                } else {
+                    $('#modalEditDisciplinaCategoria').val('Comportamiento');
+                }
+                let acciones = [];
+                if (res.disciplineActionsJson) {
+                    try {
+                        const parsed = JSON.parse(res.disciplineActionsJson);
+                        if (Array.isArray(parsed)) acciones = parsed;
+                    } catch (e) { /* ignore */ }
+                }
+                document.querySelectorAll('.modal-edit-disciplina-accion-check').forEach(function(cb) {
+                    cb.checked = acciones.indexOf(cb.value) >= 0;
+                });
+                $('#modalEditDisciplinaDocs').val('');
+                const modal = new bootstrap.Modal(document.getElementById('modalEditDisciplina'));
+                modal.show();
+            },
+            error: function() {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar el registro' });
+            }
+        });
+    };
+
+    window.eliminarRegistroDisciplina = function(reportId, studentId) {
+        Swal.fire({
+            title: '¿Eliminar registro?',
+            text: 'Esta acción no se puede deshacer. Se borrarán también los archivos de evidencia asociados.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            $.ajax({
+                url: '/DisciplineReport/TeacherDeleteReport',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ reportId: reportId }),
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({ icon: 'success', title: 'Eliminado', text: response.message || 'Registro eliminado' });
+                        if (studentId && window.cargarHistorialEstudiante) window.cargarHistorialEstudiante(studentId);
+                        if ($('#btnFiltrarHistorialDisciplina').length && $('#historialDisciplinaTab').hasClass('show')) {
+                            $('#btnFiltrarHistorialDisciplina').trigger('click');
+                        }
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Error', text: response.error || 'No se pudo eliminar' });
+                    }
+                },
+                error: function(xhr) {
+                    let msg = 'No se pudo eliminar';
+                    try {
+                        const r = xhr.responseJSON;
+                        if (r && r.error) msg = r.error;
+                    } catch (e) { /* ignore */ }
+                    Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                }
+            });
+        });
+    };
+
+    $(document).on('click', '#btnGuardarEditDisciplina', function() {
+        const reportId = $('#modalEditDisciplinaReportId').val();
+        const studentId = $('#modalEditDisciplinaStudentId').val();
+        if (!reportId) return;
+        const nAcc = document.querySelectorAll('.modal-edit-disciplina-accion-check:checked').length;
+        if (nAcc === 0) {
+            Swal.fire({ icon: 'warning', title: 'Acciones requeridas', text: 'Debe seleccionar al menos una acción observada.' });
+            return;
+        }
+        const formData = new FormData();
+        formData.append('ReportId', reportId);
+        formData.append('Date', $('#modalEditDisciplinaFecha').val());
+        formData.append('Hora', $('#modalEditDisciplinaHora').val());
+        formData.append('ReportType', $('#modalEditDisciplinaTipo').val());
+        formData.append('Status', $('#modalEditDisciplinaEstado').val());
+        formData.append('Description', $('#modalEditDisciplinaDescripcion').val());
+        formData.append('Category', $('#modalEditDisciplinaCategoria').val());
+        document.querySelectorAll('.modal-edit-disciplina-accion-check:checked').forEach(function(cb) {
+            formData.append('DisciplineActions', cb.value);
+        });
+        const docsEl = document.getElementById('modalEditDisciplinaDocs');
+        if (docsEl && docsEl.files) {
+            for (let i = 0; i < docsEl.files.length; i++) {
+                formData.append('Documents', docsEl.files[i]);
+            }
+        }
+        $.ajax({
+            url: '/DisciplineReport/UpdateWithFilesForTeacher',
+            method: 'POST',
+            processData: false,
+            contentType: false,
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    const el = document.getElementById('modalEditDisciplina');
+                    const inst = bootstrap.Modal.getInstance(el);
+                    if (inst) inst.hide();
+                    Swal.fire({ icon: 'success', title: 'Actualizado', text: response.message || 'Cambios guardados' });
+                    if (studentId && window.cargarHistorialEstudiante) window.cargarHistorialEstudiante(studentId);
+                    if ($('#btnFiltrarHistorialDisciplina').length) $('#btnFiltrarHistorialDisciplina').trigger('click');
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: (response.error || '') + (response.details ? '\n' + response.details : '') });
+                }
+            },
+            error: function(xhr) {
+                let msg = 'No se pudo guardar';
+                try { if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error; } catch (e) { /* ignore */ }
+                Swal.fire({ icon: 'error', title: 'Error', text: msg });
+            }
+        });
+    });
+
     window.cargarHistorialEstudiante = function(studentId) {
         $('#historialEstudianteDisciplina').html('<div class="text-center text-muted">Cargando historial...</div>');
         $.ajax({
@@ -2896,9 +3189,17 @@
                         categoriaBadge = `<span class="badge bg-secondary me-2">${registro.categoria || 'Sin categoría'}</span>`;
                     }
 
+                    const esPropio = disciplinaEsPropioRegistro(registro);
+                    const btnEditar = esPropio
+                        ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="abrirModalEditarDisciplina('${registro.id}','${studentId}')" title="Editar"><i class="bi bi-pencil"></i></button>`
+                        : '';
+                    const btnEliminar = esPropio
+                        ? `<button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarRegistroDisciplina('${registro.id}','${studentId}')" title="Eliminar"><i class="bi bi-trash"></i></button>`
+                        : '';
+
                     const item = `
                         <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <div>
                                     <span class="badge ${registro.type === 'Comentario' ? 'bg-primary' : 'bg-danger'} me-2">
                                         ${registro.type || 'Sin tipo'}
@@ -2912,13 +3213,16 @@
                                         ${registro.status || 'Sin estado'}
                                     </span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    ${btnEditar}
+                                    ${btnEliminar}
                                     <button class="btn btn-sm btn-outline-success" onclick="enviarCorreoDisciplinario('${registro.id}', '${studentId}')" title="Enviar correo al estudiante">
-                                        <i class="bi bi-envelope me-1"></i>Enviar Correo
+                                        <i class="bi bi-envelope me-1"></i>Correo
                                     </button>
                                     <small class="text-muted">${fechaFormateada} ${registro.time || ''}</small>
                                 </div>
                             </div>
+                            ${disciplinaFormatAcciones(registro.disciplineActionsJson)}
                             <p class="mb-1 mt-2">${registro.description || 'Sin descripción'}</p>
                             <small class="text-muted">Profesor: ${registro.teacher || 'No especificado'}</small>
                         </div>
@@ -3035,6 +3339,7 @@
             $('#formDisciplina').show();
             $('#fechaDisciplina').val(todayDateInputPanama());
             $('#horaDisciplina').val(nowTimeInputPanama());
+            $('#formDisciplina .disciplina-accion-check').prop('checked', false);
             window.cargarHistorialEstudiante(studentId);
         });
     };
@@ -3333,7 +3638,9 @@
                                         <th>Tipo</th>
                                         <th>Categoría</th>
                                         <th>Estado</th>
+                                        <th>Acciones observadas</th>
                                         <th>Descripción</th>
+                                        <th>Opciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
@@ -3371,6 +3678,13 @@
                                 estadoBadge = `<span class="badge bg-secondary">${r.status || 'Sin estado'}</span>`;
                             }
 
+                            const sid = r.studentId || '';
+                            const esPropioTabla = r.reportTeacherId && String(r.reportTeacherId).toLowerCase() === (window.teacherDisciplinaIdNorm || '');
+                            const btnsGestion = esPropioTabla
+                                ? `<button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="abrirModalEditarDisciplina('${r.id}','${sid}')" title="Editar"><i class="bi bi-pencil"></i></button>` +
+                                  `<button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarRegistroDisciplina('${r.id}','${sid}')" title="Eliminar"><i class="bi bi-trash"></i></button>`
+                                : '<span class="text-muted small">—</span>';
+
                             html += `<tr>
                                 <td>
                                     <div>${r.estudiante || 'Sin nombre'}</div>
@@ -3381,7 +3695,9 @@
                                 <td>${tipoBadge}</td>
                                 <td>${categoriaBadge}</td>
                                 <td>${estadoBadge}</td>
+                                <td>${disciplinaAccionesTablaHtml(r.disciplineActionsJson)}</td>
                                 <td>${r.description || 'Sin descripción'}</td>
+                                <td><div class="d-flex flex-wrap gap-1">${btnsGestion}</div></td>
                             </tr>`;
                         });
                         
@@ -3416,6 +3732,11 @@
                     Swal.fire({ icon: 'error', title: 'Error', text: 'Debe seleccionar un estudiante' });
                     return;
                 }
+                const accionesMarcadas = document.querySelectorAll('#formDisciplina .disciplina-accion-check:checked').length;
+                if (accionesMarcadas === 0) {
+                    Swal.fire({ icon: 'warning', title: 'Acciones requeridas', text: 'Debe seleccionar al menos una acción observada.' });
+                    return;
+                }
                 const combo = $('#filtroGradoDisciplina').val();
                 let subjectId = null, groupId = null, gradeLevelId = null;
                 if (combo) {
@@ -3434,6 +3755,9 @@
                 formData.append('Status', $('#estadoDisciplina').val());
                 formData.append('Description', $('#descripcionDisciplina').val());
                 formData.append('Category', $('#categoriaDisciplinaSeleccionada').val());
+                document.querySelectorAll('#formDisciplina .disciplina-accion-check:checked').forEach(function(cb) {
+                    formData.append('DisciplineActions', cb.value);
+                });
                 
                 // Agregar archivos si existen
                 const documentosInput = document.getElementById('documentosDisciplina');

@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using System.IO;
+using System.Text.Json;
+using System.Net;
 
 public class StudentReportController : Controller
 {
@@ -313,6 +315,7 @@ public class StudentReportController : Controller
         html.AppendLine("                <th>Hora</th>");
         html.AppendLine("                <th>Tipo</th>");
         html.AppendLine("                <th>Estado</th>");
+        html.AppendLine("                <th>Acciones</th>");
         html.AppendLine("                <th>Descripción</th>");
         html.AppendLine("                <th>Profesor</th>");
         html.AppendLine("            </tr>");
@@ -329,12 +332,14 @@ public class StudentReportController : Controller
                 var estado = report.Status ?? "Sin estado";
                 var descripcion = report.Description ?? "Sin descripción";
                 var profesor = report.Teacher ?? "Sin profesor";
+                var acciones = FormatDisciplineActionsForHtml(report.DisciplineActionsJson);
                 
                 html.AppendLine("            <tr>");
                 html.AppendLine($"                <td>{fecha}</td>");
                 html.AppendLine($"                <td>{hora}</td>");
                 html.AppendLine($"                <td>{tipo}</td>");
                 html.AppendLine($"                <td>{estado}</td>");
+                html.AppendLine($"                <td>{acciones}</td>");
                 html.AppendLine($"                <td>{descripcion}</td>");
                 html.AppendLine($"                <td>{profesor}</td>");
                 html.AppendLine("            </tr>");
@@ -343,7 +348,7 @@ public class StudentReportController : Controller
         else
         {
             html.AppendLine("            <tr>");
-            html.AppendLine("                <td colspan='6' class='no-data'>No hay reportes de disciplina registrados</td>");
+            html.AppendLine("                <td colspan='7' class='no-data'>No hay reportes de disciplina registrados</td>");
             html.AppendLine("            </tr>");
         }
         
@@ -360,6 +365,22 @@ public class StudentReportController : Controller
         html.AppendLine("</html>");
         
         return html.ToString();
+    }
+
+    private static string FormatDisciplineActionsForHtml(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "—";
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<string>>(json);
+            if (list == null || list.Count == 0) return "—";
+            var text = string.Join("; ", list.Where(s => !string.IsNullOrWhiteSpace(s)));
+            return string.IsNullOrEmpty(text) ? "—" : WebUtility.HtmlEncode(text);
+        }
+        catch
+        {
+            return "—";
+        }
     }
 
 }

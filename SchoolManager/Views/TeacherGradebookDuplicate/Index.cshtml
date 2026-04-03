@@ -1022,6 +1022,41 @@
                                                     <textarea class="form-control" id="descripcionDisciplina" rows="3" placeholder="Describa el comportamiento o incidente..." required></textarea>
                                                 </div>
                                                 <div class="mb-3">
+                                                    <label class="form-label">Acciones observadas <span class="text-danger">*</span> <span class="text-muted fw-normal small">(al menos una)</span></label>
+                                                    <div class="border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;">
+                                                        <div class="row g-1 small">
+                                                            @{
+                                                                var accionesDiscDup = new[]
+                                                                {
+                                                                    "Uniforme Inapropiado",
+                                                                    "Corte Inapropiado",
+                                                                    "Llegada fuera de la hora de entrada",
+                                                                    "Uso de maquillaje",
+                                                                    "Uso de lenguaje inapropiado",
+                                                                    "Burlas o acoso a compañeros",
+                                                                    "Agresiones verbales",
+                                                                    "Agresiones físicas",
+                                                                    "Dañar mobiliario o infraestructura",
+                                                                    "Ensuciar áreas comunes",
+                                                                    "Uso indebido de baños",
+                                                                    "Otras acciones"
+                                                                };
+                                                            }
+                                                            @for (var ia = 0; ia < accionesDiscDup.Length; ia++)
+                                                            {
+                                                                var a = accionesDiscDup[ia];
+                                                                var aid = "discActDup_" + ia;
+                                                                <div class="col-md-6">
+                                                                    <div class="form-check mb-1">
+                                                                        <input class="form-check-input disciplina-accion-check" type="checkbox" name="DisciplineActions" id="@aid" value="@a" />
+                                                                        <label class="form-check-label" for="@aid">@a</label>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
                                                     <label class="form-label">Documentos de Evidencia (Opcional)</label>
                                                     <input type="file" class="form-control" id="documentosDisciplina" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif" />
                                                     <div class="form-text">Puede adjuntar múltiples archivos: PDF, Word, imágenes (máx. 10MB por archivo)</div>
@@ -2783,6 +2818,25 @@
     <script>
     // =================== DISCIPLINA ===================
     window.estudianteSeleccionado = null;
+
+    function disciplinaFormatAcciones(jsonStr) {
+        if (!jsonStr) return '';
+        try {
+            const arr = JSON.parse(jsonStr);
+            if (!Array.isArray(arr) || arr.length === 0) return '';
+            const esc = (s) => $('<div/>').text(s).html();
+            return '<div class="small text-muted mt-1"><i class="bi bi-list-check me-1"></i>' + arr.map(esc).join(' · ') + '</div>';
+        } catch (e) { return ''; }
+    }
+
+    function disciplinaAccionesTablaHtml(jsonStr) {
+        if (!jsonStr) return '—';
+        try {
+            const arr = JSON.parse(jsonStr);
+            if (!Array.isArray(arr) || arr.length === 0) return '—';
+            return arr.map(s => $('<div/>').text(s).html()).join('<br>');
+        } catch (e) { return '—'; }
+    }
     window.estudianteConEmail = null; // Variable para almacenar si el estudiante tiene email
 
     // Función para verificar si el estudiante tiene email
@@ -3024,6 +3078,7 @@
             $('#nombreEstudianteSeleccionado').text(studentName);
             $('#msgSeleccionEstudianteDisciplina').hide();
             $('#formDisciplina').show();
+            $('#formDisciplina .disciplina-accion-check').prop('checked', false);
             
             console.log('📅 Estableciendo fecha y hora...');
             const now = new Date();
@@ -3287,9 +3342,10 @@
                                         <th>Tipo</th>
                                         <th>Categoría</th>
                                         <th>Estado</th>
+                                        <th>Acciones observadas</th>
                                         <th>Descripción</th>
                                         <th>Documentos</th>
-                                        <th>Acciones</th>
+                                        <th>Correo</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
@@ -3358,6 +3414,7 @@
                                 <td>${tipoBadge}</td>
                                 <td>${categoriaBadge}</td>
                                 <td>${estadoBadge}</td>
+                                <td>${disciplinaAccionesTablaHtml(r.disciplineActionsJson)}</td>
                                 <td>${r.description || 'Sin descripción'}</td>
                                 <td>${documentosTablaHtml}</td>
                                 <td>
@@ -3658,6 +3715,9 @@
                 formData.append('Status', $('#estadoDisciplina').val());
                 formData.append('Description', $('#descripcionDisciplina').val());
                 formData.append('Category', $('#categoriaDisciplinaSeleccionada').val());
+                document.querySelectorAll('#formDisciplina .disciplina-accion-check:checked').forEach(function(cb) {
+                    formData.append('DisciplineActions', cb.value);
+                });
                 
                 console.log('📄 Datos del formulario:');
                 console.log('  - StudentId:', window.estudianteSeleccionado.id);
@@ -3756,6 +3816,12 @@
                     return;
                 }
 
+                const accionesCorreo = document.querySelectorAll('#formDisciplina .disciplina-accion-check:checked').length;
+                if (accionesCorreo === 0) {
+                    Swal.fire({ icon: 'warning', title: 'Acciones requeridas', text: 'Debe seleccionar al menos una acción observada.' });
+                    return;
+                }
+
                 // Mostrar modal para mensaje personalizado
                 Swal.fire({
                     title: 'Enviar Correo al Estudiante',
@@ -3801,6 +3867,9 @@
                         formData.append('Status', $('#estadoDisciplina').val());
                         formData.append('Description', $('#descripcionDisciplina').val());
                         formData.append('Category', $('#categoriaDisciplinaSeleccionada').val());
+                        document.querySelectorAll('#formDisciplina .disciplina-accion-check:checked').forEach(function(cb) {
+                            formData.append('DisciplineActions', cb.value);
+                        });
                         
                         // Agregar archivos si existen
                         const archivos = document.getElementById('documentosDisciplina').files;
