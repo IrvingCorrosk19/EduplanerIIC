@@ -300,8 +300,14 @@ public class StudentIdCardService : IStudentIdCardService
         var assignment = await _context.StudentAssignments
             .Include(a => a.Grade)
             .Include(a => a.Group)
+            .Include(a => a.Shift)
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.StudentId == tokenRecord.StudentId && a.IsActive);
+
+        var studentAccountActive = string.Equals(
+            tokenRecord.Student.Status?.Trim(),
+            "active",
+            StringComparison.OrdinalIgnoreCase);
 
         if (assignment == null)
         {
@@ -314,7 +320,12 @@ public class StudentIdCardService : IStudentIdCardService
                 Grade = "N/A",
                 Group = "N/A",
                 DisciplineCount = 0,
-                AllowedToEnterSchool = false
+                AllowedToEnterSchool = false,
+                IsStudentAccountActive = studentAccountActive,
+                ShiftName = string.IsNullOrWhiteSpace(tokenRecord.Student.Shift)
+                    ? null
+                    : tokenRecord.Student.Shift.Trim(),
+                CounselorName = null
             };
         }
 
@@ -354,6 +365,21 @@ public class StudentIdCardService : IStudentIdCardService
         var role = (request.AuthenticatedRole ?? "").Trim().ToLowerInvariant();
         var canSeeSensitiveData = role is "inspector" or "teacher" or "docente" or "admin" or "superadmin";
 
+        var shiftDisplay = assignment.Shift?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(shiftDisplay))
+            shiftDisplay = string.IsNullOrWhiteSpace(tokenRecord.Student.Shift)
+                ? null
+                : tokenRecord.Student.Shift.Trim();
+
+        string? counselorName = null;
+        if (tokenRecord.Student.SchoolId.HasValue)
+        {
+            counselorName = await ResolveCounselorFullNameAsync(
+                tokenRecord.Student.SchoolId.Value,
+                assignment.GradeId,
+                assignment.GroupId);
+        }
+
         // LÓGICA-7 fix: Allowed = AllowedToEnterSchool (decisión operativa real)
         return new ScanResultDto
         {
@@ -375,8 +401,40 @@ public class StudentIdCardService : IStudentIdCardService
             // LÓGICA-2 fix: exponer "expired" cuando el carnet está vencido por fecha
             CardStatus = cardExpired ? "expired" : card?.Status,
             CardIssuedDate = card?.IssuedAt,
-            AllowedToEnterSchool = allowedToEnterSchool
+            AllowedToEnterSchool = allowedToEnterSchool,
+            ShiftName = shiftDisplay,
+            CounselorName = counselorName,
+            IsStudentAccountActive = studentAccountActive
         };
+    }
+
+    /// <summary>
+    /// Consejero por prioridad: asignación por grupo → por grado (sin grupo) → consejero general de la escuela.
+    /// </summary>
+    private async Task<string?> ResolveCounselorFullNameAsync(Guid schoolId, Guid gradeId, Guid groupId)
+    {
+        var byGroup = await _context.CounselorAssignments.AsNoTracking()
+            .Where(ca => ca.SchoolId == schoolId && ca.GroupId == groupId && ca.IsActive && ca.IsCounselor)
+            .Select(ca => ca.User.Name + " " + ca.User.LastName)
+            .FirstOrDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(byGroup))
+            return byGroup.Trim();
+
+        var byGrade = await _context.CounselorAssignments.AsNoTracking()
+            .Where(ca => ca.SchoolId == schoolId && ca.GradeId == gradeId && ca.GroupId == null && ca.IsActive &&
+                         ca.IsCounselor)
+            .Select(ca => ca.User.Name + " " + ca.User.LastName)
+            .FirstOrDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(byGrade))
+            return byGrade.Trim();
+
+        var general = await _context.CounselorAssignments.AsNoTracking()
+            .Where(ca => ca.SchoolId == schoolId && ca.GradeId == null && ca.GroupId == null && ca.IsActive &&
+                         ca.IsCounselor)
+            .Select(ca => ca.User.Name + " " + ca.User.LastName)
+            .FirstOrDefaultAsync();
+
+        return string.IsNullOrWhiteSpace(general) ? null : general.Trim();
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -391,7 +449,10 @@ public class StudentIdCardService : IStudentIdCardService
         Grade = "N/A",
         Group = "N/A",
         DisciplineCount = 0,
-        AllowedToEnterSchool = false
+        AllowedToEnterSchool = false,
+        IsStudentAccountActive = false,
+        ShiftName = null,
+        CounselorName = null
     };
 
     /// <summary>

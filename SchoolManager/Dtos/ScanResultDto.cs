@@ -31,4 +31,13 @@ public class ScanResultDto
     public DateTime? CardIssuedDate { get; set; }
     /// <summary>Indica si el estudiante está autorizado a ingresar al colegio (estado activo, carnet activo, asignación activa). Solo informativo; no modifica Allowed.</summary>
     public bool AllowedToEnterSchool { get; set; }
+
+    /// <summary>Jornada desde la asignación activa (tabla shifts) o, si falta, el campo users.shift.</summary>
+    public string? ShiftName { get; set; }
+
+    /// <summary>Nombre del consejero según counselor_assignments (grupo → grado → general).</summary>
+    public string? CounselorName { get; set; }
+
+    /// <summary>True si users.status es active (cuenta del estudiante en el sistema).</summary>
+    public bool IsStudentAccountActive { get; set; }
 }
