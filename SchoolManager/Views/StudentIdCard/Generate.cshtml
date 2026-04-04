@@ -19,6 +19,16 @@
     var hasLogo = !string.IsNullOrWhiteSpace(Model.SchoolLogoUrl);
     var showWm = Model.ShowWatermark && hasLogo;
     var hasEmergencyQr = hasCard && Model.ShowQr && !string.IsNullOrEmpty(Model.Card?.EmergencyInfoQrImageDataUrl);
+    var gradeGroupCompact = "—";
+    if (hasCard && Model.Card != null)
+    {
+        var gradeG = Model.Card.Grade?.Trim() ?? "";
+        var groupG = string.IsNullOrWhiteSpace(Model.Card.Group) ? "" : Model.Card.Group.Trim();
+        gradeGroupCompact = (string.IsNullOrWhiteSpace(gradeG) && string.IsNullOrWhiteSpace(groupG)) ? "—"
+            : string.IsNullOrWhiteSpace(groupG) ? gradeG
+            : string.IsNullOrWhiteSpace(gradeG) ? groupG
+            : $"{gradeG}-{groupG}";
+    }
 }
 
 <style>
@@ -369,7 +379,7 @@
                                 {
                                     <div style="font-size:6.5pt;color:@text">Cédula: @Model.DocumentId</div>
                                 }
-                                <div style="font-size:6.5pt;color:@text;line-height:1.25">Grado: @Model.Card.Grade  —  Grupo: @(string.IsNullOrWhiteSpace(Model.Card.Group) ? "—" : Model.Card.Group)</div>
+                                <div style="font-size:6.5pt;color:@text;line-height:1.25">@gradeGroupCompact</div>
                                 @if (Model.ShowAcademicYear && !string.IsNullOrWhiteSpace(Model.AcademicYear))
                                 {
                                     <div style="font-size:6.5pt;color:@text">Año: @Model.AcademicYear</div>
