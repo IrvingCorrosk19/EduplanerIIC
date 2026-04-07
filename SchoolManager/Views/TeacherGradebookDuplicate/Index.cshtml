@@ -1849,10 +1849,7 @@
                     success: data => {
                         console.log('Datos recibidos del servidor:', data);
                         
-                        // Reiniciar las actividades y scores al cambiar de trimestre
-                        activities.tarea = [];
-                        activities.parcial = [];
-                        activities.examen = [];
+                        clearActivityBuckets();
                         scores = {};
 
                         if (data && Array.isArray(data)) {
@@ -2051,10 +2048,7 @@
                 if (combo && trimester) {
                     const [subjectId, groupId, gradeLevelId] = combo.split('|');
                     
-                    // Reiniciar todo al cambiar de grupo o trimestre
-                    activities.tarea = [];
-                    activities.parcial = [];
-                    activities.examen = [];
+                    clearActivityBuckets();
                     scores = {};
                     
                     loadStudents(groupId, gradeLevelId, subjectId, () => {
@@ -2181,14 +2175,17 @@
             function loadGradeBook(groupId, trimester, subjectId, gradeLevelId) {
                 if (!subjectId || !gradeLevelId) return;
                 $.get(`/TeacherGradebookDuplicate/GradeBookJson?groupId=${groupId}&trimester=${encodeURIComponent(trimester)}&subjectId=${subjectId}&gradeLevelId=${gradeLevelId}`, function(data) {
-                    // Agrupa las actividades por tipo
-                    activities.tarea = [];
-                    activities.parcial = [];
-                    activities.examen = [];
+                    clearActivityBuckets();
                     if (data.activities && Array.isArray(data.activities)) {
                         data.activities.forEach(a => {
                             const tipo = (a.type || '').toLowerCase();
-                            if (activities[tipo]) activities[tipo].push(a);
+                            if (!activities[tipo]) activities[tipo] = [];
+                            activities[tipo].push({
+                                name: a.name,
+                                pdfUrl: a.pdfUrl,
+                                id: a.id,
+                                dueDate: a.dueDate
+                            });
                         });
                     }
                     refreshTable();

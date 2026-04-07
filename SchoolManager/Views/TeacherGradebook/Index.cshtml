@@ -1361,7 +1361,10 @@
         $(document).ready(() => {
             const teacherId = '@Model.TeacherId';
             const students = [];
-            const activities = { tarea: [], parcial: [], examen: [] };
+            const activities = {};
+            function clearActivityBuckets() {
+                Object.keys(activities).forEach(k => delete activities[k]);
+            }
             let scores = {};
             const studentAnnualScores = {};
 
@@ -1924,10 +1927,8 @@
                     success: data => {
                         console.log('Datos recibidos del servidor:', data);
                         
-                        // Reiniciar las actividades y scores al cambiar de trimestre
-                        activities.tarea = [];
-                        activities.parcial = [];
-                        activities.examen = [];
+                        // Reiniciar todo (los tipos reales son p.ej. "ejercicios diarios", no tarea/parcial)
+                        clearActivityBuckets();
                         scores = {};
 
                         if (data && Array.isArray(data)) {
@@ -1957,7 +1958,7 @@
                         console.log('Activities después de procesar:', activities);
                         
                         // Verificar si hay actividades
-                        const totalActivities = (activities.tarea?.length || 0) + (activities.parcial?.length || 0) + (activities.examen?.length || 0);
+                        const totalActivities = Object.keys(activities).reduce((n, k) => n + (Array.isArray(activities[k]) ? activities[k].length : 0), 0);
                         console.log('Total de actividades:', totalActivities);
                         
                         if (totalActivities === 0) {
@@ -2192,10 +2193,8 @@
                 if (combo && trimester) {
                     const [subjectId, groupId, gradeLevelId] = combo.split('|');
                     
-                    // Reiniciar todo al cambiar de grupo o trimestre
-                    activities.tarea = [];
-                    activities.parcial = [];
-                    activities.examen = [];
+                    // Reiniciar todo al cambiar de grupo o trimestre (incluye tipos dinámicos de actividad)
+                    clearActivityBuckets();
                     scores = {};
                     
                     loadStudents(groupId, gradeLevelId, subjectId, () => {
@@ -2348,14 +2347,17 @@
             function loadGradeBook(groupId, trimester, subjectId, gradeLevelId) {
                 if (!subjectId || !gradeLevelId) return;
                 $.get(`/TeacherGradebook/GradeBookJson?groupId=${groupId}&trimester=${encodeURIComponent(trimester)}&subjectId=${subjectId}&gradeLevelId=${gradeLevelId}`, function(data) {
-                    // Agrupa las actividades por tipo
-                    activities.tarea = [];
-                    activities.parcial = [];
-                    activities.examen = [];
+                    clearActivityBuckets();
                     if (data.activities && Array.isArray(data.activities)) {
                         data.activities.forEach(a => {
                             const tipo = (a.type || '').toLowerCase();
-                            if (activities[tipo]) activities[tipo].push(a);
+                            if (!activities[tipo]) activities[tipo] = [];
+                            activities[tipo].push({
+                                name: a.name,
+                                pdfUrl: a.pdfUrl,
+                                id: a.id,
+                                dueDate: a.dueDate
+                            });
                         });
                     }
                     refreshTable();
