@@ -15,6 +15,202 @@
         --danger-color: #ef4444;
         --light-bg: #f8fafc;
         --border-color: #e2e8f0;
+        /* Columnas fijas (sticky): nombre y cédula deben alinearse en left */
+        --gradebook-name-col: 240px;
+        --gradebook-doc-col: 112px;
+        /* Columnas de calificación: ancho uniforme (no dictado solo por el texto del encabezado) */
+        --gb-activity-col: 108px;
+        --gb-avg-col: 72px;
+        --gb-final-col: 80px;
+        --gb-empty-col: 140px;
+    }
+
+    /* Scroll horizontal del libro: Estudiante y Cédula siempre visibles */
+    .gradebook-table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border-color);
+        background: #fff;
+    }
+
+    #gradebook.gradebook-table {
+        margin-bottom: 0;
+        font-size: 0.875rem;
+        border-collapse: separate;
+        border-spacing: 0;
+        table-layout: fixed;
+        width: max-content;
+        min-width: 100%;
+    }
+
+    #gradebook.gradebook-table thead th {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    #gradebook.gradebook-table tbody td {
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    #gradebook .gradebook-score-cell,
+    #gradebook td[class*="avg-"],
+    #gradebook .final-grade {
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Actividad: encabezado y celda misma anchura */
+    #gradebook thead th.gradebook-col-activity,
+    #gradebook tbody td.gradebook-score-cell {
+        width: var(--gb-activity-col);
+        min-width: var(--gb-activity-col);
+        max-width: var(--gb-activity-col);
+        padding: 0.35rem 0.2rem;
+        box-sizing: border-box;
+    }
+
+    #gradebook thead th.gradebook-col-activity {
+        padding: 0.45rem 0.2rem;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+
+    .gradebook-activity-head {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .gradebook-activity-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.15rem;
+    }
+
+    .gradebook-activity-actions .gradebook-act-btn {
+        padding: 0.12rem 0.32rem;
+        font-size: 0.7rem;
+        line-height: 1;
+        border-radius: 0.25rem;
+    }
+
+    .gradebook-activity-title {
+        width: 100%;
+        max-width: 100%;
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.25;
+        max-height: 2.5em;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        word-break: break-word;
+        hyphens: auto;
+    }
+
+    #gradebook thead .gradebook-type-pill {
+        font-size: 0.62rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        padding: 0.12rem 0.4rem;
+        line-height: 1;
+    }
+
+    /* Promedio por tipo y nota final: anchos fijos */
+    #gradebook thead th.gradebook-col-avg,
+    #gradebook tbody td.gradebook-col-avg {
+        width: var(--gb-avg-col);
+        min-width: var(--gb-avg-col);
+        max-width: var(--gb-avg-col);
+        padding: 0.35rem 0.2rem;
+        font-size: 0.8rem;
+        box-sizing: border-box;
+    }
+
+    #gradebook thead th.gradebook-col-final,
+    #gradebook tbody td.gradebook-col-final {
+        width: var(--gb-final-col);
+        min-width: var(--gb-final-col);
+        max-width: var(--gb-final-col);
+        padding: 0.35rem 0.2rem;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+    }
+
+    #gradebook thead th.gradebook-col-empty,
+    #gradebook tbody td.gradebook-col-empty {
+        min-width: var(--gb-empty-col);
+        padding: 0.35rem 0.5rem;
+    }
+
+    #gradebook thead th.gradebook-sticky-name,
+    #gradebook tbody td.gradebook-sticky-name {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        width: var(--gradebook-name-col);
+        min-width: var(--gradebook-name-col);
+        max-width: var(--gradebook-name-col);
+        vertical-align: middle;
+        box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.18);
+        word-wrap: break-word;
+        padding: 0.5rem 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    #gradebook thead th.gradebook-sticky-name {
+        z-index: 4;
+        background-color: #212529 !important;
+    }
+
+    #gradebook tbody td.gradebook-sticky-name {
+        background-color: #fff;
+    }
+
+    #gradebook thead th.gradebook-sticky-doc,
+    #gradebook tbody td.gradebook-sticky-doc {
+        position: sticky;
+        left: var(--gradebook-name-col);
+        z-index: 2;
+        width: var(--gradebook-doc-col);
+        min-width: var(--gradebook-doc-col);
+        max-width: var(--gradebook-doc-col);
+        vertical-align: middle;
+        box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.18);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0.5rem 0.35rem;
+        font-size: 0.8rem;
+    }
+
+    #gradebook thead th.gradebook-sticky-doc {
+        z-index: 4;
+        background-color: #212529 !important;
+    }
+
+    #gradebook tbody td.gradebook-sticky-doc {
+        background-color: #fff;
+    }
+
+    #gradebook.table-hover > tbody > tr:hover > td.gradebook-sticky-name,
+    #gradebook.table-hover > tbody > tr:hover > td.gradebook-sticky-doc {
+        background-color: rgba(0, 0, 0, 0.04) !important;
+    }
+
+    #gradebook tbody td.gradebook-score-cell:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: -2px;
+        background-color: rgba(37, 99, 235, 0.06);
     }
 
     body {
@@ -619,12 +815,12 @@
                     </div>
                 </div>
                 
-                    <div class="table-responsive">
-                        <table id="gradebook" class="table table-hover mb-0" style="min-width: 800px;">
+                    <div class="table-responsive gradebook-table-scroll">
+                        <table id="gradebook" class="table table-hover mb-0 gradebook-table">
                             <thead class="table-dark">
                                 <tr id="hdrRow">
-                                    <th style="text-align: left;">Estudiante</th>
-                                    <th style="text-align: left;">Cédula</th>
+                                    <th class="text-start gradebook-sticky-name">Estudiante</th>
+                                    <th class="text-start gradebook-sticky-doc">Cédula</th>
                                 </tr>
                             </thead>
                             <tbody id="bodyRows"></tbody>
@@ -1332,6 +1528,39 @@
             return trimmed || '(Sin nombre)';
         }
 
+        function escapeAttr(text) {
+            if (text == null || text === '') return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function escapeHtml(text) {
+            if (text == null || text === '') return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        /** Etiqueta corta del tipo para cabeceras compactas (tooltip lleva el nombre completo). */
+        function gradebookTypeShortLabel(type) {
+            const t = (type || '').toLowerCase();
+            if (t === 'notas de apreciación') return 'Aprec.';
+            if (t === 'ejercicios diarios') return 'Ejerc.';
+            if (t === 'examen final') return 'Examen';
+            if (t === 'recuperación') return 'Recup.';
+            if (t === 'tarea') return 'Tarea';
+            if (t === 'parcial') return 'Parcial';
+            if (t === 'examen') return 'Examen';
+            const s = type || '';
+            return s.length > 12 ? s.slice(0, 11) + '…' : s;
+        }
+
         const TZ_PANAMA = 'America/Panama';
 
         /** Muestra fechas según calendario en Panamá (evita desfase por UTC). */
@@ -1499,7 +1728,7 @@
                 saveCurrentScores();
 
                 const hdrRow = $('#hdrRow');
-                hdrRow.html('<th>Estudiante</th><th>Cédula</th>');
+                hdrRow.html('<th class="text-start gradebook-sticky-name">Estudiante</th><th class="text-start gradebook-sticky-doc">Cédula</th>');
 
                 console.log('Objeto activities:', activities);
 
@@ -1511,38 +1740,41 @@
                         hasActivities = true;
                         activities[type].forEach(a => {
                             console.log('Actividad en ciclo:', a);
-                            // Botón de descarga
-                            const downloadButton = a.pdfUrl 
-                                ? `<a href='${a.pdfUrl}' target='_blank' class='btn btn-sm btn-outline-primary mb-1' title='Descargar archivo'><i class='bi bi-download'></i></a>` 
+                            const fechaEntrega = a.dueDate ? formatDatePanama(a.dueDate) : '';
+                            const shortType = gradebookTypeShortLabel(type);
+                            const tipParts = [`${a.name} (${type})`];
+                            if (fechaEntrega) tipParts.push(`Entrega: ${fechaEntrega}`);
+                            const tip = tipParts.join(' · ');
+                            const downloadButton = a.pdfUrl
+                                ? `<a href="${escapeAttr(a.pdfUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-light btn-sm gradebook-act-btn" title="Descargar"><i class="bi bi-download"></i></a>`
                                 : '';
-                            // Botón de editar
-                            const editButton = a.id ? `<button class='btn btn-sm btn-outline-warning mb-1 btn-edit-activity' data-activity-id='${a.id}' data-activity-name='${a.name}' data-activity-type='${type}' data-activity-due-date='${a.dueDate || ''}' title='Editar actividad'><i class='bi bi-pencil'></i></button>` : '';
-                            // Botón de eliminar
-                            const deleteButton = a.id ? `<button class='btn btn-sm btn-outline-danger mb-1 btn-delete-activity' data-activity-id='${a.id}' title='Eliminar actividad'><i class='bi bi-trash'></i></button>` : '';
-                            // Fecha de entrega bonita
-                            let fechaEntrega = a.dueDate ? formatDatePanama(a.dueDate) : '';
+                            const editButton = a.id
+                                ? `<button type="button" class="btn btn-outline-warning btn-sm gradebook-act-btn btn-edit-activity" data-activity-id="${escapeAttr(String(a.id))}" data-activity-name="${escapeAttr(a.name)}" data-activity-type="${escapeAttr(type)}" data-activity-due-date="${escapeAttr(a.dueDate || '')}" title="Editar actividad"><i class="bi bi-pencil"></i></button>`
+                                : '';
+                            const deleteButton = a.id
+                                ? `<button type="button" class="btn btn-outline-danger btn-sm gradebook-act-btn btn-delete-activity" data-activity-id="${escapeAttr(String(a.id))}" title="Eliminar actividad"><i class="bi bi-trash"></i></button>`
+                                : '';
                             hdrRow.append(
-                              `<th>
-                                <div class='d-flex flex-column align-items-center'>
-                                  ${downloadButton}${editButton}${deleteButton}
-                                  <span>
-                                    ${a.name}
-                                    <br/>
-                                    <small>(${type})</small>
-                                    ${fechaEntrega ? `<br/><small class='text-muted' style='font-size:0.85em;'>(Entrega: ${fechaEntrega})</small>` : ''}
-                                  </span>
-                                </div>
-                              </th>`
+                                `<th class="text-center gradebook-col-activity align-middle" scope="col" title="${escapeAttr(tip)}">
+                                    <div class="gradebook-activity-head">
+                                        <div class="gradebook-activity-actions">${downloadButton}${editButton}${deleteButton}</div>
+                                        <div class="gradebook-activity-title">${escapeHtml(a.name)}</div>
+                                        <span class="gradebook-type-pill">${escapeHtml(shortType)}</span>
+                                    </div>
+                                </th>`
                             );
                         });
-                        hdrRow.append(`<th class='text-primary'>Prom. ${type.charAt(0).toUpperCase() + type.slice(1)}</th>`);
+                        const promShort = gradebookTypeShortLabel(type);
+                        hdrRow.append(
+                            `<th class="text-center gradebook-col-avg text-info" scope="col" title="${escapeAttr('Promedio ' + type)}"><span class="d-block lh-1">Prom.</span><span class="d-block small text-white-50 fw-normal mt-1">${escapeHtml(promShort)}</span></th>`
+                        );
                     }
                 });
-                
+
                 if (!hasActivities) {
-                    hdrRow.append('<th class="text-muted">No hay actividades</th>');
+                    hdrRow.append('<th class="text-center text-muted gradebook-col-empty" scope="col">Sin actividades</th>');
                 }
-                hdrRow.append("<th class='text-dark'>Nota Final</th>");
+                hdrRow.append('<th class="text-center gradebook-col-final fw-semibold text-white" scope="col">Nota final</th>');
 
                 const body = $('#bodyRows');
                 body.empty();
@@ -1550,24 +1782,24 @@
                 if (students && students.length > 0) {
                     students.forEach(s => {
                         const formattedName = formatName(s.fullName);
-                        
-                        let row = `<tr data-stu-id="${s.id}"><td>${formattedName}</td><td>${s.documentId || 'Sin cédula'}</td>`;
+                        const docCell = s.documentId ? escapeHtml(s.documentId) : 'Sin cédula';
+
+                        let row = `<tr data-stu-id="${escapeAttr(String(s.id))}"><td class="gradebook-sticky-name">${escapeHtml(formattedName)}</td><td class="gradebook-sticky-doc" title="${escapeAttr(s.documentId || '')}">${docCell}</td>`;
 
                         if (hasActivities) {
                             activeTypes.forEach(type => {
                                 if (activities[type] && activities[type].length > 0) {
                                     activities[type].forEach(a => {
                                         const savedScore = scores[s.id]?.[type]?.[a.name] || '';
-                                        row += `<td contenteditable class="score-cell" data-stu="${s.id}" data-type="${type}" data-act="${a.name}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
+                                        row += `<td contenteditable="true" class="score-cell gradebook-score-cell text-center" data-stu="${escapeAttr(String(s.id))}" data-type="${escapeAttr(type)}" data-act="${escapeAttr(a.name)}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
                                     });
-                                    // Reemplazar espacios con guiones para las clases CSS
                                     const typeClass = type.replace(/\s+/g, '-');
-                                    row += `<td class='text-primary avg-${typeClass}'></td>`;
+                                    row += `<td class="text-center gradebook-col-avg text-primary avg-${typeClass} fw-semibold"></td>`;
                                 }
                             });
-                            row += `<td class='text-dark fw-bold final-grade'></td>`;
+                            row += `<td class="text-center gradebook-col-final text-dark fw-bold final-grade"></td>`;
                         } else {
-                            row += `<td class="text-muted">No hay actividades</td>`;
+                            row += `<td class="text-muted text-center gradebook-col-empty">—</td>`;
                         }
 
                         row += `</tr>`;
