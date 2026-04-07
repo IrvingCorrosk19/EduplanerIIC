@@ -1878,11 +1878,11 @@
                 updateResumenTable();
             }
 
-            function loadStudents(groupId, gradeLevelId, callback) {
+            function loadStudents(groupId, gradeLevelId, subjectId, callback) {
                 $('#hdrRow').html('<th colspan="100%">Cargando estudiantes...</th>');
                 $('#bodyRows').html('<tr><td colspan="100%" class="text-center">Cargando estudiantes...</td></tr>');
 
-                $.get(`/TeacherGradebook/StudentsByGroupAndGrade?groupId=${groupId}&gradeId=${gradeLevelId}`)
+                $.get(`/TeacherGradebook/StudentsByGroupAndGrade?groupId=${groupId}&gradeId=${gradeLevelId}&subjectId=${subjectId}`)
                     .done(data => {
                         console.log('Estudiantes recibidos:', data);
                         students.length = 0;
@@ -2198,7 +2198,7 @@
                     activities.examen = [];
                     scores = {};
                     
-                    loadStudents(groupId, gradeLevelId, () => {
+                    loadStudents(groupId, gradeLevelId, subjectId, () => {
                         loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
                     });
                     }
@@ -2212,7 +2212,7 @@
             if (combo && trimester) {
                 const [subjectId, groupId, gradeLevelId] = combo.split('|');
                 console.log('IDs extraídos:', { subjectId, groupId, gradeLevelId });
-                loadStudents(groupId, gradeLevelId, () => {
+                loadStudents(groupId, gradeLevelId, subjectId, () => {
                     loadNotasCargadas(subjectId, groupId, gradeLevelId, trimester);
                 });
             } else {
@@ -2345,8 +2345,9 @@
             $('#resumen-tab').on('click', loadPromediosFinales);
 
             // Función para cargar el libro de calificaciones
-            function loadGradeBook(groupId, trimester) {
-                $.get(`/TeacherGradebook/GradeBookJson?groupId=${groupId}&trimester=${trimester}`, function(data) {
+            function loadGradeBook(groupId, trimester, subjectId, gradeLevelId) {
+                if (!subjectId || !gradeLevelId) return;
+                $.get(`/TeacherGradebook/GradeBookJson?groupId=${groupId}&trimester=${encodeURIComponent(trimester)}&subjectId=${subjectId}&gradeLevelId=${gradeLevelId}`, function(data) {
                     // Agrupa las actividades por tipo
                     activities.tarea = [];
                     activities.parcial = [];

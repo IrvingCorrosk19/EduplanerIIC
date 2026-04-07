@@ -72,13 +72,18 @@ namespace SchoolManager.Services
         }
 
         /* ------------ 2. Libro de calificaciones pivotado ------------ */
-        public async Task<GradeBookDto> GetGradeBookAsync(Guid teacherId, Guid groupId, string trimesterCode)
+        public async Task<GradeBookDto> GetGradeBookAsync(Guid teacherId, Guid groupId, string trimesterCode, Guid subjectId, Guid gradeLevelId)
         {
-            /* 2.1 Cabeceras: actividades del docente en ese grupo y trimestre */
+            if (subjectId == Guid.Empty || gradeLevelId == Guid.Empty)
+                return new GradeBookDto { Activities = new List<ActivityHeaderDto>(), Rows = new List<StudentGradeRowDto>() };
+
+            /* 2.1 Cabeceras: actividades del docente en ese grupo, trimestre, materia y grado */
             var headers = await _context.Activities
                 .Where(a => a.TeacherId == teacherId &&
                             a.GroupId == groupId &&
-                            a.Trimester == trimesterCode)
+                            a.Trimester == trimesterCode &&
+                            a.SubjectId == subjectId &&
+                            a.GradeLevelId == gradeLevelId)
                 .OrderBy(a => a.CreatedAt)
                 .Select(a => new ActivityHeaderDto
                 {
@@ -294,6 +299,9 @@ namespace SchoolManager.Services
 
         public async Task<List<StudentNotaDto>> GetNotasPorFiltroAsync(GetNotesDto notes)
         {
+            if (notes.SubjectId == Guid.Empty || notes.GradeLevelId == Guid.Empty)
+                return new List<StudentNotaDto>();
+
             // Obtener las notas existentes con información del estudiante
             var notas = await _context.StudentActivityScores
                 .Include(sa => sa.Activity)
@@ -349,6 +357,9 @@ namespace SchoolManager.Services
 
         public async Task<List<PromedioFinalDto>> GetPromediosFinalesAsync(GetNotesDto notes)
         {
+            if (notes.SubjectId == Guid.Empty || notes.GradeLevelId == Guid.Empty)
+                return new List<PromedioFinalDto>();
+
             // 1. Obtener todos los estudiantes del grupo y grado usando solo User y StudentAssignment
             // Ordenar alfabéticamente por apellido primero, luego por nombre
             var students = await _context.StudentAssignments

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -14,7 +14,7 @@ namespace SchoolManager.Interfaces
         Task<ActivityDto> CreateAsync(ActivityCreateDto dto);
         Task<ActivityDto> UpdateAsync(ActivityUpdateDto dto);
         Task<IEnumerable<ActivityHeaderDto>> GetByTeacherGroupTrimesterAsync(
-            Guid teacherId, Guid groupId, string trimesterCode);
+            Guid teacherId, Guid groupId, string trimesterCode, Guid subjectId, Guid gradeLevelId);
         Task UploadPdfAsync(Guid activityId, string fileName, Stream content);
 
         /* CRUD legado (opcional) */

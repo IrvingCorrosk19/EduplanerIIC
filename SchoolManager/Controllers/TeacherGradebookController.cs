@@ -77,6 +77,9 @@ namespace SchoolManager.Controllers
                         return BadRequest("Uno o más IDs tienen un formato inválido.");
                     }
 
+                    if (subjectId == Guid.Empty || gradeLevelId == Guid.Empty)
+                        return BadRequest("La materia y el grado son obligatorios para guardar notas.");
+
                     foreach (var nota in alumno.Notas)
                     {
                         decimal? score = null;
@@ -132,8 +135,19 @@ namespace SchoolManager.Controllers
                 return BadRequest("Los datos están incompletos.");
             }
 
-            // Obtener todas las actividades del grupo, materia, docente y trimestre
-            var activities = await _activitySvc.GetByTeacherGroupTrimesterAsync(notes.TeacherId, notes.GroupId, notes.Trimester);
+            if (notes.SubjectId == Guid.Empty || notes.GradeLevelId == Guid.Empty)
+            {
+                return BadRequest("Debe indicar la materia y el grado para cargar las notas.");
+            }
+
+            if (notes.GroupId == Guid.Empty || notes.TeacherId == Guid.Empty)
+            {
+                return BadRequest("Debe indicar el grupo y el docente.");
+            }
+
+            // Actividades solo de la misma materia y el mismo grado que el combo seleccionado
+            var activities = await _activitySvc.GetByTeacherGroupTrimesterAsync(
+                notes.TeacherId, notes.GroupId, notes.Trimester, notes.SubjectId, notes.GradeLevelId);
             var actividadesPorTipo = activities.GroupBy(a => a.Type.ToLower()).ToDictionary(g => g.Key, g => g.ToList());
 
             // Obtener las notas existentes (como antes)
@@ -342,12 +356,12 @@ namespace SchoolManager.Controllers
 
 
 
-        // GET: /TeacherGradebook/GradeBookJson?groupId=...&trimester=...
+        // GET: /TeacherGradebook/GradeBookJson?groupId=...&trimester=...&subjectId=...&gradeLevelId=...
         [HttpGet]
-        public async Task<JsonResult> GradeBookJson(Guid groupId, string trimester)
+        public async Task<JsonResult> GradeBookJson(Guid groupId, string trimester, Guid subjectId, Guid gradeLevelId)
         {
             var teacherId = GetTeacherId();
-            var book = await _scoreSvc.GetGradeBookAsync(teacherId, groupId, trimester);
+            var book = await _scoreSvc.GetGradeBookAsync(teacherId, groupId, trimester, subjectId, gradeLevelId);
             return Json(book);
         }
 
@@ -377,6 +391,9 @@ namespace SchoolManager.Controllers
                         return Json(new { success = false, error = "La fecha de entrega es obligatoria y debe ser válida" });
                     }
                 }
+
+                if (dto.SubjectId == Guid.Empty || dto.GradeLevelId == Guid.Empty)
+                    return Json(new { success = false, error = "La materia y el grado son obligatorios." });
 
                 var result = await _activitySvc.CreateAsync(dto);
                 return Json(new { success = true, data = result });
@@ -408,6 +425,9 @@ namespace SchoolManager.Controllers
                         return Json(new { success = false, error = "La fecha de entrega es obligatoria y debe ser válida" });
                     }
                 }
+
+                if (dto.SubjectId == Guid.Empty || dto.GradeLevelId == Guid.Empty)
+                    return Json(new { success = false, error = "La materia y el grado son obligatorios." });
 
                 var result = await _activitySvc.UpdateAsync(dto);
                 return Json(new { success = true, data = result });
@@ -462,6 +482,11 @@ namespace SchoolManager.Controllers
             if (notes == null)
             {
                 return BadRequest("Los datos están incompletos.");
+            }
+
+            if (notes.SubjectId == Guid.Empty || notes.GradeLevelId == Guid.Empty)
+            {
+                return BadRequest("Debe indicar la materia y el grado para los promedios.");
             }
 
             try

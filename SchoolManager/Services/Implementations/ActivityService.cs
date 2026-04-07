@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SchoolManager.Dtos;            // ⇦ DTOs con get/set
 using SchoolManager.Interfaces;      // ⇦ IActivityService, IFileStorage
 using SchoolManager.Models;          // ⇦ SchoolDbContext, Activity
@@ -200,8 +200,11 @@ namespace SchoolManager.Services
         }
 
         public async Task<IEnumerable<ActivityHeaderDto>> GetByTeacherGroupTrimesterAsync(
-            Guid teacherId, Guid groupId, string trimesterCode)
+            Guid teacherId, Guid groupId, string trimesterCode, Guid subjectId, Guid gradeLevelId)
         {
+            if (subjectId == Guid.Empty || gradeLevelId == Guid.Empty)
+                return new List<ActivityHeaderDto>();
+
             // Obtener la escuela del usuario logueado para filtrar
             var currentUserSchool = await _currentUserService.GetCurrentUserSchoolAsync();
             if (currentUserSchool == null)
@@ -219,12 +222,16 @@ namespace SchoolManager.Services
                 return new List<ActivityHeaderDto>();
             }
 
-            return await _context.Activities
+            var query = _context.Activities
                 .Where(a => a.TeacherId == teacherId
                          && a.GroupId == groupId
                          && a.Trimester == trimesterCode
                          && a.SchoolId == currentUserSchool.Id
-                         && a.TrimesterId == trimestre.Id)  // ← Filtrar también por TrimesterId
+                         && a.TrimesterId == trimestre.Id
+                         && a.SubjectId == subjectId
+                         && a.GradeLevelId == gradeLevelId);
+
+            return await query
                 .OrderBy(a => a.CreatedAt)
                 .Select(a => new ActivityHeaderDto
                 {
