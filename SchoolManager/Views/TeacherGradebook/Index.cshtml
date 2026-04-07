@@ -16,12 +16,12 @@
         --light-bg: #f8fafc;
         --border-color: #e2e8f0;
         /* Columnas fijas (sticky): nombre y cédula deben alinearse en left */
-        --gradebook-name-col: 240px;
-        --gradebook-doc-col: 112px;
+        --gradebook-name-col: 200px;
+        --gradebook-doc-col: 90px;
         /* Columnas de calificación: ancho uniforme (no dictado solo por el texto del encabezado) */
-        --gb-activity-col: 108px;
-        --gb-avg-col: 72px;
-        --gb-final-col: 80px;
+        --gb-activity-col: 122px;
+        --gb-avg-col: 78px;
+        --gb-final-col: 88px;
         --gb-empty-col: 140px;
     }
 
@@ -101,10 +101,10 @@
     .gradebook-activity-title {
         width: 100%;
         max-width: 100%;
-        font-size: 0.72rem;
+        font-size: 0.8125rem;
         font-weight: 600;
-        line-height: 1.25;
-        max-height: 2.5em;
+        line-height: 1.3;
+        max-height: 2.6em;
         overflow: hidden;
         display: -webkit-box;
         -webkit-line-clamp: 2;
@@ -114,15 +114,15 @@
     }
 
     #gradebook thead .gradebook-type-pill {
-        font-size: 0.62rem;
+        font-size: 0.6875rem;
         font-weight: 600;
         letter-spacing: 0.04em;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.9);
-        background: rgba(255, 255, 255, 0.14);
+        color: #f1f5f9;
+        background: rgba(255, 255, 255, 0.18);
         border-radius: 999px;
-        padding: 0.12rem 0.4rem;
-        line-height: 1;
+        padding: 0.18rem 0.45rem;
+        line-height: 1.2;
     }
 
     /* Promedio por tipo y nota final: anchos fijos */
@@ -163,13 +163,14 @@
         vertical-align: middle;
         box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.18);
         word-wrap: break-word;
-        padding: 0.5rem 0.5rem;
-        font-size: 0.85rem;
+        padding: 0.4rem 0.35rem;
+        font-size: 0.8125rem;
     }
 
     #gradebook thead th.gradebook-sticky-name {
         z-index: 4;
-        background-color: #212529 !important;
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
     }
 
     #gradebook tbody td.gradebook-sticky-name {
@@ -189,13 +190,14 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        padding: 0.5rem 0.35rem;
-        font-size: 0.8rem;
+        padding: 0.4rem 0.28rem;
+        font-size: 0.78rem;
     }
 
     #gradebook thead th.gradebook-sticky-doc {
         z-index: 4;
-        background-color: #212529 !important;
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
     }
 
     #gradebook tbody td.gradebook-sticky-doc {
@@ -211,6 +213,58 @@
         outline: 2px solid var(--primary-color);
         outline-offset: -2px;
         background-color: rgba(37, 99, 235, 0.06);
+    }
+
+    /*
+     * Conflicto UX: más abajo .table thead th aplica fondo claro + color --secondary-color a TODAS las tablas.
+     * En el libro solo las sticky tenían fondo oscuro con !important → texto gris ilegible sobre oscuro.
+     * El resto de <th> quedaba fondo claro mezclado con componentes pensados para header oscuro.
+     */
+    #gradebook.table thead th {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        border-top-color: rgba(255, 255, 255, 0.08) !important;
+        border-bottom-color: rgba(255, 255, 255, 0.14) !important;
+        padding: 0.55rem 0.35rem !important;
+        white-space: normal !important;
+        vertical-align: middle !important;
+        font-weight: 600;
+        text-align: center !important;
+    }
+
+    #gradebook.table thead th.text-start,
+    #gradebook.table thead th.gradebook-sticky-name,
+    #gradebook.table thead th.gradebook-sticky-doc {
+        text-align: start !important;
+    }
+
+    #gradebook thead th .gradebook-th-sub {
+        display: block;
+        margin-top: 0.2rem;
+        font-size: 0.72rem;
+        font-weight: 500;
+        line-height: 1.25;
+        color: #94a3b8 !important;
+    }
+
+    #gradebook thead th.gradebook-th-final {
+        font-size: 0.875rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+        letter-spacing: 0.03em;
+    }
+
+    #gradebook thead th.gradebook-th-empty {
+        color: #cbd5e1 !important;
+        font-weight: 600;
+    }
+
+    #gradebook thead th.gradebook-col-activity .gradebook-activity-title {
+        color: #f8fafc !important;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        line-height: 1.3;
+        max-height: 2.6em;
     }
 
     body {
@@ -1766,15 +1820,15 @@
                         });
                         const promShort = gradebookTypeShortLabel(type);
                         hdrRow.append(
-                            `<th class="text-center gradebook-col-avg text-info" scope="col" title="${escapeAttr('Promedio ' + type)}"><span class="d-block lh-1">Prom.</span><span class="d-block small text-white-50 fw-normal mt-1">${escapeHtml(promShort)}</span></th>`
+                            `<th class="text-center gradebook-col-avg" scope="col" title="${escapeAttr('Promedio ' + type)}"><span class="d-block lh-sm fw-semibold">Prom.</span><span class="gradebook-th-sub">${escapeHtml(promShort)}</span></th>`
                         );
                     }
                 });
 
                 if (!hasActivities) {
-                    hdrRow.append('<th class="text-center text-muted gradebook-col-empty" scope="col">Sin actividades</th>');
+                    hdrRow.append('<th class="text-center gradebook-col-empty gradebook-th-empty" scope="col">Sin actividades</th>');
                 }
-                hdrRow.append('<th class="text-center gradebook-col-final fw-semibold text-white" scope="col">Nota final</th>');
+                hdrRow.append('<th class="text-center gradebook-col-final gradebook-th-final" scope="col">Nota final</th>');
 
                 const body = $('#bodyRows');
                 body.empty();
