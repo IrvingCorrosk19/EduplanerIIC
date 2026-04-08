@@ -295,20 +295,22 @@ var app = builder.Build();
 // Asegurar que existan las tablas del módulo de carnets (por si la migración no se aplicó)
 using (var scope = app.Services.CreateScope())
 {
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     if (!app.Environment.IsDevelopment())
     {
         var cloudinary = scope.ServiceProvider.GetRequiredService<ICloudinaryService>();
         if (!cloudinary.IsConfigured)
         {
-            throw new InvalidOperationException(
-                "Cloudinary no está configurado o las credenciales son placeholders. Fuera de Development es obligatorio " +
-                "para que las fotos de usuarios no se pierdan al desplegar. Defina Cloudinary__CloudName, Cloudinary__ApiKey " +
-                "y Cloudinary__ApiSecret con valores reales (p. ej. en Render → Environment).");
+            // No detenemos el arranque: el sitio debe poder desplegarse mientras se configuran variables en Render.
+            // Las subidas de foto siguen bloqueadas en LocalFileStorageService hasta que Cloudinary responda.
+            logger.LogCritical(
+                "Cloudinary no está configurado o las credenciales son placeholders. " +
+                "Defina en Render (Environment) Cloudinary__CloudName, Cloudinary__ApiKey y Cloudinary__ApiSecret con valores reales. " +
+                "Sin eso, la subida de fotos de usuario fallará; las fotos no quedarán persistentes en la nube.");
         }
     }
 
     var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await SchoolManager.Scripts.EnsureIdCardTables.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureUsersRoleCheck.EnsureAsync(db);
     await SchoolManager.Scripts.EnsureStudentPaymentAccessTable.EnsureAsync(db);
