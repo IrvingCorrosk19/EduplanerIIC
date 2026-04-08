@@ -131,8 +131,8 @@ public sealed class LocalFileStorageService : IFileStorageService
             if (!_cloudinary.IsConfigured)
             {
                 throw new InvalidOperationException(
-                    "Las fotos de estudiantes solo se guardan en la nube en este entorno. Configure Cloudinary con valores reales: " +
-                    "Cloudinary__CloudName, Cloudinary__ApiKey y Cloudinary__ApiSecret (por ejemplo en Render → Environment). " +
+                    "Las fotos de estudiantes solo se guardan en la nube en este entorno. En Render → Environment defina valores reales: " +
+                    "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET (también válido: Cloudinary__CloudName, Cloudinary__ApiKey, Cloudinary__ApiSecret). " +
                     "Así no se pierden al desplegar.");
             }
 

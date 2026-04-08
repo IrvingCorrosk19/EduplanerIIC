@@ -337,7 +337,8 @@ using (var scope = app.Services.CreateScope())
             // Las subidas de foto siguen bloqueadas en LocalFileStorageService hasta que Cloudinary responda.
             logger.LogCritical(
                 "Cloudinary no está configurado o las credenciales son placeholders. " +
-                "Defina en Render (Environment) Cloudinary__CloudName, Cloudinary__ApiKey y Cloudinary__ApiSecret con valores reales. " +
+                "Defina en Render (Environment) CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET con valores reales " +
+                "(o Cloudinary__CloudName, Cloudinary__ApiKey, Cloudinary__ApiSecret). " +
                 "Sin eso, la subida de fotos de usuario fallará; las fotos no quedarán persistentes en la nube.");
         }
     }
