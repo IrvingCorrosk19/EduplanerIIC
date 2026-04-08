@@ -36,6 +36,19 @@ public class FileController : Controller
             return NotFound();
         }
 
+        var trimmed = logoUrl.Trim();
+        // GetLogoAsync devuelve null para https (pensando en src directo), pero las vistas usan este endpoint.
+        // Sin redirección, siempre caía al logo por defecto y el carnet / impresión masiva no mostraban el logo real.
+        if (trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Uri.TryCreate(trimmed, UriKind.Absolute, out var abs)
+                && abs.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return Redirect(trimmed);
+            }
+        }
+
         try
         {
             var bytes = await _superAdminService.GetLogoAsync(logoUrl);
