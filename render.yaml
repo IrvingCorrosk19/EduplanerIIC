@@ -11,5 +11,13 @@ services:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: ConnectionStrings__DefaultConnection
-        sync: false  # Configurar en Render Dashboard con la URL de PostgreSQL
+        sync: false  # Pegar en Render: Internal Database URL o cadena Npgsql del Postgres
+      # Crear cuenta gratis en https://cloudinary.com → Dashboard → API Keys (una sola vez).
+      # Pegar los tres valores en Render → Environment (no van al repo por seguridad).
+      - key: Cloudinary__CloudName
+        sync: false
+      - key: Cloudinary__ApiKey
+        sync: false
+      - key: Cloudinary__ApiSecret
+        sync: false
     healthCheckPath: /
