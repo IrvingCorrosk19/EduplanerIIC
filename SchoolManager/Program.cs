@@ -25,20 +25,33 @@ using SchoolManager.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 // Render / docs de Cloudinary suelen usar CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.
-// La app lee Cloudinary:CloudName (env Cloudinary__CloudName). Rellenamos si solo existen los alias en MAYÚSCULAS.
+// También vale Cloudinary__CloudName en el entorno. Hay que sobrescribir placeholders de appsettings (TU_… / …AQUI…).
 static void ApplyCloudinaryEnvironmentAliases(ConfigurationManager config)
 {
-    void MapIfEmpty(string configKey, string envKey)
+    static bool IsPlaceholderValue(string? value)
     {
-        if (!string.IsNullOrWhiteSpace(config[configKey])) return;
-        var v = Environment.GetEnvironmentVariable(envKey);
-        if (!string.IsNullOrWhiteSpace(v))
-            config[configKey] = v.Trim();
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        var t = value.Trim();
+        return t.StartsWith("TU_", StringComparison.OrdinalIgnoreCase)
+            || t.Contains("AQUI", StringComparison.OrdinalIgnoreCase);
     }
 
-    MapIfEmpty("Cloudinary:CloudName", "CLOUDINARY_CLOUD_NAME");
-    MapIfEmpty("Cloudinary:ApiKey", "CLOUDINARY_API_KEY");
-    MapIfEmpty("Cloudinary:ApiSecret", "CLOUDINARY_API_SECRET");
+    void MapFromEnv(string configKey, string envKey)
+    {
+        var fromEnv = Environment.GetEnvironmentVariable(envKey);
+        if (string.IsNullOrWhiteSpace(fromEnv)) return;
+        var current = config[configKey];
+        if (IsPlaceholderValue(current))
+            config[configKey] = fromEnv.Trim();
+    }
+
+    MapFromEnv("Cloudinary:CloudName", "CLOUDINARY_CLOUD_NAME");
+    MapFromEnv("Cloudinary:ApiKey", "CLOUDINARY_API_KEY");
+    MapFromEnv("Cloudinary:ApiSecret", "CLOUDINARY_API_SECRET");
+    // Mismo criterio si usan nombres .NET en Render (Cloudinary__CloudName, etc.)
+    MapFromEnv("Cloudinary:CloudName", "Cloudinary__CloudName");
+    MapFromEnv("Cloudinary:ApiKey", "Cloudinary__ApiKey");
+    MapFromEnv("Cloudinary:ApiSecret", "Cloudinary__ApiSecret");
 }
 
 ApplyCloudinaryEnvironmentAliases(builder.Configuration);
