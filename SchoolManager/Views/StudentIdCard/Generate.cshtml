@@ -66,7 +66,8 @@
         height: @(isVertical ? "334px" : "216px");
         max-height: @(isVertical ? "334px" : "216px");
         background: @bg;
-        border-radius: 8px;
+        /* Esquinas solo abajo: evita franjas blancas arriba y en laterales del encabezado al imprimir / captura Puppeteer */
+        border-radius: 0 0 8px 8px;
         padding: 0;
         position: relative;
         overflow: hidden;
@@ -104,9 +105,14 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 6px 6px 5px;
+        padding: 8px 6px 5px;
         background: @primary;
         gap: 4px;
+        box-sizing: border-box;
+        /* Sangra sobre el borde 1px del carnet para que el azul llegue al borde físico (pantalla, PDF vía HTML, impresión) */
+        margin: -1px -1px 0 -1px;
+        width: calc(100% + 2px);
+        max-width: none;
     }
 
     .idcard-logo-center {
@@ -272,6 +278,16 @@
         flex-wrap: wrap;
         gap: 0.75rem;
         justify-content: center;
+    }
+
+    @@media print {
+        .idcard-faces-row {
+            padding: 0 !important;
+            background: #fff !important;
+        }
+        .idcard-face {
+            box-shadow: none !important;
+        }
     }
 </style>
 
