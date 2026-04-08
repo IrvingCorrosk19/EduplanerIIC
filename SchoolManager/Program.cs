@@ -24,6 +24,25 @@ using SchoolManager.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render / docs de Cloudinary suelen usar CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.
+// La app lee Cloudinary:CloudName (env Cloudinary__CloudName). Rellenamos si solo existen los alias en MAYÚSCULAS.
+static void ApplyCloudinaryEnvironmentAliases(ConfigurationManager config)
+{
+    void MapIfEmpty(string configKey, string envKey)
+    {
+        if (!string.IsNullOrWhiteSpace(config[configKey])) return;
+        var v = Environment.GetEnvironmentVariable(envKey);
+        if (!string.IsNullOrWhiteSpace(v))
+            config[configKey] = v.Trim();
+    }
+
+    MapIfEmpty("Cloudinary:CloudName", "CLOUDINARY_CLOUD_NAME");
+    MapIfEmpty("Cloudinary:ApiKey", "CLOUDINARY_API_KEY");
+    MapIfEmpty("Cloudinary:ApiSecret", "CLOUDINARY_API_SECRET");
+}
+
+ApplyCloudinaryEnvironmentAliases(builder.Configuration);
+
 // Render: usar PORT si está definido (producción en Render.com)
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrEmpty(port))

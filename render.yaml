@@ -12,12 +12,13 @@ services:
         value: Production
       - key: ConnectionStrings__DefaultConnection
         sync: false  # Pegar en Render: Internal Database URL o cadena Npgsql del Postgres
-      # Crear cuenta gratis en https://cloudinary.com → Dashboard → API Keys (una sola vez).
-      # Pegar los tres valores en Render → Environment (no van al repo por seguridad).
-      - key: Cloudinary__CloudName
+      # Cloudinary (una sola vez en dashboard.cloudinary.com). Válido cualquiera de los dos formatos:
+      # - Cloudinary__CloudName / __ApiKey / __ApiSecret  (.NET)
+      # - CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET  (alias soportado por la app)
+      - key: CLOUDINARY_CLOUD_NAME
         sync: false
-      - key: Cloudinary__ApiKey
+      - key: CLOUDINARY_API_KEY
         sync: false
-      - key: Cloudinary__ApiSecret
+      - key: CLOUDINARY_API_SECRET
         sync: false
     healthCheckPath: /
