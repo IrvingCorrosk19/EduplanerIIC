@@ -360,14 +360,7 @@
                             {
                                 <div class="idcard-photo-center idcard-z1">
                                     <div class="idcard-photo-inner">
-                                        @if (!string.IsNullOrEmpty(Model.Card!.PhotoUrl))
-                                        {
-                                            <img src="@Model.Card.PhotoUrl" alt="Foto" onerror="this.outerHTML='<span>Sin foto</span>'" />
-                                        }
-                                        else
-                                        {
-                                            <span>Sin foto</span>
-                                        }
+                                        <img src="@UserPhotoLinks.Href(Model.Card!.PhotoUrl)" alt="Foto" />
                                     </div>
                                 </div>
                             }

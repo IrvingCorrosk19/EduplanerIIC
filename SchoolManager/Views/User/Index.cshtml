@@ -745,6 +745,10 @@
         var usersTable = null;
         
         $(document).ready(function () {
+            function userAdminPhotoHref(stored) {
+                return '/File/GetUserPhoto?photoUrl=' + encodeURIComponent(stored || '');
+            }
+
             // Funcionalidad para mostrar/ocultar especializaciones según el rol
             $('#roleSelect').on('change', function() {
                 const selectedRole = $(this).val().toLowerCase();
@@ -1281,15 +1285,12 @@
                     $('#userPhotoSection').show();
                     $('#userPhotoInput').val('');
                     if (user.photoUrl) {
-                        $('#userPhotoImg').attr('src', user.photoUrl).show().off('error').on('error', function() {
-                            $(this).hide();
-                            $('#userPhotoPreview').css('display', 'flex');
-                        });
+                        $('#userPhotoImg').attr('src', userAdminPhotoHref(user.photoUrl)).show();
                         $('#userPhotoPreview').hide();
                         $('#btnRemoveUserPhoto').show();
                     } else {
-                        $('#userPhotoImg').attr('src', '').hide();
-                        $('#userPhotoPreview').css('display', 'flex').show();
+                        $('#userPhotoImg').attr('src', userAdminPhotoHref('')).show();
+                        $('#userPhotoPreview').hide();
                         $('#btnRemoveUserPhoto').hide();
                     }
                 })
@@ -1352,7 +1353,7 @@
                 })
                 .done(function(res) {
                     if (res.success && res.photoUrl) {
-                        $('#userPhotoImg').attr('src', res.photoUrl).show();
+                        $('#userPhotoImg').attr('src', userAdminPhotoHref(res.photoUrl)).show();
                         $('#userPhotoPreview').hide();
                         $('#btnRemoveUserPhoto').show();
                         $('#userPhotoInput').val('');
@@ -1392,8 +1393,8 @@
                     })
                     .done(function(res) {
                         if (res.success) {
-                            $('#userPhotoImg').attr('src', '').hide();
-                            $('#userPhotoPreview').css('display', 'flex').show();
+                            $('#userPhotoImg').attr('src', userAdminPhotoHref('')).show();
+                            $('#userPhotoPreview').hide();
                             $('#btnRemoveUserPhoto').hide();
                             Swal.fire({ icon: 'success', title: 'Foto eliminada' });
                         } else {
@@ -1729,8 +1730,8 @@
                 $('#btnCreateUser').prop('disabled', false);
                 form.find('input, select').removeClass('is-invalid');
                 $('#userPhotoSection').hide();
-                $('#userPhotoImg').attr('src', '').hide();
-                $('#userPhotoPreview').css('display', 'flex').show();
+                $('#userPhotoImg').attr('src', userAdminPhotoHref('')).show();
+                $('#userPhotoPreview').hide();
                 $('#userPhotoInput').val('');
                 $('#btnRemoveUserPhoto').hide();
             }

@@ -39,7 +39,7 @@
                             <div class="d-flex align-items-start gap-3">
                                 @if (!string.IsNullOrEmpty(Model.PhotoUrl))
                                 {
-                                    <img src="@Model.PhotoUrl" alt="Foto" class="rounded shadow-sm" style="width:100px;height:100px;object-fit:cover;" onerror="this.style.display='none'" />
+                                    <img src="@UserPhotoLinks.Href(Model.PhotoUrl)" alt="Foto" class="rounded shadow-sm" style="width:100px;height:100px;object-fit:cover;" />
                                 }
                                 else
                                 {

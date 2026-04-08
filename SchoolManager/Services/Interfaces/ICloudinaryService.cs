@@ -7,6 +7,9 @@ namespace SchoolManager.Services.Interfaces
     /// </summary>
     public interface ICloudinaryService
     {
+        /// <summary>True si hay cliente Cloudinary con credenciales reales (no placeholders).</summary>
+        bool IsConfigured { get; }
+
         /// <summary>
         /// Sube una imagen a Cloudinary
         /// </summary>

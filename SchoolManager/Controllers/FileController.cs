@@ -8,11 +8,16 @@ namespace SchoolManager.Controllers;
 public class FileController : Controller
 {
     private readonly ISuperAdminService _superAdminService;
+    private readonly IFileStorageService _fileStorage;
     private readonly ILogger<FileController> _logger;
 
-    public FileController(ISuperAdminService superAdminService, ILogger<FileController> logger)
+    public FileController(
+        ISuperAdminService superAdminService,
+        IFileStorageService fileStorage,
+        ILogger<FileController> logger)
     {
         _superAdminService = superAdminService;
+        _fileStorage = fileStorage;
         _logger = logger;
     }
 
@@ -93,6 +98,61 @@ public class FileController : Controller
         {
             _logger.LogError(ex, "Error obteniendo avatar de usuario: {avatarUrl}", avatarUrl);
             return NotFound();
+        }
+    }
+
+    /// <summary>
+    /// Foto de perfil/carnet: misma idea que GetSchoolLogo — siempre devuelve una imagen (por defecto si falta el archivo).
+    /// URL de Cloudinary → redirección al CDN. Rutas locales → bytes desde disco vía IFileStorageService.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> GetUserPhoto(string? photoUrl)
+    {
+        var placeholderSvg = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "user-photo-placeholder.svg");
+        var fallbackJpeg = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
+
+        async Task<IActionResult> PlaceholderAsync()
+        {
+            if (System.IO.File.Exists(placeholderSvg))
+                return PhysicalFile(placeholderSvg, "image/svg+xml");
+            if (System.IO.File.Exists(fallbackJpeg))
+                return File(await System.IO.File.ReadAllBytesAsync(fallbackJpeg), "image/jpeg");
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(photoUrl))
+            return await PlaceholderAsync();
+
+        var trimmed = photoUrl.Trim();
+
+        if (trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+                return await PlaceholderAsync();
+            if (!uri.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("GetUserPhoto: URL externa no permitida (solo Cloudinary o rutas locales): {Host}", uri.Host);
+                return await PlaceholderAsync();
+            }
+
+            return Redirect(trimmed);
+        }
+
+        try
+        {
+            var bytes = await _fileStorage.GetUserPhotoBytesAsync(trimmed);
+            if (bytes == null || bytes.Length == 0)
+                return await PlaceholderAsync();
+
+            var contentType = trimmed.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg";
+            return File(bytes, contentType);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error obteniendo foto de usuario: {PhotoUrl}", photoUrl);
+            return await PlaceholderAsync();
         }
     }
 

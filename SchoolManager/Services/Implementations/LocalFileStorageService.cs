@@ -1,8 +1,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using SchoolManager.Services.Interfaces;
 using SkiaSharp;
@@ -10,11 +13,12 @@ using SkiaSharp;
 namespace SchoolManager.Services.Implementations;
 
 /// <summary>
-/// Almacenamiento local de fotos de usuario (Infrastructure).
-/// Preparado para reemplazo por AzureBlobStorageService sin cambiar contrato.
+/// Fotos de usuario: Cloudinary si hay credenciales válidas (persistente al desplegar); si no, disco bajo wwwroot/uploads/users.
 /// </summary>
 public sealed class LocalFileStorageService : IFileStorageService
 {
+    private const string CloudinaryUserPhotosFolder = "users/photos";
+
     /// <summary>Límite del archivo guardado (comprimido si hace falta).</summary>
     private const int MaxFileSizeBytes = 2 * 1024 * 1024; // 2 MB
 
@@ -32,12 +36,20 @@ public sealed class LocalFileStorageService : IFileStorageService
 
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<LocalFileStorageService> _logger;
+    private readonly ICloudinaryService _cloudinary;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _basePath;
 
-    public LocalFileStorageService(IWebHostEnvironment env, ILogger<LocalFileStorageService> logger)
+    public LocalFileStorageService(
+        IWebHostEnvironment env,
+        ILogger<LocalFileStorageService> logger,
+        ICloudinaryService cloudinary,
+        IHttpClientFactory httpClientFactory)
     {
         _env = env;
         _logger = logger;
+        _cloudinary = cloudinary;
+        _httpClientFactory = httpClientFactory;
         _basePath = Path.Combine(_env.WebRootPath ?? _env.ContentRootPath, "uploads", "users");
     }
 
@@ -57,9 +69,12 @@ public sealed class LocalFileStorageService : IFileStorageService
                 "Redúzcala o use otra foto.");
         }
 
-        await using var uploadMs = new MemoryStream((int)Math.Min(file.Length, MaxIncomingUploadBytes));
-        await file.CopyToAsync(uploadMs);
-        var rawBytes = uploadMs.ToArray();
+        byte[] rawBytes;
+        await using (var incomingMs = new MemoryStream((int)Math.Min(file.Length, MaxIncomingUploadBytes)))
+        {
+            await file.CopyToAsync(incomingMs);
+            rawBytes = incomingMs.ToArray();
+        }
 
         string safeFileName;
         byte[] bytesToWrite;
@@ -92,12 +107,45 @@ public sealed class LocalFileStorageService : IFileStorageService
             throw new InvalidOperationException("Ruta de archivo no permitida.");
         }
 
+        await using (var cloudStream = new MemoryStream(bytesToWrite))
+        {
+            var mimeForCloud = safeFileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                ? "image/png"
+                : "image/jpeg";
+            var formFileForCloud = new FormFile(cloudStream, 0, bytesToWrite.Length, "photo", safeFileName)
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = mimeForCloud
+            };
+
+            var cloudUrl = await _cloudinary.UploadImageAsync(formFileForCloud, CloudinaryUserPhotosFolder);
+            if (!string.IsNullOrEmpty(cloudUrl))
+            {
+                _logger.LogInformation("[FileStorage] Foto en Cloudinary UserId={UserId}", userId);
+                return cloudUrl;
+            }
+        }
+
+        if (!_env.IsDevelopment())
+        {
+            if (!_cloudinary.IsConfigured)
+            {
+                throw new InvalidOperationException(
+                    "Las fotos de estudiantes solo se guardan en la nube en este entorno. Configure Cloudinary con valores reales: " +
+                    "Cloudinary__CloudName, Cloudinary__ApiKey y Cloudinary__ApiSecret (por ejemplo en Render → Environment). " +
+                    "Así no se pierden al desplegar.");
+            }
+
+            throw new InvalidOperationException(
+                "No se pudo subir la foto a Cloudinary. No se guardó copia en el servidor para evitar que se pierda en el próximo deploy. Intente de nuevo.");
+        }
+
         Directory.CreateDirectory(_basePath);
 
         await File.WriteAllBytesAsync(fullPath, bytesToWrite);
 
         var relativePath = $"/uploads/users/{safeFileName}";
-        _logger.LogInformation("[FileStorage] Foto guardada UserId={UserId} Path={Path}", userId, relativePath);
+        _logger.LogInformation("[FileStorage] Foto guardada local UserId={UserId} Path={Path}", userId, relativePath);
         return relativePath;
     }
 
@@ -286,25 +334,36 @@ public sealed class LocalFileStorageService : IFileStorageService
         return data.ToArray();
     }
 
-    public Task DeleteUserPhotoAsync(string? photoUrl)
+    public async Task DeleteUserPhotoAsync(string? photoUrl)
     {
         if (string.IsNullOrWhiteSpace(photoUrl))
-            return Task.CompletedTask;
+            return;
+
+        var trimmed = photoUrl.Trim();
+
+        if (IsCloudinaryHttpUrl(trimmed))
+        {
+            if (TryGetCloudinaryPublicId(trimmed, out var publicId))
+                await _cloudinary.DeleteImageAsync(publicId);
+            else
+                _logger.LogWarning("[FileStorage] URL Cloudinary sin public_id reconocible: {Url}", photoUrl);
+            return;
+        }
 
         try
         {
-            var fileName = Path.GetFileName(photoUrl.Trim());
+            var fileName = Path.GetFileName(trimmed);
             if (string.IsNullOrEmpty(fileName) || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             {
                 _logger.LogWarning("[FileStorage] Nombre de archivo inválido para eliminar: {Url}", photoUrl);
-                return Task.CompletedTask;
+                return;
             }
 
             var fullPath = Path.GetFullPath(Path.Combine(_basePath, fileName));
             if (!fullPath.StartsWith(Path.GetFullPath(_basePath), StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("[FileStorage] Path traversal al eliminar: {Path}", fullPath);
-                return Task.CompletedTask;
+                return;
             }
 
             if (File.Exists(fullPath))
@@ -317,36 +376,86 @@ public sealed class LocalFileStorageService : IFileStorageService
         {
             _logger.LogError(ex, "[FileStorage] Error eliminando foto: {Url}", photoUrl);
         }
-
-        return Task.CompletedTask;
     }
 
-    public Task<byte[]?> GetUserPhotoBytesAsync(string? photoUrl)
+    public async Task<byte[]?> GetUserPhotoBytesAsync(string? photoUrl)
     {
         if (string.IsNullOrWhiteSpace(photoUrl))
-            return Task.FromResult<byte[]?>(null);
+            return null;
+
+        var trimmed = photoUrl.Trim();
+
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(45);
+                return await client.GetByteArrayAsync(new Uri(trimmed));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[FileStorage] Error descargando foto remota: {Url}", photoUrl);
+                return null;
+            }
+        }
 
         try
         {
-            var fileName = Path.GetFileName(photoUrl.Trim().TrimStart('/').Replace("uploads/users/", ""));
+            var fileName = Path.GetFileName(trimmed.TrimStart('/').Replace("uploads/users/", "", StringComparison.OrdinalIgnoreCase));
             if (string.IsNullOrEmpty(fileName) || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-                return Task.FromResult<byte[]?>(null);
+                return null;
 
             var fullPath = Path.GetFullPath(Path.Combine(_basePath, fileName));
             if (!fullPath.StartsWith(Path.GetFullPath(_basePath), StringComparison.OrdinalIgnoreCase))
-                return Task.FromResult<byte[]?>(null);
+                return null;
 
             if (!File.Exists(fullPath))
-                return Task.FromResult<byte[]?>(null);
+                return null;
 
-            var bytes = File.ReadAllBytes(fullPath);
-            return Task.FromResult<byte[]?>(bytes);
+            return await File.ReadAllBytesAsync(fullPath);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "[FileStorage] Error leyendo foto: {Url}", photoUrl);
-            return Task.FromResult<byte[]?>(null);
+            return null;
         }
+    }
+
+    private static bool IsCloudinaryHttpUrl(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        && uri.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Obtiene el public_id de Cloudinary desde la URL segura devuelta por la API de subida.
+    /// </summary>
+    private static bool TryGetCloudinaryPublicId(string url, out string publicId)
+    {
+        publicId = "";
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            return false;
+        if (!uri.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var parts = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries).ToList();
+        var uploadIdx = parts.FindIndex(p => p.Equals("upload", StringComparison.OrdinalIgnoreCase));
+        if (uploadIdx < 0 || uploadIdx + 1 >= parts.Count)
+            return false;
+
+        var tail = parts.Skip(uploadIdx + 1).ToList();
+        if (tail.Count == 0)
+            return false;
+
+        if (tail[0].Length > 1 && tail[0][0] == 'v' && tail[0].Skip(1).All(char.IsDigit))
+            tail.RemoveAt(0);
+
+        if (tail.Count == 0)
+            return false;
+
+        publicId = string.Join("/", tail);
+        publicId = Regex.Replace(publicId, @"\.(jpe?g|png)$", "", RegexOptions.IgnoreCase);
+        return publicId.Length > 0;
     }
 
     private static void ValidateMimeType(string? contentType, string? fileName)

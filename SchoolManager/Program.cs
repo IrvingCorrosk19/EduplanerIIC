@@ -252,15 +252,15 @@ builder.Services.AddScoped<IQlServicesCarnetService, QlServicesCarnetService>();
 builder.Services.AddScoped<IPlatformAccessGuardService, PlatformAccessGuardService>();
 builder.Services.AddScoped<SchoolManager.Filters.PlatformAccessGuardFilter>();
 
-// Identidad visual del usuario (foto): almacenamiento desacoplado + servicio de aplicación
-builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
-builder.Services.AddScoped<IUserPhotoService, UserPhotoService>();
-
-// HttpClient para descargar imágenes
+// HttpClient (p. ej. descarga de fotos en Cloudinary para PDFs)
 builder.Services.AddHttpClient();
 
-// Cloudinary para almacenamiento persistente de archivos en la nube
+// Cloudinary: credenciales reales en producción (variables de entorno / Render) para que las fotos sobrevivan al deploy
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+
+// Identidad visual del usuario (foto): Cloudinary si está configurado, si no disco local
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddScoped<IUserPhotoService, UserPhotoService>();
 
 // Agregar servicios de autenticación
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -295,6 +295,18 @@ var app = builder.Build();
 // Asegurar que existan las tablas del módulo de carnets (por si la migración no se aplicó)
 using (var scope = app.Services.CreateScope())
 {
+    if (!app.Environment.IsDevelopment())
+    {
+        var cloudinary = scope.ServiceProvider.GetRequiredService<ICloudinaryService>();
+        if (!cloudinary.IsConfigured)
+        {
+            throw new InvalidOperationException(
+                "Cloudinary no está configurado o las credenciales son placeholders. Fuera de Development es obligatorio " +
+                "para que las fotos de usuarios no se pierdan al desplegar. Defina Cloudinary__CloudName, Cloudinary__ApiKey " +
+                "y Cloudinary__ApiSecret con valores reales (p. ej. en Render → Environment).");
+        }
+    }
+
     var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await SchoolManager.Scripts.EnsureIdCardTables.EnsureAsync(db);

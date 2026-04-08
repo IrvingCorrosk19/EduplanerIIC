@@ -149,14 +149,7 @@
                     {
                         <tr data-search="@($"{row.FullName} {row.DocumentId} {row.Email} {row.SchoolName} {row.GradeLevelName} {row.GroupName} {row.ShiftName} {row.UserShift} {row.Status}")">
                             <td>
-                                @if (!string.IsNullOrWhiteSpace(row.PhotoUrl))
-                                {
-                                    <img src="@row.PhotoUrl" alt="Foto @row.FullName" class="student-thumb" loading="lazy" decoding="async" />
-                                }
-                                else
-                                {
-                                    <div class="student-thumb-placeholder"><i class="fas fa-user"></i></div>
-                                }
+                                <img src="@UserPhotoLinks.Href(row.PhotoUrl)" alt="Foto @row.FullName" class="student-thumb" loading="lazy" decoding="async" />
                             </td>
                             <td>@row.FullName</td>
                             <td>@(string.IsNullOrWhiteSpace(row.DocumentId) ? "—" : row.DocumentId)</td>
@@ -360,6 +353,10 @@
             var DB_VERSION = 1;
             var syncing = false;
 
+            function buildUserPhotoHref(stored) {
+                return '/File/GetUserPhoto?photoUrl=' + encodeURIComponent(stored || '');
+            }
+
             if (input) {
                 var quickFilterTimer = null;
                 function applyQuickFilter() {
@@ -386,34 +383,23 @@
                 }
             }
 
-            function setPreview(url) {
-                currentPhotoUrl = url || '';
-                if (currentPhotoUrl) {
-                    previewImg.src = currentPhotoUrl;
-                    previewImg.style.display = '';
-                    previewPlaceholder.style.display = 'none';
-                    btnRemove.disabled = false;
-                } else {
-                    previewImg.src = '';
-                    previewImg.style.display = 'none';
-                    previewPlaceholder.style.display = 'flex';
-                    btnRemove.disabled = true;
-                }
+            function setPreview(stored) {
+                currentPhotoUrl = stored || '';
+                previewImg.src = buildUserPhotoHref(stored);
+                previewImg.style.display = '';
+                previewPlaceholder.style.display = 'none';
+                btnRemove.disabled = !currentPhotoUrl;
             }
 
-            function applyThumbToTable(userId, url) {
+            function applyThumbToTable(userId, stored) {
                 var btn = document.querySelector('.btn-photo-manage[data-user-id="' + userId + '"]');
                 if (!btn) return;
-                btn.setAttribute('data-photo-url', url || '');
+                btn.setAttribute('data-photo-url', stored || '');
                 var row = btn.closest('tr');
                 if (!row) return;
                 var thumbCell = row.children[0];
                 if (!thumbCell) return;
-                if (url) {
-                    thumbCell.innerHTML = '<img src="' + url + '" alt="Foto estudiante" class="student-thumb" loading="lazy" decoding="async" />';
-                } else {
-                    thumbCell.innerHTML = '<div class="student-thumb-placeholder"><i class="fas fa-user"></i></div>';
-                }
+                thumbCell.innerHTML = '<img src="' + buildUserPhotoHref(stored) + '" alt="Foto estudiante" class="student-thumb" loading="lazy" decoding="async" />';
             }
 
             function applyPendingToRow(userId, pending) {
@@ -677,7 +663,7 @@
                 } catch {
                     alert('Error de red al eliminar la foto.');
                 } finally {
-                    btnRemove.disabled = false;
+                    btnRemove.disabled = !currentPhotoUrl;
                 }
             });
 

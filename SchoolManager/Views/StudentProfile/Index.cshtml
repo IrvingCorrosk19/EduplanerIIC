@@ -206,16 +206,7 @@
                 <p class="text-muted small mb-2">Se usará en tu perfil y en el carnet estudiantil. JPEG o PNG; si supera 2 MB se comprimirá automáticamente (máx. de subida 12 MB).</p>
                 <div class="d-flex align-items-start gap-3">
                     <div class="position-relative">
-                        @if (!string.IsNullOrEmpty(Model.PhotoUrl))
-                        {
-                            <img id="photoPreview" src="@(string.IsNullOrEmpty(Model.PhotoUrl) ? "" : Model.PhotoUrl)" alt="Foto" class="rounded shadow-sm" style="width:120px;height:120px;object-fit:cover;" onerror="this.style.display='none'; document.getElementById('photoPlaceholder').style.display='block';" />
-                            <div id="photoPlaceholder" class="rounded bg-light d-flex align-items-center justify-content-center text-muted" style="width:120px;height:120px;display:none;"><i class="bi bi-person-circle" style="font-size:3rem;"></i></div>
-                        }
-                        else
-                        {
-                            <img id="photoPreview" src="" alt="" class="rounded shadow-sm" style="width:120px;height:120px;object-fit:cover;display:none;" />
-                            <div id="photoPlaceholder" class="rounded bg-light d-flex align-items-center justify-content-center text-muted" style="width:120px;height:120px;"><i class="bi bi-person-circle" style="font-size:3rem;"></i></div>
-                        }
+                        <img id="photoPreview" src="@UserPhotoLinks.Href(Model.PhotoUrl)" alt="Foto" class="rounded shadow-sm" style="width:120px;height:120px;object-fit:cover;" />
                     </div>
                     <div class="flex-grow-1">
                         <form asp-action="UpdatePhoto" method="post" enctype="multipart/form-data" class="mb-2">

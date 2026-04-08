@@ -1,4 +1,5 @@
 @model SchoolManager.ViewModels.CarnetPublicEmergencyInfoVm
+@using SchoolManager.Helpers
 @{
     Layout = null;
     ViewData["Title"] = "Información de emergencia";
@@ -39,12 +40,9 @@
             <p>Uso en caso de emergencia · Solo lectura</p>
         </div>
         <div class="body">
-            @if (!string.IsNullOrWhiteSpace(Model.PhotoUrl))
-            {
-                <div class="photo">
-                    <img src="@Model.PhotoUrl" alt="Foto" onerror="this.style.display='none'" />
-                </div>
-            }
+            <div class="photo">
+                <img src="@UserPhotoLinks.Href(Model.PhotoUrl)" alt="Foto" />
+            </div>
             <dl>
                 <dt>Nombre completo</dt>
                 <dd>@Model.FullName</dd>
