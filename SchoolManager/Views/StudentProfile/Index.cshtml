@@ -440,7 +440,9 @@
                 var file = this.files && this.files[0];
                 if (!file) return;
                 if (file.size > 12 * 1024 * 1024) {
-                    alert('El archivo no debe superar 12 MB.');
+                    if (window.SchoolUi) {
+                        window.SchoolUi.warning('Archivo demasiado grande', 'Elija una imagen de hasta 12 MB (JPEG o PNG).');
+                    } else alert('El archivo no debe superar 12 MB.');
                     this.value = '';
                     return;
                 }

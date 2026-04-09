@@ -13,7 +13,7 @@ using SkiaSharp;
 namespace SchoolManager.Services.Implementations;
 
 /// <summary>
-/// Fotos de usuario: Cloudinary si hay credenciales válidas (persistente al desplegar); si no, disco bajo wwwroot/uploads/users.
+/// Fotos de usuario: solo Cloudinary (cualquier ambiente). Lectura sigue aceptando rutas locales históricas en <see cref="GetUserPhotoBytesAsync"/>.
 /// </summary>
 public sealed class LocalFileStorageService : IFileStorageService
 {
@@ -99,14 +99,6 @@ public sealed class LocalFileStorageService : IFileStorageService
                 "No se pudo reducir la imagen por debajo de 2 MB. Pruebe con otra foto o menor resolución.");
         }
 
-        var fullPath = Path.GetFullPath(Path.Combine(_basePath, safeFileName));
-
-        if (!fullPath.StartsWith(Path.GetFullPath(_basePath), StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogError("[FileStorage] Path traversal detectado: {Path}", fullPath);
-            throw new InvalidOperationException("Ruta de archivo no permitida.");
-        }
-
         await using (var cloudStream = new MemoryStream(bytesToWrite))
         {
             var mimeForCloud = safeFileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
@@ -126,27 +118,16 @@ public sealed class LocalFileStorageService : IFileStorageService
             }
         }
 
-        if (!_env.IsDevelopment())
+        if (!_cloudinary.IsConfigured)
         {
-            if (!_cloudinary.IsConfigured)
-            {
-                throw new InvalidOperationException(
-                    "Las fotos de estudiantes solo se guardan en la nube en este entorno. En Render → Environment defina valores reales: " +
-                    "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET (también válido: Cloudinary__CloudName, Cloudinary__ApiKey, Cloudinary__ApiSecret). " +
-                    "Así no se pierden al desplegar.");
-            }
-
             throw new InvalidOperationException(
-                "No se pudo subir la foto a Cloudinary. No se guardó copia en el servidor para evitar que se pierda en el próximo deploy. Intente de nuevo.");
+                "Las fotos de usuario solo se guardan en Cloudinary. Defina valores reales: " +
+                "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET " +
+                "(o Cloudinary__CloudName, Cloudinary__ApiKey, Cloudinary__ApiSecret en user-secrets / variables de entorno).");
         }
 
-        Directory.CreateDirectory(_basePath);
-
-        await File.WriteAllBytesAsync(fullPath, bytesToWrite);
-
-        var relativePath = $"/uploads/users/{safeFileName}";
-        _logger.LogInformation("[FileStorage] Foto guardada local UserId={UserId} Path={Path}", userId, relativePath);
-        return relativePath;
+        throw new InvalidOperationException(
+            "No se pudo subir la foto a Cloudinary. No se guarda copia en disco. Intente de nuevo.");
     }
 
     /// <summary>

@@ -328,19 +328,15 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    if (!app.Environment.IsDevelopment())
+    var cloudinary = scope.ServiceProvider.GetRequiredService<ICloudinaryService>();
+    if (!cloudinary.IsConfigured)
     {
-        var cloudinary = scope.ServiceProvider.GetRequiredService<ICloudinaryService>();
-        if (!cloudinary.IsConfigured)
-        {
-            // No detenemos el arranque: el sitio debe poder desplegarse mientras se configuran variables en Render.
-            // Las subidas de foto siguen bloqueadas en LocalFileStorageService hasta que Cloudinary responda.
-            logger.LogCritical(
-                "Cloudinary no está configurado o las credenciales son placeholders. " +
-                "Defina en Render (Environment) CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET con valores reales " +
-                "(o Cloudinary__CloudName, Cloudinary__ApiKey, Cloudinary__ApiSecret). " +
-                "Sin eso, la subida de fotos de usuario fallará; las fotos no quedarán persistentes en la nube.");
-        }
+        // No detenemos el arranque; sin credenciales válidas SaveUserPhotoAsync fallará (solo Cloudinary).
+        logger.LogCritical(
+            "Cloudinary no está configurado o las credenciales son placeholders. " +
+            "Defina CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET " +
+            "(o Cloudinary__CloudName, Cloudinary__ApiKey, Cloudinary__ApiSecret). " +
+            "Sin eso, la subida de fotos de usuario fallará.");
     }
 
     var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();

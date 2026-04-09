@@ -407,7 +407,12 @@
         if (btnContinue && schoolSelect) {
             btnContinue.addEventListener('click', function() {
                 var id = schoolSelect.value;
-                if (!id) { alert('Seleccione una escuela.'); return; }
+                if (!id) {
+                    if (window.SchoolUi) {
+                        window.SchoolUi.warning('Falta la escuela', 'Seleccione una institución en la lista para continuar.');
+                    } else alert('Seleccione una escuela.');
+                    return;
+                }
                 window.location.href = '/id-card/settings?schoolId=' + encodeURIComponent(id);
             });
         }

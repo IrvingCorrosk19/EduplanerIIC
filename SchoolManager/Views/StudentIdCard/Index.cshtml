@@ -368,7 +368,8 @@ $(function(){
             const params = new URLSearchParams(currentFilterParams());
             const res = await fetch('/StudentIdCard/api/list-ids?' + params.toString(), { credentials: 'same-origin' });
             if (!res.ok) {
-                alert('No se pudieron obtener estudiantes filtrados.');
+                if (window.SchoolUi) window.SchoolUi.error('No se pudo aplicar el filtro', 'No obtuvimos la lista de estudiantes. Intente de nuevo.');
+                else alert('No se pudieron obtener estudiantes filtrados.');
                 return;
             }
             const data = await res.json();
@@ -377,11 +378,16 @@ $(function(){
             const limitedIds = filteredIds.slice(0, 30);
             limitedIds.forEach(id => selectedStudentIds.add(id));
             if (filteredIds.length > 30) {
-                alert(`Se encontraron ${filteredIds.length} estudiantes filtrados. Solo se seleccionaron los primeros 30.`);
+                if (window.SchoolUi) {
+                    window.SchoolUi.warning(
+                        'Límite de selección',
+                        `Hay ${filteredIds.length} estudiantes con el filtro actual. Por rendimiento solo se marcaron los primeros 30. Ajuste el filtro si necesita otro grupo.`);
+                } else alert(`Se encontraron ${filteredIds.length} estudiantes filtrados. Solo se seleccionaron los primeros 30.`);
             }
             table.ajax.reload(null, false);
         } catch {
-            alert('Error de red al seleccionar filtrados.');
+            if (window.SchoolUi) window.SchoolUi.error('Sin conexión', 'No pudimos cargar la lista filtrada.');
+            else alert('Error de red al seleccionar filtrados.');
         } finally {
             btn.prop('disabled', false);
             btn.html(prev);
@@ -428,9 +434,13 @@ $(function(){
         updateSelectedLabel();
 
         if (removed > 0) {
-            alert(`Se desmarcaron ${removed} estudiante(s) con estado Impreso. (Modo pruebas)`);
+            if (window.SchoolUi) {
+                window.SchoolUi.info('Selección actualizada', `Se quitaron ${removed} estudiante(s) que ya estaban marcados como impresos.`);
+            } else alert(`Se desmarcaron ${removed} estudiante(s) con estado Impreso.`);
         } else {
-            alert('No había estudiantes impresos dentro de la selección actual.');
+            if (window.SchoolUi) {
+                window.SchoolUi.info('Sin cambios', 'Ninguno de los seleccionados estaba marcado como impreso.');
+            } else alert('No había estudiantes impresos dentro de la selección actual.');
         }
     });
 
@@ -445,11 +455,15 @@ $(function(){
         const selectedIds = getSelectedIds();
 
         if (selectedIds.length === 0) {
-            alert('Seleccione al menos un estudiante para imprimir.');
+            if (window.SchoolUi) {
+                window.SchoolUi.warning('Nadie seleccionado', 'Marque al menos un estudiante en la tabla para generar el PDF masivo.');
+            } else alert('Seleccione al menos un estudiante para imprimir.');
             return;
         }
         if (selectedIds.length > 30) {
-            alert('Solo se permiten 30 estudiantes por impresión masiva.');
+            if (window.SchoolUi) {
+                window.SchoolUi.warning('Límite alcanzado', 'Solo puede incluir hasta 30 estudiantes por cada impresión masiva. Reduzca la selección.');
+            } else alert('Solo se permiten 30 estudiantes por impresión masiva.');
             return;
         }
 
@@ -480,10 +494,14 @@ $(function(){
             if (!response.ok) {
                 if (contentType.includes('application/json')) {
                     const json = await response.json();
-                    alert(json.message || 'No se pudo generar el PDF masivo.');
+                    const m = json.message || 'No se pudo generar el PDF masivo.';
+                    if (window.SchoolUi) window.SchoolUi.error('Impresión masiva', m);
+                    else alert(m);
                 } else {
                     const text = await response.text();
-                    alert(text || 'No se pudo generar el PDF masivo.');
+                    const m = text || 'No se pudo generar el PDF masivo.';
+                    if (window.SchoolUi) window.SchoolUi.error('Impresión masiva', m.length > 500 ? m.substring(0, 500) + '…' : m);
+                    else alert(m);
                 }
                 return;
             }
@@ -499,8 +517,11 @@ $(function(){
             a.remove();
             window.URL.revokeObjectURL(url);
             table.ajax.reload(null, false);
+            if (window.SchoolUi) window.SchoolUi.toastSuccess('PDF listo — revise su carpeta de descargas');
         } catch (e) {
-            alert('Error de red al generar la impresión masiva.');
+            if (window.SchoolUi) {
+                window.SchoolUi.error('Sin conexión', 'No se pudo generar la impresión masiva. Compruebe su internet.');
+            } else alert('Error de red al generar la impresión masiva.');
         } finally {
             hidePrintLoading();
             btn.prop('disabled', false);
@@ -529,13 +550,17 @@ $(function(){
 
             if (!response.ok) {
                 const msg = await response.text();
-                alert(msg || 'No se pudo actualizar el estado de impresión.');
+                const m = msg || 'No se pudo actualizar el estado de impresión.';
+                if (window.SchoolUi) window.SchoolUi.error('Estado de impresión', m.length > 400 ? m.substring(0, 400) + '…' : m);
+                else alert(m);
                 return;
             }
 
             table.ajax.reload(null, false);
         } catch (e) {
-            alert('Error de red al actualizar estado de impresión.');
+            if (window.SchoolUi) {
+                window.SchoolUi.error('Error de conexión', 'No pudimos guardar el estado. Intente otra vez.');
+            } else alert('Error de red al actualizar estado de impresión.');
         } finally {
             btn.prop('disabled', false);
         }

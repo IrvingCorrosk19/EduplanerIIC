@@ -533,17 +533,24 @@
                 var r = await fetch(url, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
                 var ct = (r.headers.get('content-type') || '').toLowerCase();
                 if (r.status === 401) {
-                    alert('Sesión expirada o no autenticado. Vuelva a iniciar sesión.');
+                    if (window.SchoolUi) {
+                        window.SchoolUi.warning('Sesión finalizada', 'Inicie sesión de nuevo y vuelva a descargar el carnet.');
+                    } else alert('Sesión expirada.');
                     return;
                 }
                 if (!r.ok) {
                     var errText = await r.text();
-                    alert(errText || ('Error al generar el PDF (código ' + r.status + ').'));
+                    var msg = errText || ('No se pudo generar el PDF (código ' + r.status + ').');
+                    if (window.SchoolUi) window.SchoolUi.error('No se pudo descargar el PDF', msg.length > 600 ? msg.substring(0, 600) + '…' : msg);
+                    else alert(msg);
                     return;
                 }
                 if (!ct.includes('pdf')) {
                     var t = await r.text();
-                    alert(t.substring(0, 500) || 'La respuesta no es un PDF.');
+                    var preview = t.substring(0, 500) || 'El servidor no devolvió un archivo PDF.';
+                    if (window.SchoolUi) {
+                        window.SchoolUi.error('Archivo no válido', preview.length > 400 ? preview.substring(0, 400) + '…' : preview);
+                    } else alert(preview);
                     return;
                 }
                 var blob = await r.blob();
@@ -555,7 +562,9 @@
                 a.remove();
                 URL.revokeObjectURL(a.href);
             } catch (e) {
-                alert('Error de red al descargar el PDF.');
+                if (window.SchoolUi) {
+                    window.SchoolUi.error('Sin conexión', 'Compruebe su internet o intente más tarde.');
+                } else alert('Error de red al descargar el PDF.');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = prev;
@@ -583,12 +592,16 @@
             if (data && data.cardNumber) {
                 window.location.href = '/StudentIdCard/ui/generate/' + id;
             } else {
-                alert('Error: ' + (data.message || 'No se pudo generar el carnet.'));
+                var gm = data.message || 'No se pudo generar el carnet. Si el problema continúa, contacte al administrador.';
+                if (window.SchoolUi) window.SchoolUi.error('No se pudo generar el carnet', gm);
+                else alert('Error: ' + gm);
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-id-card"></i> Generar carnet'; }
             }
         })
         .catch(function () {
-            alert('Error de red al generar el carnet.');
+            if (window.SchoolUi) {
+                window.SchoolUi.error('Error de conexión', 'No pudimos comunicarnos con el servidor. Revise su red e intente de nuevo.');
+            } else alert('Error de red al generar el carnet.');
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-id-card"></i> Generar carnet'; }
         });
     }
