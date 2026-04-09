@@ -216,7 +216,7 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         if (string.Equals(_printOptions.Profile, "A4Portrait", StringComparison.OrdinalIgnoreCase))
             return (148.0f, 235.0f, 1750, 2777);
 
-        // Carnet tipo CR: 55 mm (ancho) × 85 mm (alto) en vertical — mismo que IdCardPhysicalDimensions.
+        // Carnet tipo CR80 exacto en vertical (53.98 mm × 85.60 mm) — mismo que IdCardPhysicalDimensions.
         return (
             IdCardPhysicalDimensions.ShortMm,
             IdCardPhysicalDimensions.LongMm,
