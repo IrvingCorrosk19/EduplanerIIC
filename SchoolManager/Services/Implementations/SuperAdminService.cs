@@ -12,14 +12,14 @@ public class SuperAdminService : ISuperAdminService
 {
     private readonly SchoolDbContext _context;
     private readonly ILogger<SuperAdminService> _logger;
-    private readonly ICloudinaryService? _cloudinaryService;
+    private readonly ICloudinaryService _cloudinaryService;
     private readonly IAcademicYearService _academicYearService;
 
     public SuperAdminService(
         SchoolDbContext context,
         ILogger<SuperAdminService> logger,
         IAcademicYearService academicYearService,
-        ICloudinaryService? cloudinaryService = null)
+        ICloudinaryService cloudinaryService)
     {
         _context = context;
         _logger = logger;
@@ -544,37 +544,29 @@ public class SuperAdminService : ISuperAdminService
 
         try
         {
-            // Si Cloudinary está configurado, usarlo (recomendado para producción en Render)
-            if (_cloudinaryService != null)
+            if (!_cloudinaryService.IsConfigured)
             {
-                Console.WriteLine($"☁️ [SuperAdminService] Subiendo logo a Cloudinary...");
-                var logoUrl = await _cloudinaryService.UploadImageAsync(logoFile, "schools/logos");
-                
-                if (!string.IsNullOrEmpty(logoUrl))
-                {
-                    Console.WriteLine($"✅ [SuperAdminService] Logo guardado en Cloudinary: {logoUrl}");
-                    return logoUrl; // URL completa: https://res.cloudinary.com/.../logo.png
-                }
-
-                Console.WriteLine($"⚠️ [SuperAdminService] Cloudinary no devolvió URL, intentando guardar localmente...");
+                throw new InvalidOperationException(
+                    "Cloudinary no está configurado. Los logos de escuela solo se guardan en Cloudinary en todos los ambientes. " +
+                    "Defina CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET.");
             }
 
-            // Fallback: Guardar localmente (para desarrollo o si Cloudinary no está configurado)
-            Console.WriteLine($"💾 [SuperAdminService] Guardando logo localmente...");
-            var fileName = $"{Guid.NewGuid()}_{logoFile.FileName}";
-            var filePath = Path.Combine(uploadsPath, "schools", fileName);
+            Console.WriteLine($"☁️ [SuperAdminService] Subiendo logo a Cloudinary...");
+            var logoUrl = await _cloudinaryService.UploadImageAsync(logoFile, "schools/logos");
+            if (string.IsNullOrEmpty(logoUrl))
+                throw new InvalidOperationException("No se pudo subir el logo a Cloudinary.");
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-
-            using var stream = new FileStream(filePath, FileMode.Create);
-            await logoFile.CopyToAsync(stream);
-
-            Console.WriteLine($"📁 [SuperAdminService] Logo guardado localmente: {fileName}");
-            return fileName;
+            Console.WriteLine($"✅ [SuperAdminService] Logo guardado en Cloudinary: {logoUrl}");
+            return logoUrl;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ [SuperAdminService] Error guardando logo: {ex.Message}");
+            _logger.LogError(ex, "Error guardando logo en Cloudinary");
             return null;
         }
     }
@@ -586,37 +578,29 @@ public class SuperAdminService : ISuperAdminService
 
         try
         {
-            // Si Cloudinary está configurado, usarlo (recomendado para producción en Render)
-            if (_cloudinaryService != null)
+            if (!_cloudinaryService.IsConfigured)
             {
-                Console.WriteLine($"☁️ [SuperAdminService] Subiendo avatar a Cloudinary...");
-                var avatarUrl = await _cloudinaryService.UploadImageAsync(avatarFile, "users/avatars");
-                
-                if (!string.IsNullOrEmpty(avatarUrl))
-                {
-                    Console.WriteLine($"✅ [SuperAdminService] Avatar guardado en Cloudinary: {avatarUrl}");
-                    return avatarUrl;
-                }
-
-                Console.WriteLine($"⚠️ [SuperAdminService] Cloudinary no devolvió URL, intentando guardar localmente...");
+                throw new InvalidOperationException(
+                    "Cloudinary no está configurado. Los avatares solo se guardan en Cloudinary en todos los ambientes. " +
+                    "Defina CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET.");
             }
 
-            // Fallback: Guardar localmente
-            Console.WriteLine($"💾 [SuperAdminService] Guardando avatar localmente...");
-            var fileName = $"{Guid.NewGuid()}_{avatarFile.FileName}";
-            var filePath = Path.Combine(uploadsPath, "avatars", fileName);
+            Console.WriteLine($"☁️ [SuperAdminService] Subiendo avatar a Cloudinary...");
+            var avatarUrl = await _cloudinaryService.UploadImageAsync(avatarFile, "users/avatars");
+            if (string.IsNullOrEmpty(avatarUrl))
+                throw new InvalidOperationException("No se pudo subir el avatar a Cloudinary.");
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-
-            using var stream = new FileStream(filePath, FileMode.Create);
-            await avatarFile.CopyToAsync(stream);
-
-            Console.WriteLine($"📁 [SuperAdminService] Avatar guardado localmente: {fileName}");
-            return fileName;
+            Console.WriteLine($"✅ [SuperAdminService] Avatar guardado en Cloudinary: {avatarUrl}");
+            return avatarUrl;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ [SuperAdminService] Error guardando avatar: {ex.Message}");
+            _logger.LogError(ex, "Error guardando avatar en Cloudinary");
             return null;
         }
     }

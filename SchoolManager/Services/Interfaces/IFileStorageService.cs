@@ -11,7 +11,7 @@ public interface IFileStorageService
     /// </summary>
     /// <param name="file">Archivo de imagen (JPEG/PNG, máx 2MB).</param>
     /// <param name="userId">Id del usuario (para nombres únicos).</param>
-    /// <returns>URL https (Cloudinary) o ruta relativa <c>/uploads/users/...</c> en disco.</returns>
+    /// <returns>URL https en Cloudinary (las fotos de usuario no se guardan en disco al subir).</returns>
     Task<string> SaveUserPhotoAsync(IFormFile file, Guid userId);
 
     /// <summary>

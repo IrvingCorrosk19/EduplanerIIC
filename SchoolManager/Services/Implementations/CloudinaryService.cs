@@ -26,8 +26,9 @@ namespace SchoolManager.Services.Implementations
                 || IsPlaceholder(cloudName) || IsPlaceholder(apiKey) || IsPlaceholder(apiSecret))
             {
                 _logger.LogWarning(
-                    "Cloudinary sin credenciales válidas: en Development las fotos de usuario pueden guardarse en disco; " +
-                    "fuera de Development la app exige Cloudinary para fotos de usuario y no arrancará sin él.");
+                    "Cloudinary sin credenciales válidas (placeholders o vacío). " +
+                    "Todas las subidas de imágenes de producto van a Cloudinary en cualquier ambiente; " +
+                    "defina CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET.");
                 _cloudinary = null;
                 return;
             }

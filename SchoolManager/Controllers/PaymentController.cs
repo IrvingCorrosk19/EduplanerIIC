@@ -16,7 +16,7 @@ public class PaymentController : Controller
     private readonly IPrematriculationService _prematriculationService;
     private readonly IPaymentConceptService _paymentConceptService;
     private readonly ICurrentUserService _currentUserService;
-    private readonly ICloudinaryService? _cloudinaryService;
+    private readonly ICloudinaryService _cloudinaryService;
     private readonly IMessagingService? _messagingService;
     private readonly SchoolDbContext _context;
     private readonly ILogger<PaymentController> _logger;
@@ -26,7 +26,7 @@ public class PaymentController : Controller
         IPrematriculationService prematriculationService,
         IPaymentConceptService paymentConceptService,
         ICurrentUserService currentUserService,
-        ICloudinaryService? cloudinaryService,
+        ICloudinaryService cloudinaryService,
         IMessagingService? messagingService,
         SchoolDbContext context,
         ILogger<PaymentController> logger)
@@ -182,34 +182,23 @@ public class PaymentController : Controller
             }
         }
 
-        // Cargar imagen del comprobante si existe (requerido para métodos manuales)
+        // Comprobantes: solo Cloudinary (cualquier ambiente).
         if (receiptImageFile != null && receiptImageFile.Length > 0)
         {
             try
             {
-                if (_cloudinaryService != null)
+                if (!_cloudinaryService.IsConfigured)
                 {
-                    var imageUrl = await _cloudinaryService.UploadImageAsync(receiptImageFile, "payments/receipts");
-                    if (!string.IsNullOrEmpty(imageUrl))
-                    {
-                        dto.ReceiptImage = imageUrl;
-                    }
+                    ModelState.AddModelError("ReceiptImage",
+                        "Almacenamiento de comprobantes no disponible: configure Cloudinary (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET).");
                 }
                 else
                 {
-                    var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "payments");
-                    if (!Directory.Exists(uploadsPath))
-                        Directory.CreateDirectory(uploadsPath);
-
-                    var fileName = $"{Guid.NewGuid()}_{receiptImageFile.FileName}";
-                    var filePath = Path.Combine(uploadsPath, fileName);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await receiptImageFile.CopyToAsync(stream);
-                    }
-
-                    dto.ReceiptImage = $"/uploads/payments/{fileName}";
+                    var imageUrl = await _cloudinaryService.UploadImageAsync(receiptImageFile, "payments/receipts");
+                    if (!string.IsNullOrEmpty(imageUrl))
+                        dto.ReceiptImage = imageUrl;
+                    else
+                        ModelState.AddModelError("ReceiptImage", "No se pudo subir el comprobante a Cloudinary. Intente de nuevo.");
                 }
             }
             catch (Exception ex)
@@ -515,39 +504,23 @@ public class PaymentController : Controller
             return View(dto);
         }
 
-        // Cargar imagen del comprobante si existe
+        // Comprobantes: solo Cloudinary (cualquier ambiente).
         if (receiptImageFile != null && receiptImageFile.Length > 0)
         {
             try
             {
-                if (_cloudinaryService != null)
+                if (!_cloudinaryService.IsConfigured)
                 {
-                    var imageUrl = await _cloudinaryService.UploadImageAsync(receiptImageFile, "payments/receipts");
-                    if (!string.IsNullOrEmpty(imageUrl))
-                    {
-                        dto.ReceiptImage = imageUrl;
-                    }
-                    else
-                    {
-                        ModelState.AddModelError("ReceiptImage", "Error al subir la imagen del comprobante");
-                    }
+                    ModelState.AddModelError("ReceiptImage",
+                        "Almacenamiento de comprobantes no disponible: configure Cloudinary (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET).");
                 }
                 else
                 {
-                    // Fallback: guardar localmente
-                    var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "payments");
-                    if (!Directory.Exists(uploadsPath))
-                        Directory.CreateDirectory(uploadsPath);
-
-                    var fileName = $"{Guid.NewGuid()}_{receiptImageFile.FileName}";
-                    var filePath = Path.Combine(uploadsPath, fileName);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await receiptImageFile.CopyToAsync(stream);
-                    }
-
-                    dto.ReceiptImage = $"/uploads/payments/{fileName}";
+                    var imageUrl = await _cloudinaryService.UploadImageAsync(receiptImageFile, "payments/receipts");
+                    if (!string.IsNullOrEmpty(imageUrl))
+                        dto.ReceiptImage = imageUrl;
+                    else
+                        ModelState.AddModelError("ReceiptImage", "No se pudo subir el comprobante a Cloudinary. Intente de nuevo.");
                 }
             }
             catch (Exception ex)

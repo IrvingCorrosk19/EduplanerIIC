@@ -290,7 +290,7 @@ builder.Services.AddHttpClient();
 // Cloudinary: credenciales reales en producción (variables de entorno / Render) para que las fotos sobrevivan al deploy
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
-// Identidad visual del usuario (foto): Cloudinary si está configurado, si no disco local
+// Fotos de usuario: solo Cloudinary (LocalFileStorageService; sin copia en disco al subir).
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IUserPhotoService, UserPhotoService>();
 
