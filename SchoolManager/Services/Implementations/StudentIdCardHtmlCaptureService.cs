@@ -166,13 +166,9 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         page.DefaultNavigationTimeout = 60000;
         page.DefaultTimeout           = 60000;
 
-        var dpr = Math.Clamp(_printOptions.DeviceScaleFactor, 1, 3);
-        await page.SetViewportAsync(new ViewPortOptions
-        {
-            Width             = pageSize.WidthPx + 120,
-            Height            = pageSize.HeightPx + 120,
-            DeviceScaleFactor = dpr
-        });
+        var maxDpr = Math.Max(1, _printOptions.MaxDeviceScaleFactor);
+        var baseDpr  = Math.Clamp(_printOptions.DeviceScaleFactor, 1, maxDpr);
+        await SetCaptureViewportAsync(page, pageSize, baseDpr);
 
         var reqCookies = _http.HttpContext?.Request.Cookies;
         if (reqCookies?.Count > 0)
@@ -196,6 +192,32 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         var front = await page.QuerySelectorAsync("#idCardFront")
             ?? throw new InvalidOperationException("No se encontró #idCardFront.");
 
+        if (string.Equals(_printOptions.Profile, "CardPrinter", StringComparison.OrdinalIgnoreCase))
+        {
+            var box = await front.BoundingBoxAsync();
+            if (box != null)
+            {
+                var bw = (double)box.Width;
+                var bh = (double)box.Height;
+                if (bw > 0.5 && bh > 0.5)
+                {
+                    var needDpr = Math.Max(pageSize.WidthPx / bw, pageSize.HeightPx / bh);
+                    var optimal = (int)Math.Ceiling(needDpr - 1e-6);
+                    optimal = Math.Clamp(Math.Max(baseDpr, optimal), 1, maxDpr);
+                    if (optimal != baseDpr)
+                    {
+                        _logger.LogInformation(
+                            "[CardPdf] Ajuste DPR captura {From}->{To} (caja HTML ~{W:F1}×{H:F1}px → PDF {Tw}×{Th}px, need≈{Need:F2})",
+                            baseDpr, optimal, bw, bh, pageSize.WidthPx, pageSize.HeightPx, needDpr);
+                        await SetCaptureViewportAsync(page, pageSize, optimal);
+                        await Task.Delay(250);
+                        front = await page.QuerySelectorAsync("#idCardFront")
+                                ?? throw new InvalidOperationException("No se encontró #idCardFront.");
+                    }
+                }
+            }
+        }
+
         var allFaces = await page.QuerySelectorAllAsync(".idcard-face");
         var back     = allFaces.Length > 1 ? allFaces[1] : null;
 
@@ -203,6 +225,14 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
         var backImg  = back != null ? await Capture(back, pageSize.WidthPx, pageSize.HeightPx) : null;
         return (frontImg, backImg);
     }
+
+    private static Task SetCaptureViewportAsync(IPage page, (float WidthMm, float HeightMm, int WidthPx, int HeightPx) pageSize, int dpr) =>
+        page.SetViewportAsync(new ViewPortOptions
+        {
+            Width             = pageSize.WidthPx + 120,
+            Height            = pageSize.HeightPx + 120,
+            DeviceScaleFactor = dpr
+        });
 
     private async Task ApplyContentScale(IPage page)
     {
@@ -283,10 +313,17 @@ public class StudentIdCardHtmlCaptureService : IStudentIdCardHtmlCaptureService
             Type = ScreenshotType.Png
         });
 
-        using var input   = SKBitmap.Decode(img);
+        using var input = SKBitmap.Decode(img);
+        if (input.Width == targetWidth && input.Height == targetHeight)
+        {
+            using var data = input.Encode(SKEncodedImageFormat.Png, 100);
+            return data.ToArray();
+        }
+
+        // Tras subir el DPR, suele haber un ligero downscale; High evita artefactos duros en tipografía.
         using var resized = input.Resize(new SKImageInfo(targetWidth, targetHeight), SKFilterQuality.High);
         using var image   = SKImage.FromBitmap(resized);
-        using var data    = image.Encode(SKEncodedImageFormat.Png, 100);
-        return data.ToArray();
+        using var data2   = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data2.ToArray();
     }
 }
