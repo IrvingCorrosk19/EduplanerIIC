@@ -71,13 +71,33 @@
         padding: 0;
         position: relative;
         overflow: hidden;
+        /* Sin borde superior: evita línea clara entre borde y header; el azul llega al borde del contenido */
         border: 1px solid @borderColor;
+        border-top: none;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
         color: @text;
         font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
+    }
+
+    /* Reverso: recuperar borde superior (el frente lo omite para fundir header azul) */
+    .idcard-face-back-screen .idcard-face {
+        border-top: 1px solid @borderColor;
+    }
+
+    /* Solo frente: respaldo bajo el header (reverso no lleva bloque azul arriba) */
+    .idcard-col-front .idcard-face::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 14px;
+        background: @primary;
+        z-index: 1;
+        pointer-events: none;
     }
 
     .idcard-watermark {
@@ -97,7 +117,7 @@
         object-fit: contain;
     }
 
-    .idcard-z1 { position: relative; z-index: 1; }
+    .idcard-z1 { position: relative; z-index: 2; }
 
     /* ── HEADER: dominante — logo grande + nombre colegio prominente ── */
     .idcard-header {
@@ -109,10 +129,8 @@
         background: @primary;
         gap: 4px;
         box-sizing: border-box;
-        /* Sangra sobre el borde 1px del carnet para que el azul llegue al borde físico (pantalla, PDF vía HTML, impresión) */
-        margin: -1px -1px 0 -1px;
-        width: calc(100% + 2px);
-        max-width: none;
+        margin: 0;
+        width: 100%;
     }
 
     .idcard-logo-center {
