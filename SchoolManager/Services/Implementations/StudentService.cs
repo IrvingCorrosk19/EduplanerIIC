@@ -80,17 +80,21 @@ namespace SchoolManager.Services
 
         public async Task<IEnumerable<StudentBasicDto>> GetBySubjectGroupAndGradeAsync(Guid subjectId, Guid groupId, Guid gradeId)
         {
-            // MEJORADO: Filtrar solo estudiantes con asignaciones activas
+            // Misma lógica que GetByGroupAndGradeAsync, pero solo si existe al menos una asignación de
+            // la materia a ese grupo/grado. Se usa EXISTS en lugar de JOIN a subject_assignments: varias
+            // filas (p. ej. distinto area_id) duplicaban cada estudiante en el resultado.
             var result = await (from sa in _context.StudentAssignments
                                 join student in _context.Users on sa.StudentId equals student.Id
                                 join grade in _context.GradeLevels on sa.GradeId equals grade.Id
                                 join grupo in _context.Groups on sa.GroupId equals grupo.Id
-                                join subjectAssign in _context.SubjectAssignments on new { sa.GradeId, sa.GroupId } equals new { GradeId = subjectAssign.GradeLevelId, GroupId = subjectAssign.GroupId }
                                 where (student.Role == "estudiante" || student.Role == "student" || student.Role == "alumno")
                                       && sa.GroupId == groupId
                                       && sa.GradeId == gradeId
-                                      && sa.IsActive // Solo asignaciones activas
-                                      && subjectAssign.SubjectId == subjectId
+                                      && sa.IsActive
+                                      && _context.SubjectAssignments.Any(suj =>
+                                          suj.SubjectId == subjectId
+                                          && suj.GroupId == groupId
+                                          && suj.GradeLevelId == gradeId)
                                 orderby student.LastName, student.Name
                                 select new StudentBasicDto
                                 {
