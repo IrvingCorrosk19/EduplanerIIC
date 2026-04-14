@@ -49,35 +49,67 @@ public class ScheduleService : IScheduleService
         if (isTeacher && ta.TeacherId != currentUserId)
             throw new UnauthorizedAccessException("Solo puede asignar horarios a sus propias materias. La asignación docente no le pertenece.");
 
+        var slotLabel = FormatTimeSlotLabel(timeSlot);
+        var dayLabel = SpanishDayName(dayOfWeek);
+
         // A) Conflicto docente: mismo docente no puede tener mismo año + día + bloque
-        var teacherConflict = await _context.ScheduleEntries
+        var blockingForTeacher = await _context.ScheduleEntries
+            .AsNoTracking()
             .Include(e => e.TeacherAssignment)
-            .AnyAsync(e =>
+                .ThenInclude(t => t!.SubjectAssignment)
+                    .ThenInclude(sa => sa!.Subject)
+            .Include(e => e.TeacherAssignment)
+                .ThenInclude(t => t!.SubjectAssignment)
+                    .ThenInclude(sa => sa!.Group)
+            .FirstOrDefaultAsync(e =>
                 e.AcademicYearId == academicYearId &&
                 e.DayOfWeek == dayOfWeek &&
                 e.TimeSlotId == timeSlotId &&
                 e.TeacherAssignment.TeacherId == ta.TeacherId,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        if (teacherConflict)
+        if (blockingForTeacher != null)
+        {
+            var o = blockingForTeacher.TeacherAssignment!;
+            var sa0 = o.SubjectAssignment!;
+            var subject = sa0.Subject?.Name ?? "otra materia";
+            var group = sa0.Group?.Name ?? "—";
             throw new InvalidOperationException(
-                "Conflicto de horario: el docente ya tiene una clase asignada en el mismo día y bloque para este año académico.");
+                $"Conflicto de horario: este docente ya tiene asignada {subject} (grupo {group}) el {dayLabel} en {slotLabel} para este año académico.");
+        }
 
         // B) Conflicto grupo: mismo grupo no puede tener mismo año + día + bloque (vía otra TeacherAssignment -> mismo GroupId)
         var groupId = ta.SubjectAssignment.GroupId;
-        var groupConflict = await _context.ScheduleEntries
+        var blockingForGroup = await _context.ScheduleEntries
+            .AsNoTracking()
+            .Include(e => e.TeacherAssignment)
+                .ThenInclude(t => t!.Teacher)
             .Include(e => e.TeacherAssignment)
                 .ThenInclude(t => t!.SubjectAssignment)
-            .AnyAsync(e =>
+                    .ThenInclude(sa => sa!.Subject)
+            .Include(e => e.TeacherAssignment)
+                .ThenInclude(t => t!.SubjectAssignment)
+                    .ThenInclude(sa => sa!.Group)
+            .FirstOrDefaultAsync(e =>
                 e.AcademicYearId == academicYearId &&
                 e.DayOfWeek == dayOfWeek &&
                 e.TimeSlotId == timeSlotId &&
                 e.TeacherAssignment.SubjectAssignment.GroupId == groupId,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        if (groupConflict)
+        if (blockingForGroup != null)
+        {
+            var o = blockingForGroup.TeacherAssignment!;
+            var sa0 = o.SubjectAssignment!;
+            var subject = sa0.Subject?.Name ?? "una clase";
+            var groupName = sa0.Group?.Name ?? "el grupo";
+            var teacher = o.Teacher;
+            var teacherName = teacher != null
+                ? $"{teacher.Name} {teacher.LastName}".Trim()
+                : "otro docente";
             throw new InvalidOperationException(
-                "Conflicto de horario: el grupo ya tiene una clase asignada en el mismo día y bloque para este año académico.");
+                $"Conflicto de horario: el grupo {groupName} ya tiene ocupado este espacio el {dayLabel} en {slotLabel} con {subject} (docente: {teacherName}) para este año académico.");
+        }
 
         var entry = new ScheduleEntry
         {
@@ -200,4 +232,19 @@ public class ScheduleService : IScheduleService
 
         return await GetByGroupAsync(assignment.GroupId, academicYearId).ConfigureAwait(false);
     }
+
+    private static string FormatTimeSlotLabel(TimeSlot timeSlot) =>
+        $"{timeSlot.Name} ({timeSlot.StartTime:HH:mm} – {timeSlot.EndTime:HH:mm})";
+
+    private static string SpanishDayName(byte dayOfWeek) => dayOfWeek switch
+    {
+        1 => "lunes",
+        2 => "martes",
+        3 => "miércoles",
+        4 => "jueves",
+        5 => "viernes",
+        6 => "sábado",
+        7 => "domingo",
+        _ => $"día {dayOfWeek}"
+    };
 }
