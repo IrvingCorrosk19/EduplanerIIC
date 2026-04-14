@@ -3,6 +3,7 @@ using SchoolManager.Mappings;
 using SchoolManager.Models;
 using AutoMapper;
 using SchoolManager.Services.Implementations;
+using SchoolManager.Options;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Application.Interfaces;
 using SchoolManager.Infrastructure.Services;
@@ -20,7 +21,6 @@ using SchoolManager.Repositories.Implementations;
 using SchoolManager.Repositories.Interfaces;
 using SchoolManager.Services.Background;
 using SchoolManager.Infrastructure;
-using SchoolManager.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -209,6 +209,9 @@ builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddScoped<IStudentActivityScoreService, StudentActivityScoreService>();
 
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>(); // o tu propio servicio
+
+builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
+builder.Services.AddSingleton<IDocumentStorageService, DocumentStorageService>();
 
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IDisciplineReportService, DisciplineReportService>();

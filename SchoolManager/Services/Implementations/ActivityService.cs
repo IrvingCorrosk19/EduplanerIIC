@@ -11,13 +11,20 @@ namespace SchoolManager.Services
     {
         private readonly SchoolDbContext _context;
         private readonly IFileStorage _fileStorage;
+        private readonly IDocumentStorageService _documentStorage;
         private readonly ITrimesterService _trimesterService;
         private readonly ICurrentUserService _currentUserService;
 
-        public ActivityService(SchoolDbContext context, IFileStorage fileStorage, ITrimesterService trimesterService, ICurrentUserService currentUserService)
+        public ActivityService(
+            SchoolDbContext context,
+            IFileStorage fileStorage,
+            IDocumentStorageService documentStorage,
+            ITrimesterService trimesterService,
+            ICurrentUserService currentUserService)
         {
             _context = context;
             _fileStorage = fileStorage;
+            _documentStorage = documentStorage;
             _trimesterService = trimesterService;
             _currentUserService = currentUserService;
         }
@@ -75,12 +82,17 @@ namespace SchoolManager.Services
                 Console.WriteLine($"[ActivityService] Actividad creada con ID: {activity.Id}");
                 Console.WriteLine($"[ActivityService] DueDate: {activity.DueDate}");
 
-            if (dto.Pdf != null)
+            if (!string.IsNullOrWhiteSpace(dto.PersistedTeacherGradebookFileName))
+            {
+                activity.PdfUrl = dto.PersistedTeacherGradebookFileName;
+                Console.WriteLine($"[ActivityService] Documento TeacherGradebook persistido: {activity.PdfUrl}");
+            }
+            else if (dto.Pdf is { Length: > 0 })
             {
                 var path = $"activities/{activity.Id}/{dto.Pdf.FileName}";
                 await using var stream = dto.Pdf.OpenReadStream();
                 activity.PdfUrl = await _fileStorage.SaveAsync(path, stream);
-                    Console.WriteLine($"[ActivityService] PDF guardado en: {activity.PdfUrl}");
+                Console.WriteLine($"[ActivityService] PDF guardado en: {activity.PdfUrl}");
             }
 
             _context.Activities.Add(activity);
@@ -99,7 +111,7 @@ namespace SchoolManager.Services
                 TrimesterCode = activity.Trimester,
                 SubjectName = subject?.Name ?? string.Empty,
                 GroupDisplayName = group != null ? $"{group.Grade} – {group.Name}" : string.Empty,
-                PdfUrl = activity.PdfUrl
+                PdfUrl = _documentStorage.ToPublicDownloadUrl(activity.PdfUrl)
             };
 
                 Console.WriteLine($"[ActivityService] Actividad creada exitosamente: {result.Name}");
@@ -157,9 +169,17 @@ namespace SchoolManager.Services
                 activity.GradeLevelId = dto.GradeLevelId;
                 activity.DueDate = dto.DueDate.ToUniversalTime();
 
-                // Manejar archivo PDF si se proporciona uno nuevo
-                if (dto.Pdf != null)
+                if (!string.IsNullOrWhiteSpace(dto.PersistedTeacherGradebookFileName))
                 {
+                    if (_documentStorage.IsPersistedTeacherGradebookFileName(activity.PdfUrl))
+                        await _documentStorage.TryDeleteTeacherGradebookFileAsync(activity.PdfUrl).ConfigureAwait(false);
+                    activity.PdfUrl = dto.PersistedTeacherGradebookFileName;
+                    Console.WriteLine($"[ActivityService] Documento TeacherGradebook actualizado: {activity.PdfUrl}");
+                }
+                else if (dto.Pdf is { Length: > 0 })
+                {
+                    if (_documentStorage.IsPersistedTeacherGradebookFileName(activity.PdfUrl))
+                        await _documentStorage.TryDeleteTeacherGradebookFileAsync(activity.PdfUrl).ConfigureAwait(false);
                     var path = $"activities/{activity.Id}/{dto.Pdf.FileName}";
                     await using var stream = dto.Pdf.OpenReadStream();
                     activity.PdfUrl = await _fileStorage.SaveAsync(path, stream);
@@ -185,7 +205,7 @@ namespace SchoolManager.Services
                     TrimesterCode = activity.Trimester,
                     SubjectName = subject?.Name ?? string.Empty,
                     GroupDisplayName = group != null ? $"{group.Grade} – {group.Name}" : string.Empty,
-                    PdfUrl = activity.PdfUrl
+                    PdfUrl = _documentStorage.ToPublicDownloadUrl(activity.PdfUrl)
                 };
 
                 Console.WriteLine($"[ActivityService] Actividad actualizada exitosamente: {result.Name}");
@@ -231,7 +251,7 @@ namespace SchoolManager.Services
                          && a.SubjectId == subjectId
                          && a.GradeLevelId == gradeLevelId);
 
-            return await query
+            var list = await query
                 .OrderBy(a => a.CreatedAt)
                 .Select(a => new ActivityHeaderDto
                 {
@@ -244,6 +264,11 @@ namespace SchoolManager.Services
                     DueDate = a.DueDate
                 })
                 .ToListAsync();
+
+            foreach (var item in list)
+                item.PdfUrl = _documentStorage.ToPublicDownloadUrl(item.PdfUrl);
+
+            return list;
         }
 
         public async Task UploadPdfAsync(Guid activityId, string fileName, Stream content)
@@ -330,6 +355,8 @@ namespace SchoolManager.Services
             {
                 throw new UnauthorizedAccessException("No tiene permisos para eliminar actividades de otra escuela.");
             }
+
+            await _documentStorage.TryDeleteTeacherGradebookFileAsync(entity.PdfUrl).ConfigureAwait(false);
 
             _context.Activities.Remove(entity);
             await _context.SaveChangesAsync();

@@ -17,13 +17,20 @@ namespace SchoolManager.Services
         private readonly ITrimesterService _trimesterService;
         private readonly ICurrentUserService _currentUserService;
         private readonly IAcademicYearService _academicYearService;
+        private readonly IDocumentStorageService _documentStorage;
 
-        public StudentActivityScoreService(SchoolDbContext context, ITrimesterService trimesterService, ICurrentUserService currentUserService, IAcademicYearService academicYearService)
+        public StudentActivityScoreService(
+            SchoolDbContext context,
+            ITrimesterService trimesterService,
+            ICurrentUserService currentUserService,
+            IAcademicYearService academicYearService,
+            IDocumentStorageService documentStorage)
         {
             _context = context;
             _trimesterService = trimesterService;
             _currentUserService = currentUserService;
             _academicYearService = academicYearService;
+            _documentStorage = documentStorage;
         }
 
         /* ------------ 1. Guardar / actualizar notas ------------ */
@@ -103,6 +110,7 @@ namespace SchoolManager.Services
                 h.Date = h.Date.HasValue
                     ? h.Date.Value.ToUniversalTime()
                     : DateTime.UtcNow;
+                h.PdfUrl = _documentStorage.ToPublicDownloadUrl(h.PdfUrl);
             }
 
             var activityIds = headers.Select(h => h.Id).ToList();

@@ -27,6 +27,7 @@ namespace SchoolManager.Controllers
         private readonly IAttendanceService _attendanceService;
         private readonly ICounselorAssignmentService _counselorAssignmentService;
         private readonly ISubjectAssignmentService _subjectAssignmentService;
+        private readonly IDocumentStorageService _documentStorage;
 
 
         public TeacherGradebookController(
@@ -39,9 +40,11 @@ namespace SchoolManager.Controllers
             IStudentService studentService,
             IAttendanceService attendanceService,
             ICounselorAssignmentService counselorAssignmentService,
-            ISubjectAssignmentService subjectAssignmentService)
+            ISubjectAssignmentService subjectAssignmentService,
+            IDocumentStorageService documentStorage)
             
         {
+            _documentStorage = documentStorage;
             _studentService = studentService;   
             _trimesterSvc = trimesterSvc;
             _groupSvc = groupSvc;
@@ -395,6 +398,12 @@ namespace SchoolManager.Controllers
                 if (dto.SubjectId == Guid.Empty || dto.GradeLevelId == Guid.Empty)
                     return Json(new { success = false, error = "La materia y el grado son obligatorios." });
 
+                if (dto.Pdf is { Length: > 0 })
+                {
+                    dto.PersistedTeacherGradebookFileName = await _documentStorage.SaveTeacherGradebookFileAsync(dto.Pdf).ConfigureAwait(false);
+                    dto.Pdf = null;
+                }
+
                 var result = await _activitySvc.CreateAsync(dto);
                 return Json(new { success = true, data = result });
             }
@@ -428,6 +437,12 @@ namespace SchoolManager.Controllers
 
                 if (dto.SubjectId == Guid.Empty || dto.GradeLevelId == Guid.Empty)
                     return Json(new { success = false, error = "La materia y el grado son obligatorios." });
+
+                if (dto.Pdf is { Length: > 0 })
+                {
+                    dto.PersistedTeacherGradebookFileName = await _documentStorage.SaveTeacherGradebookFileAsync(dto.Pdf).ConfigureAwait(false);
+                    dto.Pdf = null;
+                }
 
                 var result = await _activitySvc.UpdateAsync(dto);
                 return Json(new { success = true, data = result });

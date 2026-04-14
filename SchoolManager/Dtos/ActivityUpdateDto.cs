@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace SchoolManager.Dtos
 {
@@ -11,6 +12,10 @@ namespace SchoolManager.Dtos
         public DateTime Date { get; set; }
         public DateTime DueDate { get; set; }
         public IFormFile? Pdf { get; set; }
+
+        [BindNever]
+        public string? PersistedTeacherGradebookFileName { get; set; }
+
         public Guid TeacherId { get; set; }
         public Guid SubjectId { get; set; }
         public Guid GroupId { get; set; }
