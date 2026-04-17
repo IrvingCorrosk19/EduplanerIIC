@@ -259,17 +259,17 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         if (settings.ShowQr)
             DrawQr(canvas, dto.QrToken, SKRect.Create(qrX, qrY, qrSz, qrSz));
 
-        float leftW    = qrX - hPad * 2f;
-        float polFs    = h * 0.024f;
-        float polIdFs  = h * 0.027f;
-        float lty      = bottomZoneTop + bottomZH * 0.18f;
+        float leftW       = qrX - hPad * 2f;
+        float polLabelFs  = h * 0.0265f;
+        float polIdFs     = h * 0.027f;
+        float lty         = bottomZoneTop + bottomZH * 0.18f;
 
         if (settings.ShowPolicyNumber && !string.IsNullOrWhiteSpace(dto.PolicyNumber))
         {
-            AutoText(canvas, "Póliza de Seguro Educativo", hPad, lty, leftW, polFs, primary, bold: true);
-            lty += polFs * 1.5f;
-            AutoText(canvas, Trunc(dto.PolicyNumber, 28), hPad, lty, leftW, polFs, textCol);
-            lty += polFs * 1.8f;
+            AutoText(canvas, "Póliza de Seguro Educativo", hPad, lty, leftW, polLabelFs, primary, bold: true);
+            lty += polLabelFs * 1.38f;
+            AutoText(canvas, Trunc(dto.PolicyNumber, 28), hPad, lty, leftW, smallFs, textCol);
+            lty += smallFs * 1.8f;
         }
         AutoText(canvas, Trunc($"ID: {dto.CardNumber}", 22), hPad, lty, leftW, polIdFs, textCol, bold: true);
 
