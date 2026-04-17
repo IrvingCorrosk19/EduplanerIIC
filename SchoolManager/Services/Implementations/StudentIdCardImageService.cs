@@ -252,9 +252,10 @@ public class StudentIdCardImageService : IStudentIdCardImageService
         using (var p = Fill(new SKColor(230, 238, 247)))
             canvas.DrawRect(0, bottomZoneTop, w, bottomZH, p);
 
-        float qrSz = bottomZH * 0.55f;
-        float qrX  = w - hPad - qrSz;
-        float qrY  = bottomZoneTop + (bottomZH - qrSz) / 2f;
+        float qrInset = Math.Max(3f, w * 0.014f);
+        float qrSz    = Math.Min(bottomZH * 0.50f, w * 0.26f);
+        float qrX     = w - hPad - qrSz - qrInset;
+        float qrY     = bottomZoneTop + (bottomZH - qrSz) / 2f;
         if (settings.ShowQr)
             DrawQr(canvas, dto.QrToken, SKRect.Create(qrX, qrY, qrSz, qrSz));
 
