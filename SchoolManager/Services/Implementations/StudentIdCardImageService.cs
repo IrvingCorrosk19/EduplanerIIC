@@ -259,8 +259,8 @@ public class StudentIdCardImageService : IStudentIdCardImageService
             DrawQr(canvas, dto.QrToken, SKRect.Create(qrX, qrY, qrSz, qrSz));
 
         float leftW    = qrX - hPad * 2f;
-        float polFs    = h * 0.022f;
-        float polIdFs  = h * 0.025f;
+        float polFs    = h * 0.024f;
+        float polIdFs  = h * 0.027f;
         float lty      = bottomZoneTop + bottomZH * 0.18f;
 
         if (settings.ShowPolicyNumber && !string.IsNullOrWhiteSpace(dto.PolicyNumber))

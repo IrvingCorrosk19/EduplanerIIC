@@ -200,11 +200,11 @@
         align-items: center;
         justify-content: space-between;
         background: #E6EEF7;
-        padding: 6px 6px;
+        padding: 7px 7px;
         margin: 0;
         border-radius: 0 0 8px 8px;
         flex-shrink: 0;
-        min-height: 70px;
+        min-height: 74px;
     }
 
     .idcard-policy-section .policy-text {
@@ -214,14 +214,14 @@
     }
 
     .idcard-policy-section .policy-label {
-        font-size: 5.5pt;
+        font-size: 6pt;
         font-weight: 700;
         color: @primary;
         line-height: 1.25;
     }
 
     .idcard-policy-section .policy-number {
-        font-size: 5pt;
+        font-size: 5.5pt;
         color: @text;
         line-height: 1.2;
     }
@@ -242,8 +242,8 @@
     }
 
     .idcard-policy-section .policy-qr img {
-        width: 58px;
-        height: 58px;
+        width: 60px;
+        height: 60px;
         display: block;
     }
 
@@ -422,7 +422,7 @@
                                     @if (Model.ShowPolicyNumber && !string.IsNullOrWhiteSpace(Model.PolicyNumber))
                                     {
                                         <div class="policy-label">
-                                            <i class="fas fa-shield-alt me-1" style="font-size:5pt"></i>Póliza de Seguro Educativo
+                                            <i class="fas fa-shield-alt me-1" style="font-size:5.25pt"></i>Póliza de Seguro Educativo
                                         </div>
                                         <div class="policy-number">@Model.PolicyNumber</div>
                                     }
