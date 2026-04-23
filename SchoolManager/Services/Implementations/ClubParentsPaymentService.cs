@@ -28,7 +28,7 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ClubParentsStudentDto>> GetStudentsAsync(Guid? gradeId = null, Guid? groupId = null)
+    public async Task<IReadOnlyList<ClubParentsStudentDto>> GetStudentsAsync(Guid? gradeId = null, Guid? groupId = null, string? cedula = null)
     {
         var school = await _currentUserService.GetCurrentUserSchoolAsync();
         if (school == null)
@@ -53,12 +53,19 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
                 && (!groupId.HasValue || sa.GroupId == groupId.Value)));
         }
 
+        if (!string.IsNullOrWhiteSpace(cedula))
+        {
+            var term = cedula.Trim().ToLowerInvariant();
+            query = query.Where(u => u.DocumentId != null && u.DocumentId.ToLower().Contains(term));
+        }
+
         // Proyección en la consulta (como en StudentIdCard list-json) para evitar múltiples Include y posibles 500
         var list = await query
             .Select(u => new
             {
                 u.Id,
                 FullName = u.Name + " " + u.LastName,
+                Cedula = u.DocumentId,
                 Grade = u.StudentAssignments.Where(sa => sa.IsActive).Select(sa => sa.Grade.Name).FirstOrDefault() ?? "Sin asignar",
                 Group = u.StudentAssignments.Where(sa => sa.IsActive).Select(sa => sa.Group.Name).FirstOrDefault() ?? "Sin asignar"
             })
@@ -81,6 +88,7 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
             {
                 Id = x.Id,
                 FullName = x.FullName ?? "",
+                Cedula = x.Cedula,
                 Grade = x.Grade ?? "Sin asignar",
                 Group = x.Group ?? "Sin asignar",
                 CarnetStatus = access?.CarnetStatus ?? CarnetPendiente,
