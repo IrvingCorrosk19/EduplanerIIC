@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SchoolManager.Helpers;
 using SchoolManager.Services.Interfaces;
 
 namespace SchoolManager.Controllers;
@@ -120,7 +121,7 @@ public class FileController : Controller
     /// </summary>
     [AllowAnonymous]
     [HttpGet]
-    public async Task<IActionResult> GetUserPhoto(string? photoUrl)
+    public async Task<IActionResult> GetUserPhoto(string? photoUrl, int? carnetEdge = null)
     {
         var placeholderSvg = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "user-photo-placeholder.svg");
         var fallbackJpeg = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
@@ -148,6 +149,12 @@ public class FileController : Controller
             {
                 _logger.LogWarning("GetUserPhoto: URL externa no permitida (solo Cloudinary o rutas locales): {Host}", uri.Host);
                 return await PlaceholderAsync();
+            }
+
+            if (carnetEdge is >= 120 and <= 800)
+            {
+                var hiRes = CloudinaryCarnetDeliveryUrl.WithCarnetFaceCrop(trimmed, carnetEdge.Value);
+                return Redirect(hiRes);
             }
 
             return Redirect(trimmed);
