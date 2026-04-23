@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using SchoolManager.Helpers;
 using SchoolManager.Services.Interfaces;
 
@@ -121,7 +122,7 @@ public class FileController : Controller
     /// </summary>
     [AllowAnonymous]
     [HttpGet]
-    public async Task<IActionResult> GetUserPhoto(string? photoUrl, int? carnetEdge = null)
+    public async Task<IActionResult> GetUserPhoto(string? photoUrl, int? carnetEdge = null, string? variant = null)
     {
         var placeholderSvg = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "user-photo-placeholder.svg");
         var fallbackJpeg = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logoIPT.jpg");
@@ -157,6 +158,12 @@ public class FileController : Controller
                 return Redirect(hiRes);
             }
 
+            if (string.Equals(variant, "thumb", StringComparison.OrdinalIgnoreCase))
+            {
+                var thumbUrl = CloudinaryTransformUrl.InsertAfterUpload(trimmed, UserPhotoDeliveryTransforms.ListThumbnail);
+                return Redirect(thumbUrl);
+            }
+
             return Redirect(trimmed);
         }
 
@@ -167,6 +174,11 @@ public class FileController : Controller
                 return await PlaceholderAsync();
 
             var contentType = trimmed.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg";
+            Response.GetTypedHeaders().CacheControl = new CacheControlHeaderValue
+            {
+                Private = true,
+                MaxAge    = TimeSpan.FromMinutes(15)
+            };
             return File(bytes, contentType);
         }
         catch (Exception ex)

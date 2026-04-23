@@ -17,4 +17,11 @@ public static class UserPhotoLinks
     public static string HrefForCarnetPreview(string? photoUrlStored, int edgePx = 360) =>
         "/File/GetUserPhoto?photoUrl=" + Uri.EscapeDataString(photoUrlStored ?? string.Empty)
         + "&carnetEdge=" + edgePx.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Miniatura para tablas/listados: <c>variant=thumb</c> en GetUserPhoto → redirección Cloudinary con transformación liviana.
+    /// Si la URL no es Cloudinary, el servidor ignora la variante y sirve el recurso como siempre (fallback).
+    /// </summary>
+    public static string HrefListThumbnail(string? photoUrlStored) =>
+        "/File/GetUserPhoto?photoUrl=" + Uri.EscapeDataString(photoUrlStored ?? string.Empty) + "&variant=thumb";
 }

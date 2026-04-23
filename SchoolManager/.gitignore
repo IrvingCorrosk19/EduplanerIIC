@@ -12,5 +12,8 @@ obj/
 *.db
 appsettings.Development.json
 
+# Caché temporal de descargas HTTP (fotos/logos para PDF); se regenera solo
+cache/
+
 # Volcados completos de PostgreSQL (datos sensibles; no versionar)
 Backups/
