@@ -312,6 +312,7 @@ namespace SchoolManager.Services
 
             // Obtener las notas existentes con información del estudiante
             var notas = await _context.StudentActivityScores
+                .AsNoTracking()
                 .Include(sa => sa.Activity)
                 .Include(sa => sa.Student)
                 .Where(sa =>
@@ -361,6 +362,40 @@ namespace SchoolManager.Services
                 .ToList();
 
             return resultado;
+        }
+
+        public async Task<IReadOnlyList<CounselorSubjectAverageDto>> GetCounselorGroupSubjectAveragesForTrimesterAsync(
+            Guid groupId,
+            Guid gradeLevelId,
+            string trimester,
+            IReadOnlyCollection<Guid> subjectIds)
+        {
+            if (subjectIds == null || subjectIds.Count == 0 || string.IsNullOrEmpty(trimester))
+                return Array.Empty<CounselorSubjectAverageDto>();
+
+            var subjectSet = subjectIds as HashSet<Guid> ?? subjectIds.ToHashSet();
+
+            var rows = await (
+                from score in _context.StudentActivityScores.AsNoTracking()
+                join activity in _context.Activities.AsNoTracking() on score.ActivityId equals activity.Id
+                where activity.GroupId == groupId
+                    && activity.GradeLevelId == gradeLevelId
+                    && activity.Trimester == trimester
+                    && activity.SubjectId != null
+                    && subjectSet.Contains(activity.SubjectId.Value)
+                select new { score.StudentId, SubjectId = activity.SubjectId!.Value, score.Score }
+            ).ToListAsync();
+
+            return rows
+                .Where(x => x.Score.HasValue)
+                .GroupBy(x => (x.StudentId, x.SubjectId))
+                .Select(g => new CounselorSubjectAverageDto
+                {
+                    StudentId = g.Key.StudentId,
+                    SubjectId = g.Key.SubjectId,
+                    AverageScore = g.Average(x => (double)x.Score!.Value)
+                })
+                .ToList();
         }
 
         public async Task<List<PromedioFinalDto>> GetPromediosFinalesAsync(GetNotesDto notes)

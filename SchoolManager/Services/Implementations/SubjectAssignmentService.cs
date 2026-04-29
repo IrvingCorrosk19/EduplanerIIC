@@ -103,6 +103,7 @@ namespace SchoolManager.Services
             var usercurrent = await _currentUserService.GetCurrentUserAsync();
 
             return await _context.SubjectAssignments
+                .AsNoTracking()
                 .Where(sa => sa.GroupId == groupId && 
                            sa.GradeLevelId == gradeLevelId && 
                            sa.SchoolId == usercurrent.SchoolId)

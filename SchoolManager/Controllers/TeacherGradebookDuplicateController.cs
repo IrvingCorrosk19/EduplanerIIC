@@ -637,7 +637,7 @@ namespace SchoolManager.Controllers
 
                 // Obtener todas las materias asignadas al grupo
                 Console.WriteLine("Obteniendo materias asignadas al grupo...");
-                IEnumerable<object> subjectAssignments;
+                IEnumerable<SubjectAssignment> subjectAssignments;
                 if (request.GradeLevelId != Guid.Empty)
                 {
                     subjectAssignments = await _subjectAssignmentService.GetByGroupAndGradeAsync(request.GroupId, request.GradeLevelId);
@@ -650,20 +650,26 @@ namespace SchoolManager.Controllers
                 }
                 Console.WriteLine($"Materias encontradas: {subjectAssignments?.Count() ?? 0}");
 
-                var subjects = subjectAssignments.Select(sa => {
-                    // Usar reflexión para acceder a las propiedades dinámicamente
-                    var subjectId = sa.GetType().GetProperty("SubjectId")?.GetValue(sa);
-                    var subject = sa.GetType().GetProperty("Subject")?.GetValue(sa);
-                    var subjectName = subject?.GetType().GetProperty("Name")?.GetValue(subject);
-
-                    return new
+                var assignmentList = subjectAssignments.ToList();
+                var subjects = assignmentList
+                    .GroupBy(sa => sa.SubjectId)
+                    .Select(g => new
                     {
-                        id = subjectId,
-                        name = subjectName ?? "Sin nombre"
-                    };
-                }).ToList();
+                        id = g.Key,
+                        name = g.First().Subject?.Name ?? "Sin nombre"
+                    })
+                    .ToList();
 
-                Console.WriteLine($"Materias procesadas: {subjects.Count}");
+                var subjectIds = subjects.Select(s => s.id).ToList();
+                var averagesList = await _scoreSvc.GetCounselorGroupSubjectAveragesForTrimesterAsync(
+                    request.GroupId,
+                    request.GradeLevelId,
+                    request.Trimester,
+                    subjectIds);
+
+                var avgByStudentSubject = averagesList.ToDictionary(
+                    a => (a.StudentId, a.SubjectId),
+                    a => a.AverageScore);
 
                 var result = new List<object>();
                 var allAverages = new List<double>();
@@ -672,61 +678,25 @@ namespace SchoolManager.Controllers
                 Console.WriteLine("Procesando estudiantes...");
                 foreach (var student in students)
                 {
-                    Console.WriteLine($"Procesando estudiante: {student.FullName} (ID: {student.StudentId})");
                     var studentAverages = new Dictionary<Guid, double>();
                     var studentTotalScore = 0.0;
                     var studentValidScores = 0;
 
                     foreach (var subject in subjects)
                     {
-                        Console.WriteLine($"  Procesando materia: {subject.name} (ID: {subject.id})");
+                        var hasScores = avgByStudentSubject.TryGetValue((student.StudentId, subject.id), out var avg);
+                        var average = hasScores ? avg : 0.0;
 
-                        // Obtener promedio del estudiante en esta materia para el trimestre
-                        var notesRequest = new GetNotesDto
+                        if (hasScores)
                         {
-                            SubjectId = (Guid)subject.id,
-                            GroupId = request.GroupId,
-                            GradeLevelId = request.GradeLevelId,
-                            TeacherId = teacherId,
-                            Trimester = request.Trimester
-                        };
-
-                        var notas = await _scoreSvc.GetNotasPorFiltroAsync(notesRequest);
-                        Console.WriteLine($"    Notas encontradas: {notas?.Count() ?? 0}");
-
-                        var studentNotes = notas.FirstOrDefault(n => n.StudentId == student.StudentId.ToString());
-                        Console.WriteLine($"    Notas del estudiante: {studentNotes != null}");
-
-                        double average = 0.0;
-                        if (studentNotes?.Notas != null && studentNotes.Notas.Any())
-                        {
-                            Console.WriteLine($"    Notas del estudiante en la materia: {studentNotes.Notas.Count}");
-
-                            var validNotes = studentNotes.Notas
-                                .Where(n => !string.IsNullOrEmpty(n.Nota) && decimal.TryParse(n.Nota, out _))
-                                .Select(n => (double)decimal.Parse(n.Nota))
-                                .ToList();
-
-                            Console.WriteLine($"    Notas válidas: {validNotes.Count}");
-
-                            if (validNotes.Any())
-                            {
-                                average = validNotes.Average();
-                                studentTotalScore += average;
-                                studentValidScores++;
-                                Console.WriteLine($"    Promedio calculado: {average:F2}");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine($"    No hay notas para el estudiante en esta materia");
+                            studentTotalScore += average;
+                            studentValidScores++;
                         }
 
-                        studentAverages[(Guid)subject.id] = average;
+                        studentAverages[subject.id] = average;
                     }
 
                     var studentGeneralAverage = studentValidScores > 0 ? studentTotalScore / studentValidScores : 0.0;
-                    Console.WriteLine($"  Promedio general del estudiante: {studentGeneralAverage:F2}");
 
                     if (studentGeneralAverage > 0)
                     {
