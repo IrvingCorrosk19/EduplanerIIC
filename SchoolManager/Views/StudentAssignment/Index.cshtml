@@ -3,6 +3,12 @@
 @{
     Layout = "_AdminLayout";
     ViewData["Title"] = "Asignación de Estudiantes";
+    var filterGrades = ViewBag.FilterGrades as List<GradeLevel> ?? new List<GradeLevel>();
+    var filterGroups = ViewBag.FilterGroups as List<Group> ?? new List<Group>();
+    var filterShifts = ViewBag.FilterShifts as List<Shift> ?? new List<Shift>();
+    var fGrade = ViewBag.FilterGradeId as Guid?;
+    var fGroup = ViewBag.FilterGroupId as Guid?;
+    var fShift = ViewBag.FilterShiftId as Guid?;
 }
 
 <style>
@@ -172,6 +178,65 @@
             <span class="fw-bold fs-4">Asignaciones Actuales</span>
         </div>
         <div class="card-body">
+            <form method="get" asp-controller="StudentAssignment" asp-action="Index" class="row g-3 mb-4 align-items-end">
+                <div class="col-md-3">
+                    <label for="filterGradeId" class="form-label mb-1 text-secondary fw-semibold">Grado</label>
+                    <select name="gradeId" id="filterGradeId" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var g in filterGrades)
+                        {
+                            if (fGrade == g.Id)
+                            {
+                                <option value="@g.Id" selected="selected">@g.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@g.Id">@g.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filterGroupId" class="form-label mb-1 text-secondary fw-semibold">Grupo</label>
+                    <select name="groupId" id="filterGroupId" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var g in filterGroups)
+                        {
+                            if (fGroup == g.Id)
+                            {
+                                <option value="@g.Id" selected="selected">@g.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@g.Id">@g.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filterShiftId" class="form-label mb-1 text-secondary fw-semibold">Jornada</label>
+                    <select name="shiftId" id="filterShiftId" class="form-select">
+                        <option value="">Todas</option>
+                        @foreach (var s in filterShifts)
+                        {
+                            if (fShift == s.Id)
+                            {
+                                <option value="@s.Id" selected="selected">@s.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                    </button>
+                    <a asp-controller="StudentAssignment" asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+                </div>
+            </form>
             <div class="mb-4 d-flex justify-content-center">
                 <div class="search-input position-relative w-50">
                     <i class="bi bi-search position-absolute" style="left: 1rem; top: 50%; transform: translateY(-50%); font-size: 1.3rem; color: var(--secondary-color);"></i>

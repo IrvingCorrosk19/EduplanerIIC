@@ -166,8 +166,12 @@ namespace SchoolManager.Controllers
             return Json(response);
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(Guid? gradeId, Guid? groupId, Guid? shiftId)
         {
+            if (gradeId == Guid.Empty) gradeId = null;
+            if (groupId == Guid.Empty) groupId = null;
+            if (shiftId == Guid.Empty) shiftId = null;
+
             var students = await _userService.GetAllStudentsAsync();
             var allGroups = await _groupService.GetAllAsync();
             var allGrades = await _gradeLevelService.GetAllAsync();
@@ -223,7 +227,86 @@ namespace SchoolManager.Controllers
                 });
             }
 
+            if (gradeId.HasValue || groupId.HasValue || shiftId.HasValue)
+            {
+                viewModelList = viewModelList
+                    .Where(vm => StudentMatchesAssignmentFilters(
+                        vm.StudentId,
+                        assignmentsByStudent,
+                        groupById,
+                        shiftById,
+                        gradeId,
+                        groupId,
+                        shiftId))
+                    .ToList();
+            }
+
+            ViewBag.FilterGrades = allGrades.OrderBy(g => g.Name).ToList();
+            ViewBag.FilterGroups = allGroups.OrderBy(g => g.Name).ToList();
+            ViewBag.FilterShifts = allShifts.OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name).ToList();
+            ViewBag.FilterGradeId = gradeId;
+            ViewBag.FilterGroupId = groupId;
+            ViewBag.FilterShiftId = shiftId;
+
             return View(viewModelList);
+        }
+
+        /// <summary>
+        /// Fila visible si el estudiante tiene al menos una asignación activa que cumpla todos los criterios seleccionados.
+        /// </summary>
+        private static bool StudentMatchesAssignmentFilters(
+            Guid studentId,
+            Dictionary<Guid, List<StudentAssignment>> assignmentsByStudent,
+            Dictionary<Guid, Group> groupById,
+            Dictionary<Guid, Shift> shiftById,
+            Guid? gradeId,
+            Guid? groupId,
+            Guid? shiftId)
+        {
+            if (!assignmentsByStudent.TryGetValue(studentId, out var list) || list == null || list.Count == 0)
+                return false;
+
+            foreach (var a in list)
+            {
+                if (gradeId.HasValue && a.GradeId != gradeId.Value)
+                    continue;
+                if (groupId.HasValue && a.GroupId != groupId.Value)
+                    continue;
+                if (shiftId.HasValue)
+                {
+                    groupById.TryGetValue(a.GroupId, out var group);
+                    if (!AssignmentMatchesShiftFilter(a, group, shiftId.Value, shiftById))
+                        continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool AssignmentMatchesShiftFilter(
+            StudentAssignment assignment,
+            Group? group,
+            Guid shiftFilterId,
+            Dictionary<Guid, Shift> shiftById)
+        {
+            var effective = assignment.ShiftId ?? group?.ShiftId;
+            if (effective.HasValue && effective.Value == shiftFilterId)
+                return true;
+
+            if (!shiftById.TryGetValue(shiftFilterId, out var selectedShift))
+                return false;
+
+            var selectedName = selectedShift.Name?.Trim();
+            if (string.IsNullOrEmpty(selectedName))
+                return false;
+
+            if (!string.IsNullOrEmpty(group?.Shift) &&
+                string.Equals(group.Shift.Trim(), selectedName, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
         }
 
         public IActionResult Upload()
