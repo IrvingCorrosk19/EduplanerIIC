@@ -158,6 +158,23 @@
         background-size: contain;
         opacity: 0.5;
     }
+    .dataTables_wrapper .dataTables_length {
+        margin-bottom: 1rem;
+    }
+    .dataTables_wrapper .dataTables_length label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+        color: var(--secondary-color);
+        margin-bottom: 0;
+    }
+    .dataTables_wrapper .dataTables_length select {
+        min-width: 5.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border-color);
+        padding: 0.35rem 2rem 0.35rem 0.75rem;
+    }
 </style>
 
 <div class="student-portal">
@@ -419,16 +436,21 @@
             // Muchas filas (~1.8k): evita clases CSS de orden por celda (reduce trabajo al inicializar).
             var table = $('#asignacionesTable').DataTable({
                 language: {
-                    search: "", lengthMenu: "Mostrar _MENU_",
+                    search: "",
+                    lengthMenu: "Mostrar _MENU_",
                     info: "Mostrando _START_ a _END_ de _TOTAL_",
+                    infoEmpty: "Sin registros",
+                    infoFiltered: "(filtrado de _MAX_ en total)",
                     zeroRecords: "Sin coincidencias",
                     paginate: { first: "«", last: "»", next: "›", previous: "‹" }
                 },
                 pageLength: 10,
+                lengthMenu: [[10, 25, 50, 100, 250, 500, -1], [10, 25, 50, 100, 250, 500, 'Todos']],
                 responsive: true,
                 autoWidth: false,
                 orderClasses: false,
-                dom: 'rtip', // Oculta el buscador nativo
+                // l = selector cantidad por página; sin f para seguir usando solo #customSearch
+                dom: 'lrtip'
             });
 
             // Conectar búsqueda personalizada
