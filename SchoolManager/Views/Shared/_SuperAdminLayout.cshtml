@@ -77,7 +77,26 @@
                         <li class="nav-item">
                             <a href="/SuperAdmin/StudentDirectory" class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "StudentDirectory" ? "active" : "")">
                                 <i class="nav-icon fas fa-user-graduate"></i>
-                                <p>Estudiantes</p>
+                                <p>Directorio estudiantil</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/SuperAdmin/StaffDirectory" class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "StaffDirectory" ? "active" : "")">
+                                <i class="nav-icon fas fa-users-cog"></i>
+                                <p>Directorio de personal</p>
+                            </a>
+                        </li>
+                        <li class="nav-header">CREDENCIALES</li>
+                        <li class="nav-item">
+                            <a href="/StudentIdCard/ui" class="nav-link">
+                                <i class="nav-icon fas fa-id-card"></i>
+                                <p>Carnet estudiantil</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/InstitutionalCredential/ui" class="nav-link">
+                                <i class="nav-icon fas fa-id-badge"></i>
+                                <p>Credencial institucional</p>
                             </a>
                         </li>
                         <li class="nav-header">CONFIGURACIÓN</li>
@@ -85,12 +104,6 @@
                             <a href="/SuperAdmin/EmailApiSettings" class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "EmailApiSettings" ? "active" : "")">
                                 <i class="nav-icon fas fa-paper-plane"></i>
                                 <p>Correo API (Resend)</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="/StudentIdCard/ui" class="nav-link">
-                                <i class="nav-icon fas fa-id-card"></i>
-                                <p>Carnet Estudiantil</p>
                             </a>
                         </li>
                         <li class="nav-item">

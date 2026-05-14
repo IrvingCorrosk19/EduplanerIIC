@@ -1,0 +1,234 @@
+@model SchoolManager.ViewModels.SuperAdminStaffDirectoryPageVm
+@{
+    ViewData["Title"] = "Directorio de personal";
+    Layout = "_SuperAdminLayout";
+    var f = Model.Filter;
+}
+@Html.AntiForgeryToken()
+
+<div class="card card-outline card-secondary shadow-sm mb-4">
+    <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-filter me-2"></i>Filtros</h3></div>
+    <div class="card-body">
+        <form asp-action="StaffDirectory" method="get">
+            <input type="hidden" name="Page" value="@f.Page" />
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Buscar</label>
+                    <input type="text" name="Search" class="form-control" value="@f.Search" placeholder="Nombre, correo o cédula" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Escuela</label>
+                    <select name="SchoolId" class="form-select" asp-items="Model.SchoolOptions"></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Rol (BD)</label>
+                    <select name="Role" class="form-select" asp-items="Model.RoleOptions"></select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Estado</label>
+                    <select name="UserStatus" class="form-select">
+                        @{
+                            var us = f.UserStatus ?? "";
+                        }
+                        @if (us == string.Empty)
+                        {
+                            <option value="" selected>Todos</option>
+                        }
+                        else
+                        {
+                            <option value="">Todos</option>
+                        }
+                        @if (us == "active")
+                        {
+                            <option value="active" selected>Activo</option>
+                        }
+                        else
+                        {
+                            <option value="active">Activo</option>
+                        }
+                        @if (us == "inactive")
+                        {
+                            <option value="inactive" selected>Inactivo</option>
+                        }
+                        else
+                        {
+                            <option value="inactive">Inactivo</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Por página</label>
+                    <select name="PageSize" class="form-select">
+                        @foreach (var ps in new[] { 25, 50, 100 })
+                        {
+                            if (f.PageSize == ps)
+                            {
+                                <option value="@ps" selected>@ps</option>
+                            }
+                            else
+                            {
+                                <option value="@ps">@ps</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i> Aplicar</button>
+                    <a asp-action="StaffDirectory" class="btn btn-outline-secondary">Limpiar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<p class="text-muted small">Mostrando @Model.DisplayFrom–@Model.DisplayTo de @Model.TotalCount</p>
+
+<div class="table-responsive card">
+    <table class="table table-hover table-sm align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th></th>
+                <th>Nombre</th>
+                <th>Rol</th>
+                <th>Cargo</th>
+                <th>Área</th>
+                <th>Escuela</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model.Rows)
+            {
+                <tr>
+                    <td style="width:56px">
+                        @if (!string.IsNullOrEmpty(r.PhotoUrl))
+                        {
+                            <img src="@UserPhotoLinks.HrefListThumbnail(r.PhotoUrl)" alt="" class="rounded border" style="width:44px;height:44px;object-fit:cover" loading="lazy" />
+                        }
+                        else { <span class="text-muted small">—</span> }
+                    </td>
+                    <td>
+                        <div class="fw-semibold">@r.FullName</div>
+                        <div class="small text-muted">@r.Email</div>
+                    </td>
+                    <td><span class="badge bg-secondary">@r.RoleDisplay</span></td>
+                    <td class="small">@(r.JobTitle ?? "—")</td>
+                    <td class="small">@(r.Department ?? "—")</td>
+                    <td class="small">@(r.SchoolName ?? "—")</td>
+                    <td class="text-nowrap">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-photo" data-user-id="@r.UserId" data-photo-url="@(r.PhotoUrl ?? "")" data-name="@r.FullName">Foto</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-profile" data-user-id="@r.UserId" data-job="@(r.JobTitle ?? "")" data-dept="@(r.Department ?? "")" data-code="@(r.EmployeeCode ?? "")">Cargo/área</button>
+                        <a class="btn btn-sm btn-primary" href="/InstitutionalCredential/ui/generate/@r.UserId">Credencial</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (Model.TotalPages > 1)
+{
+    <nav>
+        <ul class="pagination justify-content-center">
+            @for (var p = 1; p <= Model.TotalPages; p++)
+            {
+                <li class="page-item @(p == f.Page ? "active" : "")">
+                    <a class="page-link" asp-action="StaffDirectory" asp-all-route-data="Model.GetDirectoryQueryForPage(p)">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
+<!-- Modal foto -->
+<div class="modal fade" id="photoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Foto</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="photoUserId" />
+                <div class="text-center mb-2"><img id="photoPreview" src="" alt="" style="max-width:100%;max-height:220px;border-radius:8px" /></div>
+                <input type="file" id="photoFile" class="form-control" accept="image/*" />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="btnRemovePhoto">Quitar foto</button>
+                <button type="button" class="btn btn-primary" id="btnUploadPhoto">Subir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal perfil -->
+<div class="modal fade" id="profileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Cargo y área</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="profUserId" />
+                <div class="mb-2"><label class="form-label">Cargo</label><input class="form-control" id="profJob" /></div>
+                <div class="mb-2"><label class="form-label">Departamento / área</label><input class="form-control" id="profDept" /></div>
+                <div class="mb-2"><label class="form-label">Código institucional</label><input class="form-control" id="profCode" /></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnSaveProfile">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+        function buildPhotoHref(u) { return '/File/GetUserPhoto?photoUrl=' + encodeURIComponent(u || ''); }
+        document.querySelectorAll('.btn-photo').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.getElementById('photoUserId').value = btn.getAttribute('data-user-id');
+                var url = btn.getAttribute('data-photo-url');
+                document.getElementById('photoPreview').src = url ? buildPhotoHref(url) : '';
+                new bootstrap.Modal(document.getElementById('photoModal')).show();
+            });
+        });
+        document.querySelectorAll('.btn-profile').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.getElementById('profUserId').value = btn.getAttribute('data-user-id');
+                document.getElementById('profJob').value = btn.getAttribute('data-job') || '';
+                document.getElementById('profDept').value = btn.getAttribute('data-dept') || '';
+                document.getElementById('profCode').value = btn.getAttribute('data-code') || '';
+                new bootstrap.Modal(document.getElementById('profileModal')).show();
+            });
+        });
+        document.getElementById('btnUploadPhoto').addEventListener('click', async function () {
+            var uid = document.getElementById('photoUserId').value;
+            var f = document.getElementById('photoFile').files[0];
+            if (!f) { alert('Seleccione imagen'); return; }
+            var fd = new FormData();
+            fd.append('userId', uid);
+            fd.append('photo', f);
+            fd.append('__RequestVerificationToken', token);
+            var res = await fetch('/SuperAdmin/StaffDirectoryUpdatePhoto', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'RequestVerificationToken': token } });
+            var data = await res.json();
+            if (data.success) location.reload(); else alert(data.message || 'Error');
+        });
+        document.getElementById('btnRemovePhoto').addEventListener('click', async function () {
+            var uid = document.getElementById('photoUserId').value;
+            var fd = new FormData();
+            fd.append('userId', uid);
+            fd.append('__RequestVerificationToken', token);
+            var res = await fetch('/SuperAdmin/StaffDirectoryRemovePhoto', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'RequestVerificationToken': token } });
+            var data = await res.json();
+            if (data.success) location.reload(); else alert(data.message || 'Error');
+        });
+        document.getElementById('btnSaveProfile').addEventListener('click', async function () {
+            var uid = document.getElementById('profUserId').value;
+            var fd = new FormData();
+            fd.append('userId', uid);
+            fd.append('jobTitle', document.getElementById('profJob').value);
+            fd.append('department', document.getElementById('profDept').value);
+            fd.append('employeeCode', document.getElementById('profCode').value);
+            fd.append('__RequestVerificationToken', token);
+            var res = await fetch('/SuperAdmin/StaffDirectorySaveProfile', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'RequestVerificationToken': token } });
+            var data = await res.json();
+            if (data.success) location.reload(); else alert(data.message || 'Error');
+        });
+    })();
+</script>

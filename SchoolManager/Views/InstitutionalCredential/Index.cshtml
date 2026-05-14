@@ -1,0 +1,74 @@
+@{
+    ViewData["Title"] = "Credencial institucional";
+    Layout = "_SuperAdminLayout";
+}
+@Html.AntiForgeryToken()
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12 text-center">
+            <h2><i class="fas fa-id-badge me-2"></i>Credencial institucional</h2>
+            <p class="text-muted small">Personal docente y administrativo (sin pago de carnet estudiantil)</p>
+            <a href="/SuperAdmin/StaffDirectory" class="btn btn-outline-secondary btn-sm"><i class="fas fa-users me-1"></i> Directorio de personal</a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="row g-2 mb-3 justify-content-center">
+                <div class="col-md-6">
+                    <label class="form-label small">Buscar</label>
+                    <input type="text" id="fSearch" class="form-control form-control-sm" placeholder="Nombre o correo" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" id="btnFilter" class="btn btn-primary btn-sm w-100">Aplicar</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle" id="staffTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th></th>
+                            <th>Nombre</th>
+                            <th>Rol</th>
+                            <th>Escuela</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffTbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var tbody = document.getElementById('staffTbody');
+        function thumb(url) {
+            if (!url) return '<span class="text-muted small">—</span>';
+            var u = '/File/GetUserPhoto?photoUrl=' + encodeURIComponent(url || '') + '&variant=thumb';
+            return '<img src="' + u + '" class="rounded border" style="width:40px;height:40px;object-fit:cover" alt="" loading="lazy"/>';
+        }
+        async function loadRows() {
+            var p = new URLSearchParams();
+            var s = document.getElementById('fSearch').value.trim();
+            if (s) p.set('search', s);
+            var res = await fetch('/InstitutionalCredential/api/list-json?' + p.toString(), { credentials: 'same-origin' });
+            var j = await res.json();
+            var rows = (j && j.data) ? j.data : [];
+            tbody.innerHTML = rows.map(function (r) {
+                return '<tr><td>' + thumb(r.photoUrl) + '</td><td>' + escapeHtml(r.fullName) +
+                    '</td><td><span class="badge bg-secondary">' + escapeHtml(r.roleDisplay || r.role || '') +
+                    '</span></td><td class="small text-muted">' + escapeHtml(r.schoolName || '') +
+                    '</td><td><a class="btn btn-sm btn-primary" href="/InstitutionalCredential/ui/generate/' + r.id + '">Credencial</a></td></tr>';
+            }).join('');
+        }
+        function escapeHtml(t) {
+            if (!t) return '';
+            return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+        document.getElementById('btnFilter').addEventListener('click', loadRows);
+        loadRows();
+    })();
+</script>
