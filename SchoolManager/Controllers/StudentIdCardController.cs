@@ -482,7 +482,12 @@ public class StudentIdCardController : Controller
     /// SCALE-4 fix: proyección SQL eficiente — sin doble evaluación de FirstOrDefault.
     /// </summary>
     [HttpGet("api/list-json")]
-    public async Task<IActionResult> ListJson(string? grade = null, string? group = null, string? shift = null, string? printed = null)
+    public async Task<IActionResult> ListJson(
+        string? grade = null,
+        string? group = null,
+        string? shift = null,
+        string? printed = null,
+        string? documentId = null)
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
@@ -491,39 +496,13 @@ public class StudentIdCardController : Controller
         _logger.LogInformation("[StudentIdCard/ListJson] Usuario={UserId} SchoolId={SchoolId} IsSuperAdmin={IsSuperAdmin}",
             currentUser?.Id, schoolId, isSuperAdmin);
 
-        var query = BuildEligibleStudentQuery(currentUser);
-
-        var gradeFilter = string.IsNullOrWhiteSpace(grade) ? null : grade.Trim();
-        var groupFilter = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
-        var shiftFilter = string.IsNullOrWhiteSpace(shift) ? null : shift.Trim();
-        var printedFilter = string.IsNullOrWhiteSpace(printed) ? null : printed.Trim().ToLowerInvariant();
-
-        // Filtros por grado/grupo/jornada sobre asignación activa del estudiante.
-        if (!string.IsNullOrWhiteSpace(gradeFilter))
-        {
-            query = query.Where(u => u.StudentAssignments
-                .Any(sa => sa.IsActive && sa.Grade != null && sa.Grade.Name == gradeFilter));
-        }
-        if (!string.IsNullOrWhiteSpace(groupFilter))
-        {
-            query = query.Where(u => u.StudentAssignments
-                .Any(sa => sa.IsActive && sa.Group != null && sa.Group.Name == groupFilter));
-        }
-        if (!string.IsNullOrWhiteSpace(shiftFilter))
-        {
-            query = query.Where(u => u.StudentAssignments
-                .Any(sa => sa.IsActive && sa.Shift != null && sa.Shift.Name == shiftFilter));
-        }
-        if (printedFilter is "printed")
-        {
-            query = query.Where(u => _context.StudentIdCards
-                .Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
-        }
-        else if (printedFilter is "not_printed")
-        {
-            query = query.Where(u => !_context.StudentIdCards
-                .Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
-        }
+        var query = ApplyStudentIdCardListFilters(
+            BuildEligibleStudentQuery(currentUser),
+            grade,
+            group,
+            shift,
+            printed,
+            documentId);
 
         // Una sola subconsulta a student_id_cards por fila (IsPrinted + PrintedAt) en lugar de dos correlacionadas.
         var rawRows = await query
@@ -531,6 +510,7 @@ public class StudentIdCardController : Controller
             {
                 id = u.Id,
                 fullName = $"{u.Name} {u.LastName}",
+                documentId = u.DocumentId,
                 photoUrl = u.PhotoUrl,
                 grade = u.StudentAssignments
                     .Where(sa => sa.IsActive)
@@ -556,6 +536,7 @@ public class StudentIdCardController : Controller
             {
                 x.id,
                 x.fullName,
+                documentId = x.documentId ?? "",
                 x.photoUrl,
                 x.grade,
                 x.group,
@@ -605,29 +586,74 @@ public class StudentIdCardController : Controller
     }
 
     [HttpGet("api/list-ids")]
-    public async Task<IActionResult> ListIds(string? grade = null, string? group = null, string? shift = null, string? printed = null)
+    public async Task<IActionResult> ListIds(
+        string? grade = null,
+        string? group = null,
+        string? shift = null,
+        string? printed = null,
+        string? documentId = null)
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
-        var query = BuildEligibleStudentQuery(currentUser);
+        var query = ApplyStudentIdCardListFilters(
+            BuildEligibleStudentQuery(currentUser),
+            grade,
+            group,
+            shift,
+            printed,
+            documentId);
 
+        var ids = await query.Select(u => u.Id).ToListAsync();
+        return Json(new { ids });
+    }
+
+    /// <summary>Filtros compartidos por list-json y list-ids (misma semántica que la UI).</summary>
+    private IQueryable<User> ApplyStudentIdCardListFilters(
+        IQueryable<User> query,
+        string? grade,
+        string? group,
+        string? shift,
+        string? printed,
+        string? documentId)
+    {
         var gradeFilter = string.IsNullOrWhiteSpace(grade) ? null : grade.Trim();
         var groupFilter = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
         var shiftFilter = string.IsNullOrWhiteSpace(shift) ? null : shift.Trim();
         var printedFilter = string.IsNullOrWhiteSpace(printed) ? null : printed.Trim().ToLowerInvariant();
+        var documentIdFilter = string.IsNullOrWhiteSpace(documentId) ? null : documentId.Trim();
 
         if (!string.IsNullOrWhiteSpace(gradeFilter))
-            query = query.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Grade != null && sa.Grade.Name == gradeFilter));
+        {
+            query = query.Where(u => u.StudentAssignments
+                .Any(sa => sa.IsActive && sa.Grade != null && sa.Grade.Name == gradeFilter));
+        }
         if (!string.IsNullOrWhiteSpace(groupFilter))
-            query = query.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Group != null && sa.Group.Name == groupFilter));
+        {
+            query = query.Where(u => u.StudentAssignments
+                .Any(sa => sa.IsActive && sa.Group != null && sa.Group.Name == groupFilter));
+        }
         if (!string.IsNullOrWhiteSpace(shiftFilter))
-            query = query.Where(u => u.StudentAssignments.Any(sa => sa.IsActive && sa.Shift != null && sa.Shift.Name == shiftFilter));
+        {
+            query = query.Where(u => u.StudentAssignments
+                .Any(sa => sa.IsActive && sa.Shift != null && sa.Shift.Name == shiftFilter));
+        }
         if (printedFilter is "printed")
-            query = query.Where(u => _context.StudentIdCards.Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
+        {
+            query = query.Where(u => _context.StudentIdCards
+                .Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
+        }
         else if (printedFilter is "not_printed")
-            query = query.Where(u => !_context.StudentIdCards.Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
+        {
+            query = query.Where(u => !_context.StudentIdCards
+                .Any(c => c.StudentId == u.Id && c.Status == "active" && c.IsPrinted));
+        }
+        if (!string.IsNullOrWhiteSpace(documentIdFilter))
+        {
+            var pattern = "%" + documentIdFilter + "%";
+            query = query.Where(u =>
+                u.DocumentId != null && EF.Functions.ILike(u.DocumentId, pattern));
+        }
 
-        var ids = await query.Select(u => u.Id).ToListAsync();
-        return Json(new { ids });
+        return query;
     }
 
     private IQueryable<User> BuildEligibleStudentQuery(User? currentUser)
