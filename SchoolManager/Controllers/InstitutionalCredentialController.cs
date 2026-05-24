@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
+using SchoolManager.Services.Security;
 using SchoolManager.ViewModels;
 
 namespace SchoolManager.Controllers;
@@ -17,6 +19,7 @@ public class InstitutionalCredentialController : Controller
     private readonly IInstitutionalCredentialPdfService _pdfService;
     private readonly IInstitutionalCredentialHtmlCaptureService _htmlCapture;
     private readonly SchoolDbContext _context;
+    private readonly IQrSignatureService _qrSignatureService;
     private readonly ILogger<InstitutionalCredentialController> _logger;
 
     public InstitutionalCredentialController(
@@ -24,14 +27,35 @@ public class InstitutionalCredentialController : Controller
         IInstitutionalCredentialPdfService pdfService,
         IInstitutionalCredentialHtmlCaptureService htmlCapture,
         SchoolDbContext context,
+        IQrSignatureService qrSignatureService,
         ILogger<InstitutionalCredentialController> logger)
     {
         _service = service;
         _pdfService = pdfService;
         _htmlCapture = htmlCapture;
         _context = context;
+        _qrSignatureService = qrSignatureService;
         _logger = logger;
     }
+
+    /// <summary>Página pública al escanear el QR de la credencial (enlace firmado ?t=).</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("ScanApiPolicy")]
+    [HttpGet("member")]
+    public async Task<IActionResult> PublicMemberProfile([FromQuery] string? t)
+    {
+        if (!StaffMemberPublicLink.TryResolveRawTokenFromSignedQuery(t, _qrSignatureService, out var rawToken))
+            return InvalidPublicMemberProfile();
+
+        return await RenderPublicMemberProfileAsync(rawToken!);
+    }
+
+    /// <summary>Ruta alternativa: /member/{token} con token de staff_qr_tokens (validación en BD).</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("ScanApiPolicy")]
+    [HttpGet("member/{token}")]
+    public Task<IActionResult> PublicMemberProfileByPath(string token) =>
+        RenderPublicMemberProfileAsync(token);
 
     [HttpGet("ui")]
     public IActionResult Index() => View();
@@ -82,7 +106,8 @@ public class InstitutionalCredentialController : Controller
             bundle?.School,
             bundle?.CardSettings);
         vm.DocumentId = row.DocumentId;
-        vm.Card = await _service.GetCurrentCardAsync(userId);
+        var siteBase = $"{Request.Scheme}://{Request.Host}";
+        vm.Card = await _service.GetCurrentCardAsync(userId, siteBase);
         return View("Generate", vm);
     }
 
@@ -278,13 +303,34 @@ public class InstitutionalCredentialController : Controller
         if (card == null)
             return Json(new { success = false, message = "No hay credencial activa con QR vigente." });
 
+        var siteBase = $"{Request.Scheme}://{Request.Host}";
+        var publicUrl = StaffMemberPublicLink.BuildPublicUrl(siteBase, card.QrToken, _qrSignatureService);
+
         return Json(new
         {
             success = true,
             cardNumber = card.CardNumber,
             qrImageDataUrl = card.QrImageDataUrl,
-            qrToken = card.QrToken
+            publicMemberUrl = publicUrl
         });
+    }
+
+    private IActionResult InvalidPublicMemberProfile() =>
+        View("PublicMemberInvalid", new StaffMemberPublicInvalidVm());
+
+    private async Task<IActionResult> RenderPublicMemberProfileAsync(string rawToken)
+    {
+        var vm = await _service.ResolvePublicProfileByQrTokenAsync(rawToken);
+        if (vm == null)
+        {
+            return View("PublicMemberInvalid", new StaffMemberPublicInvalidVm
+            {
+                Title = "Enlace no válido o expirado",
+                Message = "La credencial fue revocada, expiró o el código no es válido. Solicite una credencial actualizada en su institución."
+            });
+        }
+
+        return View("PublicMemberProfile", vm);
     }
 
     private static string ResolveCredentialDisplayStatus(

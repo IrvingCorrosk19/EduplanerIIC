@@ -252,6 +252,8 @@ builder.Services.Configure<StudentIdCardPdfPrintOptions>(
     builder.Configuration.GetSection(StudentIdCardPdfPrintOptions.SectionName));
 builder.Services.Configure<StudentIdCardOptions>(
     builder.Configuration.GetSection(StudentIdCardOptions.SectionName));
+builder.Services.Configure<InstitutionalCredentialOptions>(
+    builder.Configuration.GetSection(InstitutionalCredentialOptions.SectionName));
 builder.Services.AddSingleton<SchoolManager.Services.Security.IQrSignatureService, SchoolManager.Services.Security.QrSignatureService>();
 
 // SEG-2: Rate limiting para el endpoint público de escaneo QR.

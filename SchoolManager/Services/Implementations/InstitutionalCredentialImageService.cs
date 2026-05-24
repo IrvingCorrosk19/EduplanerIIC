@@ -223,11 +223,22 @@ public class InstitutionalCredentialImageService : IInstitutionalCredentialImage
         if (bmp != null) BmpDraw(canvas, bmp, dest);
     }
 
-    private byte[]? SafeQr(string? token)
+    private byte[]? SafeQr(string? content)
     {
-        if (string.IsNullOrWhiteSpace(token)) return null;
-        try { return QrHelper.GenerateQrPng(token, _qrSig); }
-        catch { try { return QrHelper.GenerateQrPng(token, null); } catch { return null; } }
+        if (string.IsNullOrWhiteSpace(content))
+            return null;
+
+        var signature = content.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || content.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : _qrSig;
+
+        try { return QrHelper.GenerateQrPng(content, signature); }
+        catch
+        {
+            try { return QrHelper.GenerateQrPng(content, null); }
+            catch { return null; }
+        }
     }
 
     private static void DrawWatermark(SKCanvas canvas, byte[]? bytes, int w, int h, float pct)

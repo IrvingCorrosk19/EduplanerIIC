@@ -1,10 +1,13 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SchoolManager.Dtos;
 using SchoolManager.Helpers;
 using SchoolManager.Models;
+using SchoolManager.Options;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Security;
+using SchoolManager.ViewModels;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -15,18 +18,46 @@ public class InstitutionalCredentialService : IInstitutionalCredentialService
     private readonly SchoolDbContext _context;
     private readonly ILogger<InstitutionalCredentialService> _logger;
     private readonly IQrSignatureService _qrSignatureService;
+    private readonly IOptions<InstitutionalCredentialOptions> _credentialOptions;
 
     public InstitutionalCredentialService(
         SchoolDbContext context,
         ILogger<InstitutionalCredentialService> logger,
-        IQrSignatureService qrSignatureService)
+        IQrSignatureService qrSignatureService,
+        IOptions<InstitutionalCredentialOptions> credentialOptions)
     {
         _context = context;
         _logger = logger;
         _qrSignatureService = qrSignatureService;
+        _credentialOptions = credentialOptions;
     }
 
-    public async Task<InstitutionalCredentialCardDto?> GetCurrentCardAsync(Guid userId)
+    private string? ResolveSiteBaseUrl(string? siteBaseUrlOverride)
+    {
+        if (!string.IsNullOrWhiteSpace(siteBaseUrlOverride))
+            return siteBaseUrlOverride.TrimEnd('/');
+        var o = _credentialOptions.Value.PublicBaseUrl;
+        return string.IsNullOrWhiteSpace(o) ? null : o.TrimEnd('/');
+    }
+
+    private static string? BuildQrImageDataUrl(string? qrEncodeContent, IQrSignatureService qrSignatureService)
+    {
+        if (string.IsNullOrWhiteSpace(qrEncodeContent))
+            return null;
+
+        var usePlain = qrEncodeContent.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || qrEncodeContent.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        var pngBytes = QrHelper.GenerateQrPng(qrEncodeContent, usePlain ? null : qrSignatureService);
+        return "data:image/png;base64," + Convert.ToBase64String(pngBytes);
+    }
+
+    private string? ResolveQrEncodeContent(string rawStaffToken, string? siteBaseUrl)
+    {
+        var publicUrl = StaffMemberPublicLink.BuildPublicUrl(siteBaseUrl, rawStaffToken, _qrSignatureService);
+        return publicUrl ?? rawStaffToken;
+    }
+
+    public async Task<InstitutionalCredentialCardDto?> GetCurrentCardAsync(Guid userId, string? siteBaseUrl = null)
     {
         var row = await StaffInstitutionalRoleFilter.WhereIsInstitutionalStaff(_context.Users.AsNoTracking())
             .Where(u => u.Id == userId)
@@ -70,8 +101,9 @@ public class InstitutionalCredentialService : IInstitutionalCredentialService
         if (token == null)
             return null;
 
-        var pngBytes = QrHelper.GenerateQrPng(token.Token, _qrSignatureService);
-        var qrImageDataUrl = "data:image/png;base64," + Convert.ToBase64String(pngBytes);
+        var baseUrl = ResolveSiteBaseUrl(siteBaseUrl);
+        var qrContent = ResolveQrEncodeContent(token.Token, baseUrl);
+        var qrImageDataUrl = BuildQrImageDataUrl(qrContent, _qrSignatureService);
 
         return new InstitutionalCredentialCardDto
         {
@@ -150,8 +182,9 @@ public class InstitutionalCredentialService : IInstitutionalCredentialService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            var pngBytes = QrHelper.GenerateQrPng(newToken.Token, _qrSignatureService);
-            var qrImageDataUrl = "data:image/png;base64," + Convert.ToBase64String(pngBytes);
+            var baseUrl = ResolveSiteBaseUrl(null);
+            var qrContent = ResolveQrEncodeContent(newToken.Token, baseUrl);
+            var qrImageDataUrl = BuildQrImageDataUrl(qrContent, _qrSignatureService);
 
             return new InstitutionalCredentialCardDto
             {
@@ -171,5 +204,90 @@ public class InstitutionalCredentialService : IInstitutionalCredentialService
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    public async Task<StaffMemberPublicProfileVm?> ResolvePublicProfileByQrTokenAsync(string rawQrToken)
+    {
+        if (string.IsNullOrWhiteSpace(rawQrToken))
+            return null;
+
+        var tokenRow = await _context.Set<StaffQrToken>()
+            .AsNoTracking()
+            .Where(t => t.Token == rawQrToken.Trim())
+            .Select(t => new { t.UserId, t.IsRevoked, t.ExpiresAt })
+            .FirstOrDefaultAsync();
+
+        if (tokenRow == null)
+            return null;
+
+        if (tokenRow.IsRevoked)
+            return null;
+
+        if (tokenRow.ExpiresAt.HasValue && tokenRow.ExpiresAt.Value <= DateTime.UtcNow)
+            return null;
+
+        var user = await StaffInstitutionalRoleFilter.WhereIsInstitutionalStaff(_context.Users.AsNoTracking())
+            .Where(u => u.Id == tokenRow.UserId)
+            .Select(u => new
+            {
+                u.Name,
+                u.LastName,
+                u.PhotoUrl,
+                u.Role,
+                u.Email,
+                u.SchoolId,
+                u.Status
+            })
+            .FirstOrDefaultAsync();
+
+        if (user == null)
+            return null;
+
+        string? schoolName = null;
+        if (user.SchoolId.HasValue)
+        {
+            schoolName = await _context.Schools.AsNoTracking().IgnoreQueryFilters()
+                .Where(s => s.Id == user.SchoolId.Value)
+                .Select(s => s.Name)
+                .FirstOrDefaultAsync();
+        }
+
+        var profile = await _context.Set<StaffInstitutionalProfile>()
+            .AsNoTracking()
+            .Where(p => p.UserId == tokenRow.UserId)
+            .Select(p => new { p.JobTitle, p.Department, p.EmployeeCode })
+            .FirstOrDefaultAsync();
+
+        var activeCard = await _context.Set<InstitutionalCredentialCard>()
+            .AsNoTracking()
+            .Where(c => c.UserId == tokenRow.UserId && c.Status == "active")
+            .Select(c => new { c.ExpiresAt })
+            .FirstOrDefaultAsync();
+
+        var credentialStatus = "No generada";
+        if (activeCard != null)
+        {
+            if (activeCard.ExpiresAt.HasValue && activeCard.ExpiresAt.Value <= DateTime.UtcNow)
+                credentialStatus = "Expirada";
+            else
+                credentialStatus = "Activa";
+        }
+
+        var statusRaw = user.Status?.Trim();
+        var isActive = string.Equals(statusRaw, "active", StringComparison.OrdinalIgnoreCase);
+
+        return new StaffMemberPublicProfileVm
+        {
+            FullName = $"{user.Name} {user.LastName}".Trim(),
+            PhotoUrl = user.PhotoUrl,
+            RoleDisplay = StaffInstitutionalRoleFilter.FormatRoleDisplay(user.Role),
+            JobTitle = string.IsNullOrWhiteSpace(profile?.JobTitle) ? "—" : profile!.JobTitle!,
+            Department = string.IsNullOrWhiteSpace(profile?.Department) ? "—" : profile!.Department!,
+            SchoolName = schoolName,
+            EmployeeCode = string.IsNullOrWhiteSpace(profile?.EmployeeCode) ? null : profile.EmployeeCode,
+            Email = string.IsNullOrWhiteSpace(user.Email) ? null : user.Email,
+            CredentialStatusDisplay = credentialStatus,
+            IsAccountActive = isActive
+        };
     }
 }
