@@ -27,6 +27,51 @@
         .status-pill { display: inline-block; margin-top: 4px; padding: 4px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
         .status-pill--active { background: #dcfce7; color: #166534; }
         .status-pill--inactive { background: #fee2e2; color: #991b1b; }
+        .muted { color: #64748b; font-weight: 500; }
+        .eduplaner-cta {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        .btn-eduplaner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            max-width: 100%;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #2563eb 0%, #0d6efd 50%, #0a58ca 100%);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            letter-spacing: .02em;
+            box-shadow: 0 4px 14px rgba(13, 110, 253, .35);
+            transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-eduplaner:hover,
+        .btn-eduplaner:focus {
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(13, 110, 253, .45);
+            filter: brightness(1.05);
+        }
+        .btn-eduplaner:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 10px rgba(13, 110, 253, .3);
+        }
+        .btn-eduplaner__sub {
+            display: block;
+            margin-top: 8px;
+            font-size: .72rem;
+            font-weight: 500;
+            color: #64748b;
+        }
         .foot { padding: 12px 16px; font-size: .7rem; color: #94a3b8; text-align: center; background: #f8fafc; }
     </style>
 </head>
@@ -87,11 +132,19 @@
                 @if (!string.IsNullOrWhiteSpace(Model.Email))
                 {
                     <dt>Correo institucional</dt>
-                    <dd class="muted" style="font-weight:500;">@Model.Email</dd>
+                    <dd class="muted" style="word-break:break-all;">@Model.Email</dd>
                 }
             </dl>
+
+            <div class="eduplaner-cta">
+                <a class="btn-eduplaner" href="https://eduplaner.net/" rel="noopener noreferrer" target="_blank">
+                    <span aria-hidden="true">↗</span>
+                    Ir a Eduplaner
+                </a>
+                <span class="btn-eduplaner__sub">Sistema de gestión educativa · eduplaner.net</span>
+            </div>
         </div>
-        <div class="foot">Información publicada por la institución educativa. No comparta este enlace.</div>
+        <div class="foot">Información publicada por la institución educativa. Si este enlace no corresponde, ignore la página.</div>
     </div>
 </body>
 </html>
