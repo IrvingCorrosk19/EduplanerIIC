@@ -99,6 +99,12 @@
                                 <p>Credencial institucional</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="/StaffInstitutionalProfile" class="nav-link @(ViewContext.RouteData.Values["Controller"]?.ToString() == "StaffInstitutionalProfile" ? "active" : "")">
+                                <i class="nav-icon fas fa-user-edit"></i>
+                                <p>Mi perfil institucional</p>
+                            </a>
+                        </li>
                         <li class="nav-header">CONFIGURACIÓN</li>
                         <li class="nav-item">
                             <a href="/SuperAdmin/EmailApiSettings" class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "EmailApiSettings" ? "active" : "")">

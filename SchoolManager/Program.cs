@@ -236,6 +236,7 @@ builder.Services.AddScoped<IEmailApiConfigurationService, EmailApiConfigurationS
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICounselorAssignmentService, CounselorAssignmentService>();
 builder.Services.AddScoped<IStudentProfileService, StudentProfileService>();
+builder.Services.AddScoped<IStaffInstitutionalProfileService, StaffInstitutionalProfileService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IAprobadosReprobadosService, AprobadosReprobadosService>();
 builder.Services.AddScoped<IPrematriculationPeriodService, PrematriculationPeriodService>();

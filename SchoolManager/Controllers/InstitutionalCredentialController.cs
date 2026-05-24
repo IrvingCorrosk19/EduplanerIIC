@@ -155,13 +155,170 @@ public class InstitutionalCredentialController : Controller
     }
 
     [HttpGet("api/list-json")]
-    public async Task<IActionResult> ListJson(string? schoolId = null, string? search = null)
+    public async Task<IActionResult> ListJson(
+        string? schoolId = null,
+        string? role = null,
+        string? search = null,
+        string? documentId = null,
+        string? credentialStatus = null,
+        string? printed = null)
     {
-        var query = StaffInstitutionalRoleFilter.WhereIsInstitutionalStaff(_context.Users.AsNoTracking())
+        var query = ApplyInstitutionalCredentialListFilters(
+            StaffInstitutionalRoleFilter.WhereIsInstitutionalStaff(_context.Users.AsNoTracking())
+                .Where(u => u.SchoolId != null),
+            schoolId,
+            role,
+            search,
+            documentId,
+            credentialStatus,
+            printed);
+
+        var rawRows = await query
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.Name)
+            .Select(u => new
+            {
+                id = u.Id,
+                fullName = u.Name + " " + u.LastName,
+                documentId = u.DocumentId ?? "",
+                email = u.Email ?? "",
+                photoUrl = u.PhotoUrl,
+                role = u.Role,
+                roleDisplay = StaffInstitutionalRoleFilter.FormatRoleDisplay(u.Role),
+                jobTitle = _context.Set<StaffInstitutionalProfile>()
+                    .Where(p => p.UserId == u.Id)
+                    .Select(p => p.JobTitle)
+                    .FirstOrDefault() ?? "",
+                department = _context.Set<StaffInstitutionalProfile>()
+                    .Where(p => p.UserId == u.Id)
+                    .Select(p => p.Department)
+                    .FirstOrDefault() ?? "",
+                employeeCode = _context.Set<StaffInstitutionalProfile>()
+                    .Where(p => p.UserId == u.Id)
+                    .Select(p => p.EmployeeCode)
+                    .FirstOrDefault() ?? "",
+                activeCard = _context.Set<InstitutionalCredentialCard>()
+                    .Where(c => c.UserId == u.Id && c.Status == "active")
+                    .Select(c => new
+                    {
+                        c.CardNumber,
+                        c.IssuedAt,
+                        c.ExpiresAt,
+                        c.Status,
+                        c.IsPrinted,
+                        c.PrintedAt
+                    })
+                    .FirstOrDefault(),
+                hasRevokedCard = _context.Set<InstitutionalCredentialCard>()
+                    .Any(c => c.UserId == u.Id && c.Status == "revoked")
+            })
+            .ToListAsync();
+
+        var rows = rawRows.Select(u =>
+        {
+            var displayStatus = ResolveCredentialDisplayStatus(
+                u.activeCard?.Status,
+                u.activeCard?.ExpiresAt,
+                u.hasRevokedCard);
+            return new
+            {
+                u.id,
+                u.fullName,
+                u.documentId,
+                u.email,
+                u.photoUrl,
+                u.role,
+                u.roleDisplay,
+                u.jobTitle,
+                u.department,
+                employeeCode = u.employeeCode,
+                cardNumber = u.activeCard?.CardNumber ?? "",
+                issuedAt = u.activeCard?.IssuedAt,
+                expiresAt = u.activeCard?.ExpiresAt,
+                cardStatus = u.activeCard?.Status ?? "",
+                credentialStatus = displayStatus,
+                isPrinted = u.activeCard != null && u.activeCard.IsPrinted,
+                printedAt = u.activeCard?.PrintedAt,
+                hasActiveCard = u.activeCard != null && displayStatus == "active"
+            };
+        }).ToList();
+
+        return Json(new { data = rows });
+    }
+
+    [HttpGet("api/list-filters")]
+    public async Task<IActionResult> ListFilters()
+    {
+        var staffQuery = StaffInstitutionalRoleFilter.WhereIsInstitutionalStaff(_context.Users.AsNoTracking())
             .Where(u => u.SchoolId != null);
 
+        var schools = await _context.Schools.AsNoTracking().IgnoreQueryFilters()
+            .OrderBy(s => s.Name)
+            .Select(s => new { id = s.Id.ToString(), name = s.Name })
+            .ToListAsync();
+
+        var roles = await staffQuery
+            .Where(u => u.Role != null && u.Role != "")
+            .Select(u => u.Role!)
+            .Distinct()
+            .OrderBy(r => r)
+            .ToListAsync();
+
+        return Json(new
+        {
+            schools,
+            roles = roles.Select(r => new { value = r, label = StaffInstitutionalRoleFilter.FormatRoleDisplay(r) })
+        });
+    }
+
+    [HttpGet("api/qr-preview/{userId:guid}")]
+    public async Task<IActionResult> QrPreview(Guid userId)
+    {
+        var card = await _service.GetCurrentCardAsync(userId);
+        if (card == null)
+            return Json(new { success = false, message = "No hay credencial activa con QR vigente." });
+
+        return Json(new
+        {
+            success = true,
+            cardNumber = card.CardNumber,
+            qrImageDataUrl = card.QrImageDataUrl,
+            qrToken = card.QrToken
+        });
+    }
+
+    private static string ResolveCredentialDisplayStatus(
+        string? activeCardStatus,
+        DateTime? expiresAt,
+        bool hasRevokedCard)
+    {
+        if (string.IsNullOrWhiteSpace(activeCardStatus) ||
+            !string.Equals(activeCardStatus, "active", StringComparison.OrdinalIgnoreCase))
+            return hasRevokedCard ? "revoked" : "none";
+
+        if (expiresAt.HasValue && expiresAt.Value <= DateTime.UtcNow)
+            return "expired";
+
+        return "active";
+    }
+
+    private IQueryable<User> ApplyInstitutionalCredentialListFilters(
+        IQueryable<User> query,
+        string? schoolId,
+        string? role,
+        string? search,
+        string? documentId,
+        string? credentialStatus,
+        string? printed)
+    {
         if (Guid.TryParse(schoolId, out var sid))
             query = query.Where(u => u.SchoolId == sid);
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            var r = role.Trim();
+            query = query.Where(u => u.Role == r);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -169,34 +326,63 @@ public class InstitutionalCredentialController : Controller
             query = query.Where(u =>
                 EF.Functions.ILike(u.Name, p) ||
                 EF.Functions.ILike(u.LastName, p) ||
-                (u.Email != null && EF.Functions.ILike(u.Email, p)));
+                (u.Email != null && EF.Functions.ILike(u.Email, p)) ||
+                (u.DocumentId != null && EF.Functions.ILike(u.DocumentId, p)));
         }
 
-        var rawRows = await query
-            .OrderBy(u => u.LastName)
-            .ThenBy(u => u.Name)
-            .Select(u => new
-            {
-                u.Id,
-                fullName = u.Name + " " + u.LastName,
-                u.PhotoUrl,
-                u.Role,
-                schoolName = u.SchoolNavigation != null ? u.SchoolNavigation.Name : ""
-            })
-            .Take(500)
-            .ToListAsync();
-
-        var rows = rawRows.Select(u => new
+        if (!string.IsNullOrWhiteSpace(documentId))
         {
-            id = u.Id,
-            u.fullName,
-            photoUrl = u.PhotoUrl,
-            role = u.Role,
-            roleDisplay = StaffInstitutionalRoleFilter.FormatRoleDisplay(u.Role),
-            u.schoolName
-        }).ToList();
+            var docPattern = "%" + documentId.Trim() + "%";
+            query = query.Where(u =>
+                u.DocumentId != null && EF.Functions.ILike(u.DocumentId, docPattern));
+        }
 
-        return Json(new { data = rows });
+        var statusFilter = string.IsNullOrWhiteSpace(credentialStatus)
+            ? null
+            : credentialStatus.Trim().ToLowerInvariant();
+
+        if (statusFilter is "none")
+        {
+            query = query.Where(u => !_context.Set<InstitutionalCredentialCard>()
+                .Any(c => c.UserId == u.Id && c.Status == "active"));
+        }
+        else if (statusFilter is "active")
+        {
+            query = query.Where(u => _context.Set<InstitutionalCredentialCard>()
+                .Any(c => c.UserId == u.Id && c.Status == "active" &&
+                    (c.ExpiresAt == null || c.ExpiresAt > DateTime.UtcNow)));
+        }
+        else if (statusFilter is "expired")
+        {
+            query = query.Where(u => _context.Set<InstitutionalCredentialCard>()
+                .Any(c => c.UserId == u.Id && c.Status == "active" &&
+                    c.ExpiresAt != null && c.ExpiresAt <= DateTime.UtcNow));
+        }
+        else if (statusFilter is "revoked")
+        {
+            query = query.Where(u =>
+                !_context.Set<InstitutionalCredentialCard>()
+                    .Any(c => c.UserId == u.Id && c.Status == "active") &&
+                _context.Set<InstitutionalCredentialCard>()
+                    .Any(c => c.UserId == u.Id && c.Status == "revoked"));
+        }
+
+        var printedFilter = string.IsNullOrWhiteSpace(printed)
+            ? null
+            : printed.Trim().ToLowerInvariant();
+
+        if (printedFilter is "printed")
+        {
+            query = query.Where(u => _context.Set<InstitutionalCredentialCard>()
+                .Any(c => c.UserId == u.Id && c.Status == "active" && c.IsPrinted));
+        }
+        else if (printedFilter is "not_printed")
+        {
+            query = query.Where(u => !_context.Set<InstitutionalCredentialCard>()
+                .Any(c => c.UserId == u.Id && c.Status == "active" && c.IsPrinted));
+        }
+
+        return query;
     }
 
     private async Task MarkCardPrintedAsync(Guid userId)

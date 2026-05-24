@@ -17,3 +17,5 @@ cache/
 
 # Volcados completos de PostgreSQL (datos sensibles; no versionar)
 Backups/
+*.backup
+backup_eduplaner_*.backup

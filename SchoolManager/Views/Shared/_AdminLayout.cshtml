@@ -14,14 +14,19 @@
         "admin" => "Administrador", 
         "director" => "Director",
         "teacher" => "Docente",
+        "docente" => "Docente",
         "parent" => "Padre/Madre",
         "student" => "Estudiante",
         "estudiante" => "Estudiante",
         "clubparentsadmin" => "Administrador Club de Padres",
         "qlservices" => "QL Services",
         "inspector" => "Inspector",
+        "secretaria" => "Secretaría",
+        "contable" => "Contable",
+        "contabilidad" => "Contabilidad",
         _ => userRole
     };
+    var showStaffInstitutionalProfileMenu = SchoolManager.Helpers.StaffInstitutionalProfileAccess.IsAllowedRole(userRole);
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -209,6 +214,14 @@
                         </li>
                         }
                         *@
+                        @if (showStaffInstitutionalProfileMenu) {
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "StaffInstitutionalProfile")" class="nav-link">
+                                <i class="nav-icon fas fa-id-badge"></i>
+                                <p>Mi perfil institucional</p>
+                            </a>
+                        </li>
+                        }
                         @if (userRole == "student" || userRole == "estudiante") {
                         <li class="nav-item">
                                 <a href="@Url.Action("Index", "StudentReport")" class="nav-link">

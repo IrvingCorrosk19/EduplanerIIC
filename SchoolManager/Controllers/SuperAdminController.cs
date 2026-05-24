@@ -195,8 +195,8 @@ public class SuperAdminController : Controller
         if (user == null)
             return Json(new { success = false, message = "Usuario no encontrado." });
 
-        if (!StaffInstitutionalRoleFilter.IsInstitutionalStaffRole(user.Role))
-            return Json(new { success = false, message = "El usuario no es personal institucional." });
+        if (!StaffInstitutionalProfileAccess.IsStaffDirectoryEligibleRole(user.Role))
+            return Json(new { success = false, message = "El usuario no es personal institucional elegible para el directorio." });
 
         try
         {
@@ -223,8 +223,8 @@ public class SuperAdminController : Controller
         if (user == null)
             return Json(new { success = false, message = "Usuario no encontrado." });
 
-        if (!StaffInstitutionalRoleFilter.IsInstitutionalStaffRole(user.Role))
-            return Json(new { success = false, message = "El usuario no es personal institucional." });
+        if (!StaffInstitutionalProfileAccess.IsStaffDirectoryEligibleRole(user.Role))
+            return Json(new { success = false, message = "El usuario no es personal institucional elegible para el directorio." });
 
         try
         {
@@ -250,8 +250,8 @@ public class SuperAdminController : Controller
         if (user == null)
             return Json(new { success = false, message = "Usuario no encontrado." });
 
-        if (!StaffInstitutionalRoleFilter.IsInstitutionalStaffRole(user.Role))
-            return Json(new { success = false, message = "El usuario no es personal institucional." });
+        if (!StaffInstitutionalProfileAccess.IsStaffDirectoryEligibleRole(user.Role))
+            return Json(new { success = false, message = "El usuario no es personal institucional elegible para el directorio." });
 
         try
         {

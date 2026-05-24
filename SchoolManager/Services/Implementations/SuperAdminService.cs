@@ -1155,7 +1155,8 @@ public class SuperAdminService : ISuperAdminService
 
         var page = new SuperAdminStaffDirectoryPageVm { Filter = filter };
 
-        var baseQuery = StaffInstitutionalRoleFilter.WhereIsInstitutionalStaff(_context.Users.AsNoTracking());
+        var baseQuery = _context.Users.AsNoTracking()
+            .Where(u => u.Role != null && StaffInstitutionalProfileAccess.StaffDirectoryAllowlist.Contains(u.Role));
 
         if (filter.SchoolId.HasValue)
             baseQuery = baseQuery.Where(u => u.SchoolId == filter.SchoolId.Value);
@@ -1187,13 +1188,15 @@ public class SuperAdminService : ISuperAdminService
             .ToListAsync();
         page.SchoolOptions.Insert(0, new SelectListItem { Value = "", Text = "Todas las escuelas" });
 
-        var roleRows = await StaffInstitutionalRoleFilter.WhereIsInstitutionalStaff(_context.Users.AsNoTracking())
-            .Where(u => u.Role != null)
+        var roleRows = await _context.Users.AsNoTracking()
+            .Where(u => u.Role != null && StaffInstitutionalProfileAccess.StaffDirectoryAllowlist.Contains(u.Role))
             .Select(u => u.Role!)
             .Distinct()
             .OrderBy(r => r)
             .ToListAsync();
-        page.RoleOptions = roleRows.Select(r => new SelectListItem { Value = r, Text = r }).ToList();
+        page.RoleOptions = roleRows
+            .Select(r => new SelectListItem { Value = r, Text = StaffInstitutionalRoleFilter.FormatRoleDisplay(r) })
+            .ToList();
         page.RoleOptions.Insert(0, new SelectListItem { Value = "", Text = "Todos los roles" });
 
         MarkSelected(page.SchoolOptions, filter.SchoolId);
