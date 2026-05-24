@@ -6,9 +6,45 @@
 }
 @Html.AntiForgeryToken()
 
-<div class="card card-outline card-primary shadow-sm mb-4">
+<link rel="stylesheet" href="~/css/superadmin-staff-pages.css" asp-append-version="true" />
+
+<div class="sm-staff-page">
+    <div class="sm-page-hero d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h2><i class="fas fa-users text-primary me-2"></i>Directorio de personal</h2>
+            <p class="sm-page-subtitle">Fotos, datos laborales y acceso rápido a credenciales institucionales.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/InstitutionalCredential/ui" class="btn btn-primary btn-sm shadow-sm">
+                <i class="fas fa-id-badge me-1"></i> Credenciales
+            </a>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="sm-stat-pill">
+            <i class="fas fa-list-ol"></i>
+            @if (Model.TotalCount == 0)
+            {
+                <span>Sin registros</span>
+            }
+            else
+            {
+                <span>@Model.TotalCount registro(s)</span>
+            }
+        </span>
+        @if (Model.TotalCount > 0)
+        {
+            <span class="sm-stat-pill sm-stat-pill--success">
+                <i class="fas fa-eye"></i>
+                <span>Página @f.Page de @(Model.TotalPages == 0 ? 1 : Model.TotalPages)</span>
+            </span>
+        }
+    </div>
+
+<div class="card sm-filter-card shadow-sm">
     <div class="card-header">
-        <h3 class="card-title mb-0"><i class="fas fa-filter me-2"></i>Filtros</h3>
+        <h3 class="card-title mb-0"><i class="fas fa-filter me-2 text-primary"></i>Filtros</h3>
     </div>
     <div class="card-body">
         <form asp-action="StaffDirectory" method="get" id="filterForm">
@@ -75,35 +111,39 @@
     </div>
 </div>
 
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-    <p class="text-muted mb-0">
+<div class="sm-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="small text-muted">
         <i class="fas fa-info-circle me-1"></i>
         @if (Model.TotalCount == 0)
         {
-            <span>Sin resultados.</span>
+            <span>Sin resultados con los filtros actuales.</span>
         }
         else
         {
-            <span>Mostrando @Model.DisplayFrom–@Model.DisplayTo de @Model.TotalCount registro(s).</span>
+            <span>Mostrando <strong>@Model.DisplayFrom–@Model.DisplayTo</strong> de <strong>@Model.TotalCount</strong></span>
         }
-        Personal institucional (docentes, dirección, administración).
-    </p>
+    </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
-        <span id="offlineQueueBadge" class="badge bg-secondary">Pendientes offline: 0</span>
-        <span id="networkStateBadge" class="badge bg-success">En línea</span>
+        <span id="offlineQueueBadge" class="badge rounded-pill bg-secondary">Offline: 0</span>
+        <span id="networkStateBadge" class="badge rounded-pill bg-success">En línea</span>
         <button type="button" id="btnSyncOfflinePhotos" class="btn btn-outline-success btn-sm">
-            <i class="fas fa-cloud-upload-alt me-1"></i> Sincronizar fotos pendientes
+            <i class="fas fa-cloud-upload-alt me-1"></i> Sincronizar fotos
         </button>
-        <div class="input-group" style="max-width: 280px;">
-            <span class="input-group-text"><i class="fas fa-search"></i></span>
-            <input type="text" class="form-control" id="tableQuickFilter" placeholder="Filtrar filas visibles…" autocomplete="off" />
+        <div class="input-group input-group-sm" style="max-width: 260px;">
+            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" class="form-control" id="tableQuickFilter" placeholder="Buscar en esta página…" autocomplete="off" />
         </div>
     </div>
 </div>
 
-<div class="card shadow-sm">
+<div class="card sm-table-card">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="fw-semibold text-secondary small text-uppercase" style="letter-spacing:.04em;">
+            <i class="fas fa-table me-1"></i> Listado de personal
+        </span>
+    </div>
     <div class="table-responsive">
-        <table class="table table-hover table-striped align-middle mb-0" id="staffDirectoryTable">
+        <table class="table table-hover align-middle mb-0" id="staffDirectoryTable">
             <thead class="table-light">
                 <tr>
                     <th>Foto</th>
@@ -123,7 +163,10 @@
                 @if (!Model.Rows.Any())
                 {
                     <tr class="no-results-row">
-                        <td colspan="11" class="text-center text-muted py-4">No hay resultados con los filtros actuales.</td>
+                        <td colspan="11" class="sm-empty-state">
+                            <i class="fas fa-user-slash"></i>
+                            <p>No hay resultados con los filtros actuales.</p>
+                        </td>
                     </tr>
                 }
                 else
@@ -132,31 +175,41 @@
                     {
                         <tr data-user-id="@row.UserId"
                             data-search="@($"{row.FullName} {row.DocumentId} {row.Email} {row.RoleDisplay} {row.SchoolName} {row.JobTitle} {row.Department} {row.EmployeeCode} {row.Status}")">
-                            <td class="staff-thumb-cell">
-                                <img src="@UserPhotoLinks.HrefListThumbnail(row.PhotoUrl)" alt="Foto @row.FullName" class="staff-thumb" loading="lazy" decoding="async" />
+                            <td class="staff-thumb-cell text-center">
+                                <img src="@UserPhotoLinks.HrefListThumbnail(row.PhotoUrl)" alt="Foto @row.FullName" class="sm-person-thumb staff-thumb" loading="lazy" decoding="async" />
                             </td>
-                            <td>@row.FullName</td>
+                            <td><span class="sm-person-name">@row.FullName</span></td>
                             <td>@(string.IsNullOrWhiteSpace(row.DocumentId) ? "—" : row.DocumentId)</td>
-                            <td><small>@row.Email</small></td>
-                            <td><span class="badge bg-secondary">@row.RoleDisplay</span></td>
+                            <td><span class="sm-person-meta">@row.Email</span></td>
+                            <td><span class="badge rounded-pill sm-badge-role">@row.RoleDisplay</span></td>
                             <td>@(string.IsNullOrWhiteSpace(row.SchoolName) ? "—" : row.SchoolName)</td>
                             <td class="staff-cell-job">@(string.IsNullOrWhiteSpace(row.JobTitle) ? "—" : row.JobTitle)</td>
                             <td class="staff-cell-dept">@(string.IsNullOrWhiteSpace(row.Department) ? "—" : row.Department)</td>
-                            <td class="staff-cell-code">@(string.IsNullOrWhiteSpace(row.EmployeeCode) ? "—" : row.EmployeeCode)</td>
-                            <td>
-                                @if (string.Equals(row.Status, "active", StringComparison.OrdinalIgnoreCase))
+                            <td class="staff-cell-code">
+                                @if (string.IsNullOrWhiteSpace(row.EmployeeCode))
                                 {
-                                    <span class="badge bg-success">Activo</span>
+                                    <span class="text-muted">—</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-secondary">@(string.IsNullOrWhiteSpace(row.Status) ? "—" : row.Status)</span>
+                                    <span class="sm-code-chip">@row.EmployeeCode</span>
                                 }
                             </td>
-                            <td class="text-nowrap">
-                                <div class="d-flex flex-wrap gap-1">
+                            <td>
+                                @if (string.Equals(row.Status, "active", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge rounded-pill bg-success sm-badge-active">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge rounded-pill bg-secondary sm-badge-active">@(string.IsNullOrWhiteSpace(row.Status) ? "—" : row.Status)</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm sm-action-group" role="group" aria-label="Acciones">
                                     <button type="button"
-                                            class="btn btn-sm btn-outline-primary btn-photo-manage"
+                                            class="btn btn-outline-primary btn-photo-manage"
+                                            title="Gestionar foto"
                                             data-user-id="@row.UserId"
                                             data-full-name="@row.FullName"
                                             data-document-id="@(row.DocumentId ?? "")"
@@ -165,20 +218,21 @@
                                             data-job="@(row.JobTitle ?? "")"
                                             data-dept="@(row.Department ?? "")"
                                             data-photo-url="@(row.PhotoUrl ?? "")">
-                                        <i class="fas fa-camera me-1"></i> Foto
+                                        <i class="fas fa-camera"></i>
                                     </button>
                                     <button type="button"
-                                            class="btn btn-sm btn-outline-secondary btn-profile-manage"
+                                            class="btn btn-outline-secondary btn-profile-manage"
+                                            title="Datos institucionales"
                                             data-user-id="@row.UserId"
                                             data-job="@(row.JobTitle ?? "")"
                                             data-dept="@(row.Department ?? "")"
                                             data-code="@(row.EmployeeCode ?? "")">
-                                        <i class="fas fa-briefcase me-1"></i> Datos
+                                        <i class="fas fa-briefcase"></i>
                                     </button>
-                                    <a class="btn btn-sm btn-primary" href="/InstitutionalCredential/ui/generate/@row.UserId" title="Ver credencial">
+                                    <a class="btn btn-primary" href="/InstitutionalCredential/ui/generate/@row.UserId" title="Ver credencial">
                                         <i class="fas fa-id-badge"></i>
                                     </a>
-                                    <a class="btn btn-sm btn-outline-dark" href="/InstitutionalCredential/ui/print/@row.UserId" target="_blank" rel="noopener" title="Imprimir credencial">
+                                    <a class="btn btn-outline-dark" href="/InstitutionalCredential/ui/print/@row.UserId" target="_blank" rel="noopener" title="Imprimir credencial">
                                         <i class="fas fa-print"></i>
                                     </a>
                                 </div>
@@ -191,7 +245,7 @@
     </div>
     @if (Model.TotalPages > 1)
     {
-        <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
+        <div class="card-footer sm-pagination-footer d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
             <span class="text-muted small">Página @f.Page de @Model.TotalPages</span>
             <nav aria-label="Paginación directorio personal">
                 <ul class="pagination pagination-sm mb-0">
@@ -332,6 +386,7 @@
         </div>
     </div>
 </div>
+</div>
 
 @section Scripts {
     <script>
@@ -423,7 +478,7 @@
                 if (!row) return;
                 var thumbCell = row.querySelector('.staff-thumb-cell');
                 if (thumbCell) {
-                    thumbCell.innerHTML = '<img src="' + buildUserPhotoThumbHref(stored) + '" alt="Foto personal" class="staff-thumb" loading="lazy" decoding="async" />';
+                    thumbCell.innerHTML = '<img src="' + buildUserPhotoThumbHref(stored) + '" alt="Foto personal" class="sm-person-thumb staff-thumb" loading="lazy" decoding="async" />';
                 }
                 var btn = row.querySelector('.btn-photo-manage');
                 if (btn) btn.setAttribute('data-photo-url', stored || '');
@@ -435,11 +490,13 @@
                 if (pending) {
                     btn.classList.remove('btn-outline-primary');
                     btn.classList.add('btn-outline-warning');
-                    btn.innerHTML = '<i class="fas fa-clock me-1"></i> Pendiente';
+                    btn.innerHTML = '<i class="fas fa-clock"></i>';
+                    btn.title = 'Foto pendiente de sincronizar';
                 } else {
                     btn.classList.remove('btn-outline-warning');
                     btn.classList.add('btn-outline-primary');
-                    btn.innerHTML = '<i class="fas fa-camera me-1"></i> Foto';
+                    btn.innerHTML = '<i class="fas fa-camera"></i>';
+                    btn.title = 'Gestionar foto';
                 }
             }
 
@@ -754,25 +811,18 @@
         })();
     </script>
     <style>
-        .staff-thumb {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 1px solid #dbe4f0;
-            box-shadow: 0 1px 2px rgba(0,0,0,.08);
-        }
         .staff-thumb-placeholder {
-            width: 44px;
-            height: 44px;
+            width: 46px;
+            height: 46px;
             border-radius: 50%;
-            border: 1px dashed #cbd5e1;
+            border: 2px dashed #cbd5e1;
             color: #94a3b8;
             background: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin: 0 auto;
         }
-        #staffDirectoryTable td { vertical-align: middle; }
+        #staffPhotoPreviewImg { border-radius: 12px; }
     </style>
 }

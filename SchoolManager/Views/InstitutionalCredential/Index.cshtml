@@ -4,65 +4,9 @@
 }
 
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
+<link rel="stylesheet" href="~/css/superadmin-staff-pages.css" asp-append-version="true" />
 
 <style>
-    @@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    .instcred-page {
-        font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
-    }
-
-    .card.card-outline.card-primary {
-        border-top: 3px solid #0d6efd;
-    }
-
-    .instcred-panel {
-        background: #f0f2f5;
-        border-radius: 12px;
-        padding: 1.25rem;
-        border: 1px solid #e5e7eb;
-    }
-
-    .instcred-filters .form-label {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: #495057;
-    }
-
-    .instcred-table-wrap {
-        background: #fff;
-        border-radius: 10px;
-        padding: 0.75rem;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
-
-    #staffCredTable_wrapper .dataTables_filter input { border-radius: 6px; }
-    #staffCredTable thead th { white-space: nowrap; vertical-align: middle; }
-    #staffCredTable td { vertical-align: middle; font-size: 0.875rem; }
-
-    .instcred-thumb {
-        width: 44px;
-        height: 44px;
-        object-fit: cover;
-        border: 1px solid #e5e7eb;
-        border-radius: 50%;
-        background: #f8f9fa;
-    }
-
-    .btn-xs {
-        padding: .2rem .45rem;
-        font-size: .72rem;
-        line-height: 1.15;
-    }
-
-    .instcred-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-        max-width: 220px;
-    }
-
     .print-loading-overlay {
         position: fixed;
         inset: 0;
@@ -98,46 +42,49 @@
     }
 </style>
 
-<div class="container-fluid instcred-page">
+<div class="sm-staff-page">
     @Html.AntiForgeryToken()
 
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-                <div>
-                    <h2 class="mb-1"><i class="fas fa-id-badge me-2 text-primary"></i>Credencial institucional</h2>
-                    <p class="text-muted small mb-0">Personal docente y administrativo — generación, vista previa e impresión</p>
-                </div>
-                <div class="d-flex flex-wrap gap-2">
-                    <a href="/SuperAdmin/StaffDirectory" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-users me-1"></i> Directorio de personal
-                    </a>
-                </div>
-            </div>
+    <div class="sm-page-hero d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h2><i class="fas fa-id-badge text-primary me-2"></i>Credencial institucional</h2>
+            <p class="sm-page-subtitle">Emisión, vista previa, impresión PDF y códigos QR para personal institucional.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/SuperAdmin/StaffDirectory" class="btn btn-outline-primary btn-sm shadow-sm">
+                <i class="fas fa-users me-1"></i> Directorio de personal
+            </a>
         </div>
     </div>
 
-    <div class="card card-outline card-primary shadow-sm mb-3">
-        <div class="card-header py-2">
-            <h3 class="card-title mb-0"><i class="fas fa-filter me-2"></i>Filtros</h3>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="sm-stat-pill" id="recordCountPill">
+            <i class="fas fa-list-ol"></i>
+            <span id="recordCountLabel">Cargando…</span>
+        </span>
+    </div>
+
+    <div class="card sm-filter-card shadow-sm mb-3">
+        <div class="card-header">
+            <h3 class="card-title mb-0"><i class="fas fa-filter me-2 text-primary"></i>Filtros</h3>
         </div>
-        <div class="card-body instcred-filters">
-            <div class="row g-2">
+        <div class="card-body">
+            <div class="row g-3">
                 <div class="col-md-3">
-                    <label for="filterSchool" class="form-label mb-1">Escuela</label>
-                    <select id="filterSchool" class="form-select form-select-sm">
+                    <label for="filterSchool" class="form-label">Escuela</label>
+                    <select id="filterSchool" class="form-select">
                         <option value="">Todas</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="filterRole" class="form-label mb-1">Rol</label>
-                    <select id="filterRole" class="form-select form-select-sm">
+                    <label for="filterRole" class="form-label">Rol</label>
+                    <select id="filterRole" class="form-select">
                         <option value="">Todos</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="filterCredentialStatus" class="form-label mb-1">Estado credencial</label>
-                    <select id="filterCredentialStatus" class="form-select form-select-sm">
+                    <label for="filterCredentialStatus" class="form-label">Estado credencial</label>
+                    <select id="filterCredentialStatus" class="form-select">
                         <option value="">Todos</option>
                         <option value="active">Activa</option>
                         <option value="expired">Expirada</option>
@@ -146,28 +93,28 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="filterPrinted" class="form-label mb-1">Estado impresión</label>
-                    <select id="filterPrinted" class="form-select form-select-sm">
+                    <label for="filterPrinted" class="form-label">Estado impresión</label>
+                    <select id="filterPrinted" class="form-select">
                         <option value="">Todos</option>
                         <option value="printed">Impresos</option>
                         <option value="not_printed">No impresos</option>
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label for="filterSearch" class="form-label mb-1">Buscar</label>
-                    <input type="text" id="filterSearch" class="form-control form-control-sm"
+                    <label for="filterSearch" class="form-label">Buscar</label>
+                    <input type="text" id="filterSearch" class="form-control"
                            placeholder="Nombre, apellido o correo" autocomplete="off" />
                 </div>
                 <div class="col-md-4">
-                    <label for="filterDocumentId" class="form-label mb-1">Documento</label>
-                    <input type="text" id="filterDocumentId" class="form-control form-control-sm"
+                    <label for="filterDocumentId" class="form-label">Documento</label>
+                    <input type="text" id="filterDocumentId" class="form-control"
                            placeholder="Cédula (contiene)" autocomplete="off" />
                 </div>
                 <div class="col-md-4 d-flex align-items-end gap-2">
-                    <button type="button" id="btnApplyFilters" class="btn btn-primary btn-sm">
-                        <i class="fas fa-search me-1"></i> Aplicar
+                    <button type="button" id="btnApplyFilters" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i> Aplicar filtros
                     </button>
-                    <button type="button" id="btnClearFilters" class="btn btn-outline-secondary btn-sm">
+                    <button type="button" id="btnClearFilters" class="btn btn-outline-secondary">
                         <i class="fas fa-undo me-1"></i> Limpiar
                     </button>
                 </div>
@@ -175,21 +122,22 @@
         </div>
     </div>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
-        <p class="text-muted small mb-0">
-            <i class="fas fa-info-circle me-1"></i>
-            <span id="recordCountLabel">Cargando registros…</span>
-        </p>
+    <div class="sm-toolbar d-flex flex-wrap justify-content-end align-items-center gap-2 mb-3">
         <div class="input-group input-group-sm" style="max-width: 280px;">
-            <span class="input-group-text"><i class="fas fa-search"></i></span>
-            <input type="text" class="form-control" id="tableQuickFilter" placeholder="Filtrar filas visibles…" autocomplete="off" />
+            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" class="form-control" id="tableQuickFilter" placeholder="Buscar en la tabla…" autocomplete="off" />
         </div>
     </div>
 
-    <div class="instcred-panel">
-        <div class="instcred-table-wrap">
-            <table id="staffCredTable" class="table table-bordered table-striped table-hover table-sm mb-0 w-100">
-                <thead class="table-light">
+    <div class="card sm-table-card">
+        <div class="card-header">
+            <span class="fw-semibold text-secondary small text-uppercase" style="letter-spacing:.04em;">
+                <i class="fas fa-table me-1"></i> Personal con credencial
+            </span>
+        </div>
+        <div class="sm-instcred-panel p-0 border-0">
+            <table id="staffCredTable" class="table table-hover mb-0 w-100">
+                <thead>
                     <tr>
                         <th class="text-center">Foto</th>
                         <th>Nombre completo</th>
@@ -210,6 +158,7 @@
             </table>
         </div>
     </div>
+</div>
 </div>
 
 <div id="printLoadingOverlay" class="print-loading-overlay d-none" aria-live="polite" aria-busy="true">
@@ -275,18 +224,18 @@ $(function () {
 
     function credentialStatusBadge(status) {
         const map = {
-            active: '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Activa</span>',
-            expired: '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-end me-1"></i>Expirada</span>',
-            revoked: '<span class="badge bg-danger"><i class="fas fa-ban me-1"></i>Revocada</span>',
-            none: '<span class="badge bg-secondary"><i class="fas fa-minus-circle me-1"></i>No generada</span>'
+            active: '<span class="badge rounded-pill bg-success"><i class="fas fa-check-circle me-1"></i>Activa</span>',
+            expired: '<span class="badge rounded-pill bg-warning text-dark"><i class="fas fa-hourglass-end me-1"></i>Expirada</span>',
+            revoked: '<span class="badge rounded-pill bg-danger"><i class="fas fa-ban me-1"></i>Revocada</span>',
+            none: '<span class="badge rounded-pill bg-secondary"><i class="fas fa-minus-circle me-1"></i>No generada</span>'
         };
         return map[status] || map.none;
     }
 
     function printBadge(isPrinted) {
         return isPrinted
-            ? '<span class="badge bg-info text-dark mt-1"><i class="fas fa-print me-1"></i>Impreso</span>'
-            : '<span class="badge bg-light text-muted border mt-1">Sin imprimir</span>';
+            ? '<span class="badge rounded-pill bg-info text-dark"><i class="fas fa-print me-1"></i>Impreso</span>'
+            : '<span class="badge rounded-pill bg-light text-muted border">Sin imprimir</span>';
     }
 
     function currentFilterParams() {
@@ -323,7 +272,8 @@ $(function () {
             },
             dataSrc: function (json) {
                 const rows = (json && json.data) ? json.data : [];
-                $('#recordCountLabel').text(rows.length + ' registro(s) de personal institucional');
+                const n = rows.length;
+                $('#recordCountLabel').text(n === 0 ? 'Sin registros' : (n + ' en listado'));
                 return rows;
             },
             xhrFields: { withCredentials: true },
@@ -346,10 +296,15 @@ $(function () {
                     const src = data
                         ? '/File/GetUserPhoto?photoUrl=' + encodeURIComponent(data) + '&variant=thumb'
                         : '/File/GetUserPhoto';
-                    return '<img src="' + src + '" class="instcred-thumb" width="44" height="44" alt="" loading="lazy" />';
+                    return '<img src="' + src + '" class="sm-person-thumb" width="46" height="46" alt="" loading="lazy" />';
                 }
             },
-            { data: 'fullName', title: 'Nombre completo' },
+            {
+                data: 'fullName',
+                render: function (data) {
+                    return '<span class="sm-person-name">' + escapeHtml(data || '') + '</span>';
+                }
+            },
             {
                 data: 'documentId',
                 defaultContent: '—',
@@ -367,7 +322,7 @@ $(function () {
             {
                 data: 'roleDisplay',
                 render: function (data) {
-                    return '<span class="badge bg-secondary">' + escapeHtml(data || '') + '</span>';
+                    return '<span class="badge rounded-pill sm-badge-role">' + escapeHtml(data || '') + '</span>';
                 }
             },
             {
@@ -391,7 +346,7 @@ $(function () {
                 defaultContent: '—',
                 render: function (data) {
                     const t = (data || '').trim();
-                    return t ? escapeHtml(t) : '<span class="text-muted">—</span>';
+                    return t ? '<span class="sm-code-chip">' + escapeHtml(t) + '</span>' : '<span class="text-muted">—</span>';
                 }
             },
             {
@@ -399,7 +354,7 @@ $(function () {
                 defaultContent: '—',
                 render: function (data) {
                     const t = (data || '').trim();
-                    return t ? '<code class="small">' + escapeHtml(t) + '</code>' : '<span class="text-muted">—</span>';
+                    return t ? '<span class="sm-code-chip">' + escapeHtml(t) + '</span>' : '<span class="text-muted">—</span>';
                 }
             },
             {
@@ -415,7 +370,7 @@ $(function () {
                 orderable: false,
                 searchable: false,
                 render: function (data, type, row) {
-                    return '<div class="d-flex flex-column align-items-start">' +
+                    return '<div class="sm-cred-status-stack d-flex flex-column align-items-start gap-1">' +
                         credentialStatusBadge(row.credentialStatus) +
                         printBadge(row.isPrinted) +
                         '</div>';
@@ -427,24 +382,26 @@ $(function () {
                 searchable: false,
                 render: function (data, type, row) {
                     const hasCard = row.credentialStatus === 'active' || row.credentialStatus === 'expired';
-                    const genLabel = hasCard ? 'Regenerar' : 'Generar';
-                    const genIcon = hasCard ? 'fa-sync-alt' : 'fa-plus-circle';
+                    const isRegen = hasCard;
+                    const genTitle = isRegen ? 'Regenerar credencial' : 'Generar credencial';
+                    const genIcon = isRegen ? 'fa-sync-alt' : 'fa-plus-circle';
+                    const qrDisabled = !(hasCard && row.credentialStatus === 'active');
                     return `
-                        <div class="instcred-actions">
-                            <a href="/InstitutionalCredential/ui/generate/${data}" class="btn btn-primary btn-xs" title="Ver credencial">
-                                <i class="fas fa-eye"></i> Ver
+                        <div class="btn-group btn-group-sm sm-action-group" role="group">
+                            <a href="/InstitutionalCredential/ui/generate/${data}" class="btn btn-primary" title="Ver credencial">
+                                <i class="fas fa-eye"></i>
                             </a>
-                            <button type="button" class="btn btn-outline-primary btn-xs btn-generate" data-user-id="${data}" title="${genLabel}">
-                                <i class="fas ${genIcon}"></i> ${genLabel}
+                            <button type="button" class="btn btn-outline-primary btn-generate" data-user-id="${data}" data-regenerate="${isRegen}" title="${genTitle}">
+                                <i class="fas ${genIcon}"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-dark btn-xs btn-print" data-user-id="${data}" ${hasCard ? '' : 'disabled'} title="Imprimir PDF">
-                                <i class="fas fa-print"></i> Imprimir
+                            <button type="button" class="btn btn-outline-dark btn-print" data-user-id="${data}" ${hasCard ? '' : 'disabled'} title="Imprimir PDF">
+                                <i class="fas fa-print"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-info btn-xs btn-qr" data-user-id="${data}" ${hasCard && row.credentialStatus === 'active' ? '' : 'disabled'} title="Ver QR">
-                                <i class="fas fa-qrcode"></i> QR
+                            <button type="button" class="btn btn-outline-info btn-qr" data-user-id="${data}" ${qrDisabled ? 'disabled' : ''} title="Ver QR">
+                                <i class="fas fa-qrcode"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-secondary btn-xs btn-status" data-user-id="${data}" title="Detalle estado">
-                                <i class="fas fa-info-circle"></i> Estado
+                            <button type="button" class="btn btn-outline-secondary btn-status" data-user-id="${data}" title="Detalle de estado">
+                                <i class="fas fa-info-circle"></i>
                             </button>
                         </div>`;
                 }
@@ -454,7 +411,7 @@ $(function () {
         responsive: true,
         pageLength: 25,
         order: [[1, 'asc']],
-        dom: '<"row mb-2"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip'
+        dom: '<"row align-items-center mb-2 px-2"<"col-sm-6"l><"col-sm-6 text-sm-end"i>>rtip'
     });
 
     let searchTimer = null;
@@ -505,7 +462,7 @@ $(function () {
     $(document).on('click', '.btn-generate', async function () {
         const btn = $(this);
         const userId = btn.data('user-id');
-        const isRegen = btn.text().trim().toLowerCase().indexOf('regenerar') >= 0;
+        const isRegen = String(btn.data('regenerate')) === 'true';
         let ok = true;
         if (isRegen && window.SchoolUi) {
             const c = await window.SchoolUi.confirmWarning(
