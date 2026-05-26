@@ -26,21 +26,13 @@ namespace SchoolManager.Controllers
             _logger = logger;
         }
 
-        private Guid GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-        }
-
         private static bool IsTeacherRole(string? role) =>
             string.Equals(role, "teacher", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(role, "docente", StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>Si el usuario es docente, acota reportes y catálogos a sus asignaciones.</summary>
         private static Guid? GetTeacherScopeId(Models.User? user) =>
             user != null && IsTeacherRole(user.Role) ? user.Id : null;
 
-        // GET: AprobadosReprobados/Index
         [HttpGet]
         public async Task<IActionResult> Index()
         {
@@ -53,22 +45,10 @@ namespace SchoolManager.Controllers
                     return RedirectToAction("Index", "Home");
                 }
 
-                var filtro = new AprobadosReprobadosFiltroViewModel();
-                var teacherScopeId = GetTeacherScopeId(currentUser);
-
-                // Cargar trimestres y niveles disponibles
                 ViewBag.TrimestresDisponibles = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(currentUser.SchoolId.Value);
-                ViewBag.NivelesDisponibles = await _aprobadosReprobadosService.ObtenerNivelesEducativosAsync(teacherScopeId);
-
-                // Cargar nuevos filtros
-                ViewBag.EspecialidadesDisponibles = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(currentUser.SchoolId.Value, teacherScopeId);
-                ViewBag.AreasDisponibles = await _aprobadosReprobadosService.ObtenerAreasAsync(teacherScopeId);
-                ViewBag.MateriasDisponibles = await _aprobadosReprobadosService.ObtenerMateriasAsync(currentUser.SchoolId.Value, teacherScopeId: teacherScopeId);
-
                 ViewBag.CurrentUser = currentUser;
-                ViewBag.IsTeacherScoped = teacherScopeId.HasValue;
 
-                return View(filtro);
+                return View(new AprobadosReprobadosFiltroViewModel());
             }
             catch (Exception ex)
             {
@@ -78,7 +58,6 @@ namespace SchoolManager.Controllers
             }
         }
 
-        // POST: AprobadosReprobados/GenerarReporte
         [HttpPost]
         public async Task<IActionResult> GenerarReporte(AprobadosReprobadosFiltroViewModel filtro)
         {
@@ -86,38 +65,34 @@ namespace SchoolManager.Controllers
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                {
                     return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
-                }
 
                 if (!ModelState.IsValid)
                 {
                     var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
-                    return Json(new { success = false, message = $"Datos de filtro inválidos: {string.Join(", ", errors)}" });
+                    return Json(new { success = false, message = string.Join(", ", errors) });
                 }
 
-                // Validar que se proporcionen los campos requeridos
-                if (string.IsNullOrEmpty(filtro.Trimestre) || string.IsNullOrEmpty(filtro.NivelEducativo))
+                if (string.IsNullOrEmpty(filtro.Trimestre) || filtro.MateriaId == Guid.Empty ||
+                    filtro.GroupId == Guid.Empty || filtro.GradeLevelId == Guid.Empty)
                 {
-                    return Json(new { success = false, message = "Trimestre y nivel educativo son requeridos" });
+                    return Json(new { success = false, message = "Trimestre, materia y grupo son requeridos" });
                 }
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     filtro.Trimestre,
-                    filtro.NivelEducativo,
-                    filtro.GradoEspecifico,
-                    filtro.GrupoEspecifico,
-                    filtro.EspecialidadId,
-                    filtro.AreaId,
                     filtro.MateriaId,
-                    GetTeacherScopeId(currentUser)
-                );
+                    filtro.GroupId,
+                    filtro.GradeLevelId,
+                    GetTeacherScopeId(currentUser));
 
-                // Agregar nombre del profesor coordinador
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
-
                 return Json(new { success = true, data = reporte });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Json(new { success = false, message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -126,9 +101,6 @@ namespace SchoolManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Prepara datos para que el reporte muestre filas (actividades 3T + grados en grupos). Solo Admin/Director.
-        /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin,Director,admin,director")]
         public async Task<IActionResult> PrepararDatosParaReporte()
@@ -137,9 +109,8 @@ namespace SchoolManager.Controllers
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                {
                     return Json(new { success = false, message = "No se pudo obtener la información de la escuela." });
-                }
+
                 var (success, message) = await _aprobadosReprobadosService.PrepararDatosParaReporteAsync(currentUser.SchoolId.Value);
                 return Json(new { success, message });
             }
@@ -150,10 +121,9 @@ namespace SchoolManager.Controllers
             }
         }
 
-        // GET: AprobadosReprobados/VistaPrevia
         [HttpGet]
-        public async Task<IActionResult> VistaPrevia(string trimestre, string nivelEducativo, string? grado = null, string? grupo = null, 
-            Guid? especialidadId = null, Guid? areaId = null, Guid? materiaId = null)
+        public async Task<IActionResult> VistaPrevia(
+            string trimestre, Guid materiaId, Guid groupId, Guid gradeLevelId)
         {
             try
             {
@@ -167,63 +137,50 @@ namespace SchoolManager.Controllers
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     trimestre,
-                    nivelEducativo,
-                    grado,
-                    grupo,
-                    especialidadId,
-                    areaId,
                     materiaId,
-                    GetTeacherScopeId(currentUser)
-                );
+                    groupId,
+                    gradeLevelId,
+                    GetTeacherScopeId(currentUser));
 
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
-
                 return View(reporte);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generando vista previa");
-                TempData["Error"] = "Error al generar el reporte.";
+                TempData["Error"] = ex.Message;
                 return RedirectToAction("Index");
             }
         }
 
-        // GET: AprobadosReprobados/ExportarPdf
         [HttpGet]
-        public async Task<IActionResult> ExportarPdf(string trimestre, string nivelEducativo, string? grado = null, string? grupo = null,
-            Guid? especialidadId = null, Guid? areaId = null, Guid? materiaId = null)
+        public async Task<IActionResult> ExportarPdf(
+            string trimestre, Guid materiaId, Guid groupId, Guid gradeLevelId)
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                {
                     return BadRequest("No se pudo obtener la información de la escuela");
-                }
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     trimestre,
-                    nivelEducativo,
-                    grado,
-                    grupo,
-                    especialidadId,
-                    areaId,
                     materiaId,
-                    GetTeacherScopeId(currentUser)
-                );
+                    groupId,
+                    gradeLevelId,
+                    GetTeacherScopeId(currentUser));
 
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
 
-                // Logo: si es ruta relativa, obtener bytes en el servidor para no fallar al exportar (evita llamada HTTP sin cookies)
                 byte[]? logoBytes = null;
-                if (!string.IsNullOrWhiteSpace(reporte.LogoUrl) && !reporte.LogoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !reporte.LogoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(reporte.LogoUrl) &&
+                    !reporte.LogoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !reporte.LogoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                     logoBytes = await _superAdminService.GetLogoAsync(reporte.LogoUrl);
-                // Si es URL (ej. Cloudinary), ExportarAPdfAsync descargará con HttpClient
 
                 var pdfBytes = await _aprobadosReprobadosService.ExportarAPdfAsync(reporte, logoBytes);
-
-                return File(pdfBytes, "application/pdf", $"Reporte_Aprobados_Reprobados_{trimestre}_{nivelEducativo}.pdf");
+                return File(pdfBytes, "application/pdf", $"Reporte_Aprobados_Reprobados_{trimestre}.pdf");
             }
             catch (Exception ex)
             {
@@ -233,37 +190,29 @@ namespace SchoolManager.Controllers
             }
         }
 
-        // GET: AprobadosReprobados/ExportarExcel
         [HttpGet]
-        public async Task<IActionResult> ExportarExcel(string trimestre, string nivelEducativo, string? grado = null, string? grupo = null,
-            Guid? especialidadId = null, Guid? areaId = null, Guid? materiaId = null)
+        public async Task<IActionResult> ExportarExcel(
+            string trimestre, Guid materiaId, Guid groupId, Guid gradeLevelId)
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                {
                     return BadRequest("No se pudo obtener la información de la escuela");
-                }
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     trimestre,
-                    nivelEducativo,
-                    grado,
-                    grupo,
-                    especialidadId,
-                    areaId,
                     materiaId,
-                    GetTeacherScopeId(currentUser)
-                );
+                    groupId,
+                    gradeLevelId,
+                    GetTeacherScopeId(currentUser));
 
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
-
                 var excelBytes = await _aprobadosReprobadosService.ExportarAExcelAsync(reporte);
 
-                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                    $"Reporte_Aprobados_Reprobados_{trimestre}_{nivelEducativo}.xlsx");
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    $"Reporte_Aprobados_Reprobados_{trimestre}.xlsx");
             }
             catch (NotImplementedException)
             {
@@ -278,105 +227,58 @@ namespace SchoolManager.Controllers
             }
         }
 
-        // GET: AprobadosReprobados/ObtenerEspecialidades
         [HttpGet]
-        public async Task<IActionResult> ObtenerEspecialidades(string? nivel = null)
+        public async Task<IActionResult> ObtenerMateriasFiltro()
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                {
                     return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
-                }
 
-                var especialidades = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(
-                    currentUser.SchoolId.Value, GetTeacherScopeId(currentUser), nivel);
-                
-                return Json(new { 
-                    success = true, 
-                    data = especialidades.Select(e => new { id = e.Id, nombre = e.Nombre }) 
-                });
+                var materias = await _aprobadosReprobadosService.ObtenerMateriasFiltroAsync(
+                    currentUser.SchoolId.Value, GetTeacherScopeId(currentUser));
+
+                return Json(new { success = true, data = materias.Select(m => new { id = m.Id, nombre = m.Nombre }) });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error obteniendo especialidades");
-                return Json(new { success = false, message = "Error al obtener especialidades" });
-            }
-        }
-
-        // GET: AprobadosReprobados/ObtenerAreas
-        [HttpGet]
-        public async Task<IActionResult> ObtenerAreas(string? nivel = null)
-        {
-            try
-            {
-                var currentUser = await _currentUserService.GetCurrentUserAsync();
-                var areas = await _aprobadosReprobadosService.ObtenerAreasAsync(GetTeacherScopeId(currentUser), nivel);
-                
-                return Json(new { 
-                    success = true, 
-                    data = areas.Select(a => new { id = a.Id, nombre = a.Nombre }) 
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error obteniendo áreas");
-                return Json(new { success = false, message = "Error al obtener áreas" });
-            }
-        }
-
-        // GET: AprobadosReprobados/ObtenerGradosPorNivel
-        [HttpGet]
-        public async Task<IActionResult> ObtenerGradosPorNivel(string nivel)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(nivel))
-                    return Json(new { success = false, message = "Nivel educativo requerido" });
-
-                var currentUser = await _currentUserService.GetCurrentUserAsync();
-                var grados = await _aprobadosReprobadosService.ObtenerGradosPorNivelAsync(nivel, GetTeacherScopeId(currentUser));
-
-                return Json(new { success = true, data = grados });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error obteniendo grados por nivel");
-                return Json(new { success = false, message = "Error al obtener grados" });
-            }
-        }
-
-        // GET: AprobadosReprobados/ObtenerMaterias
-        [HttpGet]
-        public async Task<IActionResult> ObtenerMaterias(Guid? areaId = null, Guid? especialidadId = null, string? nivel = null)
-        {
-            try
-            {
-                var currentUser = await _currentUserService.GetCurrentUserAsync();
-                if (currentUser?.SchoolId == null)
-                {
-                    return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
-                }
-
-                var materias = await _aprobadosReprobadosService.ObtenerMateriasAsync(
-                    currentUser.SchoolId.Value,
-                    areaId,
-                    especialidadId,
-                    GetTeacherScopeId(currentUser),
-                    nivel);
-                
-                return Json(new { 
-                    success = true, 
-                    data = materias.Select(m => new { id = m.Id, nombre = m.Nombre }) 
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error obteniendo materias");
+                _logger.LogError(ex, "Error obteniendo materias filtro");
                 return Json(new { success = false, message = "Error al obtener materias" });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ObtenerGruposFiltro(Guid materiaId)
+        {
+            try
+            {
+                if (materiaId == Guid.Empty)
+                    return Json(new { success = false, message = "Materia requerida" });
+
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                if (currentUser?.SchoolId == null)
+                    return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
+
+                var grupos = await _aprobadosReprobadosService.ObtenerGruposFiltroAsync(
+                    currentUser.SchoolId.Value, materiaId, GetTeacherScopeId(currentUser));
+
+                return Json(new
+                {
+                    success = true,
+                    data = grupos.Select(g => new
+                    {
+                        groupId = g.GroupId,
+                        gradeLevelId = g.GradeLevelId,
+                        nombre = g.Nombre
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo grupos filtro");
+                return Json(new { success = false, message = "Error al obtener grupos" });
             }
         }
     }
 }
-

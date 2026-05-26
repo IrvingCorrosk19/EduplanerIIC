@@ -79,16 +79,14 @@ namespace SchoolManager.ViewModels
         [Required(ErrorMessage = "Debe seleccionar un trimestre")]
         public string Trimestre { get; set; } = null!;
 
-        [Required(ErrorMessage = "Debe seleccionar un nivel educativo")]
-        public string NivelEducativo { get; set; } = null!; // "Premedia" o "Media"
+        [Required(ErrorMessage = "Debe seleccionar una materia")]
+        public Guid MateriaId { get; set; }
 
-        public string? GradoEspecifico { get; set; }
-        public string? GrupoEspecifico { get; set; }
-        
-        // Nuevos filtros
-        public Guid? EspecialidadId { get; set; }
-        public Guid? AreaId { get; set; }
-        public Guid? MateriaId { get; set; }
+        [Required(ErrorMessage = "Debe seleccionar un grupo")]
+        public Guid GroupId { get; set; }
+
+        [Required(ErrorMessage = "Debe seleccionar un grupo válido")]
+        public Guid GradeLevelId { get; set; }
     }
 }
 
