@@ -16,6 +16,15 @@ namespace SchoolManager.Services.Implementations
         private readonly IHttpClientFactory _httpClientFactory;
         private const decimal NOTA_MINIMA_APROBACION = 3.0m; // Escala 0-5, nota mínima para aprobar es 3.0
 
+        private sealed class TeacherReportScope
+        {
+            public HashSet<Guid> GroupIds { get; init; } = new();
+            public HashSet<Guid> SubjectIds { get; init; } = new();
+            public HashSet<Guid> SpecialtyIds { get; init; } = new();
+            public HashSet<Guid> AreaIds { get; init; } = new();
+            public HashSet<string> Grades { get; init; } = new(StringComparer.Ordinal);
+        }
+
         public AprobadosReprobadosService(
             SchoolDbContext context,
             ILogger<AprobadosReprobadosService> logger,
@@ -34,12 +43,23 @@ namespace SchoolManager.Services.Implementations
             string? grupoEspecifico = null,
             Guid? especialidadId = null,
             Guid? areaId = null,
-            Guid? materiaId = null)
+            Guid? materiaId = null,
+            Guid? teacherScopeId = null)
         {
             try
             {
-                _logger.LogInformation("📊 Generando reporte de aprobados/reprobados - School: {SchoolId}, Trimestre: {Trimestre}, Nivel: {Nivel}",
-                    schoolId, trimestre, nivelEducativo);
+                _logger.LogInformation("📊 Generando reporte de aprobados/reprobados - School: {SchoolId}, Trimestre: {Trimestre}, Nivel: {Nivel}, TeacherScope: {TeacherScope}",
+                    schoolId, trimestre, nivelEducativo, teacherScopeId);
+
+                TeacherReportScope? teacherScope = null;
+                if (teacherScopeId.HasValue)
+                {
+                    teacherScope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
+                    if (teacherScope.GroupIds.Count == 0)
+                    {
+                        _logger.LogWarning("Docente {TeacherId} sin grupos asignados para el reporte", teacherScopeId.Value);
+                    }
+                }
 
                 // Obtener información de la escuela
                 var school = await _context.Schools.FindAsync(schoolId);
@@ -52,8 +72,8 @@ namespace SchoolManager.Services.Implementations
                     .Select(t => (Guid?)t.Id)
                     .FirstOrDefaultAsync();
 
-                // Determinar los grados según el nivel educativo
-                var grados = ObtenerGradosPorNivel(nivelEducativo);
+                // Determinar los grados según el nivel educativo (acotados al docente si aplica)
+                var grados = await ObtenerGradosPorNivelAsync(nivelEducativo, teacherScopeId);
 
                 // Obtener estadísticas por grado y grupo
                 var estadisticas = new List<GradoEstadisticaDto>();
@@ -67,6 +87,12 @@ namespace SchoolManager.Services.Implementations
                     // Obtener grupos para este grado
                     var gruposQuery = _context.Groups
                         .Where(g => g.SchoolId == schoolId && g.Grade == grado);
+
+                    if (teacherScope != null)
+                    {
+                        var allowedGroupIds = teacherScope.GroupIds;
+                        gruposQuery = gruposQuery.Where(g => allowedGroupIds.Contains(g.Id));
+                    }
 
                     if (!string.IsNullOrEmpty(grupoEspecifico))
                     {
@@ -83,7 +109,8 @@ namespace SchoolManager.Services.Implementations
 
                     foreach (var grupo in grupos)
                     {
-                        var stats = await CalcularEstadisticasGrupoAsync(grupo.Id, trimestre, trimesterId, materiaId, areaId, especialidadId);
+                        var stats = await CalcularEstadisticasGrupoAsync(
+                            grupo.Id, trimestre, trimesterId, materiaId, areaId, especialidadId, teacherScopeId);
                         
                         estadisticas.Add(new GradoEstadisticaDto
                         {
@@ -129,7 +156,7 @@ namespace SchoolManager.Services.Implementations
                     Estadisticas = estadisticas.OrderBy(e => e.Grado).ThenBy(e => e.Grupo).ToList(),
                     TotalesGenerales = totales,
                     TrimestresDisponibles = await ObtenerTrimestresDisponiblesAsync(schoolId),
-                    NivelesDisponibles = await ObtenerNivelesEducativosAsync()
+                    NivelesDisponibles = await ObtenerNivelesEducativosAsync(teacherScopeId)
                 };
 
                 _logger.LogInformation("✅ Reporte generado exitosamente con {Count} grupos", estadisticas.Count);
@@ -147,7 +174,7 @@ namespace SchoolManager.Services.Implementations
             int ReprobadosHastaLaFecha, decimal PorcentajeReprobadosHastaLaFecha,
             int SinCalificaciones, decimal PorcentajeSinCalificaciones,
             int Retirados, decimal PorcentajeRetirados)>
-            CalcularEstadisticasGrupoAsync(Guid grupoId, string trimestre, Guid? trimesterId, Guid? materiaId = null, Guid? areaId = null, Guid? especialidadId = null)
+            CalcularEstadisticasGrupoAsync(Guid grupoId, string trimestre, Guid? trimesterId, Guid? materiaId = null, Guid? areaId = null, Guid? especialidadId = null, Guid? teacherScopeId = null)
         {
             _logger.LogInformation("Calculando estadísticas para grupo {GrupoId}, trimestre {Trimestre}", grupoId, trimestre);
 
@@ -183,6 +210,20 @@ namespace SchoolManager.Services.Implementations
                     (trimesterId.HasValue
                         ? (sas.Activity!.TrimesterId == trimesterId || sas.Activity!.Trimester == trimestre)
                         : sas.Activity!.Trimester == trimestre));
+            if (teacherScopeId.HasValue)
+            {
+                var subjectIdsDocenteEnGrupo = await _context.TeacherAssignments
+                    .Where(ta => ta.TeacherId == teacherScopeId.Value && ta.SubjectAssignment.GroupId == grupoId)
+                    .Select(ta => ta.SubjectAssignment.SubjectId)
+                    .Distinct()
+                    .ToListAsync();
+                if (subjectIdsDocenteEnGrupo.Count == 0)
+                {
+                    return (total, 0, 0, 0, 0, 0, 0, total, 100m, 0, 0);
+                }
+                queryScores = queryScores.Where(sas =>
+                    sas.Activity!.SubjectId.HasValue && subjectIdsDocenteEnGrupo.Contains(sas.Activity.SubjectId.Value));
+            }
             if (materiaId.HasValue)
                 queryScores = queryScores.Where(sas => sas.Activity!.SubjectId == materiaId.Value);
             if (areaId.HasValue)
@@ -275,7 +316,7 @@ namespace SchoolManager.Services.Implementations
             };
         }
 
-        private List<string> ObtenerGradosPorNivel(string nivelEducativo)
+        private static List<string> GradosCatalogoPorNivel(string nivelEducativo)
         {
             return nivelEducativo.ToLower() switch
             {
@@ -283,6 +324,44 @@ namespace SchoolManager.Services.Implementations
                 "media" => new List<string> { "10°", "11°", "12°" },
                 _ => new List<string>()
             };
+        }
+
+        private async Task<TeacherReportScope> LoadTeacherReportScopeAsync(Guid teacherId)
+        {
+            var rows = await _context.TeacherAssignments
+                .Where(ta => ta.TeacherId == teacherId)
+                .Select(ta => new
+                {
+                    GroupId = ta.SubjectAssignment.GroupId,
+                    SubjectId = ta.SubjectAssignment.SubjectId,
+                    SpecialtyId = ta.SubjectAssignment.SpecialtyId,
+                    GroupGrade = ta.SubjectAssignment.Group!.Grade,
+                    AreaId = ta.SubjectAssignment.Subject!.AreaId
+                })
+                .ToListAsync();
+
+            return new TeacherReportScope
+            {
+                GroupIds = rows.Select(r => r.GroupId).ToHashSet(),
+                SubjectIds = rows.Select(r => r.SubjectId).ToHashSet(),
+                SpecialtyIds = rows.Select(r => r.SpecialtyId).Distinct().ToHashSet(),
+                AreaIds = rows.Where(r => r.AreaId.HasValue).Select(r => r.AreaId!.Value).ToHashSet(),
+                Grades = rows
+                    .Select(r => r.GroupGrade)
+                    .Where(g => !string.IsNullOrWhiteSpace(g))
+                    .Select(g => g!)
+                    .ToHashSet(StringComparer.Ordinal)
+            };
+        }
+
+        public async Task<List<string>> ObtenerGradosPorNivelAsync(string nivelEducativo, Guid? teacherScopeId = null)
+        {
+            var catalogo = GradosCatalogoPorNivel(nivelEducativo);
+            if (!teacherScopeId.HasValue)
+                return catalogo;
+
+            var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
+            return catalogo.Where(g => scope.Grades.Contains(g)).OrderBy(g => g).ToList();
         }
 
         public async Task<List<string>> ObtenerTrimestresDisponiblesAsync(Guid schoolId)
@@ -309,17 +388,37 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
-        public async Task<List<string>> ObtenerNivelesEducativosAsync()
+        public async Task<List<string>> ObtenerNivelesEducativosAsync(Guid? teacherScopeId = null)
         {
-            return await Task.FromResult(new List<string> { "Premedia", "Media" });
+            var niveles = new List<string> { "Premedia", "Media" };
+            if (!teacherScopeId.HasValue)
+                return niveles;
+
+            var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
+            var result = new List<string>();
+            if (GradosCatalogoPorNivel("premedia").Any(g => scope.Grades.Contains(g)))
+                result.Add("Premedia");
+            if (GradosCatalogoPorNivel("media").Any(g => scope.Grades.Contains(g)))
+                result.Add("Media");
+            return result;
         }
 
-        public async Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId)
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId, Guid? teacherScopeId = null)
         {
             try
             {
-                var especialidades = await _context.Specialties
-                    .Where(s => s.SchoolId == schoolId || s.SchoolId == null)
+                var query = _context.Specialties
+                    .Where(s => s.SchoolId == schoolId || s.SchoolId == null);
+
+                if (teacherScopeId.HasValue)
+                {
+                    var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
+                    if (scope.SpecialtyIds.Count == 0)
+                        return new List<(Guid, string)>();
+                    query = query.Where(s => scope.SpecialtyIds.Contains(s.Id));
+                }
+
+                var especialidades = await query
                     .OrderBy(s => s.Name)
                     .Select(s => new { s.Id, s.Name })
                     .ToListAsync();
@@ -333,12 +432,21 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
-        public async Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync()
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync(Guid? teacherScopeId = null)
         {
             try
             {
-                var areas = await _context.Areas
-                    .Where(a => a.IsActive)
+                var query = _context.Areas.Where(a => a.IsActive);
+
+                if (teacherScopeId.HasValue)
+                {
+                    var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
+                    if (scope.AreaIds.Count == 0)
+                        return new List<(Guid, string)>();
+                    query = query.Where(a => scope.AreaIds.Contains(a.Id));
+                }
+
+                var areas = await query
                     .OrderBy(a => a.DisplayOrder)
                     .ThenBy(a => a.Name)
                     .Select(a => new { a.Id, a.Name })
@@ -353,12 +461,20 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
-        public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null)
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null, Guid? teacherScopeId = null)
         {
             try
             {
                 var query = _context.Subjects
                     .Where(s => s.SchoolId == schoolId && s.Status == true);
+
+                if (teacherScopeId.HasValue)
+                {
+                    var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
+                    if (scope.SubjectIds.Count == 0)
+                        return new List<(Guid, string)>();
+                    query = query.Where(s => scope.SubjectIds.Contains(s.Id));
+                }
 
                 // Filtrar por área si se especifica
                 if (areaId.HasValue)

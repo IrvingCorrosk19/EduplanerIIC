@@ -32,6 +32,14 @@ namespace SchoolManager.Controllers
             return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
         }
 
+        private static bool IsTeacherRole(string? role) =>
+            string.Equals(role, "teacher", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(role, "docente", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Si el usuario es docente, acota reportes y catálogos a sus asignaciones.</summary>
+        private static Guid? GetTeacherScopeId(Models.User? user) =>
+            user != null && IsTeacherRole(user.Role) ? user.Id : null;
+
         // GET: AprobadosReprobados/Index
         [HttpGet]
         public async Task<IActionResult> Index()
@@ -46,17 +54,19 @@ namespace SchoolManager.Controllers
                 }
 
                 var filtro = new AprobadosReprobadosFiltroViewModel();
-                
+                var teacherScopeId = GetTeacherScopeId(currentUser);
+
                 // Cargar trimestres y niveles disponibles
                 ViewBag.TrimestresDisponibles = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(currentUser.SchoolId.Value);
-                ViewBag.NivelesDisponibles = await _aprobadosReprobadosService.ObtenerNivelesEducativosAsync();
-                
+                ViewBag.NivelesDisponibles = await _aprobadosReprobadosService.ObtenerNivelesEducativosAsync(teacherScopeId);
+
                 // Cargar nuevos filtros
-                ViewBag.EspecialidadesDisponibles = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(currentUser.SchoolId.Value);
-                ViewBag.AreasDisponibles = await _aprobadosReprobadosService.ObtenerAreasAsync();
-                ViewBag.MateriasDisponibles = await _aprobadosReprobadosService.ObtenerMateriasAsync(currentUser.SchoolId.Value);
-                
+                ViewBag.EspecialidadesDisponibles = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(currentUser.SchoolId.Value, teacherScopeId);
+                ViewBag.AreasDisponibles = await _aprobadosReprobadosService.ObtenerAreasAsync(teacherScopeId);
+                ViewBag.MateriasDisponibles = await _aprobadosReprobadosService.ObtenerMateriasAsync(currentUser.SchoolId.Value, teacherScopeId: teacherScopeId);
+
                 ViewBag.CurrentUser = currentUser;
+                ViewBag.IsTeacherScoped = teacherScopeId.HasValue;
 
                 return View(filtro);
             }
@@ -100,7 +110,8 @@ namespace SchoolManager.Controllers
                     filtro.GrupoEspecifico,
                     filtro.EspecialidadId,
                     filtro.AreaId,
-                    filtro.MateriaId
+                    filtro.MateriaId,
+                    GetTeacherScopeId(currentUser)
                 );
 
                 // Agregar nombre del profesor coordinador
@@ -161,7 +172,8 @@ namespace SchoolManager.Controllers
                     grupo,
                     especialidadId,
                     areaId,
-                    materiaId
+                    materiaId,
+                    GetTeacherScopeId(currentUser)
                 );
 
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
@@ -197,7 +209,8 @@ namespace SchoolManager.Controllers
                     grupo,
                     especialidadId,
                     areaId,
-                    materiaId
+                    materiaId,
+                    GetTeacherScopeId(currentUser)
                 );
 
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
@@ -241,7 +254,8 @@ namespace SchoolManager.Controllers
                     grupo,
                     especialidadId,
                     areaId,
-                    materiaId
+                    materiaId,
+                    GetTeacherScopeId(currentUser)
                 );
 
                 reporte.ProfesorCoordinador = $"{currentUser.Name} {currentUser.LastName}";
@@ -276,7 +290,7 @@ namespace SchoolManager.Controllers
                     return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
                 }
 
-                var especialidades = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(currentUser.SchoolId.Value);
+                var especialidades = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(currentUser.SchoolId.Value, GetTeacherScopeId(currentUser));
                 
                 return Json(new { 
                     success = true, 
@@ -296,7 +310,8 @@ namespace SchoolManager.Controllers
         {
             try
             {
-                var areas = await _aprobadosReprobadosService.ObtenerAreasAsync();
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                var areas = await _aprobadosReprobadosService.ObtenerAreasAsync(GetTeacherScopeId(currentUser));
                 
                 return Json(new { 
                     success = true, 
@@ -307,6 +322,27 @@ namespace SchoolManager.Controllers
             {
                 _logger.LogError(ex, "Error obteniendo áreas");
                 return Json(new { success = false, message = "Error al obtener áreas" });
+            }
+        }
+
+        // GET: AprobadosReprobados/ObtenerGradosPorNivel
+        [HttpGet]
+        public async Task<IActionResult> ObtenerGradosPorNivel(string nivel)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(nivel))
+                    return Json(new { success = false, message = "Nivel educativo requerido" });
+
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                var grados = await _aprobadosReprobadosService.ObtenerGradosPorNivelAsync(nivel, GetTeacherScopeId(currentUser));
+
+                return Json(new { success = true, data = grados });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo grados por nivel");
+                return Json(new { success = false, message = "Error al obtener grados" });
             }
         }
 
@@ -323,9 +359,10 @@ namespace SchoolManager.Controllers
                 }
 
                 var materias = await _aprobadosReprobadosService.ObtenerMateriasAsync(
-                    currentUser.SchoolId.Value, 
-                    areaId, 
-                    especialidadId);
+                    currentUser.SchoolId.Value,
+                    areaId,
+                    especialidadId,
+                    GetTeacherScopeId(currentUser));
                 
                 return Json(new { 
                     success = true, 

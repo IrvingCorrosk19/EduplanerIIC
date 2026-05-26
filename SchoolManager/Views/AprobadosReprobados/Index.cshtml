@@ -177,22 +177,31 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
-            // Actualizar grados según nivel educativo
-            $('#nivelEducativo').change(function () {
-                const nivel = $(this).val();
+            function cargarGradosPorNivel(nivel) {
                 const gradoSelect = $('#gradoEspecifico');
-                
                 gradoSelect.html('<option value="">Todos los grados</option>');
-                
-                if (nivel === 'Premedia') {
-                    gradoSelect.append('<option value="7°">7°</option>');
-                    gradoSelect.append('<option value="8°">8°</option>');
-                    gradoSelect.append('<option value="9°">9°</option>');
-                } else if (nivel === 'Media') {
-                    gradoSelect.append('<option value="10°">10°</option>');
-                    gradoSelect.append('<option value="11°">11°</option>');
-                    gradoSelect.append('<option value="12°">12°</option>');
-                }
+                if (!nivel) return;
+
+                $.ajax({
+                    url: '@Url.Action("ObtenerGradosPorNivel", "AprobadosReprobados")',
+                    type: 'GET',
+                    data: { nivel: nivel },
+                    success: function (response) {
+                        if (response.success && response.data && response.data.length) {
+                            response.data.forEach(function (grado) {
+                                gradoSelect.append(`<option value="${grado}">${grado}</option>`);
+                            });
+                        }
+                    },
+                    error: function () {
+                        console.error('Error al cargar grados');
+                    }
+                });
+            }
+
+            // Actualizar grados según nivel educativo (acotados al docente en servidor)
+            $('#nivelEducativo').change(function () {
+                cargarGradosPorNivel($(this).val());
             });
 
             // Actualizar materias cuando cambia el área o especialidad

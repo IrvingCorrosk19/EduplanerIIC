@@ -18,7 +18,8 @@ namespace SchoolManager.Services.Interfaces
             string? grupoEspecifico = null,
             Guid? especialidadId = null,
             Guid? areaId = null,
-            Guid? materiaId = null);
+            Guid? materiaId = null,
+            Guid? teacherScopeId = null);
 
         /// <summary>
         /// Obtiene los trimestres disponibles para una escuela
@@ -28,22 +29,27 @@ namespace SchoolManager.Services.Interfaces
         /// <summary>
         /// Obtiene los niveles educativos disponibles
         /// </summary>
-        Task<List<string>> ObtenerNivelesEducativosAsync();
+        Task<List<string>> ObtenerNivelesEducativosAsync(Guid? teacherScopeId = null);
+
+        /// <summary>
+        /// Grados disponibles para un nivel (Premedia/Media), opcionalmente acotados al docente.
+        /// </summary>
+        Task<List<string>> ObtenerGradosPorNivelAsync(string nivelEducativo, Guid? teacherScopeId = null);
         
         /// <summary>
         /// Obtiene las especialidades disponibles
         /// </summary>
-        Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId);
+        Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId, Guid? teacherScopeId = null);
         
         /// <summary>
         /// Obtiene las áreas disponibles
         /// </summary>
-        Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync();
+        Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync(Guid? teacherScopeId = null);
         
         /// <summary>
         /// Obtiene las materias disponibles
         /// </summary>
-        Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null);
+        Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null, Guid? teacherScopeId = null);
 
         /// <summary>
         /// Exportar el reporte a PDF. Si logoBytes no es null, se usa en lugar de descargar por URL.
