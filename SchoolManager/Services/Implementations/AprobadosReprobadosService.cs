@@ -16,6 +16,7 @@ namespace SchoolManager.Services.Implementations
         private readonly ILogger<AprobadosReprobadosService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private const decimal NOTA_MINIMA_APROBACION = 3.0m; // Escala 0-5, nota mínima para aprobar es 3.0
+        public const string NivelTodosMisGruposDocente = "Todos mis grupos";
 
         private sealed class TeacherReportScope
         {
@@ -24,6 +25,7 @@ namespace SchoolManager.Services.Implementations
             public Dictionary<string, HashSet<Guid>> SubjectIdsByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, HashSet<Guid>> SpecialtyIdsByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, HashSet<Guid>> AreaIdsByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<Guid, string> GradoDisplayByGroupId { get; init; } = new();
         }
 
         public AprobadosReprobadosService(
@@ -73,66 +75,49 @@ namespace SchoolManager.Services.Implementations
                     .Select(t => (Guid?)t.Id)
                     .FirstOrDefaultAsync();
 
-                // Determinar los grados según el nivel educativo (acotados al docente si aplica)
-                var grados = await ObtenerGradosPorNivelAsync(nivelEducativo, teacherScopeId);
-
-                // Obtener estadísticas por grado y grupo
                 var estadisticas = new List<GradoEstadisticaDto>();
 
-                foreach (var grado in grados)
+                if (teacherScope != null)
                 {
-                    // Filtrar por grado específico si se proporciona
-                    if (!string.IsNullOrEmpty(gradoEspecifico) && grado != gradoEspecifico)
-                        continue;
-
-                    // Obtener grupos para este grado
-                    var gruposQuery = _context.Groups
-                        .Where(g => g.SchoolId == schoolId && g.Grade == grado);
-
-                    if (teacherScope != null)
+                    if (string.Equals(nivelEducativo, NivelTodosMisGruposDocente, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (!teacherScope.GroupIdsByNivel.TryGetValue(nivelEducativo, out var allowedGroupIds) ||
-                            allowedGroupIds.Count == 0)
+                        await AgregarEstadisticasTodosGruposDocenteAsync(
+                            estadisticas, teacherScope, schoolId, trimestre, trimesterId,
+                            gradoEspecifico, grupoEspecifico, materiaId, areaId, especialidadId, teacherScopeId!.Value);
+                    }
+                    else
+                    {
+                        await AgregarEstadisticasDocenteAsync(
+                            estadisticas, teacherScope, nivelEducativo, schoolId, trimestre, trimesterId,
+                            gradoEspecifico, grupoEspecifico, materiaId, areaId, especialidadId, teacherScopeId!.Value);
+                    }
+                }
+                else
+                {
+                    var grados = await ObtenerGradosPorNivelAsync(nivelEducativo, teacherScopeId);
+                    foreach (var grado in grados)
+                    {
+                        if (!string.IsNullOrEmpty(gradoEspecifico) && grado != gradoEspecifico)
+                            continue;
+
+                        var gruposQuery = _context.Groups
+                            .Where(g => g.SchoolId == schoolId && g.Grade == grado);
+
+                        if (!string.IsNullOrEmpty(grupoEspecifico))
+                            gruposQuery = gruposQuery.Where(g => g.Name == grupoEspecifico);
+
+                        var grupos = await gruposQuery.ToListAsync();
+                        if (!grupos.Any())
                         {
+                            _logger.LogWarning("No se encontraron grupos para el grado {Grado} en la escuela {SchoolId}", grado, schoolId);
                             continue;
                         }
-                        gruposQuery = gruposQuery.Where(g => allowedGroupIds.Contains(g.Id));
-                    }
 
-                    if (!string.IsNullOrEmpty(grupoEspecifico))
-                    {
-                        gruposQuery = gruposQuery.Where(g => g.Name == grupoEspecifico);
-                    }
-
-                    var grupos = await gruposQuery.ToListAsync();
-
-                    if (!grupos.Any())
-                    {
-                        _logger.LogWarning("No se encontraron grupos para el grado {Grado} en la escuela {SchoolId}", grado, schoolId);
-                        continue;
-                    }
-
-                    foreach (var grupo in grupos)
-                    {
-                        var stats = await CalcularEstadisticasGrupoAsync(
-                            grupo.Id, trimestre, trimesterId, materiaId, areaId, especialidadId, teacherScopeId);
-                        
-                        estadisticas.Add(new GradoEstadisticaDto
+                        foreach (var grupo in grupos)
                         {
-                            Grado = grado,
-                            Grupo = grupo.Name,
-                            TotalEstudiantes = stats.Total,
-                            Aprobados = stats.Aprobados,
-                            PorcentajeAprobados = stats.PorcentajeAprobados,
-                            Reprobados = stats.Reprobados,
-                            PorcentajeReprobados = stats.PorcentajeReprobados,
-                            ReprobadosHastaLaFecha = stats.ReprobadosHastaLaFecha,
-                            PorcentajeReprobadosHastaLaFecha = stats.PorcentajeReprobadosHastaLaFecha,
-                            SinCalificaciones = stats.SinCalificaciones,
-                            PorcentajeSinCalificaciones = stats.PorcentajeSinCalificaciones,
-                            Retirados = stats.Retirados,
-                            PorcentajeRetirados = stats.PorcentajeRetirados
-                        });
+                            estadisticas.Add(await ConstruirEstadisticaGrupoAsync(
+                                grupo, grado, trimestre, trimesterId, materiaId, areaId, especialidadId, null));
+                        }
                     }
                 }
 
@@ -351,23 +336,148 @@ namespace SchoolManager.Services.Implementations
         }
 
         /// <summary>
-        /// Premedia del reporte = grupos 7°–9° con nivel académico 7–9 en grade_levels (excluye bachillerato técnico en esos grados).
-        /// Media = grupos 10°–12° según la asignación del docente.
+        /// Nivel del reporte según el grado del grupo (7°–9° / 10°–12°) o, si falta, el número en grade_levels.
         /// </summary>
-        private static bool AsignacionCuentaParaNivelReporte(string nivelEducativo, string? groupGrade, string? gradeLevelName)
+        private static string? ResolverNivelParaAsignacion(string? groupGrade, string? gradeLevelName)
         {
-            var nivelGrupo = ResolverNivelEducativoPorGrupo(groupGrade);
-            if (nivelGrupo == null ||
-                !string.Equals(nivelGrupo, nivelEducativo, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (string.Equals(nivelEducativo, "media", StringComparison.OrdinalIgnoreCase))
-                return true;
+            var nivelPorGrupo = ResolverNivelEducativoPorGrupo(groupGrade);
+            if (nivelPorGrupo != null)
+                return nivelPorGrupo;
 
             var nivelAcademico = ExtractGradeNumber(gradeLevelName);
-            return nivelAcademico is >= 7 and <= 9;
+            if (nivelAcademico is >= 7 and <= 9)
+                return "Premedia";
+            if (nivelAcademico is >= 10 and <= 12)
+                return "Media";
+            return null;
+        }
+
+        private static string NormalizarGradoParaReporte(string? groupGrade, string? gradeLevelName)
+        {
+            if (!string.IsNullOrWhiteSpace(groupGrade))
+                return groupGrade.Trim();
+
+            var nivelAcademico = ExtractGradeNumber(gradeLevelName);
+            return nivelAcademico.HasValue ? $"{nivelAcademico}°" : "Sin grado";
+        }
+
+        private async Task AgregarEstadisticasTodosGruposDocenteAsync(
+            List<GradoEstadisticaDto> estadisticas,
+            TeacherReportScope teacherScope,
+            Guid schoolId,
+            string trimestre,
+            Guid? trimesterId,
+            string? gradoEspecifico,
+            string? grupoEspecifico,
+            Guid? materiaId,
+            Guid? areaId,
+            Guid? especialidadId,
+            Guid teacherScopeId)
+        {
+            var allGroupIds = teacherScope.GroupIdsByNivel.Values
+                .SelectMany(ids => ids)
+                .ToHashSet();
+
+            if (allGroupIds.Count == 0)
+                return;
+
+            var gruposQuery = _context.Groups
+                .Where(g => g.SchoolId == schoolId && allGroupIds.Contains(g.Id));
+
+            if (!string.IsNullOrEmpty(grupoEspecifico))
+                gruposQuery = gruposQuery.Where(g => g.Name == grupoEspecifico);
+
+            var grupos = await gruposQuery
+                .OrderBy(g => g.Grade)
+                .ThenBy(g => g.Name)
+                .ToListAsync();
+
+            foreach (var grupo in grupos)
+            {
+                var gradoDisplay = teacherScope.GradoDisplayByGroupId.TryGetValue(grupo.Id, out var gd)
+                    ? gd
+                    : NormalizarGradoParaReporte(grupo.Grade, null);
+
+                if (!string.IsNullOrEmpty(gradoEspecifico) && gradoDisplay != gradoEspecifico)
+                    continue;
+
+                estadisticas.Add(await ConstruirEstadisticaGrupoAsync(
+                    grupo, gradoDisplay, trimestre, trimesterId, materiaId, areaId, especialidadId, teacherScopeId));
+            }
+        }
+
+        private async Task AgregarEstadisticasDocenteAsync(
+            List<GradoEstadisticaDto> estadisticas,
+            TeacherReportScope teacherScope,
+            string nivelEducativo,
+            Guid schoolId,
+            string trimestre,
+            Guid? trimesterId,
+            string? gradoEspecifico,
+            string? grupoEspecifico,
+            Guid? materiaId,
+            Guid? areaId,
+            Guid? especialidadId,
+            Guid teacherScopeId)
+        {
+            if (!teacherScope.GroupIdsByNivel.TryGetValue(nivelEducativo, out var teacherGroupIds) ||
+                teacherGroupIds.Count == 0)
+            {
+                _logger.LogWarning("Docente sin grupos para nivel {Nivel}", nivelEducativo);
+                return;
+            }
+
+            var gruposQuery = _context.Groups
+                .Where(g => g.SchoolId == schoolId && teacherGroupIds.Contains(g.Id));
+
+            if (!string.IsNullOrEmpty(grupoEspecifico))
+                gruposQuery = gruposQuery.Where(g => g.Name == grupoEspecifico);
+
+            var grupos = await gruposQuery.ToListAsync();
+
+            foreach (var grupo in grupos)
+            {
+                var gradoDisplay = teacherScope.GradoDisplayByGroupId.TryGetValue(grupo.Id, out var gd)
+                    ? gd
+                    : NormalizarGradoParaReporte(grupo.Grade, null);
+
+                if (!string.IsNullOrEmpty(gradoEspecifico) && gradoDisplay != gradoEspecifico)
+                    continue;
+
+                estadisticas.Add(await ConstruirEstadisticaGrupoAsync(
+                    grupo, gradoDisplay, trimestre, trimesterId, materiaId, areaId, especialidadId, teacherScopeId));
+            }
+        }
+
+        private async Task<GradoEstadisticaDto> ConstruirEstadisticaGrupoAsync(
+            Models.Group grupo,
+            string gradoDisplay,
+            string trimestre,
+            Guid? trimesterId,
+            Guid? materiaId,
+            Guid? areaId,
+            Guid? especialidadId,
+            Guid? teacherScopeId)
+        {
+            var stats = await CalcularEstadisticasGrupoAsync(
+                grupo.Id, trimestre, trimesterId, materiaId, areaId, especialidadId, teacherScopeId);
+
+            return new GradoEstadisticaDto
+            {
+                Grado = gradoDisplay,
+                Grupo = grupo.Name ?? "",
+                TotalEstudiantes = stats.Total,
+                Aprobados = stats.Aprobados,
+                PorcentajeAprobados = stats.PorcentajeAprobados,
+                Reprobados = stats.Reprobados,
+                PorcentajeReprobados = stats.PorcentajeReprobados,
+                ReprobadosHastaLaFecha = stats.ReprobadosHastaLaFecha,
+                PorcentajeReprobadosHastaLaFecha = stats.PorcentajeReprobadosHastaLaFecha,
+                SinCalificaciones = stats.SinCalificaciones,
+                PorcentajeSinCalificaciones = stats.PorcentajeSinCalificaciones,
+                Retirados = stats.Retirados,
+                PorcentajeRetirados = stats.PorcentajeRetirados
+            };
         }
 
         private async Task<TeacherReportScope> LoadTeacherReportScopeAsync(Guid teacherId)
@@ -388,13 +498,15 @@ namespace SchoolManager.Services.Implementations
             var scope = new TeacherReportScope();
             foreach (var row in rows)
             {
-                var nivel = ResolverNivelEducativoPorGrupo(row.GroupGrade);
-                if (nivel == null || !AsignacionCuentaParaNivelReporte(nivel, row.GroupGrade, row.GradeLevelName))
+                var nivel = ResolverNivelParaAsignacion(row.GroupGrade, row.GradeLevelName);
+                if (nivel == null)
                     continue;
 
+                var gradoDisplay = NormalizarGradoParaReporte(row.GroupGrade, row.GradeLevelName);
+
                 AddToScope(scope.GroupIdsByNivel, nivel, row.GroupId);
-                if (!string.IsNullOrWhiteSpace(row.GroupGrade))
-                    AddToScope(scope.GradesByNivel, nivel, row.GroupGrade!);
+                scope.GradoDisplayByGroupId[row.GroupId] = gradoDisplay;
+                AddToScope(scope.GradesByNivel, nivel, gradoDisplay);
                 AddToScope(scope.SubjectIdsByNivel, nivel, row.SubjectId);
                 AddToScope(scope.SpecialtyIdsByNivel, nivel, row.SpecialtyId);
                 if (row.AreaId.HasValue)
@@ -416,11 +528,21 @@ namespace SchoolManager.Services.Implementations
 
         public async Task<List<string>> ObtenerGradosPorNivelAsync(string nivelEducativo, Guid? teacherScopeId = null)
         {
-            var catalogo = GradosCatalogoPorNivel(nivelEducativo);
             if (!teacherScopeId.HasValue)
-                return catalogo;
+                return GradosCatalogoPorNivel(nivelEducativo);
 
             var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
+
+            if (string.Equals(nivelEducativo, NivelTodosMisGruposDocente, StringComparison.OrdinalIgnoreCase))
+            {
+                return scope.GradesByNivel.Values
+                    .SelectMany(g => g)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(g => g, StringComparer.Ordinal)
+                    .ToList();
+            }
+
+            var catalogo = GradosCatalogoPorNivel(nivelEducativo);
             if (!scope.GradesByNivel.TryGetValue(nivelEducativo, out var grades) || grades.Count == 0)
                 return new List<string>();
 
@@ -458,9 +580,15 @@ namespace SchoolManager.Services.Implementations
                 return niveles;
 
             var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
-            return niveles
+            var result = niveles
                 .Where(n => scope.GroupIdsByNivel.TryGetValue(n, out var g) && g.Count > 0)
                 .ToList();
+
+            var totalGrupos = scope.GroupIdsByNivel.Values.SelectMany(x => x).Distinct().Count();
+            if (totalGrupos > 0 && result.Count > 1)
+                result.Insert(0, NivelTodosMisGruposDocente);
+
+            return result;
         }
 
         public async Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId, Guid? teacherScopeId = null, string? nivelEducativo = null)
@@ -573,6 +701,7 @@ namespace SchoolManager.Services.Implementations
         private static HashSet<Guid> ResolveScopeSet(Dictionary<string, HashSet<Guid>> byNivel, string? nivelEducativo)
         {
             if (!string.IsNullOrWhiteSpace(nivelEducativo) &&
+                !string.Equals(nivelEducativo, NivelTodosMisGruposDocente, StringComparison.OrdinalIgnoreCase) &&
                 byNivel.TryGetValue(nivelEducativo, out var forNivel))
             {
                 return forNivel;
