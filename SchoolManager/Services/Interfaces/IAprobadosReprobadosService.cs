@@ -39,17 +39,17 @@ namespace SchoolManager.Services.Interfaces
         /// <summary>
         /// Obtiene las especialidades disponibles
         /// </summary>
-        Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId, Guid? teacherScopeId = null);
+        Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId, Guid? teacherScopeId = null, string? nivelEducativo = null);
         
         /// <summary>
         /// Obtiene las áreas disponibles
         /// </summary>
-        Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync(Guid? teacherScopeId = null);
+        Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync(Guid? teacherScopeId = null, string? nivelEducativo = null);
         
         /// <summary>
         /// Obtiene las materias disponibles
         /// </summary>
-        Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null, Guid? teacherScopeId = null);
+        Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null, Guid? teacherScopeId = null, string? nivelEducativo = null);
 
         /// <summary>
         /// Exportar el reporte a PDF. Si logoBytes no es null, se usa en lugar de descargar por URL.

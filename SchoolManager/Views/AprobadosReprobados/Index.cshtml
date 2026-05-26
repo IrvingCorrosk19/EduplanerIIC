@@ -5,6 +5,7 @@
     var trimestres = ViewBag.TrimestresDisponibles as List<string>;
     var niveles = ViewBag.NivelesDisponibles as List<string>;
     var currentUser = ViewBag.CurrentUser as SchoolManager.Models.User;
+    var isTeacherScoped = ViewBag.IsTeacherScoped as bool? == true;
 }
 
 <div class="container-fluid py-4">
@@ -92,7 +93,7 @@
                             <label class="form-label"><strong>Especialidad (Opcional):</strong></label>
                             <select class="form-select" id="especialidadId" name="EspecialidadId">
                                 <option value="">Todas las especialidades</option>
-                                @if (ViewBag.EspecialidadesDisponibles != null)
+                                @if (!isTeacherScoped && ViewBag.EspecialidadesDisponibles != null)
                                 {
                                     foreach (var especialidad in ViewBag.EspecialidadesDisponibles)
                                     {
@@ -108,7 +109,7 @@
                             <label class="form-label"><strong>Área (Opcional):</strong></label>
                             <select class="form-select" id="areaId" name="AreaId">
                                 <option value="">Todas las áreas</option>
-                                @if (ViewBag.AreasDisponibles != null)
+                                @if (!isTeacherScoped && ViewBag.AreasDisponibles != null)
                                 {
                                     foreach (var area in ViewBag.AreasDisponibles)
                                     {
@@ -124,7 +125,7 @@
                             <label class="form-label"><strong>Materia (Opcional):</strong></label>
                             <select class="form-select" id="materiaId" name="MateriaId">
                                 <option value="">Todas las materias</option>
-                                @if (ViewBag.MateriasDisponibles != null)
+                                @if (!isTeacherScoped && ViewBag.MateriasDisponibles != null)
                                 {
                                     foreach (var materia in ViewBag.MateriasDisponibles)
                                     {
@@ -199,9 +200,53 @@
                 });
             }
 
-            // Actualizar grados según nivel educativo (acotados al docente en servidor)
+            function llenarSelect(select, items, valueKey, labelKey) {
+                const valorActual = select.val();
+                select.html('<option value="">' + select.data('placeholder') + '</option>');
+                (items || []).forEach(function (item) {
+                    const val = item[valueKey];
+                    const label = item[labelKey];
+                    select.append(`<option value="${val}">${label}</option>`);
+                });
+                if (valorActual && select.find(`option[value="${valorActual}"]`).length) {
+                    select.val(valorActual);
+                }
+            }
+
+            function actualizarCatalogosPorNivel(nivel) {
+                if (!nivel) {
+                    $('#especialidadId').html('<option value="">Todas las especialidades</option>');
+                    $('#areaId').html('<option value="">Todas las áreas</option>');
+                    $('#materiaId').html('<option value="">Todas las materias</option>');
+                    return;
+                }
+
+                $.get('@Url.Action("ObtenerEspecialidades", "AprobadosReprobados")', { nivel: nivel })
+                    .done(function (response) {
+                        if (response.success) {
+                            llenarSelect($('#especialidadId'), response.data, 'id', 'nombre');
+                        }
+                    });
+
+                $.get('@Url.Action("ObtenerAreas", "AprobadosReprobados")', { nivel: nivel })
+                    .done(function (response) {
+                        if (response.success) {
+                            llenarSelect($('#areaId'), response.data, 'id', 'nombre');
+                        }
+                    });
+
+                actualizarMaterias();
+            }
+
+            $('#especialidadId').data('placeholder', 'Todas las especialidades');
+            $('#areaId').data('placeholder', 'Todas las áreas');
+            $('#materiaId').data('placeholder', 'Todas las materias');
+
+            // Actualizar grados y catálogos según nivel (acotados al docente en servidor)
             $('#nivelEducativo').change(function () {
-                cargarGradosPorNivel($(this).val());
+                const nivel = $(this).val();
+                cargarGradosPorNivel(nivel);
+                actualizarCatalogosPorNivel(nivel);
             });
 
             // Actualizar materias cuando cambia el área o especialidad
@@ -212,12 +257,13 @@
             function actualizarMaterias() {
                 const areaId = $('#areaId').val();
                 const especialidadId = $('#especialidadId').val();
+                const nivel = $('#nivelEducativo').val();
                 const materiaSelect = $('#materiaId');
 
                 $.ajax({
-                    url: '/AprobadosReprobados/ObtenerMaterias',
+                    url: '@Url.Action("ObtenerMaterias", "AprobadosReprobados")',
                     type: 'GET',
-                    data: { areaId, especialidadId },
+                    data: { areaId, especialidadId, nivel },
                     success: function (response) {
                         materiaSelect.html('<option value="">Todas las materias</option>');
                         if (response.success && response.data) {
@@ -295,9 +341,23 @@
             $('#btn-limpiar').click(function () {
                 $('#filtro-form')[0].reset();
                 $('#gradoEspecifico').html('<option value="">Todos los grados</option>');
+                $('#especialidadId').html('<option value="">Todas las especialidades</option>');
+                $('#areaId').html('<option value="">Todas las áreas</option>');
                 $('#materiaId').html('<option value="">Todas las materias</option>');
                 $('#reporte-container').slideUp();
             });
+
+            @if (isTeacherScoped)
+            {
+                <text>
+                // Docente: catálogos dependen del nivel seleccionado
+                const nivelInicial = $('#nivelEducativo').val();
+                if (nivelInicial) {
+                    cargarGradosPorNivel(nivelInicial);
+                    actualizarCatalogosPorNivel(nivelInicial);
+                }
+                </text>
+            }
 
             // Vista previa completa
             $(document).on('click', '#btn-vista-previa', function () {

@@ -6,6 +6,7 @@ using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SchoolManager.Services.Implementations
 {
@@ -18,11 +19,11 @@ namespace SchoolManager.Services.Implementations
 
         private sealed class TeacherReportScope
         {
-            public HashSet<Guid> GroupIds { get; init; } = new();
-            public HashSet<Guid> SubjectIds { get; init; } = new();
-            public HashSet<Guid> SpecialtyIds { get; init; } = new();
-            public HashSet<Guid> AreaIds { get; init; } = new();
-            public HashSet<string> Grades { get; init; } = new(StringComparer.Ordinal);
+            public Dictionary<string, HashSet<Guid>> GroupIdsByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, HashSet<string>> GradesByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, HashSet<Guid>> SubjectIdsByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, HashSet<Guid>> SpecialtyIdsByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, HashSet<Guid>> AreaIdsByNivel { get; init; } = new(StringComparer.OrdinalIgnoreCase);
         }
 
         public AprobadosReprobadosService(
@@ -55,7 +56,7 @@ namespace SchoolManager.Services.Implementations
                 if (teacherScopeId.HasValue)
                 {
                     teacherScope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
-                    if (teacherScope.GroupIds.Count == 0)
+                    if (!teacherScope.GroupIdsByNivel.Values.Any(s => s.Count > 0))
                     {
                         _logger.LogWarning("Docente {TeacherId} sin grupos asignados para el reporte", teacherScopeId.Value);
                     }
@@ -90,7 +91,11 @@ namespace SchoolManager.Services.Implementations
 
                     if (teacherScope != null)
                     {
-                        var allowedGroupIds = teacherScope.GroupIds;
+                        if (!teacherScope.GroupIdsByNivel.TryGetValue(nivelEducativo, out var allowedGroupIds) ||
+                            allowedGroupIds.Count == 0)
+                        {
+                            continue;
+                        }
                         gruposQuery = gruposQuery.Where(g => allowedGroupIds.Contains(g.Id));
                     }
 
@@ -326,6 +331,45 @@ namespace SchoolManager.Services.Implementations
             };
         }
 
+        private static int? ExtractGradeNumber(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+            var match = Regex.Match(name, @"(\d+)");
+            return match.Success && int.TryParse(match.Value, out var n) ? n : null;
+        }
+
+        private static string? ResolverNivelEducativoPorGrupo(string? groupGrade)
+        {
+            if (string.IsNullOrWhiteSpace(groupGrade))
+                return null;
+            if (GradosCatalogoPorNivel("premedia").Contains(groupGrade))
+                return "Premedia";
+            if (GradosCatalogoPorNivel("media").Contains(groupGrade))
+                return "Media";
+            return null;
+        }
+
+        /// <summary>
+        /// Premedia del reporte = grupos 7°–9° con nivel académico 7–9 en grade_levels (excluye bachillerato técnico en esos grados).
+        /// Media = grupos 10°–12° según la asignación del docente.
+        /// </summary>
+        private static bool AsignacionCuentaParaNivelReporte(string nivelEducativo, string? groupGrade, string? gradeLevelName)
+        {
+            var nivelGrupo = ResolverNivelEducativoPorGrupo(groupGrade);
+            if (nivelGrupo == null ||
+                !string.Equals(nivelGrupo, nivelEducativo, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.Equals(nivelEducativo, "media", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var nivelAcademico = ExtractGradeNumber(gradeLevelName);
+            return nivelAcademico is >= 7 and <= 9;
+        }
+
         private async Task<TeacherReportScope> LoadTeacherReportScopeAsync(Guid teacherId)
         {
             var rows = await _context.TeacherAssignments
@@ -336,22 +380,38 @@ namespace SchoolManager.Services.Implementations
                     SubjectId = ta.SubjectAssignment.SubjectId,
                     SpecialtyId = ta.SubjectAssignment.SpecialtyId,
                     GroupGrade = ta.SubjectAssignment.Group!.Grade,
+                    GradeLevelName = ta.SubjectAssignment.GradeLevel!.Name,
                     AreaId = ta.SubjectAssignment.Subject!.AreaId
                 })
                 .ToListAsync();
 
-            return new TeacherReportScope
+            var scope = new TeacherReportScope();
+            foreach (var row in rows)
             {
-                GroupIds = rows.Select(r => r.GroupId).ToHashSet(),
-                SubjectIds = rows.Select(r => r.SubjectId).ToHashSet(),
-                SpecialtyIds = rows.Select(r => r.SpecialtyId).Distinct().ToHashSet(),
-                AreaIds = rows.Where(r => r.AreaId.HasValue).Select(r => r.AreaId!.Value).ToHashSet(),
-                Grades = rows
-                    .Select(r => r.GroupGrade)
-                    .Where(g => !string.IsNullOrWhiteSpace(g))
-                    .Select(g => g!)
-                    .ToHashSet(StringComparer.Ordinal)
-            };
+                var nivel = ResolverNivelEducativoPorGrupo(row.GroupGrade);
+                if (nivel == null || !AsignacionCuentaParaNivelReporte(nivel, row.GroupGrade, row.GradeLevelName))
+                    continue;
+
+                AddToScope(scope.GroupIdsByNivel, nivel, row.GroupId);
+                if (!string.IsNullOrWhiteSpace(row.GroupGrade))
+                    AddToScope(scope.GradesByNivel, nivel, row.GroupGrade!);
+                AddToScope(scope.SubjectIdsByNivel, nivel, row.SubjectId);
+                AddToScope(scope.SpecialtyIdsByNivel, nivel, row.SpecialtyId);
+                if (row.AreaId.HasValue)
+                    AddToScope(scope.AreaIdsByNivel, nivel, row.AreaId.Value);
+            }
+
+            return scope;
+        }
+
+        private static void AddToScope<T>(Dictionary<string, HashSet<T>> dict, string nivel, T value)
+        {
+            if (!dict.TryGetValue(nivel, out var set))
+            {
+                set = new HashSet<T>();
+                dict[nivel] = set;
+            }
+            set.Add(value);
         }
 
         public async Task<List<string>> ObtenerGradosPorNivelAsync(string nivelEducativo, Guid? teacherScopeId = null)
@@ -361,7 +421,10 @@ namespace SchoolManager.Services.Implementations
                 return catalogo;
 
             var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
-            return catalogo.Where(g => scope.Grades.Contains(g)).OrderBy(g => g).ToList();
+            if (!scope.GradesByNivel.TryGetValue(nivelEducativo, out var grades) || grades.Count == 0)
+                return new List<string>();
+
+            return catalogo.Where(g => grades.Contains(g)).OrderBy(g => g).ToList();
         }
 
         public async Task<List<string>> ObtenerTrimestresDisponiblesAsync(Guid schoolId)
@@ -395,15 +458,12 @@ namespace SchoolManager.Services.Implementations
                 return niveles;
 
             var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
-            var result = new List<string>();
-            if (GradosCatalogoPorNivel("premedia").Any(g => scope.Grades.Contains(g)))
-                result.Add("Premedia");
-            if (GradosCatalogoPorNivel("media").Any(g => scope.Grades.Contains(g)))
-                result.Add("Media");
-            return result;
+            return niveles
+                .Where(n => scope.GroupIdsByNivel.TryGetValue(n, out var g) && g.Count > 0)
+                .ToList();
         }
 
-        public async Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId, Guid? teacherScopeId = null)
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerEspecialidadesAsync(Guid schoolId, Guid? teacherScopeId = null, string? nivelEducativo = null)
         {
             try
             {
@@ -413,9 +473,10 @@ namespace SchoolManager.Services.Implementations
                 if (teacherScopeId.HasValue)
                 {
                     var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
-                    if (scope.SpecialtyIds.Count == 0)
+                    var specialtyIds = ResolveScopeSet(scope.SpecialtyIdsByNivel, nivelEducativo);
+                    if (specialtyIds.Count == 0)
                         return new List<(Guid, string)>();
-                    query = query.Where(s => scope.SpecialtyIds.Contains(s.Id));
+                    query = query.Where(s => specialtyIds.Contains(s.Id));
                 }
 
                 var especialidades = await query
@@ -432,7 +493,7 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
-        public async Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync(Guid? teacherScopeId = null)
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerAreasAsync(Guid? teacherScopeId = null, string? nivelEducativo = null)
         {
             try
             {
@@ -441,9 +502,10 @@ namespace SchoolManager.Services.Implementations
                 if (teacherScopeId.HasValue)
                 {
                     var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
-                    if (scope.AreaIds.Count == 0)
+                    var areaIds = ResolveScopeSet(scope.AreaIdsByNivel, nivelEducativo);
+                    if (areaIds.Count == 0)
                         return new List<(Guid, string)>();
-                    query = query.Where(a => scope.AreaIds.Contains(a.Id));
+                    query = query.Where(a => areaIds.Contains(a.Id));
                 }
 
                 var areas = await query
@@ -461,7 +523,7 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
-        public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null, Guid? teacherScopeId = null)
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasAsync(Guid schoolId, Guid? areaId = null, Guid? especialidadId = null, Guid? teacherScopeId = null, string? nivelEducativo = null)
         {
             try
             {
@@ -471,9 +533,10 @@ namespace SchoolManager.Services.Implementations
                 if (teacherScopeId.HasValue)
                 {
                     var scope = await LoadTeacherReportScopeAsync(teacherScopeId.Value);
-                    if (scope.SubjectIds.Count == 0)
+                    var subjectIds = ResolveScopeSet(scope.SubjectIdsByNivel, nivelEducativo);
+                    if (subjectIds.Count == 0)
                         return new List<(Guid, string)>();
-                    query = query.Where(s => scope.SubjectIds.Contains(s.Id));
+                    query = query.Where(s => subjectIds.Contains(s.Id));
                 }
 
                 // Filtrar por área si se especifica
@@ -505,6 +568,23 @@ namespace SchoolManager.Services.Implementations
                 _logger.LogError(ex, "Error obteniendo materias");
                 return new List<(Guid, string)>();
             }
+        }
+
+        private static HashSet<Guid> ResolveScopeSet(Dictionary<string, HashSet<Guid>> byNivel, string? nivelEducativo)
+        {
+            if (!string.IsNullOrWhiteSpace(nivelEducativo) &&
+                byNivel.TryGetValue(nivelEducativo, out var forNivel))
+            {
+                return forNivel;
+            }
+
+            var union = new HashSet<Guid>();
+            foreach (var set in byNivel.Values)
+            {
+                foreach (var id in set)
+                    union.Add(id);
+            }
+            return union;
         }
 
         #region PDF institucional – solo capa visual (read-only, sin lógica de negocio)

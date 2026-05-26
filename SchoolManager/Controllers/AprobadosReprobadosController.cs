@@ -280,7 +280,7 @@ namespace SchoolManager.Controllers
 
         // GET: AprobadosReprobados/ObtenerEspecialidades
         [HttpGet]
-        public async Task<IActionResult> ObtenerEspecialidades()
+        public async Task<IActionResult> ObtenerEspecialidades(string? nivel = null)
         {
             try
             {
@@ -290,7 +290,8 @@ namespace SchoolManager.Controllers
                     return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
                 }
 
-                var especialidades = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(currentUser.SchoolId.Value, GetTeacherScopeId(currentUser));
+                var especialidades = await _aprobadosReprobadosService.ObtenerEspecialidadesAsync(
+                    currentUser.SchoolId.Value, GetTeacherScopeId(currentUser), nivel);
                 
                 return Json(new { 
                     success = true, 
@@ -306,12 +307,12 @@ namespace SchoolManager.Controllers
 
         // GET: AprobadosReprobados/ObtenerAreas
         [HttpGet]
-        public async Task<IActionResult> ObtenerAreas()
+        public async Task<IActionResult> ObtenerAreas(string? nivel = null)
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
-                var areas = await _aprobadosReprobadosService.ObtenerAreasAsync(GetTeacherScopeId(currentUser));
+                var areas = await _aprobadosReprobadosService.ObtenerAreasAsync(GetTeacherScopeId(currentUser), nivel);
                 
                 return Json(new { 
                     success = true, 
@@ -348,7 +349,7 @@ namespace SchoolManager.Controllers
 
         // GET: AprobadosReprobados/ObtenerMaterias
         [HttpGet]
-        public async Task<IActionResult> ObtenerMaterias(Guid? areaId = null, Guid? especialidadId = null)
+        public async Task<IActionResult> ObtenerMaterias(Guid? areaId = null, Guid? especialidadId = null, string? nivel = null)
         {
             try
             {
@@ -362,7 +363,8 @@ namespace SchoolManager.Controllers
                     currentUser.SchoolId.Value,
                     areaId,
                     especialidadId,
-                    GetTeacherScopeId(currentUser));
+                    GetTeacherScopeId(currentUser),
+                    nivel);
                 
                 return Json(new { 
                     success = true, 
