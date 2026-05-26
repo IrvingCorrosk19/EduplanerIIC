@@ -21,6 +21,9 @@ namespace SchoolManager.ViewModels
         // Para filtros
         public List<string> TrimestresDisponibles { get; set; } = new();
         public List<string> NivelesDisponibles { get; set; } = new();
+
+        /// <summary>Muestra columna Materia cuando el reporte incluye varias asignaturas.</summary>
+        public bool MostrarColumnaMateria { get; set; }
     }
 
     /// <summary>
@@ -28,6 +31,7 @@ namespace SchoolManager.ViewModels
     /// </summary>
     public class GradoEstadisticaDto
     {
+        public string? Materia { get; set; }
         public string Grado { get; set; } = null!;
         public string Grupo { get; set; } = null!;
         public int TotalEstudiantes { get; set; }
@@ -79,13 +83,13 @@ namespace SchoolManager.ViewModels
         [Required(ErrorMessage = "Debe seleccionar un trimestre")]
         public string Trimestre { get; set; } = null!;
 
-        [Required(ErrorMessage = "Debe seleccionar una materia")]
+        /// <summary>Guid.Empty = todas las materias.</summary>
         public Guid MateriaId { get; set; }
 
-        [Required(ErrorMessage = "Debe seleccionar un grupo")]
+        /// <summary>Guid.Empty = todos los grupos.</summary>
         public Guid GroupId { get; set; }
 
-        [Required(ErrorMessage = "Debe seleccionar un grupo válido")]
+        /// <summary>Guid.Empty = todos los grupos (junto con GroupId).</summary>
         public Guid GradeLevelId { get; set; }
     }
 }

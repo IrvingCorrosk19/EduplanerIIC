@@ -5,6 +5,7 @@ namespace SchoolManager.ViewModels;
 /// </summary>
 public class AprobadosReprobadosGrupoFiltroDto
 {
+    public Guid? SubjectId { get; set; }
     public Guid GroupId { get; set; }
     public Guid GradeLevelId { get; set; }
     public string Nombre { get; set; } = "";

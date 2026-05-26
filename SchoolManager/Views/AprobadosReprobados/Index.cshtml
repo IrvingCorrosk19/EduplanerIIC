@@ -3,6 +3,9 @@
     ViewData["Title"] = "Cuadro de Aprobados y Reprobados";
     Layout = "_AdminLayout";
     var trimestres = ViewBag.TrimestresDisponibles as List<string>;
+    var esDocente = ViewBag.EsDocente as bool? == true;
+    var textoTodasMaterias = esDocente ? "Todas mis materias" : "Todas las materias";
+    var textoTodosGrupos = esDocente ? "Todos mis grupos" : "Todos los grupos";
 }
 
 <div class="container-fluid py-4">
@@ -11,7 +14,16 @@
             <h2 class="mb-3">
                 <i class="bi bi-bar-chart-fill"></i> Cuadro de Aprobados y Reprobados por Grado
             </h2>
-            <p class="text-muted">Mismos filtros que el portal de notas: trimestre, materia y grupo asignado.</p>
+            <p class="text-muted">
+                @if (esDocente)
+                {
+                    <text>Solo verá <strong>sus asignaciones</strong> (las mismas del portal de notas). Puede elegir todos sus trimestres, materias o grupos en un solo reporte.</text>
+                }
+                else
+                {
+                    <text>Filtros por trimestre, materia y grupo de la escuela. Puede elegir <strong>Todos</strong> en cada filtro para varias asignaciones en un solo reporte.</text>
+                }
+            </p>
         </div>
     </div>
 
@@ -36,6 +48,7 @@
                             <label class="form-label"><strong>Trimestre:</strong> <span class="text-danger">*</span></label>
                             <select class="form-select" id="trimestre" name="Trimestre" required>
                                 <option value="">-- Seleccione un trimestre --</option>
+                                <option value="@SchoolManager.ViewModels.AprobadosReprobadosFiltroValores.Todos">Todos los trimestres</option>
                                 @if (trimestres != null)
                                 {
                                     foreach (var trimestre in trimestres)
@@ -107,6 +120,11 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
+            const TODOS = '@SchoolManager.ViewModels.AprobadosReprobadosFiltroValores.Todos';
+            const GUID_VACIO = '00000000-0000-0000-0000-000000000000';
+            const TEXTO_TODAS_MATERIAS = '@textoTodasMaterias';
+            const TEXTO_TODOS_GRUPOS = '@textoTodosGrupos';
+
             cargarMaterias();
 
             function cargarMaterias() {
@@ -114,6 +132,7 @@
                     .done(function (response) {
                         const select = $('#materiaId');
                         select.html('<option value="">-- Seleccione una materia --</option>');
+                        select.append(`<option value="${GUID_VACIO}">${TEXTO_TODAS_MATERIAS}</option>`);
                         if (response.success && response.data) {
                             response.data.forEach(function (m) {
                                 select.append(`<option value="${m.id}">${m.nombre}</option>`);
@@ -122,46 +141,101 @@
                     });
             }
 
+            function esTodasMaterias(materiaId) {
+                return !materiaId || materiaId === GUID_VACIO;
+            }
+
+            function cargarGrupos(materiaId) {
+                const grupoSelect = $('#grupoCombo');
+                const idConsulta = esTodasMaterias(materiaId) ? GUID_VACIO : materiaId;
+
+                $.get('@Url.Action("ObtenerGruposFiltro", "AprobadosReprobados")', { materiaId: idConsulta })
+                    .done(function (response) {
+                        grupoSelect.html(`<option value="${TODOS}">${TEXTO_TODOS_GRUPOS}</option>`);
+                        if (response.success && response.data) {
+                            const todas = esTodasMaterias(materiaId);
+                            response.data.forEach(function (g) {
+                                const val = todas && g.subjectId
+                                    ? `${g.subjectId}|${g.groupId}|${g.gradeLevelId}`
+                                    : `${g.groupId}|${g.gradeLevelId}`;
+                                grupoSelect.append(`<option value="${val}">${g.nombre}</option>`);
+                            });
+                            grupoSelect.prop('disabled', false);
+                        }
+                    });
+            }
+
+            function aplicarSeleccionGrupo(val) {
+                $('#groupId, #gradeLevelId').val('');
+                if (!val || val === TODOS) return;
+                const parts = val.split('|');
+                if (parts.length === 3) {
+                    $('#groupId').val(parts[1]);
+                    $('#gradeLevelId').val(parts[2]);
+                } else if (parts.length === 2) {
+                    $('#groupId').val(parts[0]);
+                    $('#gradeLevelId').val(parts[1]);
+                }
+            }
+
+            function resolverMateriaIdParaEnvio() {
+                let materiaId = $('#materiaId').val();
+                const grupoVal = $('#grupoCombo').val();
+                if (grupoVal && grupoVal !== TODOS) {
+                    const parts = grupoVal.split('|');
+                    if (parts.length === 3) materiaId = parts[0];
+                }
+                return esTodasMaterias(materiaId) ? GUID_VACIO : materiaId;
+            }
+
+            function resolverIdsGrupoParaEnvio() {
+                const grupoVal = $('#grupoCombo').val();
+                if (!grupoVal || grupoVal === TODOS) {
+                    return { groupId: GUID_VACIO, gradeLevelId: GUID_VACIO };
+                }
+                const parts = grupoVal.split('|');
+                if (parts.length === 3) {
+                    return { groupId: parts[1], gradeLevelId: parts[2] };
+                }
+                return { groupId: parts[0], gradeLevelId: parts[1] };
+            }
+
             $('#materiaId').change(function () {
                 const materiaId = $(this).val();
                 const grupoSelect = $('#grupoCombo');
-                $('#groupId').val('');
-                $('#gradeLevelId').val('');
+                $('#groupId, #gradeLevelId').val('');
 
                 if (!materiaId) {
                     grupoSelect.prop('disabled', true).html('<option value="">-- Seleccione primero la materia --</option>');
                     return;
                 }
 
-                $.get('@Url.Action("ObtenerGruposFiltro", "AprobadosReprobados")', { materiaId: materiaId })
-                    .done(function (response) {
-                        grupoSelect.html('<option value="">-- Seleccione un grupo --</option>');
-                        if (response.success && response.data) {
-                            response.data.forEach(function (g) {
-                                const val = `${g.groupId}|${g.gradeLevelId}`;
-                                grupoSelect.append(`<option value="${val}">${g.nombre}</option>`);
-                            });
-                            grupoSelect.prop('disabled', false);
-                        }
-                    });
+                cargarGrupos(materiaId);
             });
 
             $('#grupoCombo').change(function () {
-                const parts = ($(this).val() || '').split('|');
-                $('#groupId').val(parts[0] || '');
-                $('#gradeLevelId').val(parts[1] || '');
+                aplicarSeleccionGrupo($(this).val());
             });
 
             $('#filtro-form').submit(function (e) {
                 e.preventDefault();
 
                 const trimestre = $('#trimestre').val();
-                const materiaId = $('#materiaId').val();
-                const groupId = $('#groupId').val();
-                const gradeLevelId = $('#gradeLevelId').val();
+                const materiaId = resolverMateriaIdParaEnvio();
+                const idsGrupo = resolverIdsGrupoParaEnvio();
 
-                if (!trimestre || !materiaId || !groupId || !gradeLevelId) {
-                    Swal.fire('Error', 'Seleccione trimestre, materia y grupo', 'error');
+                if (!trimestre) {
+                    Swal.fire('Error', 'Seleccione un trimestre o "Todos los trimestres"', 'error');
+                    return;
+                }
+
+                if (!$('#materiaId').val()) {
+                    Swal.fire('Error', 'Seleccione una materia o "Todas las materias"', 'error');
+                    return;
+                }
+
+                if (!$('#grupoCombo').val()) {
+                    Swal.fire('Error', 'Seleccione un grupo o "Todos los grupos"', 'error');
                     return;
                 }
 
@@ -178,8 +252,8 @@
                     data: {
                         Trimestre: trimestre,
                         MateriaId: materiaId,
-                        GroupId: groupId,
-                        GradeLevelId: gradeLevelId,
+                        GroupId: idsGrupo.groupId,
+                        GradeLevelId: idsGrupo.gradeLevelId,
                         __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
                     },
                     success: function (response) {
@@ -208,45 +282,60 @@
 
             function buildExportUrl(action) {
                 const trimestre = $('#trimestre').val();
-                const materiaId = $('#materiaId').val();
-                const groupId = $('#groupId').val();
-                const gradeLevelId = $('#gradeLevelId').val();
+                const materiaId = resolverMateriaIdParaEnvio();
+                const idsGrupo = resolverIdsGrupoParaEnvio();
                 return action +
                     '?trimestre=' + encodeURIComponent(trimestre) +
                     '&materiaId=' + encodeURIComponent(materiaId) +
-                    '&groupId=' + encodeURIComponent(groupId) +
-                    '&gradeLevelId=' + encodeURIComponent(gradeLevelId);
+                    '&groupId=' + encodeURIComponent(idsGrupo.groupId) +
+                    '&gradeLevelId=' + encodeURIComponent(idsGrupo.gradeLevelId);
+            }
+
+            function validarFiltrosExportacion() {
+                if (!$('#trimestre').val()) {
+                    Swal.fire('Aviso', 'Seleccione trimestre (o todos).', 'warning');
+                    return false;
+                }
+                if (!$('#materiaId').val()) {
+                    Swal.fire('Aviso', 'Seleccione materia (o todas).', 'warning');
+                    return false;
+                }
+                if (!$('#grupoCombo').val()) {
+                    Swal.fire('Aviso', 'Seleccione grupo (o todos).', 'warning');
+                    return false;
+                }
+                return true;
             }
 
             $(document).on('click', '#btn-vista-previa', function () {
-                if (!$('#groupId').val()) {
-                    Swal.fire('Aviso', 'Seleccione trimestre, materia y grupo.', 'warning');
-                    return;
-                }
+                if (!validarFiltrosExportacion()) return;
                 window.open(buildExportUrl('@Url.Action("VistaPrevia", "AprobadosReprobados")'), '_blank');
             });
 
             $(document).on('click', '#btn-exportar-pdf', function (e) {
                 e.preventDefault();
-                if (!$('#groupId').val()) {
-                    Swal.fire('Aviso', 'Seleccione trimestre, materia y grupo.', 'warning');
-                    return;
-                }
+                if (!validarFiltrosExportacion()) return;
                 window.location.href = buildExportUrl('@Url.Action("ExportarPdf", "AprobadosReprobados")');
             });
 
             function mostrarReporte(data) {
+                const colMateria = data.mostrarColumnaMateria
+                    ? '<th rowspan="2">Materia</th>'
+                    : '';
+                const colspanVacio = data.mostrarColumnaMateria ? 14 : 13;
+
                 let html = `
                     <div class="text-center mb-4">
                         <h4>${data.institutoNombre}</h4>
                         <h5>CUADRO DE APROBADOS Y REPROBADOS</h5>
                         <p><strong>Profesor(a):</strong> ${data.profesorCoordinador}</p>
-                        <p><strong>Trimestre:</strong> ${data.trimestre} | <strong>Asignación:</strong> ${data.nivelEducativo}</p>
+                        <p><strong>Trimestre:</strong> ${data.trimestre} | <strong>Filtro:</strong> ${data.nivelEducativo}</p>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover">
                             <thead class="table-dark">
                                 <tr class="text-center">
+                                    ${colMateria}
                                     <th rowspan="2">Grado</th>
                                     <th rowspan="2">Grupo</th>
                                     <th rowspan="2">Total</th>
@@ -263,10 +352,14 @@
                             <tbody>`;
 
                 if (!data.estadisticas || data.estadisticas.length === 0) {
-                    html += `<tr><td colspan="13" class="text-center py-4 text-muted">No hay datos para esta asignación y trimestre.</td></tr>`;
+                    html += `<tr><td colspan="${colspanVacio}" class="text-center py-4 text-muted">No hay datos para los filtros seleccionados.</td></tr>`;
                 } else {
                     data.estadisticas.forEach(function (est) {
+                        const tdMateria = data.mostrarColumnaMateria
+                            ? `<td class="text-center">${est.materia || ''}</td>`
+                            : '';
                         html += `<tr>
+                            ${tdMateria}
                             <td class="text-center"><strong>${est.grado}</strong></td>
                             <td class="text-center">${est.grupo}</td>
                             <td class="text-center"><strong>${est.totalEstudiantes}</strong></td>
@@ -285,8 +378,9 @@
                 }
 
                 const t = data.totalesGenerales;
+                const colspanTotales = data.mostrarColumnaMateria ? 3 : 2;
                 html += `<tr class="table-primary">
-                    <td colspan="2" class="text-center"><strong>TOTALES</strong></td>
+                    <td colspan="${colspanTotales}" class="text-center"><strong>TOTALES</strong></td>
                     <td class="text-center"><strong>${t.totalEstudiantes}</strong></td>
                     <td class="text-center text-success"><strong>${t.totalAprobados}</strong></td>
                     <td class="text-center"><strong>${t.porcentajeAprobados.toFixed(2)}%</strong></td>

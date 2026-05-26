@@ -33,32 +33,56 @@ namespace SchoolManager.Services.Implementations
             Guid gradeLevelId,
             Guid? teacherScopeId = null)
         {
-            var asignacion = await ValidarAsignacionFiltroAsync(schoolId, materiaId, groupId, gradeLevelId, teacherScopeId);
+            var todasMaterias = AprobadosReprobadosFiltroValores.EsTodos(materiaId);
+            var todosGrupos = AprobadosReprobadosFiltroValores.EsTodos(groupId);
+            var todosTrimestres = AprobadosReprobadosFiltroValores.EsTodos(trimestre);
+
+            var asignaciones = await ResolverAsignacionesFiltroAsync(
+                schoolId, materiaId, groupId, gradeLevelId, teacherScopeId);
+
+            if (asignaciones.Count == 0)
+                throw new UnauthorizedAccessException("No hay asignaciones disponibles para los filtros seleccionados.");
 
             var school = await _context.Schools.FindAsync(schoolId)
                 ?? throw new Exception("Escuela no encontrada");
 
-            var trimesterId = await _context.Trimesters
-                .Where(t => t.SchoolId == schoolId && t.Name == trimestre)
-                .Select(t => (Guid?)t.Id)
-                .FirstOrDefaultAsync();
+            var trimestresNombres = todosTrimestres
+                ? await ObtenerTrimestresDisponiblesAsync(schoolId)
+                : new List<string> { trimestre };
 
-            var grupo = await _context.Groups.FindAsync(groupId)
-                ?? throw new Exception("Grupo no encontrado");
+            if (trimestresNombres.Count == 0)
+                throw new Exception("No hay trimestres configurados para esta escuela.");
 
-            var gradoDisplay = !string.IsNullOrWhiteSpace(grupo.Grade)
-                ? grupo.Grade.Trim()
-                : $"{asignacion.GradeLevelName}°";
+            var trimesterIds = await _context.Trimesters
+                .Where(t => t.SchoolId == schoolId && trimestresNombres.Contains(t.Name))
+                .Select(t => t.Id)
+                .ToListAsync();
 
-            var stats = await CalcularEstadisticasGrupoAsync(
-                groupId, trimestre, trimesterId, materiaId, teacherScopeId);
+            var estadisticas = new List<GradoEstadisticaDto>();
+            var mostrarMateria = todasMaterias || asignaciones.Select(a => a.SubjectId).Distinct().Count() > 1;
 
-            var estadisticas = new List<GradoEstadisticaDto>
+            foreach (var asignacion in asignaciones.OrderBy(a => a.SubjectName).ThenBy(a => a.GradeLevelName).ThenBy(a => a.GroupName))
             {
-                new()
+                var grupo = await _context.Groups.FindAsync(asignacion.GroupId);
+                if (grupo == null)
+                    continue;
+
+                var gradoDisplay = !string.IsNullOrWhiteSpace(grupo.Grade)
+                    ? grupo.Grade.Trim()
+                    : $"{asignacion.GradeLevelName}°";
+
+                var stats = await CalcularEstadisticasGrupoAsync(
+                    asignacion.GroupId,
+                    trimestresNombres,
+                    trimesterIds,
+                    asignacion.SubjectId,
+                    teacherScopeId);
+
+                estadisticas.Add(new GradoEstadisticaDto
                 {
+                    Materia = mostrarMateria ? asignacion.SubjectName : null,
                     Grado = gradoDisplay,
-                    Grupo = grupo.Name ?? "",
+                    Grupo = $"{asignacion.GradeLevelName} {asignacion.GroupName}",
                     TotalEstudiantes = stats.Total,
                     Aprobados = stats.Aprobados,
                     PorcentajeAprobados = stats.PorcentajeAprobados,
@@ -70,23 +94,28 @@ namespace SchoolManager.Services.Implementations
                     PorcentajeSinCalificaciones = stats.PorcentajeSinCalificaciones,
                     Retirados = stats.Retirados,
                     PorcentajeRetirados = stats.PorcentajeRetirados
-                }
-            };
+                });
+            }
 
-            var etiquetaFiltro = $"{asignacion.SubjectName} — {asignacion.GradeLevelName} {asignacion.GroupName}";
+            var etiquetaTrimestre = todosTrimestres
+                ? "Todos los trimestres"
+                : trimestre;
+            var etiquetaFiltro = ConstruirEtiquetaFiltro(
+                etiquetaTrimestre, todasMaterias, todosGrupos, asignaciones, teacherScopeId);
 
             return new AprobadosReprobadosReportViewModel
             {
                 InstitutoNombre = school.Name,
                 LogoUrl = school.LogoUrl ?? "",
                 ProfesorCoordinador = "",
-                Trimestre = trimestre,
+                Trimestre = etiquetaTrimestre,
                 AnoLectivo = DateTime.UtcNow.Year.ToString(),
                 NivelEducativo = etiquetaFiltro,
                 FechaGeneracion = DateTime.UtcNow,
                 Estadisticas = estadisticas,
                 TotalesGenerales = CalcularTotalesGenerales(estadisticas),
-                TrimestresDisponibles = await ObtenerTrimestresDisponiblesAsync(schoolId)
+                TrimestresDisponibles = await ObtenerTrimestresDisponiblesAsync(schoolId),
+                MostrarColumnaMateria = mostrarMateria
             };
         }
 
@@ -113,17 +142,26 @@ namespace SchoolManager.Services.Implementations
             Guid schoolId, Guid materiaId, Guid? teacherScopeId = null)
         {
             var rows = await CargarAsignacionesAsync(schoolId, teacherScopeId);
-            return rows
-                .Where(r => r.SubjectId == materiaId)
-                .GroupBy(r => new { r.GroupId, r.GradeLevelId })
+            var todasMaterias = AprobadosReprobadosFiltroValores.EsTodos(materiaId);
+
+            var filtered = todasMaterias
+                ? rows
+                : rows.Where(r => r.SubjectId == materiaId);
+
+            return filtered
+                .GroupBy(r => new { r.SubjectId, r.GroupId, r.GradeLevelId })
                 .Select(g =>
                 {
                     var first = g.First();
+                    var nombre = todasMaterias
+                        ? $"{first.SubjectName} — {first.GradeLevelName} {first.GroupName}"
+                        : $"{first.GradeLevelName} {first.GroupName}";
                     return new AprobadosReprobadosGrupoFiltroDto
                     {
+                        SubjectId = todasMaterias ? first.SubjectId : null,
                         GroupId = first.GroupId,
                         GradeLevelId = first.GradeLevelId,
-                        Nombre = $"{first.GradeLevelName} {first.GroupName}",
+                        Nombre = nombre,
                         GradoGrupo = first.GroupGrade
                     };
                 })
@@ -131,7 +169,7 @@ namespace SchoolManager.Services.Implementations
                 .ToList();
         }
 
-        private async Task<AprobadosReprobadosAsignacionRow> ValidarAsignacionFiltroAsync(
+        private async Task<List<AprobadosReprobadosAsignacionRow>> ResolverAsignacionesFiltroAsync(
             Guid schoolId,
             Guid materiaId,
             Guid groupId,
@@ -139,15 +177,51 @@ namespace SchoolManager.Services.Implementations
             Guid? teacherScopeId)
         {
             var rows = await CargarAsignacionesAsync(schoolId, teacherScopeId);
-            var match = rows.FirstOrDefault(r =>
-                r.SubjectId == materiaId &&
-                r.GroupId == groupId &&
-                r.GradeLevelId == gradeLevelId);
+            IEnumerable<AprobadosReprobadosAsignacionRow> query = rows;
 
-            if (match == null)
-                throw new UnauthorizedAccessException("La combinación materia/grupo no está disponible para este usuario.");
+            if (!AprobadosReprobadosFiltroValores.EsTodos(materiaId))
+                query = query.Where(r => r.SubjectId == materiaId);
 
-            return match;
+            if (!AprobadosReprobadosFiltroValores.EsTodos(groupId))
+            {
+                query = query.Where(r => r.GroupId == groupId && r.GradeLevelId == gradeLevelId);
+                var lista = query.ToList();
+                if (lista.Count == 0)
+                    throw new UnauthorizedAccessException("La combinación materia/grupo no está disponible para este usuario.");
+                return lista
+                    .GroupBy(r => new { r.SubjectId, r.GroupId, r.GradeLevelId })
+                    .Select(g => g.First())
+                    .ToList();
+            }
+
+            return query
+                .GroupBy(r => new { r.SubjectId, r.GroupId, r.GradeLevelId })
+                .Select(g => g.First())
+                .ToList();
+        }
+
+        private static string ConstruirEtiquetaFiltro(
+            string trimestreEtiqueta,
+            bool todasMaterias,
+            bool todosGrupos,
+            List<AprobadosReprobadosAsignacionRow> asignaciones,
+            Guid? teacherScopeId)
+        {
+            if (asignaciones.Count == 1)
+                return $"{asignaciones[0].SubjectName} — {asignaciones[0].GradeLevelName} {asignaciones[0].GroupName}";
+
+            var partes = new List<string> { trimestreEtiqueta };
+            if (todasMaterias)
+                partes.Add(teacherScopeId.HasValue ? "Todas mis materias" : "Todas las materias");
+            else
+                partes.Add(asignaciones[0].SubjectName);
+
+            if (todosGrupos)
+                partes.Add(teacherScopeId.HasValue ? "Todos mis grupos" : "Todos los grupos");
+            else if (asignaciones.Count == 1)
+                partes.Add($"{asignaciones[0].GradeLevelName} {asignaciones[0].GroupName}");
+
+            return string.Join(" · ", partes);
         }
 
         /// <summary>
@@ -200,8 +274,8 @@ namespace SchoolManager.Services.Implementations
             int Retirados, decimal PorcentajeRetirados)>
             CalcularEstadisticasGrupoAsync(
                 Guid grupoId,
-                string trimestre,
-                Guid? trimesterId,
+                IReadOnlyList<string> trimestresNombres,
+                IReadOnlyList<Guid> trimesterIds,
                 Guid materiaId,
                 Guid? teacherScopeId = null)
         {
@@ -229,10 +303,9 @@ namespace SchoolManager.Services.Implementations
             var queryScores = _context.StudentActivityScores
                 .Include(sas => sas.Activity)
                 .Where(sas => estudiantesDelGrupo.Contains(sas.StudentId) &&
-                    (trimesterId.HasValue
-                        ? (sas.Activity!.TrimesterId == trimesterId || sas.Activity!.Trimester == trimestre)
-                        : sas.Activity!.Trimester == trimestre) &&
-                    sas.Activity!.SubjectId == materiaId);
+                    sas.Activity!.SubjectId == materiaId &&
+                    (trimestresNombres.Contains(sas.Activity!.Trimester!) ||
+                     (sas.Activity.TrimesterId.HasValue && trimesterIds.Contains(sas.Activity.TrimesterId.Value))));
 
             if (teacherScopeId.HasValue)
             {

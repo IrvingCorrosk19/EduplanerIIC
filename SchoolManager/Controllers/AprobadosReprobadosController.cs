@@ -47,6 +47,7 @@ namespace SchoolManager.Controllers
 
                 ViewBag.TrimestresDisponibles = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(currentUser.SchoolId.Value);
                 ViewBag.CurrentUser = currentUser;
+                ViewBag.EsDocente = GetTeacherScopeId(currentUser).HasValue;
 
                 return View(new AprobadosReprobadosFiltroViewModel());
             }
@@ -73,10 +74,9 @@ namespace SchoolManager.Controllers
                     return Json(new { success = false, message = string.Join(", ", errors) });
                 }
 
-                if (string.IsNullOrEmpty(filtro.Trimestre) || filtro.MateriaId == Guid.Empty ||
-                    filtro.GroupId == Guid.Empty || filtro.GradeLevelId == Guid.Empty)
+                if (string.IsNullOrEmpty(filtro.Trimestre))
                 {
-                    return Json(new { success = false, message = "Trimestre, materia y grupo son requeridos" });
+                    return Json(new { success = false, message = "Debe seleccionar un trimestre (o todos los trimestres)" });
                 }
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
@@ -253,9 +253,6 @@ namespace SchoolManager.Controllers
         {
             try
             {
-                if (materiaId == Guid.Empty)
-                    return Json(new { success = false, message = "Materia requerida" });
-
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
                     return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
@@ -268,6 +265,7 @@ namespace SchoolManager.Controllers
                     success = true,
                     data = grupos.Select(g => new
                     {
+                        subjectId = g.SubjectId,
                         groupId = g.GroupId,
                         gradeLevelId = g.GradeLevelId,
                         nombre = g.Nombre

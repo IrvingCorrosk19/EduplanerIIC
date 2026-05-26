@@ -182,6 +182,10 @@
                 <table class="table table-bordered table-sm">
                     <thead>
                         <tr class="text-center">
+                            @if (Model.MostrarColumnaMateria)
+                            {
+                                <th rowspan="2" style="width: 12%;">Materia</th>
+                            }
                             <th rowspan="2" style="width: 8%;">Grado</th>
                             <th rowspan="2" style="width: 8%;">Grupo</th>
                             <th rowspan="2" style="width: 7%;">Total</th>
@@ -208,6 +212,10 @@
                         @foreach (var stat in Model.Estadisticas)
                         {
                             <tr>
+                                @if (Model.MostrarColumnaMateria)
+                                {
+                                    <td class="text-center">@stat.Materia</td>
+                                }
                                 <td class="text-center"><strong>@stat.Grado</strong></td>
                                 <td class="text-center">@stat.Grupo</td>
                                 <td class="text-center"><strong>@stat.TotalEstudiantes</strong></td>
@@ -226,7 +234,7 @@
 
                         <!-- TOTALES -->
                         <tr class="table-totales">
-                            <td colspan="2" class="text-center"><strong>TOTAL</strong></td>
+                            <td colspan="@(Model.MostrarColumnaMateria ? 3 : 2)" class="text-center"><strong>TOTAL</strong></td>
                             <td class="text-center"><strong>@Model.TotalesGenerales.TotalEstudiantes</strong></td>
                             <td class="text-center text-aprobado">@Model.TotalesGenerales.TotalAprobados</td>
                             <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeAprobados.ToString("F2")%</strong></td>
