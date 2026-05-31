@@ -37,7 +37,7 @@ namespace SchoolManager.Services.Implementations
             Guid? teacherScopeId = null)
         {
             if (string.IsNullOrWhiteSpace(nivelEducativo))
-                throw new ArgumentException("Debe seleccionar un nivel educativo.");
+                throw new ArgumentException("Debe seleccionar un nivel (grado).");
 
             var todasMaterias = AprobadosReprobadosFiltroValores.EsTodos(materiaId);
             var todosGrupos = AprobadosReprobadosFiltroValores.EsTodos(groupId);
@@ -109,7 +109,7 @@ namespace SchoolManager.Services.Implementations
                 : trimestre;
             var etiquetaNivel = todosNiveles
                 ? (teacherScopeId.HasValue ? "Todos mis niveles" : "Todos los niveles")
-                : NormalizarNombreNivel(nivelEducativo);
+                : ResolverEtiquetaGrado(nivelEducativo, asignaciones);
             var etiquetaFiltro = ConstruirEtiquetaFiltro(
                 etiquetaTrimestre, etiquetaNivel, todasMaterias, todosGrupos, asignaciones, teacherScopeId);
 
@@ -138,28 +138,30 @@ namespace SchoolManager.Services.Implementations
                 .ToListAsync();
         }
 
-        public async Task<List<string>> ObtenerNivelesFiltroAsync(Guid schoolId, Guid? teacherScopeId = null)
+        public async Task<List<AprobadosReprobadosNivelFiltroDto>> ObtenerNivelesFiltroAsync(Guid schoolId, Guid? teacherScopeId = null)
         {
             var rows = await CargarAsignacionesAsync(schoolId, teacherScopeId);
-            var niveles = rows
-                .Select(r => ResolverNivelParaAsignacion(r.GroupGrade, r.GradeLevelName))
-                .Where(n => n != null)
-                .Select(n => n!)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => string.Equals(n, "Premedia", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-                .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
+            return rows
+                .GroupBy(r => r.GradeLevelId)
+                .Select(g =>
+                {
+                    var first = g.First();
+                    return new AprobadosReprobadosNivelFiltroDto
+                    {
+                        Id = first.GradeLevelId,
+                        Nombre = FormatearNombreGrado(first.GradeLevelName, first.GroupGrade),
+                        Orden = OrdenGrado(first.GradeLevelName, first.GroupGrade)
+                    };
+                })
+                .OrderBy(n => n.Orden)
+                .ThenBy(n => n.Nombre, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-
-            if (!teacherScopeId.HasValue)
-                return niveles.Count > 0 ? niveles : new List<string> { "Premedia", "Media" };
-
-            return niveles;
         }
 
         public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasFiltroAsync(
             Guid schoolId, string? nivelEducativo = null, Guid? teacherScopeId = null)
         {
-            var rows = FiltrarPorNivel(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
+            var rows = FiltrarPorGrado(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
             return rows
                 .GroupBy(r => r.SubjectId)
                 .Select(g => (g.Key, g.First().SubjectName))
@@ -170,7 +172,7 @@ namespace SchoolManager.Services.Implementations
         public async Task<List<AprobadosReprobadosGrupoFiltroDto>> ObtenerGruposFiltroAsync(
             Guid schoolId, Guid materiaId, string? nivelEducativo = null, Guid? teacherScopeId = null)
         {
-            var rows = FiltrarPorNivel(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
+            var rows = FiltrarPorGrado(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
             var todasMaterias = AprobadosReprobadosFiltroValores.EsTodos(materiaId);
 
             var filtered = todasMaterias
@@ -182,9 +184,10 @@ namespace SchoolManager.Services.Implementations
                 .Select(g =>
                 {
                     var first = g.First();
+                    var gradoLabel = FormatearNombreGrado(first.GradeLevelName, first.GroupGrade);
                     var nombre = todasMaterias
-                        ? $"{first.SubjectName} — {first.GradeLevelName} {first.GroupName}"
-                        : $"{first.GradeLevelName} {first.GroupName}";
+                        ? $"{first.SubjectName} — {gradoLabel} {first.GroupName}"
+                        : $"{gradoLabel} {first.GroupName}";
                     return new AprobadosReprobadosGrupoFiltroDto
                     {
                         SubjectId = todasMaterias ? first.SubjectId : null,
@@ -206,7 +209,7 @@ namespace SchoolManager.Services.Implementations
             Guid gradeLevelId,
             Guid? teacherScopeId)
         {
-            var rows = FiltrarPorNivel(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
+            var rows = FiltrarPorGrado(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
             IEnumerable<AprobadosReprobadosAsignacionRow> query = rows;
 
             if (!AprobadosReprobadosFiltroValores.EsTodos(materiaId))
@@ -255,25 +258,47 @@ namespace SchoolManager.Services.Implementations
             return string.Join(" · ", partes);
         }
 
-        private static List<AprobadosReprobadosAsignacionRow> FiltrarPorNivel(
+        private static List<AprobadosReprobadosAsignacionRow> FiltrarPorGrado(
             List<AprobadosReprobadosAsignacionRow> rows,
-            string? nivelEducativo)
+            string? nivelGradeLevelId)
         {
-            if (AprobadosReprobadosFiltroValores.EsTodos(nivelEducativo))
+            if (AprobadosReprobadosFiltroValores.EsTodos(nivelGradeLevelId))
                 return rows;
 
-            return rows
-                .Where(r => string.Equals(
-                    ResolverNivelParaAsignacion(r.GroupGrade, r.GradeLevelName),
-                    nivelEducativo,
-                    StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            if (!Guid.TryParse(nivelGradeLevelId, out var gradeLevelId))
+                return new List<AprobadosReprobadosAsignacionRow>();
+
+            return rows.Where(r => r.GradeLevelId == gradeLevelId).ToList();
         }
 
-        private static string NormalizarNombreNivel(string nivel) =>
-            string.Equals(nivel, "premedia", StringComparison.OrdinalIgnoreCase) ? "Premedia"
-            : string.Equals(nivel, "media", StringComparison.OrdinalIgnoreCase) ? "Media"
-            : nivel;
+        private static string FormatearNombreGrado(string? gradeLevelName, string? groupGrade)
+        {
+            if (!string.IsNullOrWhiteSpace(groupGrade))
+                return groupGrade.Trim();
+
+            var numero = ExtractGradeNumber(gradeLevelName);
+            if (numero.HasValue)
+                return $"{numero}°";
+
+            return string.IsNullOrWhiteSpace(gradeLevelName) ? "Grado" : gradeLevelName.Trim();
+        }
+
+        private static int OrdenGrado(string? gradeLevelName, string? groupGrade) =>
+            ExtractGradeNumber(groupGrade) ?? ExtractGradeNumber(gradeLevelName) ?? 999;
+
+        private static string ResolverEtiquetaGrado(
+            string nivelGradeLevelId,
+            List<AprobadosReprobadosAsignacionRow> asignaciones)
+        {
+            if (Guid.TryParse(nivelGradeLevelId, out var gradeLevelId))
+            {
+                var row = asignaciones.FirstOrDefault(r => r.GradeLevelId == gradeLevelId);
+                if (row != null)
+                    return FormatearNombreGrado(row.GradeLevelName, row.GroupGrade);
+            }
+
+            return nivelGradeLevelId;
+        }
 
         private static int? ExtractGradeNumber(string? name)
         {
@@ -281,21 +306,6 @@ namespace SchoolManager.Services.Implementations
                 return null;
             var match = Regex.Match(name, @"(\d+)");
             return match.Success && int.TryParse(match.Value, out var n) ? n : null;
-        }
-
-        private static string? ResolverNivelParaAsignacion(string? groupGrade, string? gradeLevelName)
-        {
-            if (!string.IsNullOrWhiteSpace(groupGrade))
-            {
-                var g = groupGrade.Trim();
-                if (g is "7°" or "8°" or "9°") return "Premedia";
-                if (g is "10°" or "11°" or "12°") return "Media";
-            }
-
-            var nivelAcademico = ExtractGradeNumber(gradeLevelName);
-            if (nivelAcademico is >= 7 and <= 9) return "Premedia";
-            if (nivelAcademico is >= 10 and <= 12) return "Media";
-            return null;
         }
 
         /// <summary>

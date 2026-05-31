@@ -1,6 +1,16 @@
 namespace SchoolManager.ViewModels;
 
 /// <summary>
+/// Nivel/grado académico disponible en el filtro (desde asignaciones del docente o escuela).
+/// </summary>
+public class AprobadosReprobadosNivelFiltroDto
+{
+    public Guid Id { get; set; }
+    public string Nombre { get; set; } = "";
+    public int Orden { get; set; }
+}
+
+/// <summary>
 /// Grupo disponible en el filtro (misma lógica que TeacherGradebook: grade_level + nombre de grupo).
 /// </summary>
 public class AprobadosReprobadosGrupoFiltroDto

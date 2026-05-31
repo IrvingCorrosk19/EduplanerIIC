@@ -18,7 +18,7 @@
             <p class="text-muted">
                 @if (esDocente)
                 {
-                    <text>Solo verá <strong>sus asignaciones</strong> (las mismas del portal de notas). Elija nivel, trimestre, materia y grupo; puede usar <strong>Todos</strong> en cada filtro dentro de su alcance.</text>
+                    <text>Solo verá <strong>sus asignaciones</strong> (las mismas del portal de notas). Elija <strong>grado</strong>, trimestre, materia y grupo; puede usar <strong>Todos</strong> en cada filtro dentro de su alcance.</text>
                 }
                 else
                 {
@@ -46,11 +46,11 @@
                 <div class="row">
                     <div class="col-md-6 col-lg-3">
                         <div class="mb-3">
-                            <label class="form-label"><strong>Nivel:</strong> <span class="text-danger">*</span></label>
+                            <label class="form-label"><strong>Grado / Nivel:</strong> <span class="text-danger">*</span></label>
                             <select class="form-select" id="nivelEducativo" name="NivelEducativo" required>
-                                <option value="">-- Seleccione un nivel --</option>
+                                <option value="">-- Seleccione un grado --</option>
                             </select>
-                            <small class="text-muted">Premedia (7°–9°) o Media (10°–12°) según sus asignaciones.</small>
+                            <small class="text-muted">Grados donde imparte clase (1°, 2°, 3°, …) según sus asignaciones.</small>
                         </div>
                     </div>
 
@@ -75,7 +75,7 @@
                         <div class="mb-3">
                             <label class="form-label"><strong>Materia:</strong> <span class="text-danger">*</span></label>
                             <select class="form-select" id="materiaId" name="MateriaId" required disabled>
-                                <option value="">-- Seleccione primero el nivel --</option>
+                                <option value="">-- Seleccione primero el grado --</option>
                             </select>
                         </div>
                     </div>
@@ -143,11 +143,11 @@
                 $.get('@Url.Action("ObtenerNivelesFiltro", "AprobadosReprobados")')
                     .done(function (response) {
                         const select = $('#nivelEducativo');
-                        select.html('<option value="">-- Seleccione un nivel --</option>');
+                        select.html('<option value="">-- Seleccione un grado --</option>');
                         select.append(`<option value="${TODOS}">${TEXTO_TODOS_NIVELES}</option>`);
                         if (response.success && response.data) {
                             response.data.forEach(function (n) {
-                                select.append(`<option value="${n}">${n}</option>`);
+                                select.append(`<option value="${n.id}">${n.nombre}</option>`);
                             });
                         }
                     });
@@ -155,7 +155,7 @@
 
             function resetMateriaYGrupo() {
                 $('#materiaId').prop('disabled', true)
-                    .html('<option value="">-- Seleccione primero el nivel --</option>');
+                    .html('<option value="">-- Seleccione primero el grado --</option>');
                 $('#grupoCombo').prop('disabled', true)
                     .html('<option value="">-- Seleccione primero la materia --</option>');
                 $('#groupId, #gradeLevelId').val('');
@@ -282,7 +282,7 @@
                 const idsGrupo = resolverIdsGrupoParaEnvio();
 
                 if (!nivelEducativo) {
-                    Swal.fire('Error', 'Seleccione un nivel educativo o "Todos mis niveles"', 'error');
+                    Swal.fire('Error', 'Seleccione un grado o "Todos mis niveles"', 'error');
                     return;
                 }
 
@@ -357,7 +357,7 @@
 
             function validarFiltrosExportacion() {
                 if (!$('#nivelEducativo').val()) {
-                    Swal.fire('Aviso', 'Seleccione nivel (o todos).', 'warning');
+                    Swal.fire('Aviso', 'Seleccione grado (o todos).', 'warning');
                     return false;
                 }
                 if (!$('#trimestre').val()) {

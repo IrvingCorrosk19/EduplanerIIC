@@ -81,7 +81,7 @@ namespace SchoolManager.Controllers
 
                 if (string.IsNullOrEmpty(filtro.NivelEducativo))
                 {
-                    return Json(new { success = false, message = "Debe seleccionar un nivel educativo" });
+                    return Json(new { success = false, message = "Debe seleccionar un nivel (grado)" });
                 }
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
@@ -248,7 +248,11 @@ namespace SchoolManager.Controllers
                 var niveles = await _aprobadosReprobadosService.ObtenerNivelesFiltroAsync(
                     currentUser.SchoolId.Value, GetTeacherScopeId(currentUser));
 
-                return Json(new { success = true, data = niveles });
+                return Json(new
+                {
+                    success = true,
+                    data = niveles.Select(n => new { id = n.Id, nombre = n.Nombre })
+                });
             }
             catch (Exception ex)
             {
@@ -267,7 +271,7 @@ namespace SchoolManager.Controllers
                     return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela" });
 
                 if (string.IsNullOrWhiteSpace(nivelEducativo))
-                    return Json(new { success = false, message = "Seleccione primero un nivel educativo" });
+                    return Json(new { success = false, message = "Seleccione primero un grado/nivel" });
 
                 var materias = await _aprobadosReprobadosService.ObtenerMateriasFiltroAsync(
                     currentUser.SchoolId.Value, nivelEducativo, GetTeacherScopeId(currentUser));
@@ -291,7 +295,7 @@ namespace SchoolManager.Controllers
                     return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela" });
 
                 if (string.IsNullOrWhiteSpace(nivelEducativo))
-                    return Json(new { success = false, message = "Seleccione primero un nivel educativo" });
+                    return Json(new { success = false, message = "Seleccione primero un grado/nivel" });
 
                 var grupos = await _aprobadosReprobadosService.ObtenerGruposFiltroAsync(
                     currentUser.SchoolId.Value, materiaId, nivelEducativo, GetTeacherScopeId(currentUser));

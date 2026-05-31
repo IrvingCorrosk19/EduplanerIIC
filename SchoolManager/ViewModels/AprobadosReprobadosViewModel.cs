@@ -12,7 +12,7 @@ namespace SchoolManager.ViewModels
         public string ProfesorCoordinador { get; set; } = null!;
         public string Trimestre { get; set; } = null!;
         public string AnoLectivo { get; set; } = null!;
-        public string NivelEducativo { get; set; } = null!; // "Premedia" o "Media"
+        public string NivelEducativo { get; set; } = null!; // Etiqueta del grado (ej. 1°, 9°) o "Todos mis niveles"
         public DateTime FechaGeneracion { get; set; }
         
         public List<GradoEstadisticaDto> Estadisticas { get; set; } = new();
@@ -83,8 +83,8 @@ namespace SchoolManager.ViewModels
         [Required(ErrorMessage = "Debe seleccionar un trimestre")]
         public string Trimestre { get; set; } = null!;
 
-        /// <summary>Premedia, Media o __TODOS__.</summary>
-        [Required(ErrorMessage = "Debe seleccionar un nivel educativo")]
+        /// <summary>Guid del grade_level, o __TODOS__ para todos los grados del alcance.</summary>
+        [Required(ErrorMessage = "Debe seleccionar un nivel (grado)")]
         public string NivelEducativo { get; set; } = null!;
 
         /// <summary>Guid.Empty = todas las materias.</summary>
