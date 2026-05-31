@@ -29,6 +29,7 @@ namespace SchoolManager.Controllers
         private readonly ISubjectAssignmentService _subjectAssignmentService;
         private readonly IDocumentStorageService _documentStorage;
         private readonly ITeacherGradebookPdfService _gradebookPdfService;
+        private readonly ILogger<TeacherGradebookController> _logger;
 
 
         public TeacherGradebookController(
@@ -43,7 +44,8 @@ namespace SchoolManager.Controllers
             ICounselorAssignmentService counselorAssignmentService,
             ISubjectAssignmentService subjectAssignmentService,
             IDocumentStorageService documentStorage,
-            ITeacherGradebookPdfService gradebookPdfService)
+            ITeacherGradebookPdfService gradebookPdfService,
+            ILogger<TeacherGradebookController> logger)
             
         {
             _documentStorage = documentStorage;
@@ -58,6 +60,7 @@ namespace SchoolManager.Controllers
             _counselorAssignmentService = counselorAssignmentService;
             _subjectAssignmentService = subjectAssignmentService;
             _gradebookPdfService = gradebookPdfService;
+            _logger = logger;
             
         }
 
@@ -391,8 +394,10 @@ namespace SchoolManager.Controllers
             {
                 return BadRequest(ex.Message);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Error generando PDF registro calificaciones. GroupId={GroupId}, SubjectId={SubjectId}, GradeLevelId={GradeLevelId}, Trimester={Trimester}",
+                    groupId, subjectId, gradeLevelId, trimester);
                 return StatusCode(500, "Error al generar el PDF del registro de calificaciones.");
             }
         }

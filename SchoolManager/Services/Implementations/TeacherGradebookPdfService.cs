@@ -61,7 +61,14 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
             !model.LogoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
             !model.LogoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
-            logoBytes = await _superAdminService.GetLogoAsync(model.LogoUrl);
+            try
+            {
+                logoBytes = await _superAdminService.GetLogoAsync(model.LogoUrl);
+            }
+            catch
+            {
+                logoBytes = null;
+            }
         }
 
         QuestPDF.Settings.License = LicenseType.Community;
@@ -104,28 +111,12 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
             .GroupBy(a => NormalizeType(a.Type))
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var typeSections = new List<GradebookPdfTypeSectionDto>();
-        foreach (var typeKey in TypeOrder)
-        {
-            if (!activitiesByType.TryGetValue(typeKey, out var acts) || acts.Count == 0)
-                continue;
-
-            typeSections.Add(new GradebookPdfTypeSectionDto
-            {
-                TypeKey = typeKey,
-                TypeLabel = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(typeKey),
-                ShortLabel = TypeShortLabel(typeKey),
-                Activities = acts.Select(a => new GradebookPdfActivityColDto
-                {
-                    Id = a.Id,
-                    Name = a.Name,
-                    DueDateDisplay = a.DueDate?.ToString("dd/MM/yyyy")
-                }).ToList()
-            });
-        }
+        var typeSections = BuildTypeSections(activitiesByType);
 
         var studentRows = new List<GradebookPdfStudentRowDto>();
-        var bookRows = book.Rows.ToDictionary(r => r.StudentId);
+        var bookRows = book.Rows
+            .GroupBy(r => r.StudentId)
+            .ToDictionary(g => g.Key, g => g.First());
 
         var index = 1;
         foreach (var stu in students)
@@ -174,12 +165,48 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
         };
     }
 
+    private static List<GradebookPdfTypeSectionDto> BuildTypeSections(
+        Dictionary<string, List<ActivityHeaderDto>> activitiesByType)
+    {
+        var sections = new List<GradebookPdfTypeSectionDto>();
+        var usedKeys = new HashSet<string>();
+
+        foreach (var typeKey in TypeOrder)
+        {
+            if (!activitiesByType.TryGetValue(typeKey, out var acts) || acts.Count == 0)
+                continue;
+
+            sections.Add(CreateTypeSection(typeKey, acts));
+            usedKeys.Add(typeKey);
+        }
+
+        foreach (var (typeKey, acts) in activitiesByType.OrderBy(k => k.Key))
+        {
+            if (usedKeys.Contains(typeKey) || acts.Count == 0)
+                continue;
+
+            sections.Add(CreateTypeSection(typeKey, acts));
+        }
+
+        return sections;
+    }
+
+    private static GradebookPdfTypeSectionDto CreateTypeSection(string typeKey, List<ActivityHeaderDto> acts) =>
+        new()
+        {
+            TypeKey = typeKey,
+            TypeLabel = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(typeKey),
+            ShortLabel = TypeShortLabel(typeKey),
+            Activities = acts.Select(a => new GradebookPdfActivityColDto
+            {
+                Id = a.Id,
+                Name = a.Name,
+                DueDateDisplay = a.DueDate?.ToString("dd/MM/yyyy")
+            }).ToList()
+        };
+
     private static byte[] BuildPdf(GradebookPdfDto model, byte[]? logoBytes)
     {
-        var activityColumns = model.TypeSections.Sum(s => s.Activities.Count);
-        var promColumns = model.TypeSections.Count;
-        var totalDataCols = activityColumns + promColumns + 1;
-
         return Document.Create(container =>
         {
             container.Page(page =>
@@ -205,10 +232,19 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
         {
             col.Item().Row(row =>
             {
-                if (logoBytes != null)
-                    row.ConstantItem(52).Height(52).Image(logoBytes);
+                if (logoBytes is { Length: > 0 })
+                {
+                    try
+                    {
+                        row.ConstantItem(52).Height(52).Image(logoBytes);
+                    }
+                    catch
+                    {
+                        logoBytes = null;
+                    }
+                }
 
-                row.RelativeItem().PaddingLeft(logoBytes != null ? 12 : 0).Column(c =>
+                row.RelativeItem().PaddingLeft(logoBytes is { Length: > 0 } ? 12 : 0).Column(c =>
                 {
                     c.Item().Text("REGISTRO DE CALIFICACIONES")
                         .FontSize(18).Bold().FontColor(PdfColorPrimary);
@@ -246,7 +282,7 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
                             .Text($"{section.ShortLabel} = {section.TypeLabel}")
                             .FontSize(7).FontColor(Colors.White);
                     }
-                    r.AutoItem().PaddingLeft(8).Text("Aprobado ≥ 3.0")
+                    r.AutoItem().PaddingLeft(8).Text("Aprobado >= 3.0")
                         .FontSize(7).FontColor(PdfColorApproved);
                 });
             }
@@ -290,47 +326,39 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
                 foreach (var section in model.TypeSections)
                 {
                     foreach (var _ in section.Activities)
-                        def.ConstantColumn(34);
-                    def.ConstantColumn(30);
+                        def.ConstantColumn(32);
+                    def.ConstantColumn(28);
                 }
-                def.ConstantColumn(38);
+                def.ConstantColumn(36);
             });
 
             table.Header(header =>
             {
-                header.Cell().ColumnSpan(3).Background(PdfColorPrimaryDark).Padding(4)
-                    .AlignMiddle().Text("Estudiante").FontSize(8).Bold().FontColor(Colors.White);
+                header.Cell().Background(PdfColorPrimaryDark).Padding(3)
+                    .AlignCenter().Text("#").FontSize(7).Bold().FontColor(Colors.White);
+                header.Cell().Background(PdfColorPrimaryDark).Padding(3)
+                    .Text("Nombre").FontSize(7).Bold().FontColor(Colors.White);
+                header.Cell().Background(PdfColorPrimaryDark).Padding(3)
+                    .Text("Cedula").FontSize(7).Bold().FontColor(Colors.White);
 
                 foreach (var section in model.TypeSections)
                 {
-                    var span = section.Activities.Count + 1;
-                    header.Cell().ColumnSpan((uint)span).Background(PdfColorPrimary).Padding(4)
-                        .AlignCenter().Text(section.TypeLabel).FontSize(7).Bold().FontColor(Colors.White);
-                }
-
-                header.Cell().Background(PdfColorPrimaryDark).Padding(4)
-                    .AlignCenter().Text("Nota\nfinal").FontSize(7).Bold().FontColor(Colors.White);
-
-                header.Cell().Background(Colors.Grey.Lighten2).Padding(3)
-                    .Text("#").FontSize(7).Bold();
-                header.Cell().Background(Colors.Grey.Lighten2).Padding(3)
-                    .Text("Nombre").FontSize(7).Bold();
-                header.Cell().Background(Colors.Grey.Lighten2).Padding(3)
-                    .Text("Cédula").FontSize(7).Bold();
-
-                foreach (var section in model.TypeSections)
-                {
+                    var sectionColor = SectionHeaderColor(section.TypeKey);
                     foreach (var act in section.Activities)
                     {
-                        header.Cell().Background(Colors.Grey.Lighten3).Padding(2)
-                            .AlignCenter().Text(act.Name).FontSize(6);
+                        header.Cell().Background(sectionColor).Padding(2).AlignCenter().Column(c =>
+                        {
+                            c.Item().Text(section.ShortLabel).FontSize(5).FontColor(Colors.White);
+                            c.Item().Text(TruncateText(act.Name, 22)).FontSize(6).Bold().FontColor(Colors.White);
+                        });
                     }
-                    header.Cell().Background(Colors.Grey.Lighten2).Padding(2)
-                        .AlignCenter().Text($"Prom.\n{section.ShortLabel}").FontSize(6).Bold();
+
+                    header.Cell().Background(PdfColorPrimary).Padding(2).AlignCenter()
+                        .Text($"Prom.\n{section.ShortLabel}").FontSize(6).Bold().FontColor(Colors.White);
                 }
 
-                header.Cell().Background(Colors.Grey.Lighten2).Padding(2)
-                    .AlignCenter().Text("Final").FontSize(7).Bold();
+                header.Cell().Background(PdfColorPrimaryDark).Padding(3).AlignCenter()
+                    .Text("Nota\nfinal").FontSize(7).Bold().FontColor(Colors.White);
             });
 
             var rowIndex = 0;
@@ -341,14 +369,14 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
 
                 table.Cell().Background(bg).Padding(3).AlignCenter().Text(student.Number.ToString()).FontSize(7);
                 table.Cell().Background(bg).Padding(3).Text(student.Name).FontSize(7);
-                table.Cell().Background(bg).Padding(3).Text(string.IsNullOrWhiteSpace(student.DocumentId) ? "—" : student.DocumentId).FontSize(7);
+                table.Cell().Background(bg).Padding(3).Text(string.IsNullOrWhiteSpace(student.DocumentId) ? "-" : student.DocumentId).FontSize(7);
 
                 foreach (var section in model.TypeSections)
                 {
                     foreach (var act in section.Activities)
                     {
                         student.ScoresByActivityId.TryGetValue(act.Id, out var score);
-                        var display = score.HasValue && score.Value > 0 ? score.Value.ToString("0.0") : "—";
+                        var display = score.HasValue && score.Value > 0 ? score.Value.ToString("0.0") : "-";
                         table.Cell().Background(bg).Padding(2).AlignCenter().Text(display).FontSize(7);
                     }
 
@@ -382,6 +410,23 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
                 t.TotalPages().FontSize(7).FontColor(PdfColorMuted);
             });
         });
+    }
+
+    private static string SectionHeaderColor(string typeKey) => typeKey switch
+    {
+        "notas de apreciación" => "#3b82f6",
+        "ejercicios diarios" => "#2563eb",
+        "examen final" => "#1d4ed8",
+        "recuperación" => "#1e3a8a",
+        _ => PdfColorPrimary
+    };
+
+    private static string TruncateText(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "-";
+
+        return value.Length <= maxLength ? value : value[..maxLength] + "...";
     }
 
     private static string NormalizeType(string? type) => (type ?? "").Trim().ToLowerInvariant();
