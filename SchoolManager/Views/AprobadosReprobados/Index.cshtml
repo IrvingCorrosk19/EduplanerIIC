@@ -6,6 +6,7 @@
     var esDocente = ViewBag.EsDocente as bool? == true;
     var textoTodasMaterias = esDocente ? "Todas mis materias" : "Todas las materias";
     var textoTodosGrupos = esDocente ? "Todos mis grupos" : "Todos los grupos";
+    var textoTodosNiveles = esDocente ? "Todos mis niveles" : "Todos los niveles";
 }
 
 <div class="container-fluid py-4">
@@ -17,7 +18,7 @@
             <p class="text-muted">
                 @if (esDocente)
                 {
-                    <text>Solo verá <strong>sus asignaciones</strong> (las mismas del portal de notas). Puede elegir todos sus trimestres, materias o grupos en un solo reporte.</text>
+                    <text>Solo verá <strong>sus asignaciones</strong> (las mismas del portal de notas). Elija nivel, trimestre, materia y grupo; puede usar <strong>Todos</strong> en cada filtro dentro de su alcance.</text>
                 }
                 else
                 {
@@ -43,7 +44,17 @@
             <form id="filtro-form">
                 @Html.AntiForgeryToken()
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-6 col-lg-3">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Nivel:</strong> <span class="text-danger">*</span></label>
+                            <select class="form-select" id="nivelEducativo" name="NivelEducativo" required>
+                                <option value="">-- Seleccione un nivel --</option>
+                            </select>
+                            <small class="text-muted">Premedia (7°–9°) o Media (10°–12°) según sus asignaciones.</small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-lg-3">
                         <div class="mb-3">
                             <label class="form-label"><strong>Trimestre:</strong> <span class="text-danger">*</span></label>
                             <select class="form-select" id="trimestre" name="Trimestre" required>
@@ -60,16 +71,16 @@
                         </div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-6 col-lg-3">
                         <div class="mb-3">
                             <label class="form-label"><strong>Materia:</strong> <span class="text-danger">*</span></label>
-                            <select class="form-select" id="materiaId" name="MateriaId" required>
-                                <option value="">-- Seleccione una materia --</option>
+                            <select class="form-select" id="materiaId" name="MateriaId" required disabled>
+                                <option value="">-- Seleccione primero el nivel --</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-6 col-lg-3">
                         <div class="mb-3">
                             <label class="form-label"><strong>Grupo:</strong> <span class="text-danger">*</span></label>
                             <select class="form-select" id="grupoCombo" required disabled>
@@ -77,7 +88,7 @@
                             </select>
                             <input type="hidden" id="groupId" name="GroupId" />
                             <input type="hidden" id="gradeLevelId" name="GradeLevelId" />
-                            <small class="text-muted">Formato: nivel académico + nombre (ej. 9 G), como en registro de notas.</small>
+                            <small class="text-muted">Formato: nivel académico + nombre (ej. 9 G).</small>
                         </div>
                     </div>
                 </div>
@@ -124,19 +135,47 @@
             const GUID_VACIO = '00000000-0000-0000-0000-000000000000';
             const TEXTO_TODAS_MATERIAS = '@textoTodasMaterias';
             const TEXTO_TODOS_GRUPOS = '@textoTodosGrupos';
+            const TEXTO_TODOS_NIVELES = '@textoTodosNiveles';
 
-            cargarMaterias();
+            cargarNiveles();
 
-            function cargarMaterias() {
-                $.get('@Url.Action("ObtenerMateriasFiltro", "AprobadosReprobados")')
+            function cargarNiveles() {
+                $.get('@Url.Action("ObtenerNivelesFiltro", "AprobadosReprobados")')
                     .done(function (response) {
-                        const select = $('#materiaId');
+                        const select = $('#nivelEducativo');
+                        select.html('<option value="">-- Seleccione un nivel --</option>');
+                        select.append(`<option value="${TODOS}">${TEXTO_TODOS_NIVELES}</option>`);
+                        if (response.success && response.data) {
+                            response.data.forEach(function (n) {
+                                select.append(`<option value="${n}">${n}</option>`);
+                            });
+                        }
+                    });
+            }
+
+            function resetMateriaYGrupo() {
+                $('#materiaId').prop('disabled', true)
+                    .html('<option value="">-- Seleccione primero el nivel --</option>');
+                $('#grupoCombo').prop('disabled', true)
+                    .html('<option value="">-- Seleccione primero la materia --</option>');
+                $('#groupId, #gradeLevelId').val('');
+            }
+
+            function cargarMaterias(nivelEducativo) {
+                const select = $('#materiaId');
+                select.prop('disabled', true).html('<option value="">Cargando materias...</option>');
+
+                $.get('@Url.Action("ObtenerMateriasFiltro", "AprobadosReprobados")', { nivelEducativo: nivelEducativo })
+                    .done(function (response) {
                         select.html('<option value="">-- Seleccione una materia --</option>');
                         select.append(`<option value="${GUID_VACIO}">${TEXTO_TODAS_MATERIAS}</option>`);
                         if (response.success && response.data) {
                             response.data.forEach(function (m) {
                                 select.append(`<option value="${m.id}">${m.nombre}</option>`);
                             });
+                            select.prop('disabled', false);
+                        } else {
+                            select.html('<option value="">Sin materias para este nivel</option>');
                         }
                     });
             }
@@ -147,9 +186,17 @@
 
             function cargarGrupos(materiaId) {
                 const grupoSelect = $('#grupoCombo');
+                const nivelEducativo = $('#nivelEducativo').val();
                 const idConsulta = esTodasMaterias(materiaId) ? GUID_VACIO : materiaId;
 
-                $.get('@Url.Action("ObtenerGruposFiltro", "AprobadosReprobados")', { materiaId: idConsulta })
+                if (!nivelEducativo) return;
+
+                grupoSelect.prop('disabled', true).html('<option value="">Cargando grupos...</option>');
+
+                $.get('@Url.Action("ObtenerGruposFiltro", "AprobadosReprobados")', {
+                    materiaId: idConsulta,
+                    nivelEducativo: nivelEducativo
+                })
                     .done(function (response) {
                         grupoSelect.html(`<option value="${TODOS}">${TEXTO_TODOS_GRUPOS}</option>`);
                         if (response.success && response.data) {
@@ -161,6 +208,8 @@
                                 grupoSelect.append(`<option value="${val}">${g.nombre}</option>`);
                             });
                             grupoSelect.prop('disabled', false);
+                        } else {
+                            grupoSelect.html('<option value="">Sin grupos para este filtro</option>');
                         }
                     });
             }
@@ -200,6 +249,13 @@
                 return { groupId: parts[0], gradeLevelId: parts[1] };
             }
 
+            $('#nivelEducativo').change(function () {
+                resetMateriaYGrupo();
+                const nivel = $(this).val();
+                if (!nivel) return;
+                cargarMaterias(nivel);
+            });
+
             $('#materiaId').change(function () {
                 const materiaId = $(this).val();
                 const grupoSelect = $('#grupoCombo');
@@ -221,8 +277,14 @@
                 e.preventDefault();
 
                 const trimestre = $('#trimestre').val();
+                const nivelEducativo = $('#nivelEducativo').val();
                 const materiaId = resolverMateriaIdParaEnvio();
                 const idsGrupo = resolverIdsGrupoParaEnvio();
+
+                if (!nivelEducativo) {
+                    Swal.fire('Error', 'Seleccione un nivel educativo o "Todos mis niveles"', 'error');
+                    return;
+                }
 
                 if (!trimestre) {
                     Swal.fire('Error', 'Seleccione un trimestre o "Todos los trimestres"', 'error');
@@ -251,6 +313,7 @@
                     timeout: 90000,
                     data: {
                         Trimestre: trimestre,
+                        NivelEducativo: nivelEducativo,
                         MateriaId: materiaId,
                         GroupId: idsGrupo.groupId,
                         GradeLevelId: idsGrupo.gradeLevelId,
@@ -274,24 +337,29 @@
 
             $('#btn-limpiar').click(function () {
                 $('#filtro-form')[0].reset();
-                $('#grupoCombo').prop('disabled', true).html('<option value="">-- Seleccione primero la materia --</option>');
-                $('#groupId, #gradeLevelId').val('');
+                resetMateriaYGrupo();
                 $('#reporte-container').slideUp();
-                cargarMaterias();
+                cargarNiveles();
             });
 
             function buildExportUrl(action) {
                 const trimestre = $('#trimestre').val();
+                const nivelEducativo = $('#nivelEducativo').val();
                 const materiaId = resolverMateriaIdParaEnvio();
                 const idsGrupo = resolverIdsGrupoParaEnvio();
                 return action +
                     '?trimestre=' + encodeURIComponent(trimestre) +
+                    '&nivelEducativo=' + encodeURIComponent(nivelEducativo) +
                     '&materiaId=' + encodeURIComponent(materiaId) +
                     '&groupId=' + encodeURIComponent(idsGrupo.groupId) +
                     '&gradeLevelId=' + encodeURIComponent(idsGrupo.gradeLevelId);
             }
 
             function validarFiltrosExportacion() {
+                if (!$('#nivelEducativo').val()) {
+                    Swal.fire('Aviso', 'Seleccione nivel (o todos).', 'warning');
+                    return false;
+                }
                 if (!$('#trimestre').val()) {
                     Swal.fire('Aviso', 'Seleccione trimestre (o todos).', 'warning');
                     return false;

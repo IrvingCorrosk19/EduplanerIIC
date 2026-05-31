@@ -41,7 +41,7 @@ namespace SchoolManager.Controllers
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
                 {
-                    TempData["Error"] = "No se pudo obtener la información de la escuela.";
+                    TempData["Error"] = "No se pudo obtener la informaci?n de la escuela.";
                     return RedirectToAction("Index", "Home");
                 }
 
@@ -53,8 +53,8 @@ namespace SchoolManager.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error cargando página de reportes");
-                TempData["Error"] = "Error al cargar la página.";
+                _logger.LogError(ex, "Error cargando p?gina de reportes");
+                TempData["Error"] = "Error al cargar la p?gina.";
                 return RedirectToAction("Index", "Home");
             }
         }
@@ -66,7 +66,7 @@ namespace SchoolManager.Controllers
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                    return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
+                    return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela" });
 
                 if (!ModelState.IsValid)
                 {
@@ -79,9 +79,15 @@ namespace SchoolManager.Controllers
                     return Json(new { success = false, message = "Debe seleccionar un trimestre (o todos los trimestres)" });
                 }
 
+                if (string.IsNullOrEmpty(filtro.NivelEducativo))
+                {
+                    return Json(new { success = false, message = "Debe seleccionar un nivel educativo" });
+                }
+
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     filtro.Trimestre,
+                    filtro.NivelEducativo,
                     filtro.MateriaId,
                     filtro.GroupId,
                     filtro.GradeLevelId,
@@ -109,7 +115,7 @@ namespace SchoolManager.Controllers
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                    return Json(new { success = false, message = "No se pudo obtener la información de la escuela." });
+                    return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela." });
 
                 var (success, message) = await _aprobadosReprobadosService.PrepararDatosParaReporteAsync(currentUser.SchoolId.Value);
                 return Json(new { success, message });
@@ -123,20 +129,21 @@ namespace SchoolManager.Controllers
 
         [HttpGet]
         public async Task<IActionResult> VistaPrevia(
-            string trimestre, Guid materiaId, Guid groupId, Guid gradeLevelId)
+            string trimestre, string nivelEducativo, Guid materiaId, Guid groupId, Guid gradeLevelId)
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
                 {
-                    TempData["Error"] = "No se pudo obtener la información de la escuela.";
+                    TempData["Error"] = "No se pudo obtener la informaci?n de la escuela.";
                     return RedirectToAction("Index");
                 }
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     trimestre,
+                    nivelEducativo,
                     materiaId,
                     groupId,
                     gradeLevelId,
@@ -155,17 +162,18 @@ namespace SchoolManager.Controllers
 
         [HttpGet]
         public async Task<IActionResult> ExportarPdf(
-            string trimestre, Guid materiaId, Guid groupId, Guid gradeLevelId)
+            string trimestre, string nivelEducativo, Guid materiaId, Guid groupId, Guid gradeLevelId)
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                    return BadRequest("No se pudo obtener la información de la escuela");
+                    return BadRequest("No se pudo obtener la informaci?n de la escuela");
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     trimestre,
+                    nivelEducativo,
                     materiaId,
                     groupId,
                     gradeLevelId,
@@ -192,17 +200,18 @@ namespace SchoolManager.Controllers
 
         [HttpGet]
         public async Task<IActionResult> ExportarExcel(
-            string trimestre, Guid materiaId, Guid groupId, Guid gradeLevelId)
+            string trimestre, string nivelEducativo, Guid materiaId, Guid groupId, Guid gradeLevelId)
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                    return BadRequest("No se pudo obtener la información de la escuela");
+                    return BadRequest("No se pudo obtener la informaci?n de la escuela");
 
                 var reporte = await _aprobadosReprobadosService.GenerarReporteAsync(
                     currentUser.SchoolId.Value,
                     trimestre,
+                    nivelEducativo,
                     materiaId,
                     groupId,
                     gradeLevelId,
@@ -216,7 +225,7 @@ namespace SchoolManager.Controllers
             }
             catch (NotImplementedException)
             {
-                TempData["Error"] = "La exportación a Excel aún no está disponible.";
+                TempData["Error"] = "La exportaci?n a Excel a?n no est? disponible.";
                 return RedirectToAction("Index");
             }
             catch (Exception ex)
@@ -228,16 +237,40 @@ namespace SchoolManager.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ObtenerMateriasFiltro()
+        public async Task<IActionResult> ObtenerNivelesFiltro()
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                    return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
+                    return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela" });
+
+                var niveles = await _aprobadosReprobadosService.ObtenerNivelesFiltroAsync(
+                    currentUser.SchoolId.Value, GetTeacherScopeId(currentUser));
+
+                return Json(new { success = true, data = niveles });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo niveles filtro");
+                return Json(new { success = false, message = "Error al obtener niveles" });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ObtenerMateriasFiltro(string? nivelEducativo)
+        {
+            try
+            {
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                if (currentUser?.SchoolId == null)
+                    return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela" });
+
+                if (string.IsNullOrWhiteSpace(nivelEducativo))
+                    return Json(new { success = false, message = "Seleccione primero un nivel educativo" });
 
                 var materias = await _aprobadosReprobadosService.ObtenerMateriasFiltroAsync(
-                    currentUser.SchoolId.Value, GetTeacherScopeId(currentUser));
+                    currentUser.SchoolId.Value, nivelEducativo, GetTeacherScopeId(currentUser));
 
                 return Json(new { success = true, data = materias.Select(m => new { id = m.Id, nombre = m.Nombre }) });
             }
@@ -249,16 +282,19 @@ namespace SchoolManager.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ObtenerGruposFiltro(Guid materiaId)
+        public async Task<IActionResult> ObtenerGruposFiltro(Guid materiaId, string? nivelEducativo)
         {
             try
             {
                 var currentUser = await _currentUserService.GetCurrentUserAsync();
                 if (currentUser?.SchoolId == null)
-                    return Json(new { success = false, message = "No se pudo obtener la información de la escuela" });
+                    return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela" });
+
+                if (string.IsNullOrWhiteSpace(nivelEducativo))
+                    return Json(new { success = false, message = "Seleccione primero un nivel educativo" });
 
                 var grupos = await _aprobadosReprobadosService.ObtenerGruposFiltroAsync(
-                    currentUser.SchoolId.Value, materiaId, GetTeacherScopeId(currentUser));
+                    currentUser.SchoolId.Value, materiaId, nivelEducativo, GetTeacherScopeId(currentUser));
 
                 return Json(new
                 {

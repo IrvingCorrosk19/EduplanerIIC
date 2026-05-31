@@ -6,6 +6,8 @@ using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
 
+using System.Text.RegularExpressions;
+
 namespace SchoolManager.Services.Implementations
 {
     public class AprobadosReprobadosService : IAprobadosReprobadosService
@@ -28,17 +30,22 @@ namespace SchoolManager.Services.Implementations
         public async Task<AprobadosReprobadosReportViewModel> GenerarReporteAsync(
             Guid schoolId,
             string trimestre,
+            string nivelEducativo,
             Guid materiaId,
             Guid groupId,
             Guid gradeLevelId,
             Guid? teacherScopeId = null)
         {
+            if (string.IsNullOrWhiteSpace(nivelEducativo))
+                throw new ArgumentException("Debe seleccionar un nivel educativo.");
+
             var todasMaterias = AprobadosReprobadosFiltroValores.EsTodos(materiaId);
             var todosGrupos = AprobadosReprobadosFiltroValores.EsTodos(groupId);
             var todosTrimestres = AprobadosReprobadosFiltroValores.EsTodos(trimestre);
+            var todosNiveles = AprobadosReprobadosFiltroValores.EsTodos(nivelEducativo);
 
             var asignaciones = await ResolverAsignacionesFiltroAsync(
-                schoolId, materiaId, groupId, gradeLevelId, teacherScopeId);
+                schoolId, nivelEducativo, materiaId, groupId, gradeLevelId, teacherScopeId);
 
             if (asignaciones.Count == 0)
                 throw new UnauthorizedAccessException("No hay asignaciones disponibles para los filtros seleccionados.");
@@ -100,8 +107,11 @@ namespace SchoolManager.Services.Implementations
             var etiquetaTrimestre = todosTrimestres
                 ? "Todos los trimestres"
                 : trimestre;
+            var etiquetaNivel = todosNiveles
+                ? (teacherScopeId.HasValue ? "Todos mis niveles" : "Todos los niveles")
+                : NormalizarNombreNivel(nivelEducativo);
             var etiquetaFiltro = ConstruirEtiquetaFiltro(
-                etiquetaTrimestre, todasMaterias, todosGrupos, asignaciones, teacherScopeId);
+                etiquetaTrimestre, etiquetaNivel, todasMaterias, todosGrupos, asignaciones, teacherScopeId);
 
             return new AprobadosReprobadosReportViewModel
             {
@@ -128,9 +138,28 @@ namespace SchoolManager.Services.Implementations
                 .ToListAsync();
         }
 
-        public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasFiltroAsync(Guid schoolId, Guid? teacherScopeId = null)
+        public async Task<List<string>> ObtenerNivelesFiltroAsync(Guid schoolId, Guid? teacherScopeId = null)
         {
             var rows = await CargarAsignacionesAsync(schoolId, teacherScopeId);
+            var niveles = rows
+                .Select(r => ResolverNivelParaAsignacion(r.GroupGrade, r.GradeLevelName))
+                .Where(n => n != null)
+                .Select(n => n!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => string.Equals(n, "Premedia", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!teacherScopeId.HasValue)
+                return niveles.Count > 0 ? niveles : new List<string> { "Premedia", "Media" };
+
+            return niveles;
+        }
+
+        public async Task<List<(Guid Id, string Nombre)>> ObtenerMateriasFiltroAsync(
+            Guid schoolId, string? nivelEducativo = null, Guid? teacherScopeId = null)
+        {
+            var rows = FiltrarPorNivel(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
             return rows
                 .GroupBy(r => r.SubjectId)
                 .Select(g => (g.Key, g.First().SubjectName))
@@ -139,9 +168,9 @@ namespace SchoolManager.Services.Implementations
         }
 
         public async Task<List<AprobadosReprobadosGrupoFiltroDto>> ObtenerGruposFiltroAsync(
-            Guid schoolId, Guid materiaId, Guid? teacherScopeId = null)
+            Guid schoolId, Guid materiaId, string? nivelEducativo = null, Guid? teacherScopeId = null)
         {
-            var rows = await CargarAsignacionesAsync(schoolId, teacherScopeId);
+            var rows = FiltrarPorNivel(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
             var todasMaterias = AprobadosReprobadosFiltroValores.EsTodos(materiaId);
 
             var filtered = todasMaterias
@@ -171,12 +200,13 @@ namespace SchoolManager.Services.Implementations
 
         private async Task<List<AprobadosReprobadosAsignacionRow>> ResolverAsignacionesFiltroAsync(
             Guid schoolId,
+            string nivelEducativo,
             Guid materiaId,
             Guid groupId,
             Guid gradeLevelId,
             Guid? teacherScopeId)
         {
-            var rows = await CargarAsignacionesAsync(schoolId, teacherScopeId);
+            var rows = FiltrarPorNivel(await CargarAsignacionesAsync(schoolId, teacherScopeId), nivelEducativo);
             IEnumerable<AprobadosReprobadosAsignacionRow> query = rows;
 
             if (!AprobadosReprobadosFiltroValores.EsTodos(materiaId))
@@ -202,15 +232,16 @@ namespace SchoolManager.Services.Implementations
 
         private static string ConstruirEtiquetaFiltro(
             string trimestreEtiqueta,
+            string nivelEtiqueta,
             bool todasMaterias,
             bool todosGrupos,
             List<AprobadosReprobadosAsignacionRow> asignaciones,
             Guid? teacherScopeId)
         {
             if (asignaciones.Count == 1)
-                return $"{asignaciones[0].SubjectName} — {asignaciones[0].GradeLevelName} {asignaciones[0].GroupName}";
+                return $"{nivelEtiqueta} · {asignaciones[0].SubjectName} — {asignaciones[0].GradeLevelName} {asignaciones[0].GroupName}";
 
-            var partes = new List<string> { trimestreEtiqueta };
+            var partes = new List<string> { trimestreEtiqueta, nivelEtiqueta };
             if (todasMaterias)
                 partes.Add(teacherScopeId.HasValue ? "Todas mis materias" : "Todas las materias");
             else
@@ -222,6 +253,49 @@ namespace SchoolManager.Services.Implementations
                 partes.Add($"{asignaciones[0].GradeLevelName} {asignaciones[0].GroupName}");
 
             return string.Join(" · ", partes);
+        }
+
+        private static List<AprobadosReprobadosAsignacionRow> FiltrarPorNivel(
+            List<AprobadosReprobadosAsignacionRow> rows,
+            string? nivelEducativo)
+        {
+            if (AprobadosReprobadosFiltroValores.EsTodos(nivelEducativo))
+                return rows;
+
+            return rows
+                .Where(r => string.Equals(
+                    ResolverNivelParaAsignacion(r.GroupGrade, r.GradeLevelName),
+                    nivelEducativo,
+                    StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        private static string NormalizarNombreNivel(string nivel) =>
+            string.Equals(nivel, "premedia", StringComparison.OrdinalIgnoreCase) ? "Premedia"
+            : string.Equals(nivel, "media", StringComparison.OrdinalIgnoreCase) ? "Media"
+            : nivel;
+
+        private static int? ExtractGradeNumber(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+            var match = Regex.Match(name, @"(\d+)");
+            return match.Success && int.TryParse(match.Value, out var n) ? n : null;
+        }
+
+        private static string? ResolverNivelParaAsignacion(string? groupGrade, string? gradeLevelName)
+        {
+            if (!string.IsNullOrWhiteSpace(groupGrade))
+            {
+                var g = groupGrade.Trim();
+                if (g is "7°" or "8°" or "9°") return "Premedia";
+                if (g is "10°" or "11°" or "12°") return "Media";
+            }
+
+            var nivelAcademico = ExtractGradeNumber(gradeLevelName);
+            if (nivelAcademico is >= 7 and <= 9) return "Premedia";
+            if (nivelAcademico is >= 10 and <= 12) return "Media";
+            return null;
         }
 
         /// <summary>

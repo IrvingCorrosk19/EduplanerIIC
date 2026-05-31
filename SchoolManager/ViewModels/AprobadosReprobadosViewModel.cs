@@ -83,6 +83,10 @@ namespace SchoolManager.ViewModels
         [Required(ErrorMessage = "Debe seleccionar un trimestre")]
         public string Trimestre { get; set; } = null!;
 
+        /// <summary>Premedia, Media o __TODOS__.</summary>
+        [Required(ErrorMessage = "Debe seleccionar un nivel educativo")]
+        public string NivelEducativo { get; set; } = null!;
+
         /// <summary>Guid.Empty = todas las materias.</summary>
         public Guid MateriaId { get; set; }
 
