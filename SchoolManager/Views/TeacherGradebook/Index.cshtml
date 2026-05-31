@@ -340,6 +340,31 @@
         border-radius: 1rem 1rem 0 0 !important;
     }
 
+    .btn-export-pdf {
+        background: #ffffff;
+        color: #dc2626;
+        border: 2px solid #ffffff;
+        font-weight: 600;
+        padding: 0.45rem 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+        transition: all 0.2s ease;
+    }
+
+    .btn-export-pdf:hover,
+    .btn-export-pdf:focus {
+        background: #fef2f2;
+        color: #b91c1c;
+        border-color: #fecaca;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+        transform: translateY(-1px);
+    }
+
+    .btn-export-pdf .bi {
+        font-size: 1.05rem;
+        vertical-align: -0.1em;
+    }
+
     .card-body {
         padding: 1.5rem;
     }
@@ -834,10 +859,10 @@
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-journal-check text-success fs-4"></i>
+                        <i class="bi bi-journal-check fs-4"></i>
                         <h5 class="mb-0">Registro de Calificaciones</h5>
                     </div>
-                    <button type="button" id="btnExportRegistroPdf" class="btn btn-outline-danger btn-sm shadow-sm" title="Imprimir registro en PDF">
+                    <button type="button" id="btnExportRegistroPdf" class="btn btn-export-pdf btn-sm" title="Imprimir registro en PDF">
                         <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir PDF
                     </button>
                 </div>
