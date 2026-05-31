@@ -28,6 +28,7 @@ namespace SchoolManager.Controllers
         private readonly ICounselorAssignmentService _counselorAssignmentService;
         private readonly ISubjectAssignmentService _subjectAssignmentService;
         private readonly IDocumentStorageService _documentStorage;
+        private readonly ITeacherGradebookPdfService _gradebookPdfService;
 
 
         public TeacherGradebookController(
@@ -41,7 +42,8 @@ namespace SchoolManager.Controllers
             IAttendanceService attendanceService,
             ICounselorAssignmentService counselorAssignmentService,
             ISubjectAssignmentService subjectAssignmentService,
-            IDocumentStorageService documentStorage)
+            IDocumentStorageService documentStorage,
+            ITeacherGradebookPdfService gradebookPdfService)
             
         {
             _documentStorage = documentStorage;
@@ -55,6 +57,7 @@ namespace SchoolManager.Controllers
             _attendanceService = attendanceService;
             _counselorAssignmentService = counselorAssignmentService;
             _subjectAssignmentService = subjectAssignmentService;
+            _gradebookPdfService = gradebookPdfService;
             
         }
 
@@ -366,6 +369,32 @@ namespace SchoolManager.Controllers
             var teacherId = GetTeacherId();
             var book = await _scoreSvc.GetGradeBookAsync(teacherId, groupId, trimester, subjectId, gradeLevelId);
             return Json(book);
+        }
+
+        // GET: /TeacherGradebook/ExportRegistroPdf?groupId=...&trimester=...&subjectId=...&gradeLevelId=...
+        [HttpGet]
+        public async Task<IActionResult> ExportRegistroPdf(Guid groupId, string trimester, Guid subjectId, Guid gradeLevelId)
+        {
+            try
+            {
+                var teacherId = GetTeacherId();
+                var pdfBytes = await _gradebookPdfService.GenerateRegistroPdfAsync(
+                    teacherId, groupId, trimester, subjectId, gradeLevelId);
+
+                var safeTrim = string.IsNullOrWhiteSpace(trimester)
+                    ? "Trimestre"
+                    : new string(trimester.Where(c => !Path.GetInvalidFileNameChars().Contains(c)).ToArray());
+
+                return File(pdfBytes, "application/pdf", $"Registro_Calificaciones_{safeTrim}.pdf");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Error al generar el PDF del registro de calificaciones.");
+            }
         }
 
 
