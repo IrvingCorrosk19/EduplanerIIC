@@ -17,12 +17,15 @@ using System.Text.Json.Serialization;
 using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using OfficeOpenXml;
 using SchoolManager.Repositories.Implementations;
 using SchoolManager.Repositories.Interfaces;
 using SchoolManager.Services.Background;
 using SchoolManager.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+ExcelPackage.License.SetNonCommercialOrganization("EduplanerIIC-SchoolManager");
 
 // Render / docs de Cloudinary suelen usar CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.
 // También vale Cloudinary__CloudName en el entorno. Hay que sobrescribir placeholders de appsettings (TU_… / …AQUI…).
@@ -239,6 +242,7 @@ builder.Services.AddScoped<IStudentProfileService, StudentProfileService>();
 builder.Services.AddScoped<IStaffInstitutionalProfileService, StaffInstitutionalProfileService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IAprobadosReprobadosService, AprobadosReprobadosService>();
+builder.Services.AddScoped<IReportesInstitucionalesService, ReportesInstitucionalesService>();
 builder.Services.AddScoped<IPrematriculationPeriodService, PrematriculationPeriodService>();
 builder.Services.AddScoped<IPrematriculationService, PrematriculationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
