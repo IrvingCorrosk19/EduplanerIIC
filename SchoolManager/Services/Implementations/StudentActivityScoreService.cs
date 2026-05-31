@@ -115,16 +115,16 @@ namespace SchoolManager.Services
 
             var activityIds = headers.Select(h => h.Id).ToList();
 
-            /* 2.2 Estudiantes asignados a ese grupo (StudentAssignments) */
+            /* 2.2 Estudiantes asignados a ese grupo/grado (User.Id, igual que StudentActivityScore) */
             var studentIds = await _context.StudentAssignments
-                .Where(sa => sa.GroupId == groupId)
+                .Where(sa => sa.GroupId == groupId && sa.GradeId == gradeLevelId && sa.IsActive)
                 .Select(sa => sa.StudentId)
                 .Distinct()
                 .ToListAsync();
 
-            var students = await _context.Students
-                .Where(s => studentIds.Contains(s.Id))
-                .Select(s => new { s.Id, s.Name })
+            var students = await _context.Users
+                .Where(u => studentIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.Name, u.LastName })
                 .ToListAsync();
 
             /* 2.3 Notas existentes */
@@ -146,7 +146,7 @@ namespace SchoolManager.Services
                 return new StudentGradeRowDto
                 {
                     StudentId = stu.Id,
-                    StudentName = stu.Name,
+                    StudentName = $"{stu.LastName}, {stu.Name}".Trim(' ', ','),
                     ScoresByActivity = dict
                 };
             });

@@ -113,16 +113,25 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
 
         var typeSections = BuildTypeSections(activitiesByType);
 
+        var activityIds = book.Activities.Select(a => a.Id).ToList();
+        var scoresByStudentId = activityIds.Count == 0
+            ? new Dictionary<Guid, Dictionary<Guid, decimal?>>()
+            : (await _context.StudentActivityScores
+                .AsNoTracking()
+                .Where(s => activityIds.Contains(s.ActivityId))
+                .ToListAsync())
+                .GroupBy(s => s.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.ToDictionary(x => x.ActivityId, x => x.Score));
+
         var studentRows = new List<GradebookPdfStudentRowDto>();
-        var bookRows = book.Rows
-            .GroupBy(r => r.StudentId)
-            .ToDictionary(g => g.Key, g => g.First());
 
         var index = 1;
         foreach (var stu in students)
         {
-            bookRows.TryGetValue(stu.StudentId, out var gradeRow);
-            var scores = gradeRow?.ScoresByActivity ?? new Dictionary<Guid, decimal?>();
+            scoresByStudentId.TryGetValue(stu.StudentId, out var scores);
+            scores ??= new Dictionary<Guid, decimal?>();
 
             var typeAvgs = new Dictionary<string, decimal>();
             foreach (var section in typeSections)
@@ -393,7 +402,7 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
                     foreach (var act in section.Activities)
                     {
                         student.ScoresByActivityId.TryGetValue(act.Id, out var score);
-                        var display = score.HasValue && score.Value > 0 ? score.Value.ToString("0.0") : "-";
+                        var display = score.HasValue ? score.Value.ToString("0.0") : "-";
                         table.Cell().Background(bg).Padding(1).AlignCenter().Text(display).FontSize(fontSize);
                     }
 
