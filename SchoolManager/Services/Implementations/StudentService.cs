@@ -72,7 +72,8 @@ namespace SchoolManager.Services
                                     FullName = $"{student.LastName}, {student.Name}",  // Apellido, Nombre
                                     GradeName = grade.Name,
                                     GroupName = grupo.Name,
-                                    DocumentId = student.DocumentId ?? ""
+                                    DocumentId = student.DocumentId ?? "",
+                                    IsInclusive = student.Inclusivo == true
                                 }).ToListAsync();
 
             return result;
@@ -102,7 +103,8 @@ namespace SchoolManager.Services
                                     FullName = $"{student.LastName}, {student.Name}",  // Apellido, Nombre
                                     GradeName = grade.Name,
                                     GroupName = grupo.Name,
-                                    DocumentId = student.DocumentId ?? ""
+                                    DocumentId = student.DocumentId ?? "",
+                                    IsInclusive = student.Inclusivo == true
                                 }).ToListAsync();
 
             return result;

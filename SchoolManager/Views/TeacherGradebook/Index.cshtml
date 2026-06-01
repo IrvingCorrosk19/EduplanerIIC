@@ -25,6 +25,22 @@
         --gb-empty-col: 140px;
     }
 
+    .inclusive-student {
+        font-weight: 600;
+    }
+
+    .inclusive-heart {
+        color: #dc2626;
+        font-size: 0.85em;
+        line-height: 1;
+    }
+
+    @@media print {
+        .inclusive-heart {
+            display: none;
+        }
+    }
+
     /* Scroll horizontal del libro: Estudiante y Cédula siempre visibles */
     .gradebook-table-scroll {
         overflow-x: auto;
@@ -1612,6 +1628,15 @@
             return trimmed || '(Sin nombre)';
         }
 
+        /** Columna Estudiante del libro: corazón solo si users.inclusivo = true */
+        function renderGradebookStudentName(fullName, isInclusive) {
+            const formatted = escapeHtml(formatName(fullName));
+            if (isInclusive) {
+                return `<span class="inclusive-student" title="Estudiante inclusivo"><span class="inclusive-heart" aria-hidden="true">❤️</span> ${formatted}</span>`;
+            }
+            return formatted;
+        }
+
         function escapeAttr(text) {
             if (text == null || text === '') return '';
             return String(text)
@@ -1865,10 +1890,9 @@
 
                 if (students && students.length > 0) {
                     students.forEach(s => {
-                        const formattedName = formatName(s.fullName);
                         const docCell = s.documentId ? escapeHtml(s.documentId) : 'Sin cédula';
 
-                        let row = `<tr data-stu-id="${escapeAttr(String(s.id))}"><td class="gradebook-sticky-name">${escapeHtml(formattedName)}</td><td class="gradebook-sticky-doc" title="${escapeAttr(s.documentId || '')}">${docCell}</td>`;
+                        let row = `<tr data-stu-id="${escapeAttr(String(s.id))}"><td class="gradebook-sticky-name">${renderGradebookStudentName(s.fullName, s.isInclusive)}</td><td class="gradebook-sticky-doc" title="${escapeAttr(s.documentId || '')}">${docCell}</td>`;
 
                         if (hasActivities) {
                             activeTypes.forEach(type => {
@@ -2209,7 +2233,12 @@
                         if (data && Array.isArray(data)) {
                             data.forEach(s => {
                                 if (s.studentId && !ids.has(s.studentId)) {
-                                    students.push({ id: s.studentId, fullName: s.fullName, documentId: s.documentId });
+                                    students.push({
+                                        id: s.studentId,
+                                        fullName: s.fullName,
+                                        documentId: s.documentId,
+                                        isInclusive: s.isInclusive === true
+                                    });
                                     ids.add(s.studentId);
                                 }
                             });
