@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NPOI.HSSF.UserModel;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using SchoolManager.Models;
@@ -11,8 +12,14 @@ namespace SchoolManager.Services.Implementations;
 
 public class ReportesInstitucionalesService : IReportesInstitucionalesService
 {
+    private const int FilaDatosCalificaciones0 = 9;
+    private const int MaxFilasEstudiantesCalificaciones = 75;
+    private const int FilaDatosCarpetas0 = 12;
+    private const int MaxFilasEstudiantesCarpetas = 40;
+
     private readonly SchoolDbContext _context;
     private readonly IAprobadosReprobadosService _aprobadosReprobadosService;
+    private readonly IWebHostEnvironment _environment;
 
     private static readonly string[] ColumnasHabitos =
     {
@@ -23,11 +30,15 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
     public ReportesInstitucionalesService(
         SchoolDbContext context,
-        IAprobadosReprobadosService aprobadosReprobadosService)
+        IAprobadosReprobadosService aprobadosReprobadosService,
+        IWebHostEnvironment environment)
     {
         _context = context;
         _aprobadosReprobadosService = aprobadosReprobadosService;
+        _environment = environment;
     }
+
+    private string ReportesDir => Path.Combine(_environment.ContentRootPath, "Reportes");
 
     public async Task<List<InformeEstudianteFilaDto>> ObtenerEstudiantesGrupoAsync(
         Guid groupId, Guid gradeLevelId, Guid? teacherScopeId, Guid? materiaId = null)
@@ -69,37 +80,66 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, null);
 
         var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
-        var trimestreLabel = AprobadosReprobadosFiltroValores.EsTodos(trimestre) ? "I" : trimestre;
+        var trimestreLabel = FormatearEtiquetaTrimestre(trimestre);
+        var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
+        var anio = DateTime.UtcNow.Year;
 
         using var package = new ExcelPackage();
         var ws = package.Workbook.Worksheets.Add("Hábitos y Actitudes");
+        var ultimaCol = 2 + ColumnasHabitos.Length;
 
+        ws.Cells[1, 1, 1, ultimaCol].Merge = true;
         ws.Cells[1, 1].Value = "MINISTERIO DE EDUCACIÓN";
+        ws.Cells[2, 1, 2, ultimaCol].Merge = true;
         ws.Cells[2, 1].Value = "DIRECCIÓN REGIONAL DE SAN MIGUELITO";
+        ws.Cells[3, 1, 3, ultimaCol].Merge = true;
         ws.Cells[3, 1].Value = school.Name.ToUpperInvariant();
-        ws.Cells[4, 1].Value = $"AÑO LECTIVO {DateTime.UtcNow.Year}";
+        ws.Cells[4, 1, 4, ultimaCol].Merge = true;
+        ws.Cells[4, 1].Value = $"AÑO LECTIVO {anio}";
+
+        ws.Cells[6, 1, 6, ultimaCol - 2].Merge = true;
         ws.Cells[6, 1].Value = "HÁBITOS Y ACTITUDES";
-        ws.Cells[6, 8].Value = $"Trimestre: {trimestreLabel}";
+        ws.Cells[6, ultimaCol - 1, 6, ultimaCol].Merge = true;
+        ws.Cells[6, ultimaCol - 1].Value = trimestreLabel;
+
+        ws.Cells[7, 1, 7, 6].Merge = true;
         ws.Cells[7, 1].Value = $"Profesor(a) Consejero(a): {profesorNombre}";
-        ws.Cells[7, 8].Value = $"Grupo: {gradeLevel?.Name} {grupo.Name}";
+        ws.Cells[7, 7, 7, ultimaCol].Merge = true;
+        ws.Cells[7, 7].Value = $"Grupo: {etiquetaGrupo}";
+
+        ws.Cells[8, 1, 8, ultimaCol].Merge = true;
         ws.Cells[8, 1].Value = "OBSERVACIONES: S = satisfecho, X = no satisfecho, R = regular";
 
-        var headerRow = 10;
+        const int headerRow = 10;
         ws.Cells[headerRow, 1].Value = "N°";
         ws.Cells[headerRow, 2].Value = "NOMBRE DEL ESTUDIANTE";
         for (var i = 0; i < ColumnasHabitos.Length; i++)
             ws.Cells[headerRow, 3 + i].Value = ColumnasHabitos[i];
 
-        var row = headerRow + 1;
-        foreach (var est in estudiantes)
+        var filaFin = headerRow + Math.Max(estudiantes.Count, 35);
+        for (var i = 0; i < estudiantes.Count; i++)
         {
+            var est = estudiantes[i];
+            var row = headerRow + 1 + i;
             ws.Cells[row, 1].Value = est.Numero;
             ws.Cells[row, 2].Value = est.Nombre;
-            row++;
         }
 
-        AplicarEstiloEncabezado(ws, headerRow, 2 + ColumnasHabitos.Length);
-        ws.Cells[ws.Dimension.Address].AutoFitColumns(8, 40);
+        AplicarEstiloCuadroOficial(ws, 1, filaFin, ultimaCol, headerRow);
+        ws.Column(1).Width = 5;
+        ws.Column(2).Width = 38;
+        for (var c = 3; c <= ultimaCol; c++)
+            ws.Column(c).Width = 11;
+
+        var filaPie = filaFin + 2;
+        ws.Cells[filaPie, 1, filaPie, 6].Merge = true;
+        ws.Cells[filaPie, 1].Value = "Profesor(a): _________________________";
+        ws.Cells[filaPie, 7, filaPie, ultimaCol].Merge = true;
+        ws.Cells[filaPie, 7].Value = "Consejero(a): _________________________";
+        ws.Cells[filaPie + 1, 1, filaPie + 1, 4].Merge = true;
+        ws.Cells[filaPie + 1, 1].Value = $"Grupo: {etiquetaGrupo}";
+        ws.Cells[filaPie + 1, 5, filaPie + 1, ultimaCol].Merge = true;
+        ws.Cells[filaPie + 1, 5].Value = "Jornada: _________________________";
 
         return package.GetAsByteArray();
     }
@@ -125,62 +165,347 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
         var columnas = ObtenerColumnasCalificaciones(tipo, gradeLevel?.Name);
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
+        var anio = DateTime.UtcNow.Year;
 
-        using var package = new ExcelPackage();
-        var ws = package.Workbook.Worksheets.Add("Informe");
+        var nombreParcial = tipo == InformeCalificacionesTipo.ExpresionesArtisticas
+            ? "Exp"
+            : "Tecnolog";
+        var ruta = ReportePlantillaNpoiHelper.ResolverPlantilla(ReportesDir, nombreParcial);
+        var workbook = ReportePlantillaNpoiHelper.CargarPlantilla(ruta);
+        var sheet = workbook.GetSheetAt(0);
 
-        ws.Cells[1, 1].Value = "MINISTERIO DE EDUCACIÓN";
-        ws.Cells[2, 1].Value = school.Name.ToUpperInvariant();
-        ws.Cells[3, 1].Value = $"Informe de Calificaciones-{DateTime.UtcNow.Year}";
-        ws.Cells[5, 1].Value = $"Consejero(a): {consejeroNombre}";
-        ws.Cells[5, 4].Value = tipo == InformeCalificacionesTipo.ExpresionesArtisticas
-            ? "ASIGNATURA: EXPRESIONES ARTÍSTICAS"
-            : "ASIGNATURA: TECNOLOGÍA";
-        ws.Cells[5, 8].Value = $"GRUPO: {etiquetaGrupo}";
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 2, 0, school.Name.ToUpperInvariant());
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 3, 0, $"Informe de Calificaciones-{anio}");
 
-        var col = 1;
-        ws.Cells[7, col++].Value = "N°";
-        ws.Cells[7, col++].Value = "NOMBRE DE LOS ESTUDIANTES";
-        foreach (var t in trimestres)
+        if (tipo == InformeCalificacionesTipo.Tecnologia)
         {
-            ws.Cells[7, col].Value = $"{t} TRIMESTRE";
-            ws.Cells[7, col, 7, col + columnas.Count - 1].Merge = true;
-            foreach (var c in columnas)
-                ws.Cells[8, col++].Value = c.Nombre;
+            ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 6, 0, $"Consejero (a): {consejeroNombre}");
+            ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 6, 11, $"GRUPO: {etiquetaGrupo}");
         }
-        ws.Cells[7, col].Value = "PROMEDIO FINAL";
-        ws.Cells[7, col, 8, col].Merge = true;
-
-        var promediosFinales = new List<decimal?>();
-        var row = 9;
-        foreach (var est in estudiantes)
+        else
         {
-            col = 1;
-            ws.Cells[row, col++].Value = est.Numero;
-            ws.Cells[row, col++].Value = est.Nombre;
+            ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 5, 0, $"CONSEJERO (A): {consejeroNombre}");
+            ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 5, 10, $"GRADO: {etiquetaGrupo}");
+        }
+
+        var ultimaCol = tipo == InformeCalificacionesTipo.Tecnologia ? 14 : 11;
+        ReportePlantillaNpoiHelper.LimpiarRangoDatos(
+            sheet, FilaDatosCalificaciones0, FilaDatosCalificaciones0 + MaxFilasEstudiantesCalificaciones - 1,
+            0, ultimaCol);
+
+        var bloquesColumnas = tipo == InformeCalificacionesTipo.Tecnologia
+            ? new[] { new[] { 2, 3, 4 }, new[] { 6, 7, 8 }, new[] { 10, 11, 12 } }
+            : new[] { new[] { 2, 3 }, new[] { 5, 6 }, new[] { 8, 9 } };
+        var colPromedio = tipo == InformeCalificacionesTipo.Tecnologia ? 14 : 11;
+
+        for (var i = 0; i < estudiantes.Count; i++)
+        {
+            var est = estudiantes[i];
+            var fila = FilaDatosCalificaciones0 + i;
+            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 0, est.Numero);
+            ReportePlantillaNpoiHelper.EstablecerTexto(sheet, fila, 1, est.Nombre);
 
             var notasEstudiante = new List<decimal>();
-            foreach (var t in trimestres)
+            for (var t = 0; t < trimestres.Count && t < bloquesColumnas.Length; t++)
             {
-                foreach (var c in columnas)
+                var cols = bloquesColumnas[t];
+                for (var j = 0; j < columnas.Count && j < cols.Length; j++)
                 {
                     var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
-                        est.StudentId, groupId, gradeLevelId, schoolId, t, c.PalabrasClave);
-                    ws.Cells[row, col++].Value = nota.HasValue ? Math.Round(nota.Value, 1) : (object)"";
-                    if (nota.HasValue) notasEstudiante.Add(nota.Value);
+                        est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], columnas[j].PalabrasClave);
+                    ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, cols[j], nota);
+                    if (nota.HasValue)
+                        notasEstudiante.Add(nota.Value);
                 }
             }
 
-            var final = notasEstudiante.Count > 0 ? Math.Round(notasEstudiante.Average(), 1) : (decimal?)null;
-            ws.Cells[row, col].Value = final.HasValue ? final.Value : "";
-            promediosFinales.Add(final);
-            row++;
+            var final = notasEstudiante.Count > 0
+                ? Math.Round(notasEstudiante.Average(), 1)
+                : (decimal?)null;
+            ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colPromedio, final);
         }
 
-        AplicarEstiloEncabezado(ws, 7, col);
-        ws.Cells[ws.Dimension.Address].AutoFitColumns(8, 35);
+        return ReportePlantillaNpoiHelper.EscribirLibro(workbook);
+    }
 
-        return package.GetAsByteArray();
+    public async Task<CalificacionesTecnologiaReportViewModel> ObtenerCalificacionesTecnologiaReporteAsync(
+        Guid schoolId,
+        string nivelEducativo,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre)
+    {
+        var school = await _context.Schools.FindAsync(schoolId)
+            ?? throw new Exception("Escuela no encontrada");
+        var grupo = await _context.Groups.FindAsync(groupId)
+            ?? throw new Exception("Grupo no encontrado");
+        var gradeLevel = await _context.GradeLevels.FindAsync(gradeLevelId);
+
+        await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, null);
+
+        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
+        var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
+        var columnas = ObtenerColumnasCalificaciones(InformeCalificacionesTipo.Tecnologia, gradeLevel?.Name);
+        var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
+        var anio = DateTime.UtcNow.Year;
+
+        var filas = new List<CalificacionesTecnologiaFilaViewModel>();
+        foreach (var est in estudiantes)
+        {
+            var notasPorTrim = new List<decimal?[]>();
+            var todasNotas = new List<decimal>();
+
+            for (var t = 0; t < trimestres.Count && t < 3; t++)
+            {
+                var notasTrim = new decimal?[columnas.Count];
+                for (var j = 0; j < columnas.Count; j++)
+                {
+                    var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
+                        est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], columnas[j].PalabrasClave);
+                    notasTrim[j] = nota;
+                    if (nota.HasValue)
+                        todasNotas.Add(nota.Value);
+                }
+                notasPorTrim.Add(notasTrim);
+            }
+
+            while (notasPorTrim.Count < 3)
+                notasPorTrim.Add(new decimal?[3]);
+
+            filas.Add(new CalificacionesTecnologiaFilaViewModel
+            {
+                Numero = est.Numero,
+                Nombre = est.Nombre,
+                NotaT1Area1 = notasPorTrim[0].ElementAtOrDefault(0),
+                NotaT1Area2 = notasPorTrim[0].ElementAtOrDefault(1),
+                NotaT1Area3 = notasPorTrim[0].ElementAtOrDefault(2),
+                NotaT2Area1 = notasPorTrim[1].ElementAtOrDefault(0),
+                NotaT2Area2 = notasPorTrim[1].ElementAtOrDefault(1),
+                NotaT2Area3 = notasPorTrim[1].ElementAtOrDefault(2),
+                NotaT3Area1 = notasPorTrim[2].ElementAtOrDefault(0),
+                NotaT3Area2 = notasPorTrim[2].ElementAtOrDefault(1),
+                NotaT3Area3 = notasPorTrim[2].ElementAtOrDefault(2),
+                PromedioFinal = todasNotas.Count > 0 ? Math.Round(todasNotas.Average(), 1) : null
+            });
+        }
+
+        var trimestresEncabezado = new List<string>();
+        for (var i = 0; i < 3; i++)
+            trimestresEncabezado.Add(FormatearEncabezadoTrimestrePlantilla(trimestres, i));
+
+        return new CalificacionesTecnologiaReportViewModel
+        {
+            LogoUrl = school.LogoUrl ?? "",
+            InstitutoNombre = school.Name.ToUpperInvariant(),
+            TituloInforme = $"Informe de Calificaciones-{anio}",
+            ConsejeroNombre = consejeroNombre,
+            GrupoEtiqueta = etiquetaGrupo,
+            Areas = columnas.Select(c => c.Nombre).ToList(),
+            TrimestresEncabezado = trimestresEncabezado,
+            Filas = filas,
+            FilasPlantillaVacias = Math.Max(0, MaxFilasEstudiantesCalificaciones - filas.Count)
+        };
+    }
+
+    public async Task<HabitosActitudesReportViewModel> ObtenerHabitosActitudesReporteAsync(
+        Guid schoolId,
+        string trimestre,
+        string nivelEducativo,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre)
+    {
+        var school = await _context.Schools.FindAsync(schoolId)
+            ?? throw new Exception("Escuela no encontrada");
+        var grupo = await _context.Groups.FindAsync(groupId)
+            ?? throw new Exception("Grupo no encontrado");
+        var gradeLevel = await _context.GradeLevels.FindAsync(gradeLevelId);
+
+        await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, null);
+
+        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
+        var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
+        var anio = DateTime.UtcNow.Year;
+        const int maxFilas = 40;
+
+        return new HabitosActitudesReportViewModel
+        {
+            LogoUrl = school.LogoUrl ?? "",
+            InstitutoNombre = school.Name.ToUpperInvariant(),
+            AnioLectivoLinea = $"AÑO LECTIVO {anio}",
+            TrimestreLinea = FormatearEtiquetaTrimestre(trimestre),
+            ConsejeroNombre = consejeroNombre,
+            GrupoEtiqueta = etiquetaGrupo,
+            ColumnasHabitos = ColumnasHabitos.ToList(),
+            Filas = estudiantes.Select(e => new HabitosActitudesFilaViewModel
+            {
+                Numero = e.Numero,
+                Nombre = e.Nombre
+            }).ToList(),
+            FilasPlantillaVacias = Math.Max(0, maxFilas - estudiantes.Count)
+        };
+    }
+
+    public async Task<CalificacionesExpresionesArtisticasReportViewModel> ObtenerCalificacionesExpresionesArtisticasReporteAsync(
+        Guid schoolId,
+        string nivelEducativo,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre)
+    {
+        var school = await _context.Schools.FindAsync(schoolId)
+            ?? throw new Exception("Escuela no encontrada");
+        var grupo = await _context.Groups.FindAsync(groupId)
+            ?? throw new Exception("Grupo no encontrado");
+        var gradeLevel = await _context.GradeLevels.FindAsync(gradeLevelId);
+
+        await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, null);
+
+        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
+        var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
+        var columnas = ObtenerColumnasCalificaciones(InformeCalificacionesTipo.ExpresionesArtisticas, gradeLevel?.Name);
+        var etiquetaGrado = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
+        var anio = DateTime.UtcNow.Year;
+
+        var filas = new List<CalificacionesExpresionesArtisticasFilaViewModel>();
+        foreach (var est in estudiantes)
+        {
+            var todasNotas = new List<decimal>();
+            var notas = new decimal?[6];
+
+            for (var t = 0; t < trimestres.Count && t < 3; t++)
+            {
+                for (var j = 0; j < columnas.Count && j < 2; j++)
+                {
+                    var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
+                        est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], columnas[j].PalabrasClave);
+                    notas[t * 2 + j] = nota;
+                    if (nota.HasValue)
+                        todasNotas.Add(nota.Value);
+                }
+            }
+
+            filas.Add(new CalificacionesExpresionesArtisticasFilaViewModel
+            {
+                Numero = est.Numero,
+                Nombre = est.Nombre,
+                NotaT1Artistica = notas[0],
+                NotaT1Musical = notas[1],
+                NotaT2Artistica = notas[2],
+                NotaT2Musical = notas[3],
+                NotaT3Artistica = notas[4],
+                NotaT3Musical = notas[5],
+                PromedioFinal = todasNotas.Count > 0 ? Math.Round(todasNotas.Average(), 1) : null
+            });
+        }
+
+        var trimestresEncabezado = new List<string>();
+        for (var i = 0; i < 3; i++)
+            trimestresEncabezado.Add(FormatearEncabezadoTrimestrePlantilla(trimestres, i));
+
+        return new CalificacionesExpresionesArtisticasReportViewModel
+        {
+            LogoUrl = school.LogoUrl ?? "",
+            InstitutoNombre = school.Name.ToUpperInvariant(),
+            TituloInforme = $"Informe de Calificaciones-{anio}",
+            ConsejeroNombre = consejeroNombre,
+            GradoEtiqueta = etiquetaGrado,
+            TrimestresEncabezado = trimestresEncabezado,
+            Filas = filas,
+            FilasPlantillaVacias = Math.Max(0, MaxFilasEstudiantesCalificaciones - filas.Count)
+        };
+    }
+
+    public async Task<FormatoCarpetasReportViewModel> ObtenerFormatoCarpetasReporteAsync(
+        Guid schoolId,
+        string nivelEducativo,
+        Guid materiaId,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre,
+        string profesorNombre)
+    {
+        var school = await _context.Schools.FindAsync(schoolId)
+            ?? throw new Exception("Escuela no encontrada");
+        var grupo = await _context.Groups.FindAsync(groupId)
+            ?? throw new Exception("Grupo no encontrado");
+        var gradeLevel = await _context.GradeLevels.FindAsync(gradeLevelId);
+        var materia = await _context.Subjects.FindAsync(materiaId)
+            ?? throw new Exception("Materia no encontrada");
+
+        await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
+
+        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
+        var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
+        var trimesterEntities = await _context.Trimesters
+            .Where(t => t.SchoolId == schoolId && trimestres.Contains(t.Name))
+            .ToListAsync();
+
+        var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
+        var anio = DateTime.UtcNow.Year;
+        var filas = new List<FormatoCarpetasFilaViewModel>();
+
+        foreach (var est in estudiantes)
+        {
+            var promediosTrim = new List<decimal>();
+            var totalA = 0;
+            var totalT = 0;
+            decimal? n1 = null, n2 = null, n3 = null;
+            int a1 = 0, t1 = 0, a2 = 0, t2 = 0, a3 = 0, t3 = 0;
+
+            for (var i = 0; i < trimestres.Count && i < 3; i++)
+            {
+                var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[i]);
+                var prom = await ObtenerNotaFinalMateriaTrimestreAsync(
+                    est.StudentId, groupId, gradeLevelId, schoolId, trimestres[i], new[] { materia.Name });
+                var (ausencias, tardanzas) = await ContarAsistenciaTrimestreAsync(
+                    est.StudentId, groupId, trimesterEntity);
+
+                if (i == 0) { n1 = prom; a1 = ausencias; t1 = tardanzas; }
+                else if (i == 1) { n2 = prom; a2 = ausencias; t2 = tardanzas; }
+                else { n3 = prom; a3 = ausencias; t3 = tardanzas; }
+
+                if (prom.HasValue) promediosTrim.Add(prom.Value);
+                totalA += ausencias;
+                totalT += tardanzas;
+            }
+
+            filas.Add(new FormatoCarpetasFilaViewModel
+            {
+                Numero = est.Numero,
+                Nombre = est.Nombre,
+                NotaTrim1 = n1,
+                NotaTrim2 = n2,
+                NotaTrim3 = n3,
+                PromedioFinal = promediosTrim.Count > 0 ? Math.Round(promediosTrim.Average(), 1) : null,
+                AusenciasT1 = a1,
+                TardanzasT1 = t1,
+                AusenciasT2 = a2,
+                TardanzasT2 = t2,
+                AusenciasT3 = a3,
+                TardanzasT3 = t3,
+                TotalAusencias = totalA,
+                TotalTardanzas = totalT
+            });
+        }
+
+        return new FormatoCarpetasReportViewModel
+        {
+            LogoUrl = school.LogoUrl ?? "",
+            InstitutoNombre = school.Name.ToUpperInvariant(),
+            AnioLectivoLinea = $" Año Lectivo {anio}",
+            ConsejeroNombre = consejeroNombre,
+            ProfesorNombre = profesorNombre,
+            GrupoEtiqueta = etiquetaGrupo,
+            MateriaNombre = materia.Name,
+            TrimestresEncabezado = trimestres.Take(3).ToList(),
+            Filas = filas,
+            FilasPlantillaVacias = Math.Max(0, MaxFilasEstudiantesCarpetas - filas.Count)
+        };
     }
 
     public async Task<byte[]> ExportarFormatoCarpetasExcelAsync(
@@ -209,73 +534,65 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             .Where(t => t.SchoolId == schoolId && trimestres.Contains(t.Name))
             .ToListAsync();
 
-        using var package = new ExcelPackage();
-        var ws = package.Workbook.Worksheets.Add("Premedia");
+        var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
+        var anio = DateTime.UtcNow.Year;
+        var ruta = ReportePlantillaNpoiHelper.ResolverPlantilla(ReportesDir, "Carpetas");
+        var workbook = ReportePlantillaNpoiHelper.CargarPlantilla(ruta);
+        var sheet = workbook.GetSheetAt(0);
 
-        ws.Cells[1, 1].Value = "MINISTERIO DE EDUCACIÓN";
-        ws.Cells[2, 1].Value = school.Name.ToUpperInvariant();
-        ws.Cells[3, 1].Value = "Informe de Calificaciones, Ausencias y Tardanzas";
-        ws.Cells[4, 1].Value = $"Año Lectivo {DateTime.UtcNow.Year}";
-        ws.Cells[6, 1].Value = $"Consejero(a): {consejeroNombre}";
-        ws.Cells[6, 5].Value = $"Profesor(a): {profesorNombre}";
-        ws.Cells[8, 1].Value = $"Grupo: {gradeLevel?.Name} {grupo.Name}";
-        ws.Cells[8, 5].Value = $"Asignatura: {materia.Name}";
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 1, 0, school.Name.ToUpperInvariant());
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 2, 0, "Informe de Calificaciones, Ausencias y Tardanzas");
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 3, 1, $" Año Lectivo {anio}");
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 5, 1, $"Consejero (a): {consejeroNombre}");
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 5, 4, $"Profesor (a): {profesorNombre}");
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 7, 1, $"Grupo: {etiquetaGrupo}");
+        ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 7, 6, $"Asignatura: {materia.Name}");
 
-        ws.Cells[10, 1].Value = "N°";
-        ws.Cells[10, 2].Value = "Nombre de los Estudiantes";
-        ws.Cells[10, 3].Value = "Prom.";
-        var col = 4;
-        foreach (var t in trimestres)
+        ReportePlantillaNpoiHelper.LimpiarRangoDatos(
+            sheet, FilaDatosCarpetas0, FilaDatosCarpetas0 + MaxFilasEstudiantesCarpetas - 1,
+            0, 13);
+
+        var colsNotaTrim = new[] { 2, 3, 4 };
+        var colsAt = new[] { (6, 7), (8, 9), (10, 11) };
+
+        for (var i = 0; i < estudiantes.Count; i++)
         {
-            ws.Cells[10, col].Value = t;
-            ws.Cells[10, col, 10, col + 1].Merge = true;
-            ws.Cells[11, col++].Value = "A";
-            ws.Cells[11, col++].Value = "T";
-        }
-        ws.Cells[10, col].Value = "Total";
-        ws.Cells[10, col, 10, col + 1].Merge = true;
-        ws.Cells[11, col++].Value = "A";
-        ws.Cells[11, col].Value = "T";
-
-        var row = 12;
-        foreach (var est in estudiantes)
-        {
-            col = 1;
-            ws.Cells[row, col++].Value = est.Numero;
-            ws.Cells[row, col++].Value = est.Nombre;
+            var est = estudiantes[i];
+            var fila = FilaDatosCarpetas0 + i;
+            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 0, est.Numero);
+            ReportePlantillaNpoiHelper.EstablecerTexto(sheet, fila, 1, est.Nombre);
 
             var promediosTrim = new List<decimal>();
             var totalA = 0;
             var totalT = 0;
 
-            foreach (var t in trimestres)
+            for (var t = 0; t < trimestres.Count && t < colsNotaTrim.Length; t++)
             {
-                var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == t);
+                var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[t]);
                 var prom = await ObtenerNotaFinalMateriaTrimestreAsync(
-                    est.StudentId, groupId, gradeLevelId, schoolId, t, new[] { materia.Name });
-                ws.Cells[row, col++].Value = prom.HasValue ? Math.Round(prom.Value, 1) : "";
-                if (prom.HasValue) promediosTrim.Add(prom.Value);
+                    est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], new[] { materia.Name });
+                ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colsNotaTrim[t], prom);
+                if (prom.HasValue)
+                    promediosTrim.Add(prom.Value);
 
                 var (ausencias, tardanzas) = await ContarAsistenciaTrimestreAsync(
                     est.StudentId, groupId, trimesterEntity);
-                ws.Cells[row, col++].Value = ausencias;
-                ws.Cells[row, col++].Value = tardanzas;
+                var (colA, colT) = colsAt[t];
+                ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colA, ausencias);
+                ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colT, tardanzas);
                 totalA += ausencias;
                 totalT += tardanzas;
             }
 
-            ws.Cells[row, 3].Value = promediosTrim.Count > 0
+            var promFinal = promediosTrim.Count > 0
                 ? Math.Round(promediosTrim.Average(), 1)
-                : "";
-            ws.Cells[row, col++].Value = totalA;
-            ws.Cells[row, col].Value = totalT;
-            row++;
+                : (decimal?)null;
+            ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, 5, promFinal);
+            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 12, totalA);
+            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 13, totalT);
         }
 
-        AplicarEstiloEncabezado(ws, 10, col);
-        ws.Cells[ws.Dimension.Address].AutoFitColumns(8, 35);
-
-        return package.GetAsByteArray();
+        return ReportePlantillaNpoiHelper.EscribirLibro(workbook);
     }
 
     private async Task ValidarAsignacionAsync(
@@ -498,14 +815,70 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         };
     }
 
-    private static void AplicarEstiloEncabezado(ExcelWorksheet ws, int headerRow, int lastCol)
+    private static string FormatearEncabezadoTrimestrePlantilla(IReadOnlyList<string> trimestres, int indice)
     {
-        using var range = ws.Cells[headerRow, 1, headerRow + 1, lastCol];
-        range.Style.Font.Bold = true;
-        range.Style.Fill.PatternType = ExcelFillStyle.Solid;
-        range.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(31, 78, 121));
-        range.Style.Font.Color.SetColor(Color.White);
-        range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-        range.Style.WrapText = true;
+        if (indice < trimestres.Count)
+        {
+            var nombre = trimestres[indice].Trim().ToUpperInvariant();
+            if (nombre.Contains("TRIMESTRE", StringComparison.OrdinalIgnoreCase))
+                return nombre.EndsWith(' ') ? nombre : nombre + " ";
+            return indice switch
+            {
+                0 => "I- TRIMESTRE ",
+                1 => "II- TRIMESTRE ",
+                2 => "III- TRIMESTRE ",
+                _ => $"{nombre} "
+            };
+        }
+
+        return indice switch
+        {
+            0 => "I- TRIMESTRE ",
+            1 => "II- TRIMESTRE ",
+            2 => "III- TRIMESTRE ",
+            _ => ""
+        };
+    }
+
+    private static string FormatearEtiquetaTrimestre(string trimestre)
+    {
+        if (AprobadosReprobadosFiltroValores.EsTodos(trimestre))
+            return "I TRIMESTRE";
+
+        var t = trimestre.Trim().ToUpperInvariant();
+        if (t is "I" or "1" or "PRIMERO" or "1RO" or "1ER")
+            return "I TRIMESTRE";
+        if (t is "II" or "2" or "SEGUNDO" or "2DO" or "2DO")
+            return "II TRIMESTRE";
+        if (t is "III" or "3" or "TERCERO" or "3RO" or "3ER")
+            return "III TRIMESTRE";
+
+        return t.Contains("TRIMESTRE", StringComparison.OrdinalIgnoreCase)
+            ? t
+            : $"{t} TRIMESTRE";
+    }
+
+    private static void AplicarEstiloCuadroOficial(
+        ExcelWorksheet ws, int filaInicio, int filaFin, int ultimaCol, int headerRow)
+    {
+        var titulo = ws.Cells[filaInicio, 1, 4, ultimaCol];
+        titulo.Style.Font.Bold = true;
+        titulo.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+        ws.Cells[6, 1].Style.Font.Bold = true;
+        ws.Cells[6, ultimaCol - 1].Style.Font.Bold = true;
+        ws.Cells[6, ultimaCol - 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+        using var encabezado = ws.Cells[headerRow, 1, headerRow, ultimaCol];
+        encabezado.Style.Font.Bold = true;
+        encabezado.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        encabezado.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+        encabezado.Style.WrapText = true;
+
+        using var cuadro = ws.Cells[filaInicio, 1, filaFin, ultimaCol];
+        cuadro.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+        cuadro.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+        cuadro.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+        cuadro.Style.Border.Right.Style = ExcelBorderStyle.Thin;
     }
 }

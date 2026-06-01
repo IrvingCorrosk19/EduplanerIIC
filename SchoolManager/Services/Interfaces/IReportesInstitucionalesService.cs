@@ -34,4 +34,39 @@ public interface IReportesInstitucionalesService
 
     Task<List<InformeEstudianteFilaDto>> ObtenerEstudiantesGrupoAsync(
         Guid groupId, Guid gradeLevelId, Guid? teacherScopeId, Guid? materiaId = null);
+
+    Task<CalificacionesTecnologiaReportViewModel> ObtenerCalificacionesTecnologiaReporteAsync(
+        Guid schoolId,
+        string nivelEducativo,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre);
+
+    Task<HabitosActitudesReportViewModel> ObtenerHabitosActitudesReporteAsync(
+        Guid schoolId,
+        string trimestre,
+        string nivelEducativo,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre);
+
+    Task<CalificacionesExpresionesArtisticasReportViewModel> ObtenerCalificacionesExpresionesArtisticasReporteAsync(
+        Guid schoolId,
+        string nivelEducativo,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre);
+
+    Task<FormatoCarpetasReportViewModel> ObtenerFormatoCarpetasReporteAsync(
+        Guid schoolId,
+        string nivelEducativo,
+        Guid materiaId,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid? teacherScopeId,
+        string consejeroNombre,
+        string profesorNombre);
 }

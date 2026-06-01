@@ -243,6 +243,7 @@ builder.Services.AddScoped<IStaffInstitutionalProfileService, StaffInstitutional
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IAprobadosReprobadosService, AprobadosReprobadosService>();
 builder.Services.AddScoped<IReportesInstitucionalesService, ReportesInstitucionalesService>();
+builder.Services.AddScoped<IInformeInstitucionalHtmlPdfService, InformeInstitucionalHtmlPdfService>();
 builder.Services.AddScoped<IPrematriculationPeriodService, PrematriculationPeriodService>();
 builder.Services.AddScoped<IPrematriculationService, PrematriculationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
