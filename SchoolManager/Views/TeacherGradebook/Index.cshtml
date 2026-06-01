@@ -1628,6 +1628,22 @@
             return trimmed || '(Sin nombre)';
         }
 
+        function truncateToOneDecimal(value) {
+            if (value === null || value === undefined || value === '') {
+                return 0;
+            }
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                return 0;
+            }
+            return Math.floor(numValue * 10) / 10;
+        }
+
+        /** Muestra un decimal truncado (2.9699 → "2.9"), nunca redondea. */
+        function formatGradeDisplay(value) {
+            return truncateToOneDecimal(value).toFixed(1);
+        }
+
         /** Columna Estudiante del libro: corazón solo si users.inclusivo = true */
         function renderGradebookStudentName(fullName, isInclusive) {
             const formatted = escapeHtml(formatName(fullName));
@@ -1747,17 +1763,6 @@
                 });
             });
 
-            function truncateToOneDecimal(value) {
-                if (value === null || value === undefined || value === '') {
-                    return 0;
-                }
-                const numValue = parseFloat(value);
-                if (isNaN(numValue)) {
-                    return 0;
-                }
-                return Math.floor(numValue * 10) / 10;
-            }
-
             function validateScore(score) {
                 if (isNaN(score)) return 0;
                 return Math.max(1.0, Math.min(5.0, score));
@@ -1807,10 +1812,10 @@
                                 <div>${nombre}</div>
                                 <small class="text-muted">${documentId}</small>
                             </td>
-                            <td>${t1.toFixed(1)}</td>
-                            <td>${t2.toFixed(1)}</td>
-                            <td>${t3.toFixed(1)}</td>
-                            <td><strong>${truncPromedio.toFixed(1)}</strong></td>
+                            <td>${formatGradeDisplay(t1)}</td>
+                            <td>${formatGradeDisplay(t2)}</td>
+                            <td>${formatGradeDisplay(t3)}</td>
+                            <td><strong>${formatGradeDisplay(truncPromedio)}</strong></td>
                             <td class="${estado === 'Aprobado' ? 'text-success' : (estado === 'Reprobado' ? 'text-danger' : 'text-danger')}">${estado}</td>
                         </tr>`;
                     resumenBody.append(row);
@@ -1899,7 +1904,7 @@
                                 if (activities[type] && activities[type].length > 0) {
                                     activities[type].forEach(a => {
                                         const savedScore = scores[s.id]?.[type]?.[a.name] || '';
-                                        row += `<td contenteditable="true" class="score-cell gradebook-score-cell text-center" data-stu="${escapeAttr(String(s.id))}" data-type="${escapeAttr(type)}" data-act="${escapeAttr(a.name)}">${savedScore !== '' ? Number(savedScore).toFixed(1) : ''}</td>`;
+                                        row += `<td contenteditable="true" class="score-cell gradebook-score-cell text-center" data-stu="${escapeAttr(String(s.id))}" data-type="${escapeAttr(type)}" data-act="${escapeAttr(a.name)}">${savedScore !== '' ? formatGradeDisplay(savedScore) : ''}</td>`;
                                     });
                                     const typeClass = type.replace(/\s+/g, '-');
                                     row += `<td class="text-center gradebook-col-avg text-primary avg-${typeClass} fw-semibold"></td>`;
@@ -1962,8 +1967,7 @@
                         return;
                     }
 
-                    // Siempre formatear el valor final a un decimal
-                    const formattedValue = numValue.toFixed(1);
+                    const formattedValue = formatGradeDisplay(numValue);
                     $cell.text(formattedValue);
 
                     if (!scores[student]) scores[student] = {};
@@ -2188,7 +2192,7 @@
                         typeAvgs[type] = truncAvg;
                         
                         // Siempre mostrar el promedio (0.0 si está en blanco)
-                        row.find(`.avg-${type.replace(/\s+/g, '-')}`).text(truncAvg.toFixed(1));
+                        row.find(`.avg-${type.replace(/\s+/g, '-')}`).text(formatGradeDisplay(truncAvg));
                     });
 
                     // LÓGICA ESPECIAL PARA RECUPERACIÓN:
@@ -2211,7 +2215,7 @@
                     }
 
                     const truncFinalGrade = Math.floor(finalGrade * 10) / 10;
-                    row.find('.final-grade').text(truncFinalGrade.toFixed(1));
+                    row.find('.final-grade').text(formatGradeDisplay(truncFinalGrade));
 
                     const trimester = $('#selTrimester').val();
                     if (!studentAnnualScores[studentId]) studentAnnualScores[studentId] = {};
@@ -2373,10 +2377,10 @@
                                             <div>${nombre}</div>
                                             <small class="text-muted">${documentId}</small>
                                         </td>
-                                        <td>${t1.toFixed(1)}</td>
-                                        <td>${t2.toFixed(1)}</td>
-                                        <td>${t3.toFixed(1)}</td>
-                                        <td><strong>${promedioFinal.toFixed(1)}</strong></td>
+                                        <td>${formatGradeDisplay(t1)}</td>
+                                        <td>${formatGradeDisplay(t2)}</td>
+                                        <td>${formatGradeDisplay(t3)}</td>
+                                        <td><strong>${formatGradeDisplay(promedioFinal)}</strong></td>
                                         <td class="${estado === 'Aprobado' ? 'text-success' : (estado === 'Reprobado' ? 'text-danger' : 'text-danger')}">${estado}</td>
                                     </tr>`;
                                 resumenBody.append(row);
@@ -4316,10 +4320,10 @@
                                         <div>${nombre}</div>
                                         <small class="text-muted">${documentId}</small>
                                     </td>
-                                    <td>${typeof est.t1 === 'number' && !isNaN(est.t1) ? est.t1.toFixed(1) : '0.0'}</td>
-                                    <td>${typeof est.t2 === 'number' && !isNaN(est.t2) ? est.t2.toFixed(1) : '0.0'}</td>
-                                    <td>${typeof est.t3 === 'number' && !isNaN(est.t3) ? est.t3.toFixed(1) : '0.0'}</td>
-                                    <td><strong>${typeof est.promedioFinal === 'number' && !isNaN(est.promedioFinal) ? est.promedioFinal.toFixed(1) : '0.0'}</strong></td>
+                                    <td>${typeof est.t1 === 'number' && !isNaN(est.t1) ? formatGradeDisplay(est.t1) : '0.0'}</td>
+                                    <td>${typeof est.t2 === 'number' && !isNaN(est.t2) ? formatGradeDisplay(est.t2) : '0.0'}</td>
+                                    <td>${typeof est.t3 === 'number' && !isNaN(est.t3) ? formatGradeDisplay(est.t3) : '0.0'}</td>
+                                    <td><strong>${typeof est.promedioFinal === 'number' && !isNaN(est.promedioFinal) ? formatGradeDisplay(est.promedioFinal) : '0.0'}</strong></td>
                                     <td class="${est.estado === 'Aprobado' ? 'text-success' : 'text-danger'} fw-semibold">${est.estado}</td>
                                 </tr>
                             `);
@@ -4454,7 +4458,7 @@
                     // Agregar celdas de promedios por materia
                     data.subjects.forEach(function(subject) {
                         const average = student.averages[subject.id] || 0;
-                        const displayAverage = average > 0 ? average.toFixed(1) : '-';
+                        const displayAverage = average > 0 ? formatGradeDisplay(average) : '-';
                         const cellClass = average >= 3.0 ? 'text-success' : (average > 0 ? 'text-danger' : 'text-muted');
                         
                         row += `<td class="text-center ${cellClass} counselor-average-cell">${displayAverage}</td>`;
@@ -4467,7 +4471,7 @@
                     
                     // Calcular y mostrar promedio general del estudiante
                     const generalAverage = validScores > 0 ? (totalScore / validScores) : 0;
-                    const generalDisplay = generalAverage > 0 ? generalAverage.toFixed(1) : '-';
+                    const generalDisplay = generalAverage > 0 ? formatGradeDisplay(generalAverage) : '-';
                     const generalClass = generalAverage >= 3.0 ? 'text-success' : (generalAverage > 0 ? 'text-danger' : 'text-muted');
                     
                     row += `<td class="text-center ${generalClass} fw-bold" style="background-color: #f8f9fa;">${generalDisplay}</td>`;
@@ -4484,7 +4488,7 @@
         function updateCounselorStatistics(totalStudents, totalSubjects, generalAverage, approvalPercentage) {
             $('#totalEstudiantes').text(totalStudents);
             $('#totalMaterias').text(totalSubjects);
-            $('#promedioGeneral').text(generalAverage > 0 ? generalAverage.toFixed(1) : '-');
+            $('#promedioGeneral').text(generalAverage > 0 ? formatGradeDisplay(generalAverage) : '-');
             $('#porcentajeAprobados').text(approvalPercentage > 0 ? approvalPercentage.toFixed(1) + '%' : '-');
         }
 
