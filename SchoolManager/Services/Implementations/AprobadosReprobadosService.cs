@@ -68,18 +68,14 @@ namespace SchoolManager.Services.Implementations
             var estadisticas = new List<GradoEstadisticaDto>();
             var mostrarMateria = todasMaterias || asignaciones.Select(a => a.SubjectId).Distinct().Count() > 1;
 
-            foreach (var asignacion in asignaciones.OrderBy(a => a.SubjectName).ThenBy(a => a.GradeLevelName).ThenBy(a => a.GroupName))
+            foreach (var asignacion in asignaciones.OrderBy(a => a.SubjectName).ThenBy(a => OrdenGrado(a.GradeLevelName, a.GroupGrade)).ThenBy(a => a.GroupName))
             {
-                var grupo = await _context.Groups.FindAsync(asignacion.GroupId);
-                if (grupo == null)
-                    continue;
-
-                var gradoDisplay = !string.IsNullOrWhiteSpace(grupo.Grade)
-                    ? grupo.Grade.Trim()
-                    : $"{asignacion.GradeLevelName}°";
+                var gradoDisplay = FormatearNombreGrado(asignacion.GradeLevelName, null);
+                var grupoDisplay = FormatearEtiquetaGrupo(asignacion);
 
                 var stats = await CalcularEstadisticasGrupoAsync(
                     asignacion.GroupId,
+                    asignacion.GradeLevelId,
                     trimestresNombres,
                     trimesterIds,
                     asignacion.SubjectId,
@@ -89,7 +85,7 @@ namespace SchoolManager.Services.Implementations
                 {
                     Materia = mostrarMateria ? asignacion.SubjectName : null,
                     Grado = gradoDisplay,
-                    Grupo = $"{asignacion.GradeLevelName} {asignacion.GroupName}",
+                    Grupo = grupoDisplay,
                     TotalEstudiantes = stats.Total,
                     Aprobados = stats.Aprobados,
                     PorcentajeAprobados = stats.PorcentajeAprobados,
@@ -149,7 +145,7 @@ namespace SchoolManager.Services.Implementations
                     return new AprobadosReprobadosNivelFiltroDto
                     {
                         Id = first.GradeLevelId,
-                        Nombre = FormatearNombreGrado(first.GradeLevelName, first.GroupGrade),
+                        Nombre = FormatearNombreGrado(first.GradeLevelName, null),
                         Orden = OrdenGrado(first.GradeLevelName, first.GroupGrade)
                     };
                 })
@@ -184,17 +180,17 @@ namespace SchoolManager.Services.Implementations
                 .Select(g =>
                 {
                     var first = g.First();
-                    var gradoLabel = FormatearNombreGrado(first.GradeLevelName, first.GroupGrade);
+                    var etiquetaGrupo = FormatearEtiquetaGrupo(first);
                     var nombre = todasMaterias
-                        ? $"{first.SubjectName} — {gradoLabel} {first.GroupName}"
-                        : $"{gradoLabel} {first.GroupName}";
+                        ? $"{first.SubjectName} — {etiquetaGrupo}"
+                        : etiquetaGrupo;
                     return new AprobadosReprobadosGrupoFiltroDto
                     {
                         SubjectId = todasMaterias ? first.SubjectId : null,
                         GroupId = first.GroupId,
                         GradeLevelId = first.GradeLevelId,
                         Nombre = nombre,
-                        GradoGrupo = first.GroupGrade
+                        GradoGrupo = FormatearNombreGrado(first.GradeLevelName, null)
                     };
                 })
                 .OrderBy(g => g.Nombre)
@@ -242,7 +238,10 @@ namespace SchoolManager.Services.Implementations
             Guid? teacherScopeId)
         {
             if (asignaciones.Count == 1)
-                return $"{nivelEtiqueta} · {asignaciones[0].SubjectName} — {asignaciones[0].GradeLevelName} {asignaciones[0].GroupName}";
+            {
+                var a = asignaciones[0];
+                return $"{nivelEtiqueta} · {a.SubjectName} — {FormatearEtiquetaGrupo(a)}";
+            }
 
             var partes = new List<string> { trimestreEtiqueta, nivelEtiqueta };
             if (todasMaterias)
@@ -253,7 +252,7 @@ namespace SchoolManager.Services.Implementations
             if (todosGrupos)
                 partes.Add(teacherScopeId.HasValue ? "Todos mis grupos" : "Todos los grupos");
             else if (asignaciones.Count == 1)
-                partes.Add($"{asignaciones[0].GradeLevelName} {asignaciones[0].GroupName}");
+                partes.Add(FormatearEtiquetaGrupo(asignaciones[0]));
 
             return string.Join(" · ", partes);
         }
@@ -273,18 +272,38 @@ namespace SchoolManager.Services.Implementations
 
         private static string FormatearNombreGrado(string? gradeLevelName, string? groupGrade)
         {
-            if (!string.IsNullOrWhiteSpace(groupGrade))
-                return groupGrade.Trim();
-
+            // Priorizar grade_levels (nivel de la asignación), no groups.grade que puede no coincidir
             var numero = ExtractGradeNumber(gradeLevelName);
             if (numero.HasValue)
                 return $"{numero}°";
 
+            if (!string.IsNullOrWhiteSpace(groupGrade))
+                return groupGrade.Trim();
+
             return string.IsNullOrWhiteSpace(gradeLevelName) ? "Grado" : gradeLevelName.Trim();
         }
 
+        /// <summary>
+        /// Etiqueta de grupo alineada al filtro y TeacherGradebook: 7-A, 7-A2, etc.
+        /// </summary>
+        private static string FormatearEtiquetaGrupo(AprobadosReprobadosAsignacionRow a)
+        {
+            var nombre = (a.GroupName ?? "").Trim();
+            if (string.IsNullOrEmpty(nombre))
+                return "-";
+
+            if (nombre.Contains('-', StringComparison.Ordinal))
+                return nombre;
+
+            var gradoCorto = FormatearNombreGrado(a.GradeLevelName, null).Replace("°", "", StringComparison.Ordinal).Trim();
+            if (string.IsNullOrEmpty(gradoCorto))
+                return nombre;
+
+            return $"{gradoCorto}-{nombre}";
+        }
+
         private static int OrdenGrado(string? gradeLevelName, string? groupGrade) =>
-            ExtractGradeNumber(groupGrade) ?? ExtractGradeNumber(gradeLevelName) ?? 999;
+            ExtractGradeNumber(gradeLevelName) ?? ExtractGradeNumber(groupGrade) ?? 999;
 
         private static string ResolverEtiquetaGrado(
             string nivelGradeLevelId,
@@ -294,7 +313,7 @@ namespace SchoolManager.Services.Implementations
             {
                 var row = asignaciones.FirstOrDefault(r => r.GradeLevelId == gradeLevelId);
                 if (row != null)
-                    return FormatearNombreGrado(row.GradeLevelName, row.GroupGrade);
+                    return FormatearNombreGrado(row.GradeLevelName, null);
             }
 
             return nivelGradeLevelId;
@@ -358,13 +377,14 @@ namespace SchoolManager.Services.Implementations
             int Retirados, decimal PorcentajeRetirados)>
             CalcularEstadisticasGrupoAsync(
                 Guid grupoId,
+                Guid gradeLevelId,
                 IReadOnlyList<string> trimestresNombres,
                 IReadOnlyList<Guid> trimesterIds,
                 Guid materiaId,
                 Guid? teacherScopeId = null)
         {
             var estudiantesDelGrupo = await _context.StudentAssignments
-                .Where(sa => sa.GroupId == grupoId && sa.IsActive)
+                .Where(sa => sa.GroupId == grupoId && sa.GradeId == gradeLevelId && sa.IsActive)
                 .Select(sa => sa.StudentId)
                 .Distinct()
                 .ToListAsync();
@@ -396,6 +416,7 @@ namespace SchoolManager.Services.Implementations
                 var puedeMateria = await _context.TeacherAssignments.AnyAsync(ta =>
                     ta.TeacherId == teacherScopeId.Value &&
                     ta.SubjectAssignment.GroupId == grupoId &&
+                    ta.SubjectAssignment.GradeLevelId == gradeLevelId &&
                     ta.SubjectAssignment.SubjectId == materiaId);
                 if (!puedeMateria)
                     return (total, 0, 0, 0, 0, 0, 0, total, 100m, 0, 0);
@@ -608,7 +629,7 @@ namespace SchoolManager.Services.Implementations
                 });
                 table.Header(header =>
                 {
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(6).AlignLeft().Text("Grado").FontSize(9).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(6).AlignLeft().Text("Nivel").FontSize(9).Bold().FontColor(Colors.White);
                     header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(6).AlignLeft().Text("Grupo").FontSize(9).Bold().FontColor(Colors.White);
                     header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Total").FontSize(9).Bold().FontColor(Colors.White);
                     header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Aprob.").FontSize(9).Bold().FontColor(Colors.White);
