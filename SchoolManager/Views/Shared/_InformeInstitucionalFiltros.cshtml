@@ -52,10 +52,11 @@
             <form id="filtro-form">
                 <div class="row">
                     <div class="col-md-6 col-lg-3">
-                        <label class="form-label"><strong>Nivel:</strong> <span class="text-danger">*</span></label>
+                        <label class="form-label"><strong>Grado / Nivel:</strong> <span class="text-danger">*</span></label>
                         <select class="form-select" id="nivelEducativo" required>
-                            <option value="">-- Seleccione un nivel --</option>
+                            <option value="">-- Seleccione un grado --</option>
                         </select>
+                        <small class="text-muted">Grados de sus asignaciones (1°, 2°, 7°, etc.).</small>
                     </div>
                     @if (requiereTrimestre)
                     {
@@ -85,7 +86,7 @@
                     <div class="col-md-6 col-lg-3">
                         <label class="form-label"><strong>Grupo:</strong> <span class="text-danger">*</span></label>
                         <select class="form-select" id="grupoCombo" required disabled>
-                            <option value="">-- Seleccione primero el nivel --</option>
+                            <option value="">-- Seleccione primero el grado --</option>
                         </select>
                         <input type="hidden" id="groupId" />
                         <input type="hidden" id="gradeLevelId" />
@@ -117,17 +118,18 @@
 
             function cargarNiveles() {
                 $.get('@Url.Action("ObtenerNivelesFiltro", "AprobadosReprobados")').done(function (r) {
-                    const s = $('#nivelEducativo').html('<option value="">-- Seleccione un nivel --</option>');
-                    s.append(`<option value="${TODOS}">@(esDocente ? "Todos mis niveles" : "Todos los niveles")</option>`);
-                    if (r.success && r.data) r.data.forEach(n => s.append(`<option value="${n}">${n}</option>`));
+                    const s = $('#nivelEducativo').html('<option value="">-- Seleccione un grado --</option>');
+                    if (r.success && r.data) {
+                        r.data.forEach(n => s.append(`<option value="${n.id}">${n.nombre}</option>`));
+                    }
                 });
             }
 
             function resetDependientes() {
                 if (requiereMateria) {
-                    $('#materiaId').prop('disabled', true).html('<option value="">-- Seleccione primero el nivel --</option>');
+                    $('#materiaId').prop('disabled', true).html('<option value="">-- Seleccione primero el grado --</option>');
                 }
-                $('#grupoCombo').prop('disabled', true).html('<option value="">-- Seleccione primero el nivel --</option>');
+                $('#grupoCombo').prop('disabled', true).html('<option value="">-- Seleccione primero el grado --</option>');
                 $('#groupId, #gradeLevelId').val('');
             }
 
@@ -189,7 +191,7 @@
                 const gradeLevelId = $('#gradeLevelId').val();
 
                 if (!nivel || !groupId || !gradeLevelId) {
-                    Swal.fire('Error', 'Complete nivel y grupo.', 'error');
+                    Swal.fire('Error', 'Seleccione grado y grupo.', 'error');
                     return;
                 }
                 if (requiereTrimestre && !trimestre) {

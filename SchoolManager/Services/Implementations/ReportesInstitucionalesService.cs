@@ -5,6 +5,7 @@ using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
 using System.Drawing;
+using System.Text.RegularExpressions;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -123,6 +124,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
         var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
         var columnas = ObtenerColumnasCalificaciones(tipo, gradeLevel?.Name);
+        var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
 
         using var package = new ExcelPackage();
         var ws = package.Workbook.Worksheets.Add("Informe");
@@ -134,7 +136,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         ws.Cells[5, 4].Value = tipo == InformeCalificacionesTipo.ExpresionesArtisticas
             ? "ASIGNATURA: EXPRESIONES ARTÍSTICAS"
             : "ASIGNATURA: TECNOLOGÍA";
-        ws.Cells[5, 8].Value = $"GRUPO: {gradeLevel?.Name} {grupo.Name}";
+        ws.Cells[5, 8].Value = $"GRUPO: {etiquetaGrupo}";
 
         var col = 1;
         ws.Cells[7, col++].Value = "N°";
@@ -162,8 +164,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             {
                 foreach (var c in columnas)
                 {
-                    var nota = await ObtenerPromedioMateriaTrimestreAsync(
-                        est.StudentId, groupId, schoolId, t, c.PalabrasClave);
+                    var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
+                        est.StudentId, groupId, gradeLevelId, schoolId, t, c.PalabrasClave);
                     ws.Cells[row, col++].Value = nota.HasValue ? Math.Round(nota.Value, 1) : (object)"";
                     if (nota.HasValue) notasEstudiante.Add(nota.Value);
                 }
@@ -249,8 +251,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             foreach (var t in trimestres)
             {
                 var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == t);
-                var prom = await ObtenerPromedioMateriaTrimestreAsync(
-                    est.StudentId, groupId, schoolId, t, new[] { materia.Name });
+                var prom = await ObtenerNotaFinalMateriaTrimestreAsync(
+                    est.StudentId, groupId, gradeLevelId, schoolId, t, new[] { materia.Name });
                 ws.Cells[row, col++].Value = prom.HasValue ? Math.Round(prom.Value, 1) : "";
                 if (prom.HasValue) promediosTrim.Add(prom.Value);
 
@@ -293,6 +295,138 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             throw new UnauthorizedAccessException("La asignación seleccionada no está disponible para este docente.");
     }
 
+    private async Task<decimal?> ObtenerNotaFinalMateriaTrimestreAsync(
+        Guid studentId,
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid schoolId,
+        string trimestre,
+        IEnumerable<string> palabrasClave)
+    {
+        var trimesterId = await _context.Trimesters
+            .Where(t => t.SchoolId == schoolId && t.Name == trimestre)
+            .Select(t => (Guid?)t.Id)
+            .FirstOrDefaultAsync();
+
+        var actividades = await _context.Activities
+            .AsNoTracking()
+            .Include(a => a.Subject)
+            .Where(a =>
+                a.GroupId == groupId &&
+                a.GradeLevelId == gradeLevelId &&
+                (a.SchoolId == schoolId || a.SchoolId == null) &&
+                (a.Trimester == trimestre ||
+                 (trimesterId.HasValue && a.TrimesterId == trimesterId)))
+            .ToListAsync();
+
+        var actividadesMateria = actividades
+            .Where(a => a.Subject != null &&
+                        PalabrasClaveCoinciden(a.Subject.Name, palabrasClave))
+            .ToList();
+
+        if (actividadesMateria.Count == 0)
+            return null;
+
+        var activityIds = actividadesMateria.Select(a => a.Id).ToList();
+        var scores = await _context.StudentActivityScores
+            .AsNoTracking()
+            .Where(s => s.StudentId == studentId && activityIds.Contains(s.ActivityId))
+            .ToDictionaryAsync(s => s.ActivityId, s => s.Score);
+
+        return CalcularNotaFinalLibroCalificaciones(actividadesMateria, scores);
+    }
+
+    /// <summary>
+    /// Misma lógica que TeacherGradebook (calcAverages): promedios por tipo y nota final con recuperación.
+    /// </summary>
+    private static decimal? CalcularNotaFinalLibroCalificaciones(
+        List<Activity> actividadesMateria,
+        Dictionary<Guid, decimal?> scores)
+    {
+        var typeOrder = new[]
+        {
+            "notas de apreciación",
+            "ejercicios diarios",
+            "examen final",
+            "recuperación"
+        };
+
+        var typeAvgs = new Dictionary<string, decimal>();
+        foreach (var typeKey in typeOrder)
+        {
+            var acts = actividadesMateria
+                .Where(a => NormalizeActivityType(a.Type) == typeKey)
+                .ToList();
+            if (acts.Count == 0)
+                continue;
+
+            var values = acts
+                .Select(a => scores.TryGetValue(a.Id, out var v) ? v : null)
+                .Where(v => v.HasValue && v.Value > 0)
+                .Select(v => v!.Value)
+                .ToList();
+
+            typeAvgs[typeKey] = values.Count > 0 ? TruncateOneDecimal(values.Average()) : 0m;
+        }
+
+        if (typeAvgs.Count == 0)
+            return null;
+
+        return ComputeFinalGradeFromTypeAverages(typeAvgs);
+    }
+
+    private static decimal ComputeFinalGradeFromTypeAverages(Dictionary<string, decimal> typeAvgs)
+    {
+        var working = new Dictionary<string, decimal>(typeAvgs);
+
+        if (working.TryGetValue("recuperación", out var recup) && recup > 0)
+            working["examen final"] = recup;
+
+        var typesForFinal = working.Keys
+            .Where(t => t != "recuperación")
+            .Where(t => working[t] > 0)
+            .ToList();
+
+        if (typesForFinal.Count == 0)
+            return 0m;
+
+        return TruncateOneDecimal(typesForFinal.Average(t => working[t]));
+    }
+
+    private static bool PalabrasClaveCoinciden(string subjectName, IEnumerable<string> palabrasClave) =>
+        palabrasClave.Any(p => subjectName.Contains(p, StringComparison.OrdinalIgnoreCase));
+
+    private static string NormalizeActivityType(string? type) => (type ?? "").Trim().ToLowerInvariant();
+
+    private static decimal TruncateOneDecimal(decimal value) => Math.Floor(value * 10m) / 10m;
+
+    private static int? ExtractGradeNumber(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+        var match = Regex.Match(name, @"(\d+)");
+        return match.Success && int.TryParse(match.Value, out var n) ? n : null;
+    }
+
+    private static string FormatearEtiquetaGrupoInforme(string? gradeLevelName, string groupName, string? groupGrade)
+    {
+        var grado = !string.IsNullOrWhiteSpace(groupGrade)
+            ? groupGrade.Trim()
+            : ExtractGradeNumber(gradeLevelName) is int n
+                ? $"{n}°"
+                : gradeLevelName?.Trim() ?? "";
+
+        var nombre = groupName.Trim();
+        if (string.IsNullOrEmpty(nombre))
+            return grado;
+
+        if (nombre.Contains('-', StringComparison.Ordinal))
+            return nombre;
+
+        var gradoCorto = grado.Replace("°", "", StringComparison.Ordinal).Trim();
+        return string.IsNullOrEmpty(gradoCorto) ? nombre : $"{gradoCorto}-{nombre}";
+    }
+
     private async Task<decimal?> ObtenerPromedioMateriaTrimestreAsync(
         Guid studentId, Guid groupId, Guid schoolId, string trimestre, IEnumerable<string> palabrasClave)
     {
@@ -312,8 +446,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         var filtradas = scores
             .Where(s => s.Activity?.Subject != null &&
-                        palabrasClave.Any(p =>
-                            s.Activity.Subject.Name.Contains(p, StringComparison.OrdinalIgnoreCase)))
+                        PalabrasClaveCoinciden(s.Activity.Subject.Name, palabrasClave))
             .Select(s => s.Score ?? 0)
             .ToList();
 
@@ -352,8 +485,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             };
         }
 
-        var esGrado9 = gradeLevelName?.Contains('9') == true ||
-                       string.Equals(gradeLevelName, "9", StringComparison.OrdinalIgnoreCase);
+        var esGrado9 = ExtractGradeNumber(gradeLevelName) == 9;
         var col1 = esGrado9
             ? ("CONTABILIDAD", new[] { "CONTABIL" })
             : ("COMERCIO", new[] { "COMERC" });
