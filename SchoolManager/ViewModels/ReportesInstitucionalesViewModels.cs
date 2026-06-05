@@ -61,6 +61,9 @@ public class CalificacionesTecnologiaFilaViewModel
     public decimal? NotaT3Area1 { get; set; }
     public decimal? NotaT3Area2 { get; set; }
     public decimal? NotaT3Area3 { get; set; }
+    public decimal? PromedioTrim1 { get; set; }
+    public decimal? PromedioTrim2 { get; set; }
+    public decimal? PromedioTrim3 { get; set; }
     public decimal? PromedioFinal { get; set; }
 
     public static string FormatearNota(decimal? nota) =>
@@ -112,6 +115,9 @@ public class CalificacionesExpresionesArtisticasFilaViewModel
     public decimal? NotaT2Musical { get; set; }
     public decimal? NotaT3Artistica { get; set; }
     public decimal? NotaT3Musical { get; set; }
+    public decimal? PromedioTrim1 { get; set; }
+    public decimal? PromedioTrim2 { get; set; }
+    public decimal? PromedioTrim3 { get; set; }
     public decimal? PromedioFinal { get; set; }
 
     public static string FormatearNota(decimal? nota) =>

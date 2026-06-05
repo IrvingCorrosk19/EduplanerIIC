@@ -196,6 +196,9 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var bloquesColumnas = tipo == InformeCalificacionesTipo.Tecnologia
             ? new[] { new[] { 2, 3, 4 }, new[] { 6, 7, 8 }, new[] { 10, 11, 12 } }
             : new[] { new[] { 2, 3 }, new[] { 5, 6 }, new[] { 8, 9 } };
+        var colsPromedioTrimestre = tipo == InformeCalificacionesTipo.Tecnologia
+            ? new[] { 5, 9, 13 }
+            : new[] { 4, 7, 10 };
         var colPromedio = tipo == InformeCalificacionesTipo.Tecnologia ? 14 : 11;
 
         for (var i = 0; i < estudiantes.Count; i++)
@@ -225,7 +228,9 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 }
             }
 
-            var final = CalcularPromedioFinalInformeCalificaciones(notasPorSlot);
+            var (promediosTrimestre, final) = CalcularPromediosInformeCalificaciones(notasPorSlot);
+            for (var t = 0; t < promediosTrimestre.Length && t < colsPromedioTrimestre.Length; t++)
+                ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colsPromedioTrimestre[t], promediosTrimestre[t]);
             ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colPromedio, final);
         }
 
@@ -275,6 +280,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 }
             }
 
+            var (promediosTrimestre, promedioFinal) = CalcularPromediosInformeCalificaciones(notasPorSlot);
             filas.Add(new CalificacionesTecnologiaFilaViewModel
             {
                 Numero = est.Numero,
@@ -288,7 +294,10 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 NotaT3Area1 = notasPorSlot[2].ElementAtOrDefault(0),
                 NotaT3Area2 = notasPorSlot[2].ElementAtOrDefault(1),
                 NotaT3Area3 = notasPorSlot[2].ElementAtOrDefault(2),
-                PromedioFinal = CalcularPromedioFinalInformeCalificaciones(notasPorSlot)
+                PromedioTrim1 = promediosTrimestre.ElementAtOrDefault(0),
+                PromedioTrim2 = promediosTrimestre.ElementAtOrDefault(1),
+                PromedioTrim3 = promediosTrimestre.ElementAtOrDefault(2),
+                PromedioFinal = promedioFinal
             });
         }
 
@@ -375,7 +384,9 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var filas = new List<CalificacionesExpresionesArtisticasFilaViewModel>();
         foreach (var est in estudiantes)
         {
-            var notas = new decimal?[6];
+            var notasPorSlot = new decimal?[3][];
+            for (var s = 0; s < 3; s++)
+                notasPorSlot[s] = new decimal?[columnas.Count];
 
             foreach (var trimNombre in trimestres)
             {
@@ -383,26 +394,29 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 if (!slot.HasValue || slot.Value < 0 || slot.Value > 2)
                     continue;
 
-                for (var j = 0; j < columnas.Count && j < 2; j++)
+                for (var j = 0; j < columnas.Count; j++)
                 {
                     var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
                         est.StudentId, groupId, gradeLevelId, schoolId, trimNombre, columnas[j].PalabrasClave);
-                    notas[slot.Value * 2 + j] = nota;
+                    notasPorSlot[slot.Value][j] = nota;
                 }
             }
 
+            var (promediosTrimestre, promedioFinal) = CalcularPromediosInformeCalificaciones(notasPorSlot);
             filas.Add(new CalificacionesExpresionesArtisticasFilaViewModel
             {
                 Numero = est.Numero,
                 Nombre = est.Nombre,
-                NotaT1Artistica = notas[0],
-                NotaT1Musical = notas[1],
-                NotaT2Artistica = notas[2],
-                NotaT2Musical = notas[3],
-                NotaT3Artistica = notas[4],
-                NotaT3Musical = notas[5],
-                PromedioFinal = CalcularPromedioFinalInformeCalificaciones(
-                    new[] { SliceNotasTrimestre(notas, 0), SliceNotasTrimestre(notas, 1), SliceNotasTrimestre(notas, 2) })
+                NotaT1Artistica = notasPorSlot[0].ElementAtOrDefault(0),
+                NotaT1Musical = notasPorSlot[0].ElementAtOrDefault(1),
+                NotaT2Artistica = notasPorSlot[1].ElementAtOrDefault(0),
+                NotaT2Musical = notasPorSlot[1].ElementAtOrDefault(1),
+                NotaT3Artistica = notasPorSlot[2].ElementAtOrDefault(0),
+                NotaT3Musical = notasPorSlot[2].ElementAtOrDefault(1),
+                PromedioTrim1 = promediosTrimestre.ElementAtOrDefault(0),
+                PromedioTrim2 = promediosTrimestre.ElementAtOrDefault(1),
+                PromedioTrim3 = promediosTrimestre.ElementAtOrDefault(2),
+                PromedioFinal = promedioFinal
             });
         }
 
@@ -696,7 +710,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         return ComputeFinalGradeFromTypeAverages(typeAvgs);
     }
 
-    private static decimal ComputeFinalGradeFromTypeAverages(Dictionary<string, decimal> typeAvgs)
+    private static decimal? ComputeFinalGradeFromTypeAverages(Dictionary<string, decimal> typeAvgs)
     {
         var working = new Dictionary<string, decimal>(typeAvgs);
 
@@ -709,7 +723,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             .ToList();
 
         if (typesForFinal.Count == 0)
-            return 0m;
+            return null;
 
         return TruncateOneDecimal(typesForFinal.Average(t => working[t]));
     }
@@ -845,34 +859,36 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
     }
 
     /// <summary>
-    /// Promedio final: promedio de los promedios trimestrales, usando solo las asignaturas con nota en cada trimestre.
+    /// Promedio trimestral: solo asignaturas con nota. Promedio final: promedio de los trimestres que tengan al menos una nota.
     /// </summary>
-    private static decimal? CalcularPromedioFinalInformeCalificaciones(decimal?[][] notasPorSlot)
+    private static (decimal?[] PromediosTrimestre, decimal? PromedioFinal) CalcularPromediosInformeCalificaciones(
+        decimal?[][] notasPorSlot)
     {
-        var promediosTrimestre = new List<decimal>();
-        foreach (var slot in notasPorSlot)
-        {
-            if (slot == null || slot.Length == 0)
-                continue;
+        var promediosTrimestre = new decimal?[3];
+        var promediosParaFinal = new List<decimal>();
 
-            var validas = slot.Where(n => n.HasValue).Select(n => n!.Value).ToList();
-            if (validas.Count > 0)
-                promediosTrimestre.Add(validas.Average());
+        for (var i = 0; i < notasPorSlot.Length && i < 3; i++)
+        {
+            var prom = CalcularPromedioTrimestreInforme(notasPorSlot[i]);
+            promediosTrimestre[i] = prom;
+            if (prom.HasValue)
+                promediosParaFinal.Add(prom.Value);
         }
 
-        return promediosTrimestre.Count > 0 ? Math.Round(promediosTrimestre.Average(), 1) : null;
+        var final = promediosParaFinal.Count > 0
+            ? TruncateOneDecimal(promediosParaFinal.Average())
+            : (decimal?)null;
+
+        return (promediosTrimestre, final);
     }
 
-    private static decimal?[] SliceNotasTrimestre(decimal?[] notasLineales, int slotTrimestre, int columnasPorTrimestre = 2)
+    private static decimal? CalcularPromedioTrimestreInforme(decimal?[]? slot)
     {
-        var start = slotTrimestre * columnasPorTrimestre;
-        if (start >= notasLineales.Length)
-            return Array.Empty<decimal?>();
+        if (slot == null || slot.Length == 0)
+            return null;
 
-        var len = Math.Min(columnasPorTrimestre, notasLineales.Length - start);
-        var slice = new decimal?[len];
-        Array.Copy(notasLineales, start, slice, 0, len);
-        return slice;
+        var validas = slot.Where(n => n.HasValue).Select(n => n!.Value).ToList();
+        return validas.Count > 0 ? TruncateOneDecimal(validas.Average()) : null;
     }
 
     /// <summary>
