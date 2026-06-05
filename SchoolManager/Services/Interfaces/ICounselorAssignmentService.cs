@@ -57,5 +57,8 @@ namespace SchoolManager.Services.Interfaces
         
         // Obtener grupos asignados a un profesor como consejero
         Task<List<CounselorGroupDto>> GetCounselorGroupsAsync(Guid teacherId);
+
+        /// <summary>Nombre del consejero asignado al grupo/grado (para informes institucionales).</summary>
+        Task<string?> GetConsejeroNombrePorGrupoGradoAsync(Guid schoolId, Guid groupId, Guid gradeLevelId);
     }
 }

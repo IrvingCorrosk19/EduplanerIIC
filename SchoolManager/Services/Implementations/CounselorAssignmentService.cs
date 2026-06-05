@@ -822,6 +822,32 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
+        public async Task<string?> GetConsejeroNombrePorGrupoGradoAsync(Guid schoolId, Guid groupId, Guid gradeLevelId)
+        {
+            var baseQuery = _context.CounselorAssignments
+                .AsNoTracking()
+                .Include(ca => ca.User)
+                .Where(ca => ca.SchoolId == schoolId && ca.IsActive && ca.IsCounselor);
+
+            var assignment = await baseQuery
+                .Where(ca => ca.GroupId == groupId && ca.GradeId == gradeLevelId)
+                .FirstOrDefaultAsync();
+
+            assignment ??= await baseQuery
+                .Where(ca => ca.GroupId == groupId && ca.GradeId == null)
+                .FirstOrDefaultAsync();
+
+            assignment ??= await baseQuery
+                .Where(ca => ca.GradeId == gradeLevelId && ca.GroupId == null)
+                .FirstOrDefaultAsync();
+
+            assignment ??= await baseQuery
+                .Where(ca => ca.GradeId == null && ca.GroupId == null)
+                .FirstOrDefaultAsync();
+
+            return assignment?.User == null ? null : FormatearNombreConsejero(assignment.User);
+        }
+
         public async Task<List<CounselorGroupDto>> GetCounselorGroupsAsync(Guid teacherId)
         {
             try
@@ -858,6 +884,19 @@ namespace SchoolManager.Services.Implementations
                 _logger.LogError(ex, "Error al obtener grupos de consejería para profesor {TeacherId}", teacherId);
                 throw;
             }
+        }
+
+        private static string FormatearNombreConsejero(User user)
+        {
+            var nombre = (user.Name ?? "").Trim();
+            var apellido = (user.LastName ?? "").Trim();
+            if (string.IsNullOrEmpty(nombre) && string.IsNullOrEmpty(apellido))
+                return "";
+            if (string.IsNullOrEmpty(apellido))
+                return nombre;
+            if (string.IsNullOrEmpty(nombre))
+                return apellido;
+            return $"{nombre} {apellido}";
         }
 
         private static string GetAssignmentType(Guid? gradeId, Guid? groupId)

@@ -205,23 +205,27 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 0, est.Numero);
             ReportePlantillaNpoiHelper.EstablecerTexto(sheet, fila, 1, est.Nombre);
 
-            var notasEstudiante = new List<decimal>();
-            for (var t = 0; t < trimestres.Count && t < bloquesColumnas.Length; t++)
+            var notasPorSlot = new decimal?[3][];
+            for (var s = 0; s < 3; s++)
+                notasPorSlot[s] = new decimal?[columnas.Count];
+
+            foreach (var trimNombre in trimestres)
             {
-                var cols = bloquesColumnas[t];
+                var slot = ResolverSlotTrimestreInforme(trimNombre);
+                if (!slot.HasValue || slot.Value < 0 || slot.Value >= bloquesColumnas.Length)
+                    continue;
+
+                var cols = bloquesColumnas[slot.Value];
                 for (var j = 0; j < columnas.Count && j < cols.Length; j++)
                 {
                     var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
-                        est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], columnas[j].PalabrasClave);
+                        est.StudentId, groupId, gradeLevelId, schoolId, trimNombre, columnas[j].PalabrasClave);
                     ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, cols[j], nota);
-                    if (nota.HasValue)
-                        notasEstudiante.Add(nota.Value);
+                    notasPorSlot[slot.Value][j] = nota;
                 }
             }
 
-            var final = notasEstudiante.Count > 0
-                ? Math.Round(notasEstudiante.Average(), 1)
-                : (decimal?)null;
+            var final = CalcularPromedioFinalInformeCalificaciones(notasPorSlot);
             ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colPromedio, final);
         }
 
@@ -253,40 +257,38 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var filas = new List<CalificacionesTecnologiaFilaViewModel>();
         foreach (var est in estudiantes)
         {
-            var notasPorTrim = new List<decimal?[]>();
-            var todasNotas = new List<decimal>();
+            var notasPorSlot = new decimal?[3][];
+            for (var s = 0; s < 3; s++)
+                notasPorSlot[s] = new decimal?[columnas.Count];
 
-            for (var t = 0; t < trimestres.Count && t < 3; t++)
+            foreach (var trimNombre in trimestres)
             {
-                var notasTrim = new decimal?[columnas.Count];
+                var slot = ResolverSlotTrimestreInforme(trimNombre);
+                if (!slot.HasValue || slot.Value < 0 || slot.Value > 2)
+                    continue;
+
                 for (var j = 0; j < columnas.Count; j++)
                 {
                     var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
-                        est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], columnas[j].PalabrasClave);
-                    notasTrim[j] = nota;
-                    if (nota.HasValue)
-                        todasNotas.Add(nota.Value);
+                        est.StudentId, groupId, gradeLevelId, schoolId, trimNombre, columnas[j].PalabrasClave);
+                    notasPorSlot[slot.Value][j] = nota;
                 }
-                notasPorTrim.Add(notasTrim);
             }
-
-            while (notasPorTrim.Count < 3)
-                notasPorTrim.Add(new decimal?[3]);
 
             filas.Add(new CalificacionesTecnologiaFilaViewModel
             {
                 Numero = est.Numero,
                 Nombre = est.Nombre,
-                NotaT1Area1 = notasPorTrim[0].ElementAtOrDefault(0),
-                NotaT1Area2 = notasPorTrim[0].ElementAtOrDefault(1),
-                NotaT1Area3 = notasPorTrim[0].ElementAtOrDefault(2),
-                NotaT2Area1 = notasPorTrim[1].ElementAtOrDefault(0),
-                NotaT2Area2 = notasPorTrim[1].ElementAtOrDefault(1),
-                NotaT2Area3 = notasPorTrim[1].ElementAtOrDefault(2),
-                NotaT3Area1 = notasPorTrim[2].ElementAtOrDefault(0),
-                NotaT3Area2 = notasPorTrim[2].ElementAtOrDefault(1),
-                NotaT3Area3 = notasPorTrim[2].ElementAtOrDefault(2),
-                PromedioFinal = todasNotas.Count > 0 ? Math.Round(todasNotas.Average(), 1) : null
+                NotaT1Area1 = notasPorSlot[0].ElementAtOrDefault(0),
+                NotaT1Area2 = notasPorSlot[0].ElementAtOrDefault(1),
+                NotaT1Area3 = notasPorSlot[0].ElementAtOrDefault(2),
+                NotaT2Area1 = notasPorSlot[1].ElementAtOrDefault(0),
+                NotaT2Area2 = notasPorSlot[1].ElementAtOrDefault(1),
+                NotaT2Area3 = notasPorSlot[1].ElementAtOrDefault(2),
+                NotaT3Area1 = notasPorSlot[2].ElementAtOrDefault(0),
+                NotaT3Area2 = notasPorSlot[2].ElementAtOrDefault(1),
+                NotaT3Area3 = notasPorSlot[2].ElementAtOrDefault(2),
+                PromedioFinal = CalcularPromedioFinalInformeCalificaciones(notasPorSlot)
             });
         }
 
@@ -373,18 +375,19 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var filas = new List<CalificacionesExpresionesArtisticasFilaViewModel>();
         foreach (var est in estudiantes)
         {
-            var todasNotas = new List<decimal>();
             var notas = new decimal?[6];
 
-            for (var t = 0; t < trimestres.Count && t < 3; t++)
+            foreach (var trimNombre in trimestres)
             {
+                var slot = ResolverSlotTrimestreInforme(trimNombre);
+                if (!slot.HasValue || slot.Value < 0 || slot.Value > 2)
+                    continue;
+
                 for (var j = 0; j < columnas.Count && j < 2; j++)
                 {
                     var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
-                        est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], columnas[j].PalabrasClave);
-                    notas[t * 2 + j] = nota;
-                    if (nota.HasValue)
-                        todasNotas.Add(nota.Value);
+                        est.StudentId, groupId, gradeLevelId, schoolId, trimNombre, columnas[j].PalabrasClave);
+                    notas[slot.Value * 2 + j] = nota;
                 }
             }
 
@@ -398,7 +401,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 NotaT2Musical = notas[3],
                 NotaT3Artistica = notas[4],
                 NotaT3Musical = notas[5],
-                PromedioFinal = todasNotas.Count > 0 ? Math.Round(todasNotas.Average(), 1) : null
+                PromedioFinal = CalcularPromedioFinalInformeCalificaciones(
+                    new[] { SliceNotasTrimestre(notas, 0), SliceNotasTrimestre(notas, 1), SliceNotasTrimestre(notas, 2) })
             });
         }
 
@@ -838,6 +842,68 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             2 => "III- TRIMESTRE ",
             _ => ""
         };
+    }
+
+    /// <summary>
+    /// Promedio final: promedio de los promedios trimestrales, usando solo las asignaturas con nota en cada trimestre.
+    /// </summary>
+    private static decimal? CalcularPromedioFinalInformeCalificaciones(decimal?[][] notasPorSlot)
+    {
+        var promediosTrimestre = new List<decimal>();
+        foreach (var slot in notasPorSlot)
+        {
+            if (slot == null || slot.Length == 0)
+                continue;
+
+            var validas = slot.Where(n => n.HasValue).Select(n => n!.Value).ToList();
+            if (validas.Count > 0)
+                promediosTrimestre.Add(validas.Average());
+        }
+
+        return promediosTrimestre.Count > 0 ? Math.Round(promediosTrimestre.Average(), 1) : null;
+    }
+
+    private static decimal?[] SliceNotasTrimestre(decimal?[] notasLineales, int slotTrimestre, int columnasPorTrimestre = 2)
+    {
+        var start = slotTrimestre * columnasPorTrimestre;
+        if (start >= notasLineales.Length)
+            return Array.Empty<decimal?>();
+
+        var len = Math.Min(columnasPorTrimestre, notasLineales.Length - start);
+        var slice = new decimal?[len];
+        Array.Copy(notasLineales, start, slice, 0, len);
+        return slice;
+    }
+
+    /// <summary>
+    /// Columna del informe (0 = I trimestre, 1 = II, 2 = III) según el nombre en BD (p. ej. 1T, 2T).
+    /// </summary>
+    private static int? ResolverSlotTrimestreInforme(string? trimestre)
+    {
+        if (string.IsNullOrWhiteSpace(trimestre))
+            return null;
+
+        var t = trimestre.Trim().ToUpperInvariant();
+        if (t is "1T" or "T1" or "I" or "1" or "PRIMERO" or "1RO" or "1ER")
+            return 0;
+        if (t is "2T" or "T2" or "II" or "2" or "SEGUNDO" or "2DO")
+            return 1;
+        if (t is "3T" or "T3" or "III" or "3" or "TERCERO" or "3RO" or "3ER")
+            return 2;
+
+        if (!t.Contains("TRIMESTRE", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (t.Contains("III", StringComparison.Ordinal) ||
+            t.Contains("TERCER", StringComparison.OrdinalIgnoreCase))
+            return 2;
+        if (t.Contains("II", StringComparison.Ordinal) ||
+            t.Contains("SEGUNDO", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        if (t.Contains('I') || t.Contains("PRIMER", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        return null;
     }
 
     private static string FormatearEtiquetaTrimestre(string trimestre)
