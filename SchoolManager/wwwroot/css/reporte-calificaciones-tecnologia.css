@@ -160,24 +160,6 @@
     height: 105pt;
 }
 
-.rt-tabla thead tr.rt-head-trimestres {
-    height: 28pt;
-}
-
-.rt-tabla thead tr.rt-head-materias {
-    height: 95pt;
-}
-
-.rt-col-trim-group {
-    writing-mode: horizontal-tb;
-    transform: none;
-    font-size: 9pt;
-    font-weight: bold;
-    text-align: center;
-    vertical-align: middle;
-    padding: 4pt 2pt !important;
-}
-
 .vertical-header {
     writing-mode: vertical-rl;
     transform: rotate(180deg);

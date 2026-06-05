@@ -1,19 +1,9 @@
-/* Calificaciones Expresiones Artísticas — 9 columnas (2 + 6 notas + promedio) */
-.reporte-exp .rt-meta .meta-grado { text-align: right; }
-.reporte-exp .rt-tabla .rt-col-num { width: 4%; }
-.reporte-exp .rt-tabla .rt-col-nombre { width: 24%; text-align: left !important; padding-left: 4pt !important; }
-.reporte-exp .rt-tabla .rt-col-nota { width: 7%; }
-.reporte-exp .rt-tabla .rt-col-trim-group {
-    width: 14%;
-    writing-mode: horizontal-tb;
-    transform: none;
-    font-size: 9pt;
-    font-weight: bold;
-    text-align: center;
-    vertical-align: middle;
-    padding: 4pt 2pt !important;
-}
-.reporte-exp .rt-tabla .rt-col-promedio { width: 8%; }
-.reporte-exp .rt-tabla thead tr.rt-head-trimestres { height: 28pt; }
-.reporte-exp .rt-tabla thead tr.rt-head-materias { height: 95pt; }
-@media print { @@page { size: landscape; margin: 6mm 5mm; } }
+/* Calificaciones Expresiones Artísticas — 12 columnas oficiales */
+.reporte-exp .rt-meta .meta-grado { text-align: right; }
+.reporte-exp .rt-tabla .rt-col-num { width: 4%; }
+.reporte-exp .rt-tabla .rt-col-nombre { width: 24%; text-align: left !important; padding-left: 4pt !important; }
+.reporte-exp .rt-tabla .rt-col-nota { width: 5.5%; }
+.reporte-exp .rt-tabla .rt-col-trim-label { width: 5.5%; }
+.reporte-exp .rt-tabla .rt-col-promedio { width: 6%; }
+.reporte-exp .rt-tabla thead tr.rt-head-row { height: 105pt; }
+@media print { @@page { size: landscape; margin: 6mm 5mm; } }
