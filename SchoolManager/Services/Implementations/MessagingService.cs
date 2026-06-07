@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SchoolManager.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
@@ -10,15 +11,18 @@ namespace SchoolManager.Services.Implementations
         private readonly SchoolDbContext _context;
         private readonly ILogger<MessagingService> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ITeacherGroupService _teacherGroupService;
 
         public MessagingService(
             SchoolDbContext _context,
             ILogger<MessagingService> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            ITeacherGroupService teacherGroupService)
         {
             this._context = _context;
             _logger = logger;
             _currentUserService = currentUserService;
+            _teacherGroupService = teacherGroupService;
         }
 
         public async Task<bool> SendMessageAsync(SendMessageViewModel model, Guid senderId)
@@ -557,16 +561,7 @@ namespace SchoolManager.Services.Implementations
                             })
                             .ToListAsync();
 
-                        options.Groups = await _context.Groups
-                            .Where(g => g.SchoolId == user.SchoolId)
-                            .OrderBy(g => g.Name)
-                            .Select(g => new RecipientOption
-                            {
-                                Id = g.Id,
-                                Name = g.Name,
-                                AdditionalInfo = g.Grade
-                            })
-                            .ToListAsync();
+                        options.Groups = await GetTeacherGroupRecipientOptionsAsync(userId);
 
                         options.CanSendToAllTeachers = false;
                         options.CanSendToAllStudents = false;
@@ -729,6 +724,30 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
+        private async Task<List<RecipientOption>> GetTeacherGroupRecipientOptionsAsync(Guid teacherId)
+        {
+            var teacherGroups = (await _teacherGroupService.GetByTeacherAsync(teacherId, string.Empty)).ToList();
+            if (teacherGroups.Count == 0)
+                return new List<RecipientOption>();
+
+            var groupIds = teacherGroups.Select(g => g.Id).ToHashSet();
+            return await _context.Groups
+                .Where(g => groupIds.Contains(g.Id))
+                .OrderBy(g => g.Name)
+                .ThenBy(g => g.Grade)
+                .Select(g => new RecipientOption
+                {
+                    Id = g.Id,
+                    Name = g.Name,
+                    AdditionalInfo = g.Grade ?? string.Empty
+                })
+                .ToListAsync();
+        }
+
+        private Task<bool> TeacherHasGroupAssignmentAsync(Guid teacherId, Guid groupId) =>
+            _context.TeacherAssignments.AnyAsync(ta =>
+                ta.TeacherId == teacherId && ta.SubjectAssignment.GroupId == groupId);
+
         public async Task<bool> CanSendToRecipientAsync(Guid senderId, string recipientType, Guid? recipientId, Guid? groupId)
         {
             try
@@ -745,9 +764,13 @@ namespace SchoolManager.Services.Implementations
                         return recipientId.HasValue;
 
                     case "Group":
-                        // Solo profesores y administradores pueden enviar a grupos
-                        return groupId.HasValue && 
-                               (role == "teacher" || role == "admin" || role == "director" || role == "superadmin");
+                        if (!groupId.HasValue)
+                            return false;
+
+                        if (role == "teacher")
+                            return await TeacherHasGroupAssignmentAsync(senderId, groupId.Value);
+
+                        return role == "admin" || role == "director" || role == "superadmin";
 
                     case "AllTeachers":
                         // Estudiantes y administradores pueden enviar a todos los profesores
