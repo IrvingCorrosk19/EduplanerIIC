@@ -36,7 +36,7 @@ namespace SchoolManager.Services.Interfaces
         Task<List<RecipientOptionDto>> SearchUsersForMessagingAsync(Guid userId, string searchTerm, string type = "all");
 
         // Validaciones
-        Task<bool> CanSendToRecipientAsync(Guid senderId, string recipientType, Guid? recipientId, Guid? groupId);
+        Task<bool> CanSendToRecipientAsync(Guid senderId, string recipientType, Guid? recipientId, Guid? groupId, Guid? gradeLevelId = null);
     }
 }
 

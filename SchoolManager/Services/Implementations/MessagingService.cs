@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SchoolManager.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
@@ -11,18 +10,15 @@ namespace SchoolManager.Services.Implementations
         private readonly SchoolDbContext _context;
         private readonly ILogger<MessagingService> _logger;
         private readonly ICurrentUserService _currentUserService;
-        private readonly ITeacherGroupService _teacherGroupService;
 
         public MessagingService(
             SchoolDbContext _context,
             ILogger<MessagingService> logger,
-            ICurrentUserService currentUserService,
-            ITeacherGroupService teacherGroupService)
+            ICurrentUserService currentUserService)
         {
             this._context = _context;
             _logger = logger;
             _currentUserService = currentUserService;
-            _teacherGroupService = teacherGroupService;
         }
 
         public async Task<bool> SendMessageAsync(SendMessageViewModel model, Guid senderId)
@@ -39,7 +35,7 @@ namespace SchoolManager.Services.Implementations
                 }
 
                 // Validar permisos
-                if (!await CanSendToRecipientAsync(senderId, model.RecipientType, model.RecipientId, model.GroupId))
+                if (!await CanSendToRecipientAsync(senderId, model.RecipientType, model.RecipientId, model.GroupId, model.GradeLevelId))
                 {
                     _logger.LogWarning("⚠️ Usuario no tiene permisos para enviar este tipo de mensaje");
                     return false;
@@ -72,11 +68,13 @@ namespace SchoolManager.Services.Implementations
                         break;
 
                     case "Group":
-                        if (!model.GroupId.HasValue)
+                        if (!model.GroupId.HasValue || !model.GradeLevelId.HasValue)
                             return false;
 
                         var groupStudents = await _context.StudentAssignments
-                            .Where(sa => sa.GroupId == model.GroupId.Value)
+                            .Where(sa => sa.GroupId == model.GroupId.Value &&
+                                          sa.GradeId == model.GradeLevelId.Value &&
+                                          sa.IsActive)
                             .Select(sa => sa.StudentId)
                             .Distinct()
                             .ToListAsync();
@@ -724,31 +722,51 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
+        /// <summary>
+        /// Misma lógica que TeacherGradebook/Index (Materia y Grupo): combinaciones únicas de asignación docente.
+        /// </summary>
         private async Task<List<RecipientOption>> GetTeacherGroupRecipientOptionsAsync(Guid teacherId)
         {
-            var teacherGroups = (await _teacherGroupService.GetByTeacherAsync(teacherId, string.Empty)).ToList();
-            if (teacherGroups.Count == 0)
-                return new List<RecipientOption>();
-
-            var groupIds = teacherGroups.Select(g => g.Id).ToHashSet();
-            return await _context.Groups
-                .Where(g => groupIds.Contains(g.Id))
-                .OrderBy(g => g.Name)
-                .ThenBy(g => g.Grade)
-                .Select(g => new RecipientOption
+            var rows = await _context.TeacherAssignments
+                .AsNoTracking()
+                .Where(ta => ta.TeacherId == teacherId)
+                .Select(ta => new
                 {
-                    Id = g.Id,
-                    Name = g.Name,
-                    AdditionalInfo = g.Grade ?? string.Empty
+                    GroupId = ta.SubjectAssignment.GroupId,
+                    GradeLevelId = ta.SubjectAssignment.GradeLevelId,
+                    SubjectName = ta.SubjectAssignment.Subject.Name,
+                    GradeLevelName = ta.SubjectAssignment.GradeLevel.Name,
+                    GroupName = ta.SubjectAssignment.Group.Name
                 })
                 .ToListAsync();
+
+            return rows
+                .Select(r => new
+                {
+                    r.GroupId,
+                    r.GradeLevelId,
+                    Label = $"{r.SubjectName} - {r.GradeLevelName} {r.GroupName}".Trim()
+                })
+                .GroupBy(r => new { r.GroupId, r.GradeLevelId, r.Label })
+                .Select(g => g.First())
+                .OrderBy(r => r.Label)
+                .Select(r => new RecipientOption
+                {
+                    Id = r.GroupId,
+                    GradeLevelId = r.GradeLevelId,
+                    Name = r.Label
+                })
+                .ToList();
         }
 
-        private Task<bool> TeacherHasGroupAssignmentAsync(Guid teacherId, Guid groupId) =>
+        private Task<bool> TeacherHasGroupAssignmentAsync(Guid teacherId, Guid groupId, Guid gradeLevelId) =>
             _context.TeacherAssignments.AnyAsync(ta =>
-                ta.TeacherId == teacherId && ta.SubjectAssignment.GroupId == groupId);
+                ta.TeacherId == teacherId &&
+                ta.SubjectAssignment.GroupId == groupId &&
+                ta.SubjectAssignment.GradeLevelId == gradeLevelId);
 
-        public async Task<bool> CanSendToRecipientAsync(Guid senderId, string recipientType, Guid? recipientId, Guid? groupId)
+        public async Task<bool> CanSendToRecipientAsync(
+            Guid senderId, string recipientType, Guid? recipientId, Guid? groupId, Guid? gradeLevelId = null)
         {
             try
             {
@@ -764,11 +782,11 @@ namespace SchoolManager.Services.Implementations
                         return recipientId.HasValue;
 
                     case "Group":
-                        if (!groupId.HasValue)
+                        if (!groupId.HasValue || !gradeLevelId.HasValue)
                             return false;
 
                         if (role == "teacher")
-                            return await TeacherHasGroupAssignmentAsync(senderId, groupId.Value);
+                            return await TeacherHasGroupAssignmentAsync(senderId, groupId.Value, gradeLevelId.Value);
 
                         return role == "admin" || role == "director" || role == "superadmin";
 

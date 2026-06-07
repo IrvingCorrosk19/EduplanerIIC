@@ -27,6 +27,9 @@ namespace SchoolManager.ViewModels
         [Display(Name = "Grupo")]
         public Guid? GroupId { get; set; }
 
+        /// <summary>Grado académico de la asignación docente (junto con GroupId).</summary>
+        public Guid? GradeLevelId { get; set; }
+
         [Display(Name = "Prioridad")]
         public string Priority { get; set; } = "Normal";
 
@@ -92,6 +95,7 @@ namespace SchoolManager.ViewModels
     public class RecipientOption
     {
         public Guid Id { get; set; }
+        public Guid? GradeLevelId { get; set; }
         public string Name { get; set; } = null!;
         public string? AdditionalInfo { get; set; }
     }

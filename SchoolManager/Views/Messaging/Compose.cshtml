@@ -107,19 +107,22 @@
                             </small>
                         </div>
 
-                        <!-- Selector de grupo -->
+                        <!-- Selector de grupo (materia + grado + grupo, igual que TeacherGradebook) -->
                         <div class="mb-3 recipient-selector" id="group-selector" style="display: none;">
-                            <label class="form-label">Grupo:</label>
-                            <select class="form-select" asp-for="GroupId">
-                                <option value="">-- Seleccione un grupo --</option>
+                            <label class="form-label">Materia y Grupo:</label>
+                            <select class="form-select" id="group-assignment-select">
+                                <option value="">-- Seleccione materia y grupo --</option>
                                 @if (options?.Groups != null)
                                 {
                                     foreach (var group in options.Groups)
                                     {
-                                        <option value="@group.Id">@group.Name - @group.AdditionalInfo</option>
+                                        var optionValue = $"{group.Id}|{group.GradeLevelId}";
+                                        <option value="@optionValue">@group.Name</option>
                                     }
                                 }
                             </select>
+                            <input type="hidden" asp-for="GroupId" id="GroupId" />
+                            <input type="hidden" asp-for="GradeLevelId" id="GradeLevelId" />
                         </div>
 
                         <input type="hidden" asp-for="RecipientId" id="recipient-id" name="RecipientId" />
@@ -415,6 +418,8 @@
                 $('.recipient-selector').hide();
                 $('#recipient-id').val('');
                 $('#GroupId').val('');
+                $('#GradeLevelId').val('');
+                $('#group-assignment-select').val('');
                 
                 // Limpiar selecciones de Select2
                 $('#admin-select').val(null).trigger('change');
@@ -453,6 +458,18 @@
                 $('#recipient-id').val(data.id);
             });
 
+            $('#group-assignment-select').on('change', function () {
+                const raw = $(this).val();
+                if (!raw) {
+                    $('#GroupId').val('');
+                    $('#GradeLevelId').val('');
+                    return;
+                }
+                const parts = raw.split('|');
+                $('#GroupId').val(parts[0] || '');
+                $('#GradeLevelId').val(parts[1] || '');
+            });
+
             // Limpiar cuando se deselecciona
             $('#admin-select, #teacher-select, #student-select').on('select2:clear', function () {
                 $('#recipient-id').val('');
@@ -474,9 +491,9 @@
                     return false;
                 }
                 
-                if (recipientType === 'Group' && !$('#GroupId').val()) {
+                if (recipientType === 'Group' && (!$('#GroupId').val() || !$('#GradeLevelId').val())) {
                     e.preventDefault();
-                    Swal.fire('Error', 'Debe seleccionar un grupo', 'error');
+                    Swal.fire('Error', 'Debe seleccionar materia y grupo', 'error');
                     return false;
                 }
                 
