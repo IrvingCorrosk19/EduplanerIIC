@@ -743,13 +743,17 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         return match.Success && int.TryParse(match.Value, out var n) ? n : null;
     }
 
+    /// <summary>
+    /// Etiqueta tipo "9-G" para encabezados. Prioriza el grado académico seleccionado (grade_levels)
+    /// sobre groups.grade del catálogo, que puede no coincidir con la asignación real.
+    /// </summary>
     private static string FormatearEtiquetaGrupoInforme(string? gradeLevelName, string groupName, string? groupGrade)
     {
-        var grado = !string.IsNullOrWhiteSpace(groupGrade)
-            ? groupGrade.Trim()
-            : ExtractGradeNumber(gradeLevelName) is int n
-                ? $"{n}°"
-                : gradeLevelName?.Trim() ?? "";
+        var grado = !string.IsNullOrWhiteSpace(gradeLevelName)
+            ? gradeLevelName.Trim()
+            : !string.IsNullOrWhiteSpace(groupGrade)
+                ? groupGrade.Trim()
+                : "";
 
         var nombre = groupName.Trim();
         if (string.IsNullOrEmpty(nombre))
