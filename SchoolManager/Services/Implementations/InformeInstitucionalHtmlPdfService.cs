@@ -45,10 +45,11 @@ public class InformeInstitucionalHtmlPdfService : IInformeInstitucionalHtmlPdfSe
 
         return await page.PdfDataAsync(new PdfOptions
         {
-            Format = PaperFormat.Letter,
             Landscape = landscape,
             PrintBackground = true,
             PreferCSSPageSize = true,
+            Width = landscape ? null : "8.5in",
+            Height = landscape ? null : "14in",
             MarginOptions = new MarginOptions
             {
                 Top = "6mm",

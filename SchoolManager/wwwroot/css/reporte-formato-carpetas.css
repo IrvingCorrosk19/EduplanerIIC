@@ -9,4 +9,3 @@
 .reporte-carpetas .ri-tabla .col-at { width: 2.5%; font-size: 8pt; }
 .reporte-carpetas .ri-tabla thead th { font-size: 8pt; padding: 2pt !important; }
 .reporte-carpetas .ri-tabla thead tr.subhead th { font-weight: normal; font-size: 7.5pt; }
-@media print { @@page { size: landscape; margin: 6mm 5mm; } }

@@ -6,4 +6,3 @@
 .reporte-exp .rt-tabla .rt-col-trim-label { width: 5.5%; }
 .reporte-exp .rt-tabla .rt-col-promedio { width: 6%; }
 .reporte-exp .rt-tabla thead tr.rt-head-row { height: 105pt; }
-@media print { @@page { size: landscape; margin: 6mm 5mm; } }

@@ -408,7 +408,7 @@ public class CalificacionesInformeController : InformeInstitucionalControllerBas
 
                 new { nivelEducativo, groupId, gradeLevelId }, Request.Scheme)!;
 
-            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: true);
+            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: false);
 
             return File(bytes, "application/pdf", "Calificaciones_Tecnologia.pdf");
 
@@ -444,7 +444,7 @@ public class CalificacionesInformeController : InformeInstitucionalControllerBas
 
                 new { nivelEducativo, groupId, gradeLevelId }, Request.Scheme)!;
 
-            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: true);
+            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: false);
 
             return File(bytes, "application/pdf", "Calificaciones_Expresiones_Artisticas.pdf");
 
@@ -666,7 +666,7 @@ public class FormatoCarpetasReportController : InformeInstitucionalControllerBas
 
                 new { nivelEducativo, materiaId, groupId, gradeLevelId }, Request.Scheme)!;
 
-            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: true);
+            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: false);
 
             return File(bytes, "application/pdf", "Formato_Carpetas.pdf");
 
