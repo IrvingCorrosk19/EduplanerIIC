@@ -134,19 +134,23 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
             scores ??= new Dictionary<Guid, decimal?>();
 
             var typeAvgs = new Dictionary<string, decimal>();
+            var typesWithScores = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var section in typeSections)
             {
                 var values = section.Activities
                     .Select(a => scores.TryGetValue(a.Id, out var v) ? v : null)
-                    .Where(v => v.HasValue && v.Value > 0)
+                    .Where(v => v.HasValue)
                     .Select(v => v!.Value)
                     .ToList();
+
+                if (values.Count > 0)
+                    typesWithScores.Add(section.TypeKey);
 
                 var avg = values.Count > 0 ? TruncateOneDecimal(values.Average()) : 0m;
                 typeAvgs[section.TypeKey] = avg;
             }
 
-            var finalGrade = ComputeFinalGrade(typeAvgs, typeSections.Select(s => s.TypeKey).ToList());
+            var finalGrade = ComputeFinalGrade(typeAvgs, typesWithScores, typeSections.Select(s => s.TypeKey).ToList());
 
             studentRows.Add(new GradebookPdfStudentRowDto
             {
@@ -469,18 +473,21 @@ public class TeacherGradebookPdfService : ITeacherGradebookPdfService
     private static decimal TruncateOneDecimal(decimal value) =>
         Math.Floor(value * 10m) / 10m;
 
-    private static decimal ComputeFinalGrade(Dictionary<string, decimal> typeAvgs, List<string> activeTypeKeys)
+    private static decimal ComputeFinalGrade(
+        Dictionary<string, decimal> typeAvgs,
+        HashSet<string> typesWithScores,
+        List<string> activeTypeKeys)
     {
         var working = new Dictionary<string, decimal>(typeAvgs);
 
-        if (working.TryGetValue("recuperación", out var recup) && recup > 0)
+        if (typesWithScores.Contains("recuperación"))
         {
-            working["examen final"] = recup;
+            working["examen final"] = working.GetValueOrDefault("recuperación", 0m);
         }
 
         var typesForFinal = activeTypeKeys
             .Where(t => t != "recuperación")
-            .Where(t => working.TryGetValue(t, out var v) && v > 0)
+            .Where(t => typesWithScores.Contains(t))
             .ToList();
 
         if (typesForFinal.Count == 0) return 0m;

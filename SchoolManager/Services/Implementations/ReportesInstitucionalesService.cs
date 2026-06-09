@@ -687,6 +687,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         };
 
         var typeAvgs = new Dictionary<string, decimal>();
+        var typesWithScores = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var typeKey in typeOrder)
         {
             var acts = actividadesMateria
@@ -697,9 +698,12 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
             var values = acts
                 .Select(a => scores.TryGetValue(a.Id, out var v) ? v : null)
-                .Where(v => v.HasValue && v.Value > 0)
+                .Where(v => v.HasValue)
                 .Select(v => v!.Value)
                 .ToList();
+
+            if (values.Count > 0)
+                typesWithScores.Add(typeKey);
 
             typeAvgs[typeKey] = values.Count > 0 ? TruncateOneDecimal(values.Average()) : 0m;
         }
@@ -707,19 +711,21 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         if (typeAvgs.Count == 0)
             return null;
 
-        return ComputeFinalGradeFromTypeAverages(typeAvgs);
+        return ComputeFinalGradeFromTypeAverages(typeAvgs, typesWithScores);
     }
 
-    private static decimal? ComputeFinalGradeFromTypeAverages(Dictionary<string, decimal> typeAvgs)
+    private static decimal? ComputeFinalGradeFromTypeAverages(
+        Dictionary<string, decimal> typeAvgs,
+        HashSet<string> typesWithScores)
     {
         var working = new Dictionary<string, decimal>(typeAvgs);
 
-        if (working.TryGetValue("recuperación", out var recup) && recup > 0)
-            working["examen final"] = recup;
+        if (typesWithScores.Contains("recuperación"))
+            working["examen final"] = working.GetValueOrDefault("recuperación", 0m);
 
         var typesForFinal = working.Keys
             .Where(t => t != "recuperación")
-            .Where(t => working[t] > 0)
+            .Where(t => typesWithScores.Contains(t))
             .ToList();
 
         if (typesForFinal.Count == 0)

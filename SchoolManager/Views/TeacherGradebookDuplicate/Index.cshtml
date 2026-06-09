@@ -1361,7 +1361,7 @@
 
             function validateScore(score) {
                 if (isNaN(score)) return 0;
-                return Math.max(1.0, Math.min(5.0, score));
+                return Math.max(0.0, Math.min(5.0, score));
             }
 
             function updateResumenTable() {
@@ -1392,11 +1392,14 @@
                     const nombre = formatName(s.fullName);
                     const documentId = s.documentId || 'Sin cédula';
                     const trimesterData = studentAnnualScores[s.id] || {};
-                    const t1 = trimesterData['1T'] || 0;
-                    const t2 = trimesterData['2T'] || 0;
-                    const t3 = trimesterData['3T'] || 0;
-                    const count = [t1, t2, t3].filter(n => n > 0).length;
-                    const promedio = count > 0 ? ((t1 + t2 + t3) / count) : 0;
+                    const trimestresNota = ['1T', '2T', '3T']
+                        .map(t => trimesterData[t])
+                        .filter(v => v !== undefined && v !== null);
+                    const t1 = trimesterData['1T'];
+                    const t2 = trimesterData['2T'];
+                    const t3 = trimesterData['3T'];
+                    const count = trimestresNota.length;
+                    const promedio = count > 0 ? (trimestresNota.reduce((a, b) => a + b, 0) / count) : 0;
                     const truncPromedio = truncateToOneDecimal(promedio);
                     let estado = 'Sin calificar';
                     if (count > 0) {
@@ -1408,9 +1411,9 @@
                                 <div>${nombre}</div>
                                 <small class="text-muted">${documentId}</small>
                             </td>
-                            <td>${t1.toFixed(1)}</td>
-                            <td>${t2.toFixed(1)}</td>
-                            <td>${t3.toFixed(1)}</td>
+                            <td>${t1 !== undefined && t1 !== null ? truncateToOneDecimal(t1).toFixed(1) : '-'}</td>
+                            <td>${t2 !== undefined && t2 !== null ? truncateToOneDecimal(t2).toFixed(1) : '-'}</td>
+                            <td>${t3 !== undefined && t3 !== null ? truncateToOneDecimal(t3).toFixed(1) : '-'}</td>
                             <td><strong>${truncPromedio.toFixed(1)}</strong></td>
                             <td class="${estado === 'Aprobado' ? 'text-success' : (estado === 'Reprobado' ? 'text-danger' : 'text-danger')}">${estado}</td>
                         </tr>`;
@@ -1531,16 +1534,18 @@
                     }
 
                     // Si es un entero o termina en punto, formatear a X.0
-                    if (/^[1-5]$/.test(value) || /^[1-5]\.$/.test(value)) {
+                    if (/^0$/.test(value) || /^0\.$/.test(value)) {
+                        value = '0.0';
+                    } else if (/^[1-5]$/.test(value) || /^[1-5]\.$/.test(value)) {
                         value = value.replace('.', '') + '.0';
                     }
 
-                    const validFormat = /^[1-5](\.[0-9])?$/;
+                    const validFormat = /^[0-5](\.[0-9])?$/;
                     if (!validFormat.test(value)) {
                         Swal.fire({
                             icon: 'error',
                             title: 'Formato inválido',
-                            text: 'Por favor ingrese un número entre 1.0 y 5.0 con un decimal'
+                            text: 'Por favor ingrese un número entre 0.0 y 5.0 con un decimal'
                         });
                         $cell.text('');
                         calcAverages();
@@ -1548,19 +1553,18 @@
                     }
 
                     const numValue = parseFloat(value);
-                    if (numValue < 1 || numValue > 5) {
+                    if (numValue < 0 || numValue > 5) {
                         Swal.fire({
                             icon: 'error',
                             title: 'Valor fuera de rango',
-                            text: 'La calificación debe estar entre 1.0 y 5.0'
+                            text: 'La calificación debe estar entre 0.0 y 5.0'
                         });
                         $cell.text('');
                         calcAverages();
                         return;
                     }
 
-                    // Siempre formatear el valor final a un decimal
-                    const formattedValue = numValue.toFixed(1);
+                    const formattedValue = truncateToOneDecimal(numValue).toFixed(1);
                     $cell.text(formattedValue);
 
                     if (!scores[student]) scores[student] = {};
@@ -1610,7 +1614,7 @@
                     paste: function(e) {
                         e.preventDefault();
                         const pastedText = (e.originalEvent.clipboardData || window.clipboardData).getData('text');
-                        if (/^[1-5](\.[0-9])?$/.test(pastedText)) {
+                        if (/^[0-5](\.[0-9])?$/.test(pastedText)) {
                             $(this).text(pastedText);
                             procesarCeldaNota($(this));
                             $(this).blur();
@@ -1771,14 +1775,18 @@
                     
                     const activeTypes = ['notas de apreciación', 'ejercicios diarios', 'examen final'].filter(type => activities[type] && activities[type].length > 0);
                     const typeAvgs = {};
+                    const typeHasScores = {};
 
                     activeTypes.forEach(type => {
-                        const values = row.find(`.score-cell[data-type='${type}']`)
+                        const valid = row.find(`.score-cell[data-type='${type}']`)
                             .map((_, td) => {
-                                const val = parseFloat($(td).text());
-                                return isNaN(val) ? 0 : val;
-                            }).get();
-                        const valid = values.filter(n => n > 0);
+                                const text = $(td).text().trim();
+                                if (!text) return null;
+                                const val = parseFloat(text);
+                                return isNaN(val) ? null : val;
+                            }).get()
+                            .filter(v => v !== null);
+                        typeHasScores[type] = valid.length > 0;
                         const avg = valid.length > 0 ? (valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
                         const truncAvg = Math.floor(avg * 10) / 10;
                         typeAvgs[type] = truncAvg;
@@ -1786,18 +1794,23 @@
                     });
 
                     let finalGrade = 0;
-                    let activeTypeCount = activeTypes.length;
+                    const validAvgs = activeTypes.filter(type => typeHasScores[type]);
 
-                    if (activeTypeCount > 0) {
-                        finalGrade = activeTypes.reduce((sum, type) => sum + typeAvgs[type], 0) / activeTypeCount;
+                    if (validAvgs.length > 0) {
+                        finalGrade = validAvgs.reduce((sum, type) => sum + typeAvgs[type], 0) / validAvgs.length;
                     }
 
                     const truncFinalGrade = Math.floor(finalGrade * 10) / 10;
                     row.find('.final-grade').text(truncFinalGrade.toFixed(1));
 
                     const trimester = $('#selTrimester').val();
+                    const hasAnyScore = row.find('.score-cell').toArray().some(td => $(td).text().trim() !== '');
                     if (!studentAnnualScores[studentId]) studentAnnualScores[studentId] = {};
-                    studentAnnualScores[studentId][trimester] = truncFinalGrade;
+                    if (hasAnyScore) {
+                        studentAnnualScores[studentId][trimester] = truncFinalGrade;
+                    } else {
+                        delete studentAnnualScores[studentId][trimester];
+                    }
                 });
 
                 updateResumenTable();
@@ -1924,20 +1937,22 @@
                                     map[item.studentId] = {
                                         studentFullName: item.studentFullName && item.studentFullName.trim() ? item.studentFullName : '(Sin nombre)',
                                         documentId: item.documentId || 'Sin cédula',
-                                        trimestres: { '1T': 0, '2T': 0, '3T': 0 },
+                                        trimestres: { '1T': null, '2T': null, '3T': null },
                                         notas: [],
                                     };
                                 }
-                                map[item.studentId].trimestres[item.trimester] = item.notaFinal ?? 0;
-                                map[item.studentId].notas.push(item.notaFinal ?? 0);
+                                if (item.notaFinal != null) {
+                                    map[item.studentId].trimestres[item.trimester] = item.notaFinal;
+                                    map[item.studentId].notas.push(item.notaFinal);
+                                }
                             });
                             Object.values(map).forEach(est => {
                                 const nombre = est.studentFullName && est.studentFullName.trim() ? est.studentFullName : '(Sin nombre)';
                                 const documentId = est.documentId || 'Sin cédula';
-                                const t1 = est.trimestres['1T'] || 0;
-                                const t2 = est.trimestres['2T'] || 0;
-                                const t3 = est.trimestres['3T'] || 0;
-                                const notasValidas = [t1, t2, t3].filter(x => x > 0);
+                                const t1 = est.trimestres['1T'];
+                                const t2 = est.trimestres['2T'];
+                                const t3 = est.trimestres['3T'];
+                                const notasValidas = [t1, t2, t3].filter(x => x != null);
                                 const promedioFinal = notasValidas.length ? (notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length) : 0;
                                 let estado = 'Sin calificar';
                                 if (notasValidas.length) {
@@ -1949,9 +1964,9 @@
                                             <div>${nombre}</div>
                                             <small class="text-muted">${documentId}</small>
                                         </td>
-                                        <td>${t1.toFixed(1)}</td>
-                                        <td>${t2.toFixed(1)}</td>
-                                        <td>${t3.toFixed(1)}</td>
+                                        <td>${t1 != null ? truncateToOneDecimal(t1).toFixed(1) : '-'}</td>
+                                        <td>${t2 != null ? truncateToOneDecimal(t2).toFixed(1) : '-'}</td>
+                                        <td>${t3 != null ? truncateToOneDecimal(t3).toFixed(1) : '-'}</td>
                                         <td><strong>${promedioFinal.toFixed(1)}</strong></td>
                                         <td class="${estado === 'Aprobado' ? 'text-success' : (estado === 'Reprobado' ? 'text-danger' : 'text-danger')}">${estado}</td>
                                     </tr>`;
