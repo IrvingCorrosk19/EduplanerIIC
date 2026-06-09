@@ -6,10 +6,8 @@ using QuestPDF.Infrastructure;
 using SchoolManager.Dtos;
 using SchoolManager.Helpers;
 using SchoolManager.Models;
-using SchoolManager.Options;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Security;
-using Microsoft.Extensions.Options;
 using SkiaSharp;
 
 namespace SchoolManager.Services.Implementations;
@@ -23,7 +21,7 @@ public class InstitutionalCredentialPdfService : IInstitutionalCredentialPdfServ
     private readonly IWebHostEnvironment _environment;
     private readonly IInstitutionalCredentialImageService _imageService;
     private readonly IQrSignatureService _qrSignatureService;
-    private readonly IOptions<InstitutionalCredentialOptions> _credentialOptions;
+    private readonly IPublicSiteUrlResolver _siteUrl;
 
     private const int MaxImageDownloadBytes = 5 * 1024 * 1024;
     private static readonly TimeSpan ImageDownloadTimeout = TimeSpan.FromSeconds(10);
@@ -36,7 +34,7 @@ public class InstitutionalCredentialPdfService : IInstitutionalCredentialPdfServ
         IWebHostEnvironment environment,
         IInstitutionalCredentialImageService imageService,
         IQrSignatureService qrSignatureService,
-        IOptions<InstitutionalCredentialOptions> credentialOptions)
+        IPublicSiteUrlResolver siteUrl)
     {
         _context = context;
         _fileStorage = fileStorage;
@@ -45,7 +43,7 @@ public class InstitutionalCredentialPdfService : IInstitutionalCredentialPdfServ
         _environment = environment;
         _imageService = imageService;
         _qrSignatureService = qrSignatureService;
-        _credentialOptions = credentialOptions;
+        _siteUrl = siteUrl;
     }
 
     public async Task<byte[]> GenerateCardPdfAsync(Guid staffUserId, Guid createdBy)
@@ -193,7 +191,7 @@ public class InstitutionalCredentialPdfService : IInstitutionalCredentialPdfServ
                 })
                 .FirstAsync();
 
-            var baseUrl = _credentialOptions.Value.PublicBaseUrl?.TrimEnd('/');
+            var baseUrl = _siteUrl.ResolveInstitutionalCredentialBaseUrl();
             var qrContent = StaffMemberPublicLink.BuildPublicUrl(baseUrl, token.Token, _qrSignatureService)
                 ?? token.Token;
 

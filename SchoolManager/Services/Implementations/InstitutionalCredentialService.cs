@@ -1,10 +1,8 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using SchoolManager.Dtos;
 using SchoolManager.Helpers;
 using SchoolManager.Models;
-using SchoolManager.Options;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Security;
 using SchoolManager.ViewModels;
@@ -18,26 +16,18 @@ public class InstitutionalCredentialService : IInstitutionalCredentialService
     private readonly SchoolDbContext _context;
     private readonly ILogger<InstitutionalCredentialService> _logger;
     private readonly IQrSignatureService _qrSignatureService;
-    private readonly IOptions<InstitutionalCredentialOptions> _credentialOptions;
+    private readonly IPublicSiteUrlResolver _siteUrl;
 
     public InstitutionalCredentialService(
         SchoolDbContext context,
         ILogger<InstitutionalCredentialService> logger,
         IQrSignatureService qrSignatureService,
-        IOptions<InstitutionalCredentialOptions> credentialOptions)
+        IPublicSiteUrlResolver siteUrl)
     {
         _context = context;
         _logger = logger;
         _qrSignatureService = qrSignatureService;
-        _credentialOptions = credentialOptions;
-    }
-
-    private string? ResolveSiteBaseUrl(string? siteBaseUrlOverride)
-    {
-        if (!string.IsNullOrWhiteSpace(siteBaseUrlOverride))
-            return siteBaseUrlOverride.TrimEnd('/');
-        var o = _credentialOptions.Value.PublicBaseUrl;
-        return string.IsNullOrWhiteSpace(o) ? null : o.TrimEnd('/');
+        _siteUrl = siteUrl;
     }
 
     private static string? BuildQrImageDataUrl(string? qrEncodeContent, IQrSignatureService qrSignatureService)
@@ -101,7 +91,7 @@ public class InstitutionalCredentialService : IInstitutionalCredentialService
         if (token == null)
             return null;
 
-        var baseUrl = ResolveSiteBaseUrl(siteBaseUrl);
+        var baseUrl = _siteUrl.ResolveInstitutionalCredentialBaseUrl(siteBaseUrl);
         var qrContent = ResolveQrEncodeContent(token.Token, baseUrl);
         var qrImageDataUrl = BuildQrImageDataUrl(qrContent, _qrSignatureService);
 
@@ -182,7 +172,7 @@ public class InstitutionalCredentialService : IInstitutionalCredentialService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            var baseUrl = ResolveSiteBaseUrl(null);
+            var baseUrl = _siteUrl.ResolveInstitutionalCredentialBaseUrl();
             var qrContent = ResolveQrEncodeContent(newToken.Token, baseUrl);
             var qrImageDataUrl = BuildQrImageDataUrl(qrContent, _qrSignatureService);
 

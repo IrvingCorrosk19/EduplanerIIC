@@ -10,6 +10,7 @@ using SchoolManager.Infrastructure.Services;
 using SchoolManager.Services;
 using SchoolManager.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using BCrypt.Net;
 using SchoolManager.Middleware;
 using System.Text.Json;
@@ -343,6 +344,13 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+builder.Services.AddScoped<SchoolManager.Helpers.IPublicSiteUrlResolver, SchoolManager.Helpers.PublicSiteUrlResolver>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IMenuService, MenuService>();
@@ -497,6 +505,7 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
 }
 
+app.UseForwardedHeaders();
 app.UseStaticFiles();
 
 app.UseRouting();

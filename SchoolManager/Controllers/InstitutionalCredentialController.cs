@@ -45,7 +45,12 @@ public class InstitutionalCredentialController : Controller
     public async Task<IActionResult> PublicMemberProfile([FromQuery] string? t)
     {
         if (!StaffMemberPublicLink.TryResolveRawTokenFromSignedQuery(t, _qrSignatureService, out var rawToken))
+        {
+            _logger.LogWarning(
+                "[InstitutionalCredential] QR perfil inválido: parámetro t ausente, firma incorrecta o enlace expirado. Length={Length}",
+                t?.Length ?? 0);
             return InvalidPublicMemberProfile();
+        }
 
         return await RenderPublicMemberProfileAsync(rawToken!);
     }

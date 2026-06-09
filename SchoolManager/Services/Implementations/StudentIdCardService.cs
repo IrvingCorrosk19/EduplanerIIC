@@ -5,8 +5,6 @@ using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Security;
-using SchoolManager.Options;
-using Microsoft.Extensions.Options;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -15,7 +13,7 @@ public class StudentIdCardService : IStudentIdCardService
     private readonly SchoolDbContext _context;
     private readonly ILogger<StudentIdCardService> _logger;
     private readonly IQrSignatureService _qrSignatureService;
-    private readonly IOptions<StudentIdCardOptions> _cardOptions;
+    private readonly IPublicSiteUrlResolver _siteUrl;
 
     /// <summary>
     /// Vida del token QR. Constante pública para que PdfService use el mismo valor.
@@ -31,25 +29,17 @@ public class StudentIdCardService : IStudentIdCardService
         SchoolDbContext context,
         ILogger<StudentIdCardService> logger,
         IQrSignatureService qrSignatureService,
-        IOptions<StudentIdCardOptions> cardOptions)
+        IPublicSiteUrlResolver siteUrl)
     {
         _context = context;
         _logger = logger;
         _qrSignatureService = qrSignatureService;
-        _cardOptions = cardOptions;
-    }
-
-    private string? ResolveSiteBaseUrl(string? siteBaseUrlOverride)
-    {
-        if (!string.IsNullOrWhiteSpace(siteBaseUrlOverride))
-            return siteBaseUrlOverride.TrimEnd('/');
-        var o = _cardOptions.Value.PublicBaseUrl;
-        return string.IsNullOrWhiteSpace(o) ? null : o.TrimEnd('/');
+        _siteUrl = siteUrl;
     }
 
     private string? BuildEmergencyQrDataUrl(Guid studentId, string? siteBaseUrlOverride)
     {
-        var baseUrl = ResolveSiteBaseUrl(siteBaseUrlOverride);
+        var baseUrl = _siteUrl.ResolveStudentIdCardBaseUrl(siteBaseUrlOverride);
         var url = CarnetEmergencyInfoLink.BuildPublicUrl(baseUrl, studentId, _qrSignatureService);
         if (url == null)
             return null;

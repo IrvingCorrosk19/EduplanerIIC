@@ -9,8 +9,6 @@ using SchoolManager.Helpers;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Security;
-using SchoolManager.Options;
-using Microsoft.Extensions.Options;
 using SkiaSharp;
 
 namespace SchoolManager.Services.Implementations;
@@ -30,7 +28,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
     private readonly IQrSignatureService _qrSignatureService;
     private readonly IWebHostEnvironment _environment;
     private readonly IStudentIdCardImageService _imageService;
-    private readonly IOptions<StudentIdCardOptions> _studentIdCardOptions;
+    private readonly IPublicSiteUrlResolver _siteUrl;
 
     private const int MaxImageDownloadBytes = 5 * 1024 * 1024;
     private static readonly TimeSpan ImageDownloadTimeout = TimeSpan.FromSeconds(10);
@@ -44,7 +42,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         IQrSignatureService qrSignatureService,
         IWebHostEnvironment environment,
         IStudentIdCardImageService imageService,
-        IOptions<StudentIdCardOptions> studentIdCardOptions)
+        IPublicSiteUrlResolver siteUrl)
     {
         _context               = context;
         _fileStorage            = fileStorage;
@@ -53,7 +51,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
         _qrSignatureService     = qrSignatureService;
         _environment            = environment;
         _imageService           = imageService;
-        _studentIdCardOptions   = studentIdCardOptions;
+        _siteUrl                = siteUrl;
     }
 
     public async Task<byte[]> GenerateCardPdfAsync(Guid studentId, Guid createdBy)
@@ -253,7 +251,7 @@ public class StudentIdCardPdfService : IStudentIdCardPdfService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            var publicBase = _studentIdCardOptions.Value.PublicBaseUrl;
+            var publicBase = _siteUrl.ResolveStudentIdCardBaseUrl();
             var emergencyUrl = CarnetEmergencyInfoLink.BuildPublicUrl(publicBase, studentId, _qrSignatureService);
 
             return new StudentCardRenderDto
