@@ -149,12 +149,7 @@ public class StudentIdCardController : Controller
     public async Task<IActionResult> PublicEmergencyInfo([FromQuery] string? t)
     {
         if (!CarnetEmergencyInfoLink.TryResolveStudentId(t, _qrSignatureService, out var studentId))
-        {
-            _logger.LogWarning(
-                "[StudentIdCard] QR emergencia inválido: parámetro t ausente, firma incorrecta o enlace expirado. Length={Length}",
-                t?.Length ?? 0);
             return View("PublicEmergencyInfoInvalid");
-        }
 
         var row = await StudentRoleFilter.WhereIsStudent(_context.Users.AsNoTracking())
             .Where(u => u.Id == studentId)

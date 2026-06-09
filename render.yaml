@@ -21,10 +21,4 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      # URL pública HTTPS para QR de carnets y credenciales (sin barra final).
-      # Si usa dominio propio (p. ej. eduplaner.net), cámbielo aquí y en Render Dashboard.
-      - key: StudentIdCard__PublicBaseUrl
-        value: https://eduplaneriic-22ol.onrender.com
-      - key: InstitutionalCredential__PublicBaseUrl
-        value: https://eduplaneriic-22ol.onrender.com
     healthCheckPath: /
