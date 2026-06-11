@@ -122,7 +122,9 @@ namespace SchoolManager.Services.Implementations
                 Estadisticas = estadisticas,
                 TotalesGenerales = CalcularTotalesGenerales(estadisticas),
                 TrimestresDisponibles = await ObtenerTrimestresDisponiblesAsync(schoolId),
-                MostrarColumnaMateria = mostrarMateria
+                MostrarColumnaMateria = mostrarMateria,
+                EsConsolidado = todasMaterias && todosGrupos && todosNiveles,
+                CantidadAsignaciones = asignaciones.Count
             };
         }
 
@@ -580,7 +582,7 @@ namespace SchoolManager.Services.Implementations
             {
                 container.Page(page =>
                 {
-                    page.Size(PageSizes.A4);
+                    page.Size(reporte.EsConsolidado ? PageSizes.A4.Landscape() : PageSizes.A4);
                     page.Margin(PdfMarginCm, Unit.Centimetre);
                     page.PageColor(Colors.White);
                     page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
@@ -677,44 +679,54 @@ namespace SchoolManager.Services.Implementations
             });
         }
 
-        private static void BuildMainTable(IContainer container, List<GradoEstadisticaDto> stats, TotalesGeneralesDto totales)
+        private static void BuildMainTable(
+            IContainer container,
+            List<GradoEstadisticaDto> stats,
+            TotalesGeneralesDto totales,
+            bool mostrarMateria)
         {
             container.Table(table =>
             {
                 table.ColumnsDefinition(def =>
                 {
+                    if (mostrarMateria) def.RelativeColumn(1.1f);
+                    def.RelativeColumn(0.7f);
+                    def.RelativeColumn(0.7f);
+                    def.RelativeColumn(0.7f);
+                    def.RelativeColumn(0.7f);
+                    def.RelativeColumn(0.7f);
                     def.RelativeColumn(0.8f);
-                    def.RelativeColumn(0.8f);
-                    def.RelativeColumn(1f);
-                    def.RelativeColumn(1f);
-                    def.RelativeColumn(1f);
-                    def.RelativeColumn(1.2f);
-                    def.RelativeColumn(1f);
-                    def.RelativeColumn(0.9f);
+                    def.RelativeColumn(0.7f);
+                    def.RelativeColumn(0.7f);
                 });
                 table.Header(header =>
                 {
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(6).AlignLeft().Text("Nivel").FontSize(9).Bold().FontColor(Colors.White);
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(6).AlignLeft().Text("Grupo").FontSize(9).Bold().FontColor(Colors.White);
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Total").FontSize(9).Bold().FontColor(Colors.White);
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Aprob.").FontSize(9).Bold().FontColor(Colors.White);
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Reprob.").FontSize(9).Bold().FontColor(Colors.White);
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Rep.hasta").FontSize(9).Bold().FontColor(Colors.White);
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Sin Cal.").FontSize(9).Bold().FontColor(Colors.White);
-                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Retir.").FontSize(9).Bold().FontColor(Colors.White);
+                    if (mostrarMateria)
+                        header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignLeft().Text("Materia").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignLeft().Text("Nivel").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignLeft().Text("Grupo").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Total").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Aprob.").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Reprob.").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Rep.hasta").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Sin Cal.").FontSize(8).Bold().FontColor(Colors.White);
+                    header.Cell().Background(PdfColorInstitutional).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text("Retir.").FontSize(8).Bold().FontColor(Colors.White);
                 });
                 foreach (var e in stats)
                 {
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(6).AlignLeft().Text(e.Grado).FontSize(9);
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(6).AlignLeft().Text(e.Grupo).FontSize(9);
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.TotalEstudiantes.ToString()).FontSize(9);
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.Aprobados.ToString()).FontSize(9).FontColor(PdfColorAprobados);
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.Reprobados.ToString()).FontSize(9).FontColor(PdfColorReprobados);
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.ReprobadosHastaLaFecha.ToString()).FontSize(9);
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.SinCalificaciones.ToString()).FontSize(9).FontColor(Colors.Grey.Darken1);
-                    table.Cell().PaddingVertical(6).PaddingHorizontal(4).AlignCenter().Text(e.Retirados.ToString()).FontSize(9);
+                    if (mostrarMateria)
+                        table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignLeft().Text(e.Materia ?? "").FontSize(8);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignLeft().Text(e.Grado).FontSize(8);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignLeft().Text(e.Grupo).FontSize(8);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignCenter().Text(e.TotalEstudiantes.ToString()).FontSize(8);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignCenter().Text(e.Aprobados.ToString()).FontSize(8).FontColor(PdfColorAprobados);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignCenter().Text(e.Reprobados.ToString()).FontSize(8).FontColor(PdfColorReprobados);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignCenter().Text(e.ReprobadosHastaLaFecha.ToString()).FontSize(8);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignCenter().Text(e.SinCalificaciones.ToString()).FontSize(8).FontColor(Colors.Grey.Darken1);
+                    table.Cell().PaddingVertical(5).PaddingHorizontal(4).AlignCenter().Text(e.Retirados.ToString()).FontSize(8);
                 }
-                table.Cell().ColumnSpan(2).Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(6).AlignLeft().Text("TOTALES").FontSize(10).Bold().FontColor(Colors.White);
+                var colspanEtiqueta = mostrarMateria ? 3u : 2u;
+                table.Cell().ColumnSpan(colspanEtiqueta).Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignLeft().Text("TOTALES").FontSize(9).Bold().FontColor(Colors.White);
                 table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text(totales.TotalEstudiantes.ToString()).FontSize(10).Bold().FontColor(Colors.White);
                 table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text(totales.TotalAprobados.ToString()).FontSize(10).Bold().FontColor("#c8e6c9");
                 table.Cell().Background(PdfColorTotalRow).PaddingVertical(8).PaddingHorizontal(4).AlignCenter().Text(totales.TotalReprobados.ToString()).FontSize(10).Bold().FontColor("#ffcdd2");
@@ -749,7 +761,7 @@ namespace SchoolManager.Services.Implementations
                     return;
                 }
                 col.Item().Element(c => BuildSummary(c, totales));
-                col.Item().Element(c => BuildMainTable(c, stats, totales));
+                col.Item().Element(c => BuildMainTable(c, stats, totales, reporte.MostrarColumnaMateria));
             });
         }
 

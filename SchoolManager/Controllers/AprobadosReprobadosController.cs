@@ -188,7 +188,8 @@ namespace SchoolManager.Controllers
                     logoBytes = await _superAdminService.GetLogoAsync(reporte.LogoUrl);
 
                 var pdfBytes = await _aprobadosReprobadosService.ExportarAPdfAsync(reporte, logoBytes);
-                return File(pdfBytes, "application/pdf", $"Reporte_Aprobados_Reprobados_{trimestre}.pdf");
+                var sufijo = reporte.EsConsolidado ? "_Todas" : "";
+                return File(pdfBytes, "application/pdf", $"Reporte_Aprobados_Reprobados_{trimestre}{sufijo}.pdf");
             }
             catch (Exception ex)
             {

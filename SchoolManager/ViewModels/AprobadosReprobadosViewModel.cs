@@ -24,6 +24,11 @@ namespace SchoolManager.ViewModels
 
         /// <summary>Muestra columna Materia cuando el reporte incluye varias asignaturas.</summary>
         public bool MostrarColumnaMateria { get; set; }
+
+        /// <summary>Reporte de todas las asignaciones del alcance (docente o escuela).</summary>
+        public bool EsConsolidado { get; set; }
+
+        public int CantidadAsignaciones { get; set; }
     }
 
     /// <summary>

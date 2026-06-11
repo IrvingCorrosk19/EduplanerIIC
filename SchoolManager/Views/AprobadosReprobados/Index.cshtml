@@ -4,23 +4,65 @@
     Layout = "_AdminLayout";
     var trimestres = ViewBag.TrimestresDisponibles as List<string>;
     var esDocente = ViewBag.EsDocente as bool? == true;
+    var textoTodasAsignaciones = esDocente ? "Todas mis asignaciones" : "Todas las asignaciones de la escuela";
 }
 
-<div class="container-fluid py-4">
+<style>
+        :root {
+            --apr-primary: #1f4e79;
+            --apr-aprobado: #2e7d32;
+            --apr-reprobado: #c62828;
+        }
+
+        .apr-acciones-rapidas {
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+            border: 1px solid #dbeafe;
+            border-radius: 0.5rem;
+        }
+
+        .apr-reporte-print {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+        }
+
+        .apr-reporte-print .apr-th {
+            background-color: var(--apr-primary) !important;
+            color: #fff !important;
+            font-size: 0.72rem;
+            padding: 0.45rem 0.25rem !important;
+            vertical-align: middle;
+        }
+
+        .apr-reporte-print .apr-tabla { font-size: 0.78rem; margin-bottom: 0; }
+        .apr-fila-total { background-color: #e3f2fd !important; font-weight: 700; }
+        .text-aprobado { color: var(--apr-aprobado); font-weight: 600; }
+        .text-reprobado { color: var(--apr-reprobado); font-weight: 600; }
+
+        @@media print {
+            body * { visibility: hidden; }
+            #reporte-content, #reporte-content * { visibility: visible; }
+            #reporte-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 0;
+            }
+            @@page { size: landscape; margin: 8mm; }
+            .no-print-ui { display: none !important; }
+    }
+</style>
+
+<div class="container-fluid py-4 no-print-ui">
     <div class="row mb-4">
         <div class="col-12">
-            <h2 class="mb-3">
+            <h2 class="mb-2">
                 <i class="bi bi-bar-chart-fill"></i> Cuadro de Aprobados y Reprobados por Grado
             </h2>
-            <p class="text-muted">
-                @if (esDocente)
-                {
-                    <text>Use los mismos filtros que en <strong>Registrar Notas</strong>: trimestre y la asignación <strong>Materia y Grupo</strong>. El reporte calcula la nota final con la misma lógica del portal docente.</text>
-                }
-                else
-                {
-                    <text>Seleccione trimestre y la asignación <strong>Materia y Grupo</strong>, igual que en el registro de notas del docente.</text>
-                }
+            <p class="text-muted mb-0">
+                Filtros alineados al portal docente. Puede generar <strong>una asignación</strong> o el cuadro <strong>consolidado</strong> de todas sus asignaciones en un solo documento.
             </p>
         </div>
     </div>
@@ -33,51 +75,45 @@
         </div>
     }
 
-    <div class="card mb-4">
+    <div class="card mb-3">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros del Reporte</h5>
+            <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros</h5>
         </div>
         <div class="card-body">
             <form id="filtro-form">
                 @Html.AntiForgeryToken()
-                <div class="row">
+                <div class="row g-3 align-items-end">
                     <div class="col-md-4">
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Trimestre:</strong> <span class="text-danger">*</span></label>
-                            <select class="form-select" id="trimestre" name="Trimestre" required>
-                                <option value="">-- Seleccione un trimestre --</option>
-                                @if (trimestres != null)
+                        <label class="form-label fw-semibold">Trimestre <span class="text-danger">*</span></label>
+                        <select class="form-select" id="trimestre" name="Trimestre" required>
+                            <option value="">-- Seleccione --</option>
+                            @if (trimestres != null)
+                            {
+                                foreach (var trimestre in trimestres)
                                 {
-                                    foreach (var trimestre in trimestres)
-                                    {
-                                        <option value="@trimestre">@trimestre</option>
-                                    }
+                                    <option value="@trimestre">@trimestre</option>
                                 }
-                            </select>
-                        </div>
+                            }
+                        </select>
                     </div>
-
                     <div class="col-md-8">
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Materia y Grupo:</strong> <span class="text-danger">*</span></label>
-                            <select class="form-select" id="selAsignacion" required disabled>
-                                <option value="">Cargando asignaciones...</option>
-                            </select>
-                            <input type="hidden" id="materiaId" name="MateriaId" />
-                            <input type="hidden" id="groupId" name="GroupId" />
-                            <input type="hidden" id="gradeLevelId" name="GradeLevelId" />
-                            <input type="hidden" id="nivelEducativo" name="NivelEducativo" />
-                            <small class="text-muted">Misma lista que en el portal del docente (Registrar Notas).</small>
-                        </div>
+                        <label class="form-label fw-semibold">Materia y Grupo <span class="text-danger">*</span></label>
+                        <select class="form-select" id="selAsignacion" required disabled>
+                            <option value="">Cargando...</option>
+                        </select>
+                        <input type="hidden" id="materiaId" name="MateriaId" />
+                        <input type="hidden" id="groupId" name="GroupId" />
+                        <input type="hidden" id="gradeLevelId" name="GradeLevelId" />
+                        <input type="hidden" id="nivelEducativo" name="NivelEducativo" />
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-12 text-center">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-file-earmark-bar-graph"></i> Generar Reporte
+                <div class="row mt-3">
+                    <div class="col-12 text-center">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-file-earmark-bar-graph"></i> Generar reporte
                         </button>
-                        <button type="button" class="btn btn-outline-secondary btn-lg" id="btn-limpiar">
+                        <button type="button" class="btn btn-outline-secondary" id="btn-limpiar">
                             <i class="bi bi-arrow-clockwise"></i> Limpiar
                         </button>
                     </div>
@@ -86,23 +122,45 @@
         </div>
     </div>
 
-    <div id="reporte-container" style="display: none;">
-        <div class="card">
-            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Reporte Generado</h5>
-                <div>
-                    <button type="button" class="btn btn-light btn-sm" onclick="window.print()">
-                        <i class="bi bi-printer"></i> Imprimir
+    <div class="apr-acciones-rapidas p-3 mb-4">
+        <div class="row align-items-center g-2">
+            <div class="col-lg-5">
+                <div class="fw-semibold"><i class="bi bi-layers text-primary"></i> @textoTodasAsignaciones</div>
+                <small class="text-muted">Solo elija trimestre arriba e imprima o exporte el cuadro completo de una vez.</small>
+            </div>
+            <div class="col-lg-7">
+                <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btn-imprimir-todas">
+                        <i class="bi bi-printer"></i> Imprimir todas
                     </button>
-                    <a href="#" id="btn-exportar-pdf" class="btn btn-light btn-sm">
-                        <i class="bi bi-file-pdf"></i> Exportar PDF
-                    </a>
-                    <button type="button" class="btn btn-light btn-sm" id="btn-vista-previa">
-                        <i class="bi bi-eye"></i> Vista Completa
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-vista-todas">
+                        <i class="bi bi-eye"></i> Vista completa
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="btn-pdf-todas">
+                        <i class="bi bi-file-pdf"></i> PDF consolidado
                     </button>
                 </div>
             </div>
-            <div class="card-body" id="reporte-content"></div>
+        </div>
+    </div>
+
+    <div id="reporte-container" style="display: none;">
+        <div class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> <span id="reporte-titulo-card">Reporte generado</span></h5>
+                <div class="d-flex flex-wrap gap-1">
+                    <button type="button" class="btn btn-light btn-sm" id="btn-imprimir-actual">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" id="btn-vista-previa">
+                        <i class="bi bi-eye"></i> Vista completa
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" id="btn-exportar-pdf">
+                        <i class="bi bi-file-pdf"></i> PDF
+                    </button>
+                </div>
+            </div>
+            <div class="card-body apr-reporte-print" id="reporte-content"></div>
         </div>
     </div>
 </div>
@@ -110,6 +168,13 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
+            const TODOS = '@SchoolManager.ViewModels.AprobadosReprobadosFiltroValores.Todos';
+            const TODAS_ASIGNACIONES = '__TODAS__';
+            const GUID_VACIO = '00000000-0000-0000-0000-000000000000';
+            const TEXTO_TODAS = '@textoTodasAsignaciones';
+
+            let ultimoEsConsolidado = false;
+
             cargarAsignaciones();
 
             function cargarAsignaciones() {
@@ -119,21 +184,32 @@
                 $.get('@Url.Action("ObtenerAsignacionesCombo", "AprobadosReprobados")')
                     .done(function (response) {
                         select.html('<option value="">-- Seleccione materia y grupo --</option>');
-                        if (response.success && response.data && response.data.length > 0) {
+                        select.append(`<option value="${TODAS_ASIGNACIONES}">${TEXTO_TODAS}</option>`);
+                        if (response.success && response.data) {
                             response.data.forEach(function (item) {
                                 select.append(`<option value="${item.value}">${item.text}</option>`);
                             });
-                            select.prop('disabled', false);
-                        } else {
-                            select.html('<option value="">Sin asignaciones disponibles</option>');
                         }
+                        select.prop('disabled', false);
                     })
                     .fail(function () {
                         select.html('<option value="">Error al cargar asignaciones</option>');
                     });
             }
 
+            function esTodasAsignaciones(val) {
+                return val === TODAS_ASIGNACIONES;
+            }
+
             function aplicarSeleccionAsignacion(val) {
+                if (esTodasAsignaciones(val)) {
+                    $('#nivelEducativo').val(TODOS);
+                    $('#materiaId').val(GUID_VACIO);
+                    $('#groupId').val(GUID_VACIO);
+                    $('#gradeLevelId').val(GUID_VACIO);
+                    return;
+                }
+
                 $('#materiaId, #groupId, #gradeLevelId, #nivelEducativo').val('');
                 if (!val) return;
 
@@ -150,34 +226,73 @@
                 aplicarSeleccionAsignacion($(this).val());
             });
 
-            function validarFiltros() {
+            function validarTrimestre() {
                 if (!$('#trimestre').val()) {
-                    Swal.fire('Error', 'Seleccione un trimestre', 'error');
-                    return false;
-                }
-                if (!$('#selAsignacion').val()) {
-                    Swal.fire('Error', 'Seleccione materia y grupo', 'error');
+                    Swal.fire('Aviso', 'Seleccione un trimestre', 'warning');
                     return false;
                 }
                 return true;
             }
 
-            $('#filtro-form').submit(function (e) {
-                e.preventDefault();
-                if (!validarFiltros()) return;
+            function validarFiltrosCompletos() {
+                if (!validarTrimestre()) return false;
+                if (!$('#selAsignacion').val()) {
+                    Swal.fire('Aviso', 'Seleccione materia y grupo o "' + TEXTO_TODAS + '"', 'warning');
+                    return false;
+                }
+                aplicarSeleccionAsignacion($('#selAsignacion').val());
+                return true;
+            }
+
+            function buildExportUrl(action, forzarTodas) {
+                if (forzarTodas) {
+                    return action +
+                        '?trimestre=' + encodeURIComponent($('#trimestre').val()) +
+                        '&nivelEducativo=' + encodeURIComponent(TODOS) +
+                        '&materiaId=' + encodeURIComponent(GUID_VACIO) +
+                        '&groupId=' + encodeURIComponent(GUID_VACIO) +
+                        '&gradeLevelId=' + encodeURIComponent(GUID_VACIO);
+                }
 
                 aplicarSeleccionAsignacion($('#selAsignacion').val());
+                return action +
+                    '?trimestre=' + encodeURIComponent($('#trimestre').val()) +
+                    '&nivelEducativo=' + encodeURIComponent($('#nivelEducativo').val()) +
+                    '&materiaId=' + encodeURIComponent($('#materiaId').val()) +
+                    '&groupId=' + encodeURIComponent($('#groupId').val()) +
+                    '&gradeLevelId=' + encodeURIComponent($('#gradeLevelId').val());
+            }
 
-                Swal.fire({
-                    title: 'Generando reporte...',
-                    allowOutsideClick: false,
-                    didOpen: () => Swal.showLoading()
-                });
+            function abrirVistaPrevia(forzarTodas, autoPrint) {
+                if (!validarTrimestre()) return;
+                let url = buildExportUrl('@Url.Action("VistaPrevia", "AprobadosReprobados")', forzarTodas);
+                if (autoPrint) url += '&autoprint=1';
+                window.open(url, '_blank');
+            }
+
+            $('#btn-imprimir-todas').click(function () {
+                abrirVistaPrevia(true, true);
+            });
+
+            $('#btn-vista-todas').click(function () {
+                abrirVistaPrevia(true, false);
+            });
+
+            $('#btn-pdf-todas').click(function () {
+                if (!validarTrimestre()) return;
+                window.location.href = buildExportUrl('@Url.Action("ExportarPdf", "AprobadosReprobados")', true);
+            });
+
+            $('#filtro-form').submit(function (e) {
+                e.preventDefault();
+                if (!validarFiltrosCompletos()) return;
+
+                Swal.fire({ title: 'Generando reporte...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
                 $.ajax({
                     url: '@Url.Action("GenerarReporte", "AprobadosReprobados")',
                     type: 'POST',
-                    timeout: 90000,
+                    timeout: 120000,
                     data: {
                         Trimestre: $('#trimestre').val(),
                         NivelEducativo: $('#nivelEducativo').val(),
@@ -189,7 +304,13 @@
                     success: function (response) {
                         Swal.close();
                         if (response.success) {
+                            ultimoEsConsolidado = response.data.esConsolidado === true;
                             mostrarReporte(response.data);
+                            $('#reporte-titulo-card').text(
+                                ultimoEsConsolidado
+                                    ? 'Reporte consolidado (' + (response.data.cantidadAsignaciones || 0) + ' asignaciones)'
+                                    : 'Reporte generado'
+                            );
                             $('#reporte-container').slideDown();
                         } else {
                             Swal.fire('Error', response.message, 'error');
@@ -209,75 +330,77 @@
                 cargarAsignaciones();
             });
 
-            function buildExportUrl(action) {
-                aplicarSeleccionAsignacion($('#selAsignacion').val());
-                return action +
-                    '?trimestre=' + encodeURIComponent($('#trimestre').val()) +
-                    '&nivelEducativo=' + encodeURIComponent($('#nivelEducativo').val()) +
-                    '&materiaId=' + encodeURIComponent($('#materiaId').val()) +
-                    '&groupId=' + encodeURIComponent($('#groupId').val()) +
-                    '&gradeLevelId=' + encodeURIComponent($('#gradeLevelId').val());
-            }
+            $('#btn-imprimir-actual').click(function () {
+                if (ultimoEsConsolidado) {
+                    abrirVistaPrevia(false, true);
+                } else {
+                    window.print();
+                }
+            });
 
             $('#btn-vista-previa').click(function () {
-                if (!validarFiltros()) return;
-                window.open(buildExportUrl('@Url.Action("VistaPrevia", "AprobadosReprobados")'), '_blank');
+                if (!validarFiltrosCompletos()) return;
+                window.open(buildExportUrl('@Url.Action("VistaPrevia", "AprobadosReprobados")', false), '_blank');
             });
 
             $('#btn-exportar-pdf').click(function (e) {
                 e.preventDefault();
-                if (!validarFiltros()) return;
-                window.location.href = buildExportUrl('@Url.Action("ExportarPdf", "AprobadosReprobados")');
+                if (!validarFiltrosCompletos()) return;
+                window.location.href = buildExportUrl('@Url.Action("ExportarPdf", "AprobadosReprobados")', false);
             });
 
             function mostrarReporte(data) {
-                const colMateria = data.mostrarColumnaMateria
-                    ? '<th rowspan="2">Materia</th>'
+                const mostrarMateria = data.mostrarColumnaMateria === true;
+                const colMateria = mostrarMateria ? '<th rowspan="2" class="apr-th">Materia</th>' : '';
+                const colspanVacio = mostrarMateria ? 14 : 13;
+                const badge = data.esConsolidado
+                    ? `<span class="badge bg-primary ms-2">${data.cantidadAsignaciones || 0} asignaciones</span>`
                     : '';
-                const colspanVacio = data.mostrarColumnaMateria ? 14 : 13;
 
                 let html = `
-                    <div class="text-center mb-4">
-                        <h4>${data.institutoNombre}</h4>
-                        <h5>CUADRO DE APROBADOS Y REPROBADOS</h5>
-                        <p><strong>Profesor(a):</strong> ${data.profesorCoordinador}</p>
-                        <p><strong>Trimestre:</strong> ${data.trimestre} | <strong>Asignación:</strong> ${data.nivelEducativo}</p>
+                    <div class="text-center mb-3 apr-reporte-encabezado">
+                        <h4 class="mb-1">${data.institutoNombre}</h4>
+                        <h5 class="mb-2">CUADRO DE APROBADOS Y REPROBADOS ${badge}</h5>
+                        <p class="mb-1"><strong>Coordinador(a):</strong> ${data.profesorCoordinador}</p>
+                        <p class="mb-0 text-muted"><strong>Trimestre:</strong> ${data.trimestre} &nbsp;|&nbsp; <strong>Alcance:</strong> ${data.nivelEducativo}</p>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead class="table-dark">
+                        <table class="table table-bordered apr-tabla">
+                            <thead>
                                 <tr class="text-center">
                                     ${colMateria}
-                                    <th rowspan="2">Nivel</th>
-                                    <th rowspan="2">Grupo</th>
-                                    <th rowspan="2">Total</th>
-                                    <th colspan="2">Aprobados</th>
-                                    <th colspan="2">Reprobados</th>
-                                    <th colspan="2">Rep. hasta la fecha</th>
-                                    <th colspan="2">Sin calificaciones</th>
-                                    <th colspan="2">Retirados</th>
+                                    <th rowspan="2" class="apr-th">Grado</th>
+                                    <th rowspan="2" class="apr-th">Grupo</th>
+                                    <th rowspan="2" class="apr-th">Total</th>
+                                    <th colspan="2" class="apr-th">Aprobados</th>
+                                    <th colspan="2" class="apr-th">Reprobados</th>
+                                    <th colspan="2" class="apr-th">Rep. hasta la fecha</th>
+                                    <th colspan="2" class="apr-th">Sin calificaciones</th>
+                                    <th colspan="2" class="apr-th">Retirados</th>
                                 </tr>
                                 <tr class="text-center">
-                                    <th>#</th><th>%</th><th>#</th><th>%</th><th>#</th><th>%</th><th>#</th><th>%</th><th>#</th><th>%</th>
+                                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                                    <th class="apr-th">#</th><th class="apr-th">%</th>
                                 </tr>
                             </thead>
                             <tbody>`;
 
                 if (!data.estadisticas || data.estadisticas.length === 0) {
-                    html += `<tr><td colspan="${colspanVacio}" class="text-center py-4 text-muted">No hay datos para los filtros seleccionados.</td></tr>`;
+                    html += `<tr><td colspan="${colspanVacio}" class="text-center py-4 text-muted">Sin datos para los filtros seleccionados.</td></tr>`;
                 } else {
                     data.estadisticas.forEach(function (est) {
-                        const tdMateria = data.mostrarColumnaMateria
-                            ? `<td class="text-center">${est.materia || ''}</td>`
-                            : '';
+                        const tdMateria = mostrarMateria ? `<td class="text-center">${est.materia || ''}</td>` : '';
                         html += `<tr>
                             ${tdMateria}
                             <td class="text-center"><strong>${est.grado}</strong></td>
                             <td class="text-center">${est.grupo}</td>
                             <td class="text-center"><strong>${est.totalEstudiantes}</strong></td>
-                            <td class="text-center text-success">${est.aprobados}</td>
+                            <td class="text-center text-aprobado">${est.aprobados}</td>
                             <td class="text-center">${est.porcentajeAprobados.toFixed(2)}%</td>
-                            <td class="text-center text-danger">${est.reprobados}</td>
+                            <td class="text-center text-reprobado">${est.reprobados}</td>
                             <td class="text-center">${est.porcentajeReprobados.toFixed(2)}%</td>
                             <td class="text-center">${est.reprobadosHastaLaFecha}</td>
                             <td class="text-center">${est.porcentajeReprobadosHastaLaFecha.toFixed(2)}%</td>
@@ -290,20 +413,20 @@
                 }
 
                 const t = data.totalesGenerales;
-                const colspanTotales = data.mostrarColumnaMateria ? 3 : 2;
-                html += `<tr class="table-primary">
-                    <td colspan="${colspanTotales}" class="text-center"><strong>TOTALES</strong></td>
-                    <td class="text-center"><strong>${t.totalEstudiantes}</strong></td>
-                    <td class="text-center text-success"><strong>${t.totalAprobados}</strong></td>
-                    <td class="text-center"><strong>${t.porcentajeAprobados.toFixed(2)}%</strong></td>
-                    <td class="text-center text-danger"><strong>${t.totalReprobados}</strong></td>
-                    <td class="text-center"><strong>${t.porcentajeReprobados.toFixed(2)}%</strong></td>
-                    <td class="text-center"><strong>${t.totalReprobadosHastaLaFecha}</strong></td>
-                    <td class="text-center"><strong>${t.porcentajeReprobadosHastaLaFecha.toFixed(2)}%</strong></td>
-                    <td class="text-center"><strong>${t.totalSinCalificaciones}</strong></td>
-                    <td class="text-center"><strong>${t.porcentajeSinCalificaciones.toFixed(2)}%</strong></td>
-                    <td class="text-center"><strong>${t.totalRetirados}</strong></td>
-                    <td class="text-center"><strong>${t.porcentajeRetirados.toFixed(2)}%</strong></td>
+                const colspanTotales = mostrarMateria ? 3 : 2;
+                html += `<tr class="apr-fila-total">
+                    <td colspan="${colspanTotales}" class="text-center">TOTALES</td>
+                    <td class="text-center">${t.totalEstudiantes}</td>
+                    <td class="text-center text-aprobado">${t.totalAprobados}</td>
+                    <td class="text-center">${t.porcentajeAprobados.toFixed(2)}%</td>
+                    <td class="text-center text-reprobado">${t.totalReprobados}</td>
+                    <td class="text-center">${t.porcentajeReprobados.toFixed(2)}%</td>
+                    <td class="text-center">${t.totalReprobadosHastaLaFecha}</td>
+                    <td class="text-center">${t.porcentajeReprobadosHastaLaFecha.toFixed(2)}%</td>
+                    <td class="text-center">${t.totalSinCalificaciones}</td>
+                    <td class="text-center">${t.porcentajeSinCalificaciones.toFixed(2)}%</td>
+                    <td class="text-center">${t.totalRetirados}</td>
+                    <td class="text-center">${t.porcentajeRetirados.toFixed(2)}%</td>
                 </tr></tbody></table></div>`;
 
                 $('#reporte-content').html(html);
