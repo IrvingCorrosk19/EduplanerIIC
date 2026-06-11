@@ -3,6 +3,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SchoolManager.Models;
+using SchoolManager.Services.Helpers;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
 
@@ -194,6 +195,24 @@ namespace SchoolManager.Services.Implementations
                     };
                 })
                 .OrderBy(g => g.Nombre)
+                .ToList();
+        }
+
+        public async Task<List<AprobadosReprobadosComboFiltroDto>> ObtenerAsignacionesComboAsync(
+            Guid schoolId, Guid? teacherScopeId = null)
+        {
+            var rows = await CargarAsignacionesAsync(schoolId, teacherScopeId);
+            return rows
+                .GroupBy(r => new { r.SubjectId, r.GroupId, r.GradeLevelId })
+                .Select(g => g.First())
+                .OrderBy(r => r.SubjectName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => OrdenGrado(r.GradeLevelName, r.GroupGrade))
+                .ThenBy(r => r.GroupName, StringComparer.OrdinalIgnoreCase)
+                .Select(r => new AprobadosReprobadosComboFiltroDto
+                {
+                    Value = $"{r.SubjectId}|{r.GroupId}|{r.GradeLevelId}",
+                    Text = $"{r.SubjectName} - {r.GradeLevelName} {r.GroupName}"
+                })
                 .ToList();
         }
 
@@ -393,24 +412,6 @@ namespace SchoolManager.Services.Implementations
             if (total == 0)
                 return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
-            var usuariosConStatus = await _context.Users
-                .Where(u => estudiantesDelGrupo.Contains(u.Id))
-                .Select(u => new { u.Id, u.Status })
-                .ToListAsync();
-
-            var setRetirados = usuariosConStatus
-                .Where(u => string.Equals(u.Status, "inactive", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(u.Status, "retirado", StringComparison.OrdinalIgnoreCase))
-                .Select(u => u.Id)
-                .ToHashSet();
-
-            var queryScores = _context.StudentActivityScores
-                .Include(sas => sas.Activity)
-                .Where(sas => estudiantesDelGrupo.Contains(sas.StudentId) &&
-                    sas.Activity!.SubjectId == materiaId &&
-                    (trimestresNombres.Contains(sas.Activity!.Trimester!) ||
-                     (sas.Activity.TrimesterId.HasValue && trimesterIds.Contains(sas.Activity.TrimesterId.Value))));
-
             if (teacherScopeId.HasValue)
             {
                 var puedeMateria = await _context.TeacherAssignments.AnyAsync(ta =>
@@ -422,12 +423,44 @@ namespace SchoolManager.Services.Implementations
                     return (total, 0, 0, 0, 0, 0, 0, total, 100m, 0, 0);
             }
 
-            var todasCalificaciones = await queryScores.ToListAsync();
+            var teacherIdActividades = teacherScopeId
+                ?? await ResolverTeacherIdAsignacionAsync(grupoId, gradeLevelId, materiaId);
+
+            var actividadesQuery = _context.Activities
+                .AsNoTracking()
+                .Where(a => a.SubjectId == materiaId &&
+                            a.GroupId == grupoId &&
+                            a.GradeLevelId == gradeLevelId &&
+                            (trimestresNombres.Contains(a.Trimester!) ||
+                             (a.TrimesterId.HasValue && trimesterIds.Contains(a.TrimesterId.Value))));
+
+            if (teacherIdActividades.HasValue)
+                actividadesQuery = actividadesQuery.Where(a => a.TeacherId == teacherIdActividades.Value);
+
+            var actividades = await actividadesQuery.ToListAsync();
+            var activityIds = actividades.Select(a => a.Id).ToList();
+
+            var scoresPorEstudiante = activityIds.Count == 0
+                ? new Dictionary<Guid, List<StudentActivityScore>>()
+                : (await _context.StudentActivityScores
+                    .AsNoTracking()
+                    .Where(s => estudiantesDelGrupo.Contains(s.StudentId) && activityIds.Contains(s.ActivityId))
+                    .ToListAsync())
+                    .GroupBy(s => s.StudentId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+            var usuariosConStatus = await _context.Users
+                .Where(u => estudiantesDelGrupo.Contains(u.Id))
+                .Select(u => new { u.Id, u.Status })
+                .ToListAsync();
+
+            var setRetirados = usuariosConStatus
+                .Where(u => string.Equals(u.Status, "inactive", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(u.Status, "retirado", StringComparison.OrdinalIgnoreCase))
+                .Select(u => u.Id)
+                .ToHashSet();
 
             int aprobados = 0, reprobados = 0, reprobadosHastaLaFecha = 0, sinCalificaciones = 0, retirados = 0;
-            var calificacionesPorEstudiante = todasCalificaciones
-                .GroupBy(c => c.StudentId)
-                .ToDictionary(g => g.Key, g => g.ToList());
 
             foreach (var estudianteId in estudiantesDelGrupo)
             {
@@ -437,19 +470,38 @@ namespace SchoolManager.Services.Implementations
                     continue;
                 }
 
-                if (!calificacionesPorEstudiante.TryGetValue(estudianteId, out var calificaciones) || !calificaciones.Any())
+                var scoreRows = scoresPorEstudiante.GetValueOrDefault(estudianteId) ?? new List<StudentActivityScore>();
+                var scoreDict = scoreRows.ToDictionary(s => s.ActivityId, s => s.Score);
+
+                var notasFinales = new List<decimal>();
+                foreach (var trimestre in trimestresNombres)
+                {
+                    var actsTrimestre = actividades
+                        .Where(a => string.Equals(a.Trimester, trimestre, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (actsTrimestre.Count == 0)
+                        continue;
+
+                    var notaFinal = GradebookFinalGradeCalculator.CalcularNotaFinal(actsTrimestre, scoreDict);
+                    if (notaFinal.HasValue)
+                        notasFinales.Add(notaFinal.Value);
+                }
+
+                if (notasFinales.Count == 0)
                 {
                     sinCalificaciones++;
                     continue;
                 }
 
-                var promedioMateria = calificaciones.Average(c => c.Score ?? 0);
-                if (promedioMateria >= NotaMinimaAprobacion)
-                    aprobados++;
-                else
+                if (notasFinales.Any(n => n < NotaMinimaAprobacion))
                 {
                     reprobadosHastaLaFecha++;
                     reprobados++;
+                }
+                else
+                {
+                    aprobados++;
                 }
             }
 
@@ -465,6 +517,19 @@ namespace SchoolManager.Services.Implementations
                 total > 0 ? sinCalificaciones * 100m / total : 0,
                 retirados,
                 total > 0 ? retirados * 100m / total : 0);
+        }
+
+        private async Task<Guid?> ResolverTeacherIdAsignacionAsync(Guid groupId, Guid gradeLevelId, Guid subjectId)
+        {
+            var teacherId = await _context.TeacherAssignments
+                .Where(ta =>
+                    ta.SubjectAssignment.GroupId == groupId &&
+                    ta.SubjectAssignment.GradeLevelId == gradeLevelId &&
+                    ta.SubjectAssignment.SubjectId == subjectId)
+                .Select(ta => (Guid?)ta.TeacherId)
+                .FirstOrDefaultAsync();
+
+            return teacherId == Guid.Empty ? null : teacherId;
         }
 
         private static TotalesGeneralesDto CalcularTotalesGenerales(List<GradoEstadisticaDto> estadisticas)

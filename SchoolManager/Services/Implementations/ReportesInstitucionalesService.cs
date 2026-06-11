@@ -3,6 +3,7 @@ using NPOI.HSSF.UserModel;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using SchoolManager.Models;
+using SchoolManager.Services.Helpers;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
 using System.Drawing;
@@ -668,78 +669,11 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             .Where(s => s.StudentId == studentId && activityIds.Contains(s.ActivityId))
             .ToDictionaryAsync(s => s.ActivityId, s => s.Score);
 
-        return CalcularNotaFinalLibroCalificaciones(actividadesMateria, scores);
-    }
-
-    /// <summary>
-    /// Misma lógica que TeacherGradebook (calcAverages): promedios por tipo y nota final con recuperación.
-    /// </summary>
-    private static decimal? CalcularNotaFinalLibroCalificaciones(
-        List<Activity> actividadesMateria,
-        Dictionary<Guid, decimal?> scores)
-    {
-        var typeOrder = new[]
-        {
-            "notas de apreciación",
-            "ejercicios diarios",
-            "examen final",
-            "recuperación"
-        };
-
-        var typeAvgs = new Dictionary<string, decimal>();
-        var typesWithScores = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var typeKey in typeOrder)
-        {
-            var acts = actividadesMateria
-                .Where(a => NormalizeActivityType(a.Type) == typeKey)
-                .ToList();
-            if (acts.Count == 0)
-                continue;
-
-            var values = acts
-                .Select(a => scores.TryGetValue(a.Id, out var v) ? v : null)
-                .Where(v => v.HasValue)
-                .Select(v => v!.Value)
-                .ToList();
-
-            if (values.Count > 0)
-                typesWithScores.Add(typeKey);
-
-            typeAvgs[typeKey] = values.Count > 0 ? TruncateOneDecimal(values.Average()) : 0m;
-        }
-
-        if (typeAvgs.Count == 0)
-            return null;
-
-        return ComputeFinalGradeFromTypeAverages(typeAvgs, typesWithScores);
-    }
-
-    private static decimal? ComputeFinalGradeFromTypeAverages(
-        Dictionary<string, decimal> typeAvgs,
-        HashSet<string> typesWithScores)
-    {
-        var working = new Dictionary<string, decimal>(typeAvgs);
-
-        if (typesWithScores.Contains("recuperación"))
-            working["examen final"] = working.GetValueOrDefault("recuperación", 0m);
-
-        var typesForFinal = working.Keys
-            .Where(t => t != "recuperación")
-            .Where(t => typesWithScores.Contains(t))
-            .ToList();
-
-        if (typesForFinal.Count == 0)
-            return null;
-
-        return TruncateOneDecimal(typesForFinal.Average(t => working[t]));
+        return GradebookFinalGradeCalculator.CalcularNotaFinal(actividadesMateria, scores);
     }
 
     private static bool PalabrasClaveCoinciden(string subjectName, IEnumerable<string> palabrasClave) =>
         palabrasClave.Any(p => subjectName.Contains(p, StringComparison.OrdinalIgnoreCase));
-
-    private static string NormalizeActivityType(string? type) => (type ?? "").Trim().ToLowerInvariant();
-
-    private static decimal TruncateOneDecimal(decimal value) => Math.Floor(value * 10m) / 10m;
 
     private static int? ExtractGradeNumber(string? name)
     {
@@ -886,7 +820,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         }
 
         var final = promediosParaFinal.Count > 0
-            ? TruncateOneDecimal(promediosParaFinal.Average())
+            ? GradebookFinalGradeCalculator.TruncateOneDecimal(promediosParaFinal.Average())
             : (decimal?)null;
 
         return (promediosTrimestre, final);
@@ -898,7 +832,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             return null;
 
         var validas = slot.Where(n => n.HasValue).Select(n => n!.Value).ToList();
-        return validas.Count > 0 ? TruncateOneDecimal(validas.Average()) : null;
+        return validas.Count > 0 ? GradebookFinalGradeCalculator.TruncateOneDecimal(validas.Average()) : null;
     }
 
     /// <summary>

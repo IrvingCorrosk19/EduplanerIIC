@@ -32,6 +32,10 @@ namespace SchoolManager.Services.Interfaces
         Task<List<AprobadosReprobadosGrupoFiltroDto>> ObtenerGruposFiltroAsync(
             Guid schoolId, Guid materiaId, string? nivelGradeLevelId = null, Guid? teacherScopeId = null);
 
+        /// <summary>Combo Materia y Grupo (subjectId|groupId|gradeLevelId), igual que TeacherGradebook/Index.</summary>
+        Task<List<AprobadosReprobadosComboFiltroDto>> ObtenerAsignacionesComboAsync(
+            Guid schoolId, Guid? teacherScopeId = null);
+
         Task<byte[]> ExportarAPdfAsync(AprobadosReprobadosReportViewModel reporte, byte[]? logoBytes = null);
 
         Task<byte[]> ExportarAExcelAsync(AprobadosReprobadosReportViewModel reporte);

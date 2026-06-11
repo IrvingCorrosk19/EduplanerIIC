@@ -318,5 +318,30 @@ namespace SchoolManager.Controllers
                 return Json(new { success = false, message = "Error al obtener grupos" });
             }
         }
+
+        [HttpGet]
+        public async Task<IActionResult> ObtenerAsignacionesCombo()
+        {
+            try
+            {
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                if (currentUser?.SchoolId == null)
+                    return Json(new { success = false, message = "No se pudo obtener la informaci?n de la escuela" });
+
+                var asignaciones = await _aprobadosReprobadosService.ObtenerAsignacionesComboAsync(
+                    currentUser.SchoolId.Value, GetTeacherScopeId(currentUser));
+
+                return Json(new
+                {
+                    success = true,
+                    data = asignaciones.Select(a => new { value = a.Value, text = a.Text })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo asignaciones combo");
+                return Json(new { success = false, message = "Error al obtener asignaciones" });
+            }
+        }
     }
 }

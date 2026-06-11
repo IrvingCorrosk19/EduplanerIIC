@@ -1,6 +1,15 @@
 namespace SchoolManager.ViewModels;
 
 /// <summary>
+/// Opción del combo Materia y Grupo (mismo formato que TeacherGradebook/Index).
+/// </summary>
+public class AprobadosReprobadosComboFiltroDto
+{
+    public string Value { get; set; } = "";
+    public string Text { get; set; } = "";
+}
+
+/// <summary>
 /// Nivel/grado académico disponible en el filtro (desde asignaciones del docente o escuela).
 /// </summary>
 public class AprobadosReprobadosNivelFiltroDto
