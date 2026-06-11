@@ -62,9 +62,13 @@ namespace SchoolManager.Services.Implementations
                 throw new Exception("No hay trimestres configurados para esta escuela.");
 
             var trimesterIds = await _context.Trimesters
+                .AsNoTracking()
                 .Where(t => t.SchoolId == schoolId && trimestresNombres.Contains(t.Name))
                 .Select(t => t.Id)
                 .ToListAsync();
+
+            var bulk = await AprobadosReportBulkLoader.LoadAsync(
+                _context, asignaciones, trimestresNombres, trimesterIds, teacherScopeId);
 
             var estadisticas = new List<GradoEstadisticaDto>();
             var mostrarMateria = todasMaterias || asignaciones.Select(a => a.SubjectId).Distinct().Count() > 1;
@@ -74,13 +78,8 @@ namespace SchoolManager.Services.Implementations
                 var gradoDisplay = FormatearNombreGrado(asignacion.GradeLevelName, null);
                 var grupoDisplay = FormatearEtiquetaGrupo(asignacion);
 
-                var stats = await CalcularEstadisticasGrupoAsync(
-                    asignacion.GroupId,
-                    asignacion.GradeLevelId,
-                    trimestresNombres,
-                    trimesterIds,
-                    asignacion.SubjectId,
-                    teacherScopeId);
+                var stats = AprobadosReportBulkLoader.CalcularEstadisticas(
+                    bulk, asignacion, trimestresNombres, teacherScopeId, NotaMinimaAprobacion);
 
                 estadisticas.Add(new GradoEstadisticaDto
                 {

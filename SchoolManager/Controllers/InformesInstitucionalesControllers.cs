@@ -22,6 +22,8 @@ public class HabitosActitudesReportController : InformeInstitucionalControllerBa
 
     private readonly IInformeInstitucionalHtmlPdfService _pdfService;
 
+    private readonly IInformeInstitucionalRazorRenderService _razorRenderService;
+
 
 
     public HabitosActitudesReportController(
@@ -34,7 +36,9 @@ public class HabitosActitudesReportController : InformeInstitucionalControllerBa
 
         IReportesInstitucionalesService reportesService,
 
-        IInformeInstitucionalHtmlPdfService pdfService)
+        IInformeInstitucionalHtmlPdfService pdfService,
+
+        IInformeInstitucionalRazorRenderService razorRenderService)
 
         : base(currentUserService, aprobadosReprobadosService, counselorAssignmentService)
 
@@ -43,6 +47,8 @@ public class HabitosActitudesReportController : InformeInstitucionalControllerBa
         _reportesService = reportesService;
 
         _pdfService = pdfService;
+
+        _razorRenderService = razorRenderService;
 
     }
 
@@ -136,13 +142,29 @@ public class HabitosActitudesReportController : InformeInstitucionalControllerBa
 
         {
 
-            var url = Url.Action(nameof(VistaPrevia), null,
+            var (user, error) = await ObtenerUsuarioEscuelaAsync();
 
-                new { trimestre, nivelEducativo, groupId, gradeLevelId },
+            if (error != null) return error;
 
-                Request.Scheme)!;
+            if (string.IsNullOrWhiteSpace(trimestre) || string.IsNullOrWhiteSpace(nivelEducativo))
 
-            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: true);
+                return BadRequest("Trimestre y grado son requeridos.");
+
+
+
+            var consejeroNombre = await ResolverConsejeroNombreAsync(user!.SchoolId!.Value, groupId, gradeLevelId);
+
+            var model = await _reportesService.ObtenerHabitosActitudesReporteAsync(
+
+                user.SchoolId!.Value, trimestre, nivelEducativo, groupId, gradeLevelId,
+
+                GetTeacherScopeId(user), consejeroNombre);
+
+            var html = await _razorRenderService.RenderViewToStringAsync(
+
+                "~/Views/HabitosActitudesReport/VistaPrevia.cshtml", model);
+
+            var bytes = await _pdfService.GenerarPdfDesdeHtmlAsync(html, landscape: true);
 
             return File(bytes, "application/pdf", $"Habitos_Actitudes_{trimestre}.pdf");
 
@@ -226,6 +248,8 @@ public class CalificacionesInformeController : InformeInstitucionalControllerBas
 
     private readonly IInformeInstitucionalHtmlPdfService _pdfService;
 
+    private readonly IInformeInstitucionalRazorRenderService _razorRenderService;
+
 
 
     public CalificacionesInformeController(
@@ -238,7 +262,9 @@ public class CalificacionesInformeController : InformeInstitucionalControllerBas
 
         IReportesInstitucionalesService reportesService,
 
-        IInformeInstitucionalHtmlPdfService pdfService)
+        IInformeInstitucionalHtmlPdfService pdfService,
+
+        IInformeInstitucionalRazorRenderService razorRenderService)
 
         : base(currentUserService, aprobadosReprobadosService, counselorAssignmentService)
 
@@ -247,6 +273,8 @@ public class CalificacionesInformeController : InformeInstitucionalControllerBas
         _reportesService = reportesService;
 
         _pdfService = pdfService;
+
+        _razorRenderService = razorRenderService;
 
     }
 
@@ -404,11 +432,35 @@ public class CalificacionesInformeController : InformeInstitucionalControllerBas
 
         {
 
-            var url = Url.Action(nameof(VistaPreviaTecnologia), null,
+            var (user, error) = await ObtenerUsuarioEscuelaAsync();
 
-                new { nivelEducativo, groupId, gradeLevelId }, Request.Scheme)!;
+            if (error != null) return error;
 
-            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: false);
+            if (string.IsNullOrWhiteSpace(nivelEducativo))
+
+            {
+
+                TempData["Error"] = "Seleccione un grado/nivel.";
+
+                return RedirectToAction(nameof(Tecnologia));
+
+            }
+
+
+
+            var consejeroNombre = await ResolverConsejeroNombreAsync(user!.SchoolId!.Value, groupId, gradeLevelId);
+
+            var model = await _reportesService.ObtenerCalificacionesTecnologiaReporteAsync(
+
+                user.SchoolId!.Value, nivelEducativo, groupId, gradeLevelId,
+
+                GetTeacherScopeId(user), consejeroNombre);
+
+            var html = await _razorRenderService.RenderViewToStringAsync(
+
+                "~/Views/CalificacionesInforme/VistaPreviaTecnologia.cshtml", model);
+
+            var bytes = await _pdfService.GenerarPdfDesdeHtmlAsync(html, landscape: false);
 
             return File(bytes, "application/pdf", "Calificaciones_Tecnologia.pdf");
 
@@ -440,11 +492,35 @@ public class CalificacionesInformeController : InformeInstitucionalControllerBas
 
         {
 
-            var url = Url.Action(nameof(VistaPreviaExpresionesArtisticas), null,
+            var (user, error) = await ObtenerUsuarioEscuelaAsync();
 
-                new { nivelEducativo, groupId, gradeLevelId }, Request.Scheme)!;
+            if (error != null) return error;
 
-            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: false);
+            if (string.IsNullOrWhiteSpace(nivelEducativo))
+
+            {
+
+                TempData["Error"] = "Seleccione un grado/nivel.";
+
+                return RedirectToAction(nameof(ExpresionesArtisticas));
+
+            }
+
+
+
+            var consejeroNombre = await ResolverConsejeroNombreAsync(user!.SchoolId!.Value, groupId, gradeLevelId);
+
+            var model = await _reportesService.ObtenerCalificacionesExpresionesArtisticasReporteAsync(
+
+                user.SchoolId!.Value, nivelEducativo, groupId, gradeLevelId,
+
+                GetTeacherScopeId(user), consejeroNombre);
+
+            var html = await _razorRenderService.RenderViewToStringAsync(
+
+                "~/Views/CalificacionesInforme/VistaPreviaExpresionesArtisticas.cshtml", model);
+
+            var bytes = await _pdfService.GenerarPdfDesdeHtmlAsync(html, landscape: false);
 
             return File(bytes, "application/pdf", "Calificaciones_Expresiones_Artisticas.pdf");
 
@@ -552,6 +628,8 @@ public class FormatoCarpetasReportController : InformeInstitucionalControllerBas
 
     private readonly IInformeInstitucionalHtmlPdfService _pdfService;
 
+    private readonly IInformeInstitucionalRazorRenderService _razorRenderService;
+
 
 
     public FormatoCarpetasReportController(
@@ -564,7 +642,9 @@ public class FormatoCarpetasReportController : InformeInstitucionalControllerBas
 
         IReportesInstitucionalesService reportesService,
 
-        IInformeInstitucionalHtmlPdfService pdfService)
+        IInformeInstitucionalHtmlPdfService pdfService,
+
+        IInformeInstitucionalRazorRenderService razorRenderService)
 
         : base(currentUserService, aprobadosReprobadosService, counselorAssignmentService)
 
@@ -573,6 +653,8 @@ public class FormatoCarpetasReportController : InformeInstitucionalControllerBas
         _reportesService = reportesService;
 
         _pdfService = pdfService;
+
+        _razorRenderService = razorRenderService;
 
     }
 
@@ -662,11 +744,35 @@ public class FormatoCarpetasReportController : InformeInstitucionalControllerBas
 
         {
 
-            var url = Url.Action(nameof(VistaPrevia), null,
+            var (user, error) = await ObtenerUsuarioEscuelaAsync();
 
-                new { nivelEducativo, materiaId, groupId, gradeLevelId }, Request.Scheme)!;
+            if (error != null) return error;
 
-            var bytes = await _pdfService.GenerarPdfDesdeUrlAsync(url, landscape: false);
+            if (string.IsNullOrWhiteSpace(nivelEducativo) || materiaId == Guid.Empty)
+
+            {
+
+                TempData["Error"] = "Nivel y materia son requeridos.";
+
+                return RedirectToAction(nameof(Index));
+
+            }
+
+
+
+            var consejeroNombre = await ResolverConsejeroNombreAsync(user!.SchoolId!.Value, groupId, gradeLevelId);
+
+            var model = await _reportesService.ObtenerFormatoCarpetasReporteAsync(
+
+                user.SchoolId!.Value, nivelEducativo, materiaId, groupId, gradeLevelId,
+
+                GetTeacherScopeId(user), consejeroNombre, $"{user.Name} {user.LastName}");
+
+            var html = await _razorRenderService.RenderViewToStringAsync(
+
+                "~/Views/FormatoCarpetasReport/VistaPrevia.cshtml", model);
+
+            var bytes = await _pdfService.GenerarPdfDesdeHtmlAsync(html, landscape: false);
 
             return File(bytes, "application/pdf", "Formato_Carpetas.pdf");
 

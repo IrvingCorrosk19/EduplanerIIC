@@ -22,13 +22,7 @@ public class InformeInstitucionalHtmlPdfService : IInformeInstitucionalHtmlPdfSe
     public async Task<byte[]> GenerarPdfDesdeUrlAsync(string urlAbsoluta, bool landscape = true)
     {
         var executablePath = await ResolveChromiumExecutablePathAsync();
-        var launchOpts = new LaunchOptions
-        {
-            Headless = true,
-            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage" }
-        };
-        if (!string.IsNullOrEmpty(executablePath))
-            launchOpts.ExecutablePath = executablePath;
+        var launchOpts = CreateLaunchOptions(executablePath);
 
         await using var browser = await Puppeteer.LaunchAsync(launchOpts);
         await using var page = await browser.NewPageAsync();
@@ -40,6 +34,40 @@ public class InformeInstitucionalHtmlPdfService : IInformeInstitucionalHtmlPdfSe
             Timeout = 90_000
         });
 
+        return await RenderPdfAsync(page, landscape);
+    }
+
+    public async Task<byte[]> GenerarPdfDesdeHtmlAsync(string html, bool landscape = true)
+    {
+        var executablePath = await ResolveChromiumExecutablePathAsync();
+        var launchOpts = CreateLaunchOptions(executablePath);
+
+        await using var browser = await Puppeteer.LaunchAsync(launchOpts);
+        await using var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(html, new NavigationOptions
+        {
+            WaitUntil = new[] { WaitUntilNavigation.Networkidle0 },
+            Timeout = 90_000
+        });
+
+        return await RenderPdfAsync(page, landscape);
+    }
+
+    private static LaunchOptions CreateLaunchOptions(string? executablePath)
+    {
+        var launchOpts = new LaunchOptions
+        {
+            Headless = true,
+            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage" }
+        };
+        if (!string.IsNullOrEmpty(executablePath))
+            launchOpts.ExecutablePath = executablePath;
+        return launchOpts;
+    }
+
+    private static async Task<byte[]> RenderPdfAsync(IPage page, bool landscape)
+    {
         await page.EvaluateExpressionAsync("document.fonts.ready");
         await Task.Delay(300);
 

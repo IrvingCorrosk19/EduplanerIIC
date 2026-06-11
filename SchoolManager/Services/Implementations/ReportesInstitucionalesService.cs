@@ -21,6 +21,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
     private readonly SchoolDbContext _context;
     private readonly IAprobadosReprobadosService _aprobadosReprobadosService;
     private readonly IWebHostEnvironment _environment;
+    private readonly Dictionary<(Guid GroupId, Guid GradeLevelId), ReportesGrupoBulkData> _bulkCache = new();
 
     private static readonly string[] ColumnasHabitos =
     {
@@ -41,14 +42,47 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
     private string ReportesDir => Path.Combine(_environment.ContentRootPath, "Reportes");
 
+    private async Task<ReportesGrupoBulkData> GetBulkAsync(Guid schoolId, Guid groupId, Guid gradeLevelId)
+    {
+        var key = (groupId, gradeLevelId);
+        if (!_bulkCache.TryGetValue(key, out var bulk))
+        {
+            bulk = await ReportesInstitucionalesBulkLoader.LoadAsync(_context, schoolId, groupId, gradeLevelId);
+            _bulkCache[key] = bulk;
+        }
+        return bulk;
+    }
+
+    private static void LlenarNotasPorSlotDesdeBulk(
+        ReportesGrupoBulkData bulk,
+        Guid studentId,
+        IReadOnlyList<string> trimestres,
+        List<(string Nombre, string[] PalabrasClave)> columnas,
+        decimal?[][] notasPorSlot)
+    {
+        foreach (var trimNombre in trimestres)
+        {
+            var slot = ResolverSlotTrimestreInforme(trimNombre);
+            if (!slot.HasValue || slot.Value < 0 || slot.Value > 2)
+                continue;
+
+            for (var j = 0; j < columnas.Count; j++)
+            {
+                notasPorSlot[slot.Value][j] = ReportesInstitucionalesBulkLoader.CalcularNotaFinal(
+                    bulk, studentId, trimNombre, columnas[j].PalabrasClave);
+            }
+        }
+    }
+
     public async Task<List<InformeEstudianteFilaDto>> ObtenerEstudiantesGrupoAsync(
         Guid groupId, Guid gradeLevelId, Guid? teacherScopeId, Guid? materiaId = null)
     {
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
 
         var estudiantes = await _context.StudentAssignments
+            .AsNoTracking()
             .Where(sa => sa.GroupId == groupId && sa.GradeId == gradeLevelId && sa.IsActive)
-            .Join(_context.Users,
+            .Join(_context.Users.AsNoTracking(),
                 sa => sa.StudentId,
                 u => u.Id,
                 (sa, u) => new { u.Id, u.Name, u.LastName })
@@ -162,7 +196,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, null);
 
-        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
+        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
+        var estudiantes = bulk.Estudiantes;
         var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
         var columnas = ObtenerColumnasCalificaciones(tipo, gradeLevel?.Name);
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
@@ -222,8 +257,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 var cols = bloquesColumnas[slot.Value];
                 for (var j = 0; j < columnas.Count && j < cols.Length; j++)
                 {
-                    var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
-                        est.StudentId, groupId, gradeLevelId, schoolId, trimNombre, columnas[j].PalabrasClave);
+                    var nota = ReportesInstitucionalesBulkLoader.CalcularNotaFinal(
+                        bulk, est.StudentId, trimNombre, columnas[j].PalabrasClave);
                     ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, cols[j], nota);
                     notasPorSlot[slot.Value][j] = nota;
                 }
@@ -254,7 +289,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, null);
 
-        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
+        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
+        var estudiantes = bulk.Estudiantes;
         var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
         var columnas = ObtenerColumnasCalificaciones(InformeCalificacionesTipo.Tecnologia, gradeLevel?.Name);
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
@@ -267,19 +303,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             for (var s = 0; s < 3; s++)
                 notasPorSlot[s] = new decimal?[columnas.Count];
 
-            foreach (var trimNombre in trimestres)
-            {
-                var slot = ResolverSlotTrimestreInforme(trimNombre);
-                if (!slot.HasValue || slot.Value < 0 || slot.Value > 2)
-                    continue;
-
-                for (var j = 0; j < columnas.Count; j++)
-                {
-                    var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
-                        est.StudentId, groupId, gradeLevelId, schoolId, trimNombre, columnas[j].PalabrasClave);
-                    notasPorSlot[slot.Value][j] = nota;
-                }
-            }
+            LlenarNotasPorSlotDesdeBulk(bulk, est.StudentId, trimestres, columnas, notasPorSlot);
 
             var (promediosTrimestre, promedioFinal) = CalcularPromediosInformeCalificaciones(notasPorSlot);
             filas.Add(new CalificacionesTecnologiaFilaViewModel
@@ -376,7 +400,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, null);
 
-        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId);
+        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
+        var estudiantes = bulk.Estudiantes;
         var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
         var columnas = ObtenerColumnasCalificaciones(InformeCalificacionesTipo.ExpresionesArtisticas, gradeLevel?.Name);
         var etiquetaGrado = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
@@ -389,19 +414,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             for (var s = 0; s < 3; s++)
                 notasPorSlot[s] = new decimal?[columnas.Count];
 
-            foreach (var trimNombre in trimestres)
-            {
-                var slot = ResolverSlotTrimestreInforme(trimNombre);
-                if (!slot.HasValue || slot.Value < 0 || slot.Value > 2)
-                    continue;
-
-                for (var j = 0; j < columnas.Count; j++)
-                {
-                    var nota = await ObtenerNotaFinalMateriaTrimestreAsync(
-                        est.StudentId, groupId, gradeLevelId, schoolId, trimNombre, columnas[j].PalabrasClave);
-                    notasPorSlot[slot.Value][j] = nota;
-                }
-            }
+            LlenarNotasPorSlotDesdeBulk(bulk, est.StudentId, trimestres, columnas, notasPorSlot);
 
             var (promediosTrimestre, promedioFinal) = CalcularPromediosInformeCalificaciones(notasPorSlot);
             filas.Add(new CalificacionesExpresionesArtisticasFilaViewModel
@@ -458,15 +471,17 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
 
-        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
+        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
+        var estudiantes = bulk.Estudiantes;
         var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
-        var trimesterEntities = await _context.Trimesters
-            .Where(t => t.SchoolId == schoolId && trimestres.Contains(t.Name))
-            .ToListAsync();
+        var trimesterEntities = bulk.TrimesterEntities
+            .Where(t => trimestres.Contains(t.Name))
+            .ToList();
 
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
         var anio = DateTime.UtcNow.Year;
         var filas = new List<FormatoCarpetasFilaViewModel>();
+        var palabrasMateria = new[] { materia.Name };
 
         foreach (var est in estudiantes)
         {
@@ -479,10 +494,10 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             for (var i = 0; i < trimestres.Count && i < 3; i++)
             {
                 var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[i]);
-                var prom = await ObtenerNotaFinalMateriaTrimestreAsync(
-                    est.StudentId, groupId, gradeLevelId, schoolId, trimestres[i], new[] { materia.Name });
-                var (ausencias, tardanzas) = await ContarAsistenciaTrimestreAsync(
-                    est.StudentId, groupId, trimesterEntity);
+                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinal(
+                    bulk, est.StudentId, trimestres[i], palabrasMateria);
+                var (ausencias, tardanzas) = ReportesInstitucionalesBulkLoader.ContarAsistencia(
+                    bulk, est.StudentId, trimesterEntity);
 
                 if (i == 0) { n1 = prom; a1 = ausencias; t1 = tardanzas; }
                 else if (i == 1) { n2 = prom; a2 = ausencias; t2 = tardanzas; }
@@ -547,17 +562,19 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
 
-        var estudiantes = await ObtenerEstudiantesGrupoAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
+        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
+        var estudiantes = bulk.Estudiantes;
         var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
-        var trimesterEntities = await _context.Trimesters
-            .Where(t => t.SchoolId == schoolId && trimestres.Contains(t.Name))
-            .ToListAsync();
+        var trimesterEntities = bulk.TrimesterEntities
+            .Where(t => trimestres.Contains(t.Name))
+            .ToList();
 
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
         var anio = DateTime.UtcNow.Year;
         var ruta = ReportePlantillaNpoiHelper.ResolverPlantilla(ReportesDir, "Carpetas");
         var workbook = ReportePlantillaNpoiHelper.CargarPlantilla(ruta);
         var sheet = workbook.GetSheetAt(0);
+        var palabrasMateria = new[] { materia.Name };
 
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 1, 0, school.Name.ToUpperInvariant());
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 2, 0, "Informe de Calificaciones, Ausencias y Tardanzas");
@@ -588,14 +605,14 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             for (var t = 0; t < trimestres.Count && t < colsNotaTrim.Length; t++)
             {
                 var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[t]);
-                var prom = await ObtenerNotaFinalMateriaTrimestreAsync(
-                    est.StudentId, groupId, gradeLevelId, schoolId, trimestres[t], new[] { materia.Name });
+                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinal(
+                    bulk, est.StudentId, trimestres[t], palabrasMateria);
                 ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colsNotaTrim[t], prom);
                 if (prom.HasValue)
                     promediosTrim.Add(prom.Value);
 
-                var (ausencias, tardanzas) = await ContarAsistenciaTrimestreAsync(
-                    est.StudentId, groupId, trimesterEntity);
+                var (ausencias, tardanzas) = ReportesInstitucionalesBulkLoader.ContarAsistencia(
+                    bulk, est.StudentId, trimesterEntity);
                 var (colA, colT) = colsAt[t];
                 ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colA, ausencias);
                 ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colT, tardanzas);
@@ -619,7 +636,9 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
     {
         if (!teacherScopeId.HasValue) return;
 
-        var query = _context.TeacherAssignments.Where(ta =>
+        var query = _context.TeacherAssignments
+            .AsNoTracking()
+            .Where(ta =>
             ta.TeacherId == teacherScopeId.Value &&
             ta.SubjectAssignment.GroupId == groupId &&
             ta.SubjectAssignment.GradeLevelId == gradeLevelId);
@@ -630,50 +649,6 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         if (!await query.AnyAsync())
             throw new UnauthorizedAccessException("La asignación seleccionada no está disponible para este docente.");
     }
-
-    private async Task<decimal?> ObtenerNotaFinalMateriaTrimestreAsync(
-        Guid studentId,
-        Guid groupId,
-        Guid gradeLevelId,
-        Guid schoolId,
-        string trimestre,
-        IEnumerable<string> palabrasClave)
-    {
-        var trimesterId = await _context.Trimesters
-            .Where(t => t.SchoolId == schoolId && t.Name == trimestre)
-            .Select(t => (Guid?)t.Id)
-            .FirstOrDefaultAsync();
-
-        var actividades = await _context.Activities
-            .AsNoTracking()
-            .Include(a => a.Subject)
-            .Where(a =>
-                a.GroupId == groupId &&
-                a.GradeLevelId == gradeLevelId &&
-                (a.SchoolId == schoolId || a.SchoolId == null) &&
-                (a.Trimester == trimestre ||
-                 (trimesterId.HasValue && a.TrimesterId == trimesterId)))
-            .ToListAsync();
-
-        var actividadesMateria = actividades
-            .Where(a => a.Subject != null &&
-                        PalabrasClaveCoinciden(a.Subject.Name, palabrasClave))
-            .ToList();
-
-        if (actividadesMateria.Count == 0)
-            return null;
-
-        var activityIds = actividadesMateria.Select(a => a.Id).ToList();
-        var scores = await _context.StudentActivityScores
-            .AsNoTracking()
-            .Where(s => s.StudentId == studentId && activityIds.Contains(s.ActivityId))
-            .ToDictionaryAsync(s => s.ActivityId, s => s.Score);
-
-        return GradebookFinalGradeCalculator.CalcularNotaFinal(actividadesMateria, scores);
-    }
-
-    private static bool PalabrasClaveCoinciden(string subjectName, IEnumerable<string> palabrasClave) =>
-        palabrasClave.Any(p => subjectName.Contains(p, StringComparison.OrdinalIgnoreCase));
 
     private static int? ExtractGradeNumber(string? name)
     {
@@ -704,52 +679,6 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         var gradoCorto = grado.Replace("°", "", StringComparison.Ordinal).Trim();
         return string.IsNullOrEmpty(gradoCorto) ? nombre : $"{gradoCorto}-{nombre}";
-    }
-
-    private async Task<decimal?> ObtenerPromedioMateriaTrimestreAsync(
-        Guid studentId, Guid groupId, Guid schoolId, string trimestre, IEnumerable<string> palabrasClave)
-    {
-        var trimesterId = await _context.Trimesters
-            .Where(t => t.SchoolId == schoolId && t.Name == trimestre)
-            .Select(t => (Guid?)t.Id)
-            .FirstOrDefaultAsync();
-
-        var scores = await _context.StudentActivityScores
-            .Include(s => s.Activity)
-            .ThenInclude(a => a!.Subject)
-            .Where(s => s.StudentId == studentId &&
-                        s.Activity!.GroupId == groupId &&
-                        (s.Activity.Trimester == trimestre ||
-                         (trimesterId.HasValue && s.Activity.TrimesterId == trimesterId)))
-            .ToListAsync();
-
-        var filtradas = scores
-            .Where(s => s.Activity?.Subject != null &&
-                        PalabrasClaveCoinciden(s.Activity.Subject.Name, palabrasClave))
-            .Select(s => s.Score ?? 0)
-            .ToList();
-
-        return filtradas.Count > 0 ? filtradas.Average() : null;
-    }
-
-    private async Task<(int Ausencias, int Tardanzas)> ContarAsistenciaTrimestreAsync(
-        Guid studentId, Guid groupId, Trimester? trimester)
-    {
-        if (trimester == null) return (0, 0);
-
-        var start = DateOnly.FromDateTime(trimester.StartDate);
-        var end = DateOnly.FromDateTime(trimester.EndDate);
-
-        var registros = await _context.Attendances
-            .Where(a => a.StudentId == studentId &&
-                        a.GroupId == groupId &&
-                        a.Date >= start && a.Date <= end)
-            .Select(a => a.Status)
-            .ToListAsync();
-
-        return (
-            registros.Count(s => string.Equals(s, "absent", StringComparison.OrdinalIgnoreCase)),
-            registros.Count(s => string.Equals(s, "late", StringComparison.OrdinalIgnoreCase)));
     }
 
     private static List<(string Nombre, string[] PalabrasClave)> ObtenerColumnasCalificaciones(

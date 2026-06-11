@@ -4,4 +4,5 @@ namespace SchoolManager.Services.Interfaces;
 public interface IInformeInstitucionalHtmlPdfService
 {
     Task<byte[]> GenerarPdfDesdeUrlAsync(string urlAbsoluta, bool landscape = true);
+    Task<byte[]> GenerarPdfDesdeHtmlAsync(string html, bool landscape = true);
 }
