@@ -1,70 +1,85 @@
-@model SchoolManager.ViewModels.AprobadosReprobadosReportViewModel
-
-@if (Model.Estadisticas != null && Model.Estadisticas.Any())
-{
-    <div class="table-responsive apr-tabla-wrapper">
-        <table class="table table-bordered table-sm apr-tabla mb-0">
-            <thead>
-                <tr class="text-center">
-                    @if (Model.MostrarColumnaMateria)
-                    {
-                        <th rowspan="2" class="apr-th">Materia</th>
-                    }
-                    <th rowspan="2" class="apr-th">Grado</th>
-                    <th rowspan="2" class="apr-th">Grupo</th>
-                    <th rowspan="2" class="apr-th">Total</th>
-                    <th colspan="2" class="apr-th apr-th-aprob">Aprobados</th>
-                    <th colspan="2" class="apr-th apr-th-reprob">Reprobados</th>
-                    <th colspan="2" class="apr-th apr-th-warning">Rep. hasta la fecha</th>
-                    <th colspan="2" class="apr-th apr-th-info">Sin calificaciones</th>
-                    <th colspan="2" class="apr-th apr-th-muted">Retirados</th>
-                </tr>
-                <tr class="text-center">
-                    <th class="apr-th">#</th><th class="apr-th">%</th>
-                    <th class="apr-th">#</th><th class="apr-th">%</th>
-                    <th class="apr-th">#</th><th class="apr-th">%</th>
-                    <th class="apr-th">#</th><th class="apr-th">%</th>
-                    <th class="apr-th">#</th><th class="apr-th">%</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var stat in Model.Estadisticas)
-                {
-                    <tr>
-                        @if (Model.MostrarColumnaMateria)
-                        {
-                            <td class="text-center">@stat.Materia</td>
-                        }
-                        <td class="text-center"><strong>@stat.Grado</strong></td>
-                        <td class="text-center">@stat.Grupo</td>
-                        <td class="text-center"><strong>@stat.TotalEstudiantes</strong></td>
-                        <td class="text-center text-aprobado">@stat.Aprobados</td>
-                        <td class="text-center">@stat.PorcentajeAprobados.ToString("F2")%</td>
-                        <td class="text-center text-reprobado">@stat.Reprobados</td>
-                        <td class="text-center">@stat.PorcentajeReprobados.ToString("F2")%</td>
-                        <td class="text-center">@stat.ReprobadosHastaLaFecha</td>
-                        <td class="text-center">@stat.PorcentajeReprobadosHastaLaFecha.ToString("F2")%</td>
-                        <td class="text-center">@stat.SinCalificaciones</td>
-                        <td class="text-center">@stat.PorcentajeSinCalificaciones.ToString("F2")%</td>
-                        <td class="text-center">@stat.Retirados</td>
-                        <td class="text-center">@stat.PorcentajeRetirados.ToString("F2")%</td>
-                    </tr>
-                }
-                <tr class="apr-fila-total">
-                    <td colspan="@(Model.MostrarColumnaMateria ? 3 : 2)" class="text-center"><strong>TOTALES</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalEstudiantes</strong></td>
-                    <td class="text-center text-aprobado"><strong>@Model.TotalesGenerales.TotalAprobados</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeAprobados.ToString("F2")%</strong></td>
-                    <td class="text-center text-reprobado"><strong>@Model.TotalesGenerales.TotalReprobados</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeReprobados.ToString("F2")%</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalReprobadosHastaLaFecha</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeReprobadosHastaLaFecha.ToString("F2")%</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalSinCalificaciones</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeSinCalificaciones.ToString("F2")%</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalRetirados</strong></td>
-                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeRetirados.ToString("F2")%</strong></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-}
+@model SchoolManager.ViewModels.AprobadosReprobadosReportViewModel
+@{
+    var colspan = Model.MostrarColumnaMateria ? 14 : 13;
+    var fechaGeneracion = TimeZoneService.ToLocalDisplayString(Model.FechaGeneracion, "dd/MM/yyyy HH:mm");
+    var bannerTexto = $"{Model.InstitutoNombre} — Cuadro de Aprobados y Reprobados — {Model.Trimestre} — Año {Model.AnoLectivo}";
+}
+
+@if (Model.Estadisticas != null && Model.Estadisticas.Any())
+{
+    <div class="apr-tabla-wrapper">
+        <table class="table table-bordered table-sm apr-tabla mb-0">
+            <thead>
+                <tr class="apr-print-banner">
+                    <th colspan="@colspan" class="apr-banner-cell">@bannerTexto</th>
+                </tr>
+                <tr class="text-center">
+                    @if (Model.MostrarColumnaMateria)
+                    {
+                        <th rowspan="2" class="apr-th">Materia</th>
+                    }
+                    <th rowspan="2" class="apr-th">Grado</th>
+                    <th rowspan="2" class="apr-th">Grupo</th>
+                    <th rowspan="2" class="apr-th">Total</th>
+                    <th colspan="2" class="apr-th apr-th-aprob">Aprobados</th>
+                    <th colspan="2" class="apr-th apr-th-reprob">Reprobados</th>
+                    <th colspan="2" class="apr-th apr-th-warning">Rep. hasta la fecha</th>
+                    <th colspan="2" class="apr-th apr-th-info">Sin calificaciones</th>
+                    <th colspan="2" class="apr-th apr-th-muted">Retirados</th>
+                </tr>
+                <tr class="text-center">
+                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                    <th class="apr-th">#</th><th class="apr-th">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var stat in Model.Estadisticas)
+                {
+                    <tr>
+                        @if (Model.MostrarColumnaMateria)
+                        {
+                            <td class="text-center">@stat.Materia</td>
+                        }
+                        <td class="text-center"><strong>@stat.Grado</strong></td>
+                        <td class="text-center">@stat.Grupo</td>
+                        <td class="text-center"><strong>@stat.TotalEstudiantes</strong></td>
+                        <td class="text-center text-aprobado">@stat.Aprobados</td>
+                        <td class="text-center">@stat.PorcentajeAprobados.ToString("F2")%</td>
+                        <td class="text-center text-reprobado">@stat.Reprobados</td>
+                        <td class="text-center">@stat.PorcentajeReprobados.ToString("F2")%</td>
+                        <td class="text-center">@stat.ReprobadosHastaLaFecha</td>
+                        <td class="text-center">@stat.PorcentajeReprobadosHastaLaFecha.ToString("F2")%</td>
+                        <td class="text-center">@stat.SinCalificaciones</td>
+                        <td class="text-center">@stat.PorcentajeSinCalificaciones.ToString("F2")%</td>
+                        <td class="text-center">@stat.Retirados</td>
+                        <td class="text-center">@stat.PorcentajeRetirados.ToString("F2")%</td>
+                    </tr>
+                }
+                <tr class="apr-fila-total">
+                    <td colspan="@(Model.MostrarColumnaMateria ? 3 : 2)" class="text-center"><strong>TOTALES</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalEstudiantes</strong></td>
+                    <td class="text-center text-aprobado"><strong>@Model.TotalesGenerales.TotalAprobados</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeAprobados.ToString("F2")%</strong></td>
+                    <td class="text-center text-reprobado"><strong>@Model.TotalesGenerales.TotalReprobados</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeReprobados.ToString("F2")%</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalReprobadosHastaLaFecha</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeReprobadosHastaLaFecha.ToString("F2")%</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalSinCalificaciones</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeSinCalificaciones.ToString("F2")%</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.TotalRetirados</strong></td>
+                    <td class="text-center"><strong>@Model.TotalesGenerales.PorcentajeRetirados.ToString("F2")%</strong></td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="apr-tfoot-pie">
+                    <td colspan="@colspan">
+                        Sistema EduPlanner · Reporte de Aprobados y Reprobados · Generado: @fechaGeneracion
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+}

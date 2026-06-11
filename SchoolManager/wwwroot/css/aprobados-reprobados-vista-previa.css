@@ -1,4 +1,4 @@
-/* Vista previa e impresión — Cuadro de Aprobados y Reprobados (MEDUCA / EduPlanner) */
+/* Vista previa e impresión — Cuadro de Aprobados y Reprobados */
 
 .apr-vista-previa {
     margin: 0;
@@ -19,34 +19,51 @@
     flex-wrap: wrap;
     gap: 6px;
     justify-content: flex-end;
-    max-width: min(420px, calc(100vw - 20px));
 }
 
-.apr-toolbar .btn {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 12px;
+.apr-print-guide {
+    max-width: 960px;
+    margin: 52px auto 10px;
+    padding: 0;
 }
 
-.apr-print-hint {
-    max-width: 920px;
-    margin: 56px auto 12px;
-    padding: 10px 14px;
-    background: #e8f4fd;
-    border: 1px solid #90caf9;
-    border-radius: 6px;
+.apr-print-guide-card {
+    background: linear-gradient(135deg, #e3f2fd 0%, #fff 100%);
+    border: 1px solid #64b5f6;
+    border-left: 5px solid #1f4e79;
+    border-radius: 8px;
+    padding: 14px 18px;
     font-size: 10pt;
     color: #0d47a1;
 }
 
-.apr-print-hint strong {
+.apr-print-guide-card h2 {
+    font-size: 11pt;
     font-weight: 700;
+    margin: 0 0 8px;
+    color: #1f4e79;
+}
+
+.apr-print-guide-card ol {
+    margin: 0 0 8px 18px;
+    padding: 0;
+}
+
+.apr-print-guide-card li {
+    margin-bottom: 4px;
+}
+
+.apr-print-guide-card .hint-note {
+    margin: 0;
+    font-size: 9pt;
+    color: #546e7a;
 }
 
 .apr-document {
     box-sizing: border-box;
     max-width: 1400px;
     margin: 0 auto 24px;
-    padding: 24px 28px 32px;
+    padding: 20px 24px 28px;
     background: #fff;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
@@ -55,12 +72,12 @@
     max-width: none;
 }
 
-/* —— Cabecera institucional —— */
+/* Cabecera institucional */
 .apr-header {
     text-align: center;
-    border-bottom: 2.5px solid #1f4e79;
-    padding-bottom: 12px;
-    margin-bottom: 14px;
+    border-bottom: 2px solid #1f4e79;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
 }
 
 .apr-header-grid {
@@ -71,14 +88,14 @@
 
 .apr-header-logo-cell {
     display: table-cell;
-    width: 110px;
+    width: 96px;
     vertical-align: middle;
     text-align: left;
 }
 
 .apr-header-logo {
-    max-height: 88px;
-    max-width: 100px;
+    max-height: 76px;
+    max-width: 88px;
     object-fit: contain;
 }
 
@@ -86,14 +103,14 @@
     display: table-cell;
     vertical-align: middle;
     text-align: center;
-    padding: 0 8px;
+    padding: 0 6px;
 }
 
 .apr-line-ministerio {
     font-size: 9pt;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: #37474f;
+    color: #455a64;
     margin: 0 0 2px;
 }
 
@@ -101,14 +118,14 @@
     font-size: 10pt;
     font-weight: 700;
     color: #263238;
-    margin: 0 0 4px;
+    margin: 0 0 3px;
 }
 
 .apr-line-institucion {
     font-size: 13pt;
     font-weight: 700;
     color: #1f4e79;
-    margin: 0 0 6px;
+    margin: 0 0 5px;
 }
 
 .apr-line-titulo {
@@ -116,13 +133,13 @@
     font-weight: 700;
     text-transform: uppercase;
     color: #1f4e79;
-    margin: 0 0 4px;
+    margin: 0;
 }
 
 .apr-badge-consolidado {
     display: inline-block;
     margin-top: 6px;
-    padding: 3px 10px;
+    padding: 2px 10px;
     font-size: 8pt;
     font-weight: 600;
     color: #fff;
@@ -130,18 +147,13 @@
     border-radius: 999px;
 }
 
-/* Cabecera compacta repetida en impresión */
-.apr-running-header {
-    display: none;
-}
-
-/* —— Metadatos —— */
+/* Metadatos */
 .apr-meta {
     display: table;
     width: 100%;
     table-layout: fixed;
-    margin-bottom: 12px;
-    border: 1px solid #cfd8dc;
+    margin-bottom: 10px;
+    border: 1px solid #b0bec5;
     background: #f8fafc;
 }
 
@@ -151,10 +163,9 @@
 
 .apr-meta-cell {
     display: table-cell;
-    padding: 6px 10px;
-    border-right: 1px solid #e0e0e0;
+    padding: 5px 8px;
+    border-right: 1px solid #cfd8dc;
     vertical-align: top;
-    font-size: 9pt;
 }
 
 .apr-meta-cell:last-child {
@@ -163,22 +174,23 @@
 
 .apr-meta-label {
     display: block;
-    font-size: 7.5pt;
+    font-size: 7pt;
     font-weight: 700;
     text-transform: uppercase;
-    color: #546e7a;
-    margin-bottom: 2px;
+    color: #607d8b;
+    margin-bottom: 1px;
 }
 
 .apr-meta-value {
-    font-size: 9.5pt;
+    font-size: 9pt;
     font-weight: 600;
     color: #212121;
+    line-height: 1.25;
 }
 
-/* —— Tabla —— */
+/* Tabla */
 .apr-tabla-wrapper {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .apr-tabla {
@@ -191,11 +203,16 @@
 
 .apr-tabla th,
 .apr-tabla td {
-    border: 1px solid #455a64;
-    padding: 4px 3px;
+    border: 1px solid #546e7a;
+    padding: 4px 2px;
     text-align: center;
     vertical-align: middle;
     word-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+.apr-tabla tbody tr:nth-child(even):not(.apr-fila-total) {
+    background-color: #f5f8fa;
 }
 
 .apr-th {
@@ -204,8 +221,7 @@
     font-size: 8pt;
     font-weight: 700;
     padding: 4px 2px !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    line-height: 1.15;
 }
 
 .apr-th-aprob { background-color: #2e7d32 !important; }
@@ -214,27 +230,49 @@
 .apr-th-info { background-color: #0277bd !important; }
 .apr-th-muted { background-color: #546e7a !important; }
 
-.apr-fila-total {
-    background-color: #e3f2fd !important;
-    font-weight: 700;
+.apr-print-banner {
+    display: none;
+}
+
+.apr-banner-cell {
+    background: #fff !important;
+    color: #1f4e79 !important;
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    padding: 3px 4px !important;
+    border-bottom: 1.5px solid #1f4e79 !important;
 }
 
 .apr-fila-total td {
-    background-color: #e3f2fd !important;
+    background-color: #dceefb !important;
     font-weight: 700;
 }
 
 .text-aprobado { color: #1b5e20; font-weight: 600; }
 .text-reprobado { color: #b71c1c; font-weight: 600; }
 
-/* —— Firmas —— */
+.apr-tfoot-pie td {
+    border: none !important;
+    border-top: 1px solid #90a4ae !important;
+    padding: 4px 2px !important;
+    font-size: 7pt;
+    color: #546e7a;
+    text-align: center;
+    background: #fff !important;
+}
+
+/* Firmas */
+.apr-block-cierre {
+    margin-top: 22px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
 .apr-firmas {
     display: table;
     width: 100%;
     table-layout: fixed;
-    margin-top: 36px;
-    page-break-inside: avoid;
-    break-inside: avoid;
 }
 
 .apr-firma-cell {
@@ -242,54 +280,43 @@
     width: 50%;
     text-align: center;
     vertical-align: top;
-    padding: 0 24px;
+    padding: 0 20px;
 }
 
 .apr-firma-linea {
     border-top: 1px solid #212121;
-    width: 75%;
-    margin: 48px auto 8px;
-    height: 0;
+    width: 70%;
+    margin: 32px auto 6px;
 }
 
 .apr-firma-titulo {
     margin: 0;
     font-size: 10pt;
     font-weight: 700;
-    color: #212121;
 }
 
-/* —— Pie institucional del documento —— */
-.apr-pie-institucional {
-    margin-top: 20px;
-    padding-top: 8px;
+.apr-pie-documento {
+    margin-top: 14px;
+    padding-top: 6px;
     border-top: 1px solid #b0bec5;
     font-size: 8pt;
-    color: #546e7a;
+    color: #607d8b;
+    text-align: center;
 }
 
-.apr-pie-grid {
-    display: table;
-    width: 100%;
-}
-
-.apr-pie-grid > span {
-    display: table-cell;
-    vertical-align: middle;
-}
-
-.apr-pie-grid .apr-pie-izq { text-align: left; }
-.apr-pie-grid .apr-pie-centro { text-align: center; }
-.apr-pie-grid .apr-pie-der { text-align: right; }
-
-.apr-pie-pagina::after {
-    content: "";
-}
-
-/* —— Impresión —— */
+/* —— Impresión (sin position:fixed — evita páginas en blanco) —— */
 @media print {
     .no-print {
         display: none !important;
+    }
+
+    html, body {
+        width: 100%;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        overflow: visible !important;
     }
 
     .apr-vista-previa {
@@ -305,56 +332,36 @@
     }
 
     .apr-header {
-        display: none !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        page-break-after: avoid;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
     }
 
-    .apr-running-header {
-        display: block !important;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 9999;
-        background: #fff;
-        border-bottom: 2px solid #1f4e79;
-        padding: 4px 0 6px;
-        text-align: center;
+    .apr-line-institucion {
+        font-size: 11pt;
     }
 
-    .apr-running-header .apr-line-ministerio {
-        font-size: 7pt;
-        margin-bottom: 1px;
+    .apr-line-titulo {
+        font-size: 10pt;
     }
 
-    .apr-running-header .apr-line-regional {
-        font-size: 7.5pt;
-        margin-bottom: 2px;
-    }
-
-    .apr-running-header .apr-line-institucion {
-        font-size: 9pt;
-        margin-bottom: 2px;
-    }
-
-    .apr-running-header .apr-line-titulo {
-        font-size: 8.5pt;
-        margin: 0;
-    }
-
-    .apr-print-body {
-        padding-top: 52px;
-        padding-bottom: 28px;
+    .apr-header-logo {
+        max-height: 56px;
+        max-width: 64px;
     }
 
     .apr-meta {
-        background: #fff !important;
-        border-color: #78909c;
         page-break-inside: avoid;
         break-inside: avoid;
+        page-break-after: avoid;
+        background: #fff !important;
+        margin-bottom: 6px;
     }
 
     .apr-meta-cell {
-        padding: 3px 6px;
+        padding: 3px 5px;
     }
 
     .apr-tabla-wrapper,
@@ -362,17 +369,33 @@
         overflow: visible !important;
     }
 
+    .apr-print-banner {
+        display: table-row !important;
+    }
+
     .apr-tabla {
-        font-size: 8pt;
         page-break-inside: auto;
         break-inside: auto;
+        font-size: 7.5pt;
+    }
+
+    .apr-consolidado .apr-tabla {
+        font-size: 7pt;
     }
 
     .apr-tabla thead {
         display: table-header-group;
     }
 
-    .apr-tabla tbody tr,
+    .apr-tabla tfoot {
+        display: table-footer-group;
+    }
+
+    .apr-tabla tbody tr:not(.apr-fila-total) {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
     .apr-fila-total {
         page-break-inside: avoid;
         break-inside: avoid;
@@ -380,49 +403,37 @@
 
     .apr-tabla th,
     .apr-tabla td {
-        padding: 3px 2px !important;
+        padding: 2px 1px !important;
     }
 
     .apr-th {
-        font-size: 7pt !important;
+        font-size: 6.5pt !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
 
-    .apr-firmas {
-        margin-top: 24px;
-    }
-
-    .apr-firma-linea {
-        margin-top: 40px;
-    }
-
-    .apr-pie-institucional {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        margin: 0;
-        padding: 4px 0 0;
-        background: #fff;
-        border-top: 1px solid #90a4ae;
-        font-size: 7pt;
-    }
-
-    .apr-pie-pagina::after {
-        content: "Página " counter(page);
+    .apr-consolidado .apr-th {
+        font-size: 6pt !important;
     }
 
     .apr-header-logo,
     .apr-th,
-    .apr-fila-total td {
+    .apr-fila-total td,
+    .apr-tabla tbody tr:nth-child(even):not(.apr-fila-total) {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
-}
 
-@media screen {
-    .apr-running-header {
-        display: none !important;
+    .apr-block-cierre {
+        page-break-before: avoid;
+        margin-top: 14px;
+    }
+
+    .apr-firma-linea {
+        margin-top: 24px;
+    }
+
+    .apr-pie-documento {
+        display: none;
     }
 }
