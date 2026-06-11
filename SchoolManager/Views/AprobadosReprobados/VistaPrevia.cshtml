@@ -1,182 +1,282 @@
 @model SchoolManager.ViewModels.AprobadosReprobadosReportViewModel
+
 @{
+
     ViewData["Title"] = "Reporte de Aprobados y Reprobados";
+
     Layout = null;
+
     var autoPrint = string.Equals(Context.Request.Query["autoprint"], "1", StringComparison.Ordinal);
+
+    var fechaGeneracion = TimeZoneService.ToLocalDisplayString(Model.FechaGeneracion, "dd/MM/yyyy HH:mm");
+
+    var esConsolidado = Model.EsConsolidado;
+
 }
 
+
+
 <!DOCTYPE html>
+
 <html lang="es">
+
 <head>
+
     <meta charset="utf-8" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>@ViewData["Title"]</title>
+
     <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
+
+    <link rel="stylesheet" href="~/css/aprobados-reprobados-vista-previa.css" asp-append-version="true" />
+
     <style>
-        :root {
-            --apr-primary: #1f4e79;
-            --apr-aprobado: #2e7d32;
-            --apr-reprobado: #c62828;
-        }
 
         @@page {
-            size: @(Model.EsConsolidado ? "A4 landscape" : "A4 portrait");
-            margin: 10mm;
+
+            size: @(esConsolidado ? "A4 landscape" : "A4 portrait");
+
+            margin: 10mm 10mm 18mm 10mm;
+
         }
 
-        @@media print {
-            .no-print { display: none !important; }
-            body { margin: 0; padding: 0; background: #fff; }
-            .reporte-container { box-shadow: none; margin: 0; padding: 0; max-width: none; }
-            .apr-tabla { font-size: 9px !important; }
-            .apr-th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-
-        body { background-color: #f4f6f9; }
-
-        .reporte-container {
-            max-width: @(Model.EsConsolidado ? "100%" : "1400px");
-            margin: 20px auto;
-            background-color: white;
-            padding: 28px;
-            box-shadow: 0 0 12px rgba(0,0,0,0.08);
-        }
-
-        .reporte-titulo {
-            text-align: center;
-            margin-bottom: 24px;
-            border-bottom: 3px solid var(--apr-primary);
-            padding-bottom: 16px;
-        }
-
-        .reporte-header-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 24px;
-        }
-
-        .header-logo {
-            max-height: 90px;
-            max-width: 140px;
-            object-fit: contain;
-        }
-
-        .info-section {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 14px 16px;
-            margin-bottom: 20px;
-        }
-
-        .badge-consolidado {
-            background: var(--apr-primary);
-            color: #fff;
-            font-size: 0.75rem;
-            padding: 0.35rem 0.65rem;
-            border-radius: 999px;
-        }
-
-        .apr-tabla { font-size: 11px; }
-        .apr-th {
-            background-color: var(--apr-primary) !important;
-            color: #fff !important;
-            text-align: center;
-            vertical-align: middle;
-            padding: 7px 4px !important;
-            font-size: 10px;
-        }
-        .apr-th-aprob { background-color: #2e7d32 !important; }
-        .apr-th-reprob { background-color: #c62828 !important; }
-        .apr-th-warning { background-color: #ed6c02 !important; }
-        .apr-th-info { background-color: #0288d1 !important; }
-        .apr-th-muted { background-color: #546e7a !important; }
-
-        .apr-fila-total {
-            background-color: #e3f2fd !important;
-            font-weight: bold;
-        }
-
-        .text-aprobado { color: var(--apr-aprobado); font-weight: 600; }
-        .text-reprobado { color: var(--apr-reprobado); font-weight: 600; }
     </style>
+
 </head>
-<body>
-    <div class="no-print" style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
-        <button onclick="window.print()" class="btn btn-primary btn-sm">
+
+<body class="apr-vista-previa @(esConsolidado ? "apr-consolidado" : "")">
+
+    <div class="apr-toolbar no-print">
+
+        <button type="button" onclick="window.print()" class="btn btn-primary btn-sm">
+
             <i class="bi bi-printer"></i> Imprimir
+
         </button>
-        <button onclick="window.close()" class="btn btn-secondary btn-sm">
+
+        <button type="button" onclick="window.close()" class="btn btn-secondary btn-sm">
+
             <i class="bi bi-x-circle"></i> Cerrar
+
         </button>
+
     </div>
 
-    <div class="reporte-container">
-        <div class="reporte-titulo">
-            <div class="reporte-header-container">
-                @if (!string.IsNullOrEmpty(Model.LogoUrl))
-                {
-                    <div>
-                        <img src="@Model.LogoUrl" alt="Logo" class="header-logo" onerror="this.style.display='none'" />
-                    </div>
-                }
-                <div>
-                    <h5 class="mb-1 text-muted">Dirección Regional de San Miguelito</h5>
-                    <h3 class="mb-2"><strong>@Model.InstitutoNombre</strong></h3>
-                    <h5 class="text-primary mb-2"><strong>CUADRO DE APROBADOS Y REPROBADOS POR GRADO</strong></h5>
-                    @if (Model.EsConsolidado)
+
+
+    <div class="apr-print-hint no-print" role="note">
+
+        <strong>Impresión profesional:</strong>
+
+        En el diálogo de impresión de Chrome o Edge, desactive la opción
+
+        <strong>«Encabezados y pies de página»</strong> para eliminar la URL del navegador
+
+        (<code>eduplaner.net/AprobadosReprobados/VistaPrevia…</code>) y la numeración automática del navegador.
+
+        El pie institucional de EduPlanner aparecerá en su lugar.
+
+    </div>
+
+
+
+    <div id="printArea" class="apr-document">
+
+        <div class="apr-running-header" aria-hidden="true">
+
+            <p class="apr-line-ministerio mb-0">Ministerio de Educación</p>
+
+            <p class="apr-line-regional mb-0">Dirección Regional de San Miguelito</p>
+
+            <p class="apr-line-institucion mb-0">@Model.InstitutoNombre</p>
+
+            <p class="apr-line-titulo mb-0">Cuadro de Aprobados y Reprobados por Grado — @Model.Trimestre — @Model.AnoLectivo</p>
+
+        </div>
+
+
+
+        <div class="apr-print-body">
+
+            <header class="apr-header">
+
+                <div class="apr-header-grid">
+
+                    @if (!string.IsNullOrEmpty(Model.LogoUrl))
+
                     {
-                        <span class="badge-consolidado">
-                            <i class="bi bi-layers"></i> Reporte consolidado — @Model.CantidadAsignaciones asignaciones
-                        </span>
+
+                        <div class="apr-header-logo-cell">
+
+                            <img src="@Model.LogoUrl" alt="Logo institucional" class="apr-header-logo" onerror="this.parentElement.style.display='none'" />
+
+                        </div>
+
                     }
+
+                    <div class="apr-header-text-cell">
+
+                        <p class="apr-line-ministerio">Ministerio de Educación</p>
+
+                        <p class="apr-line-regional">Dirección Regional de San Miguelito</p>
+
+                        <p class="apr-line-institucion">@Model.InstitutoNombre</p>
+
+                        <p class="apr-line-titulo">Cuadro de Aprobados y Reprobados por Grado</p>
+
+                        @if (esConsolidado)
+
+                        {
+
+                            <span class="apr-badge-consolidado">
+
+                                Reporte consolidado — @Model.CantidadAsignaciones asignaciones
+
+                            </span>
+
+                        }
+
+                    </div>
+
                 </div>
-            </div>
+
+            </header>
+
+
+
+            <section class="apr-meta">
+
+                <div class="apr-meta-row">
+
+                    <div class="apr-meta-cell">
+
+                        <span class="apr-meta-label">Coordinador(a)</span>
+
+                        <span class="apr-meta-value">@Model.ProfesorCoordinador</span>
+
+                    </div>
+
+                    <div class="apr-meta-cell">
+
+                        <span class="apr-meta-label">Trimestre</span>
+
+                        <span class="apr-meta-value">@Model.Trimestre</span>
+
+                    </div>
+
+                    <div class="apr-meta-cell">
+
+                        <span class="apr-meta-label">Año lectivo</span>
+
+                        <span class="apr-meta-value">@Model.AnoLectivo</span>
+
+                    </div>
+
+                    <div class="apr-meta-cell">
+
+                        <span class="apr-meta-label">Alcance</span>
+
+                        <span class="apr-meta-value">@Model.NivelEducativo</span>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            @if (Model.Estadisticas != null && Model.Estadisticas.Any())
+
+            {
+
+                @await Html.PartialAsync("_TablaReporte", Model)
+
+
+
+                <section class="apr-firmas">
+
+                    <div class="apr-firma-cell">
+
+                        <div class="apr-firma-linea"></div>
+
+                        <p class="apr-firma-titulo">Profesor(a) Coordinador(a)</p>
+
+                    </div>
+
+                    <div class="apr-firma-cell">
+
+                        <div class="apr-firma-linea"></div>
+
+                        <p class="apr-firma-titulo">Director(a)</p>
+
+                    </div>
+
+                </section>
+
+
+
+                <footer class="apr-pie-institucional">
+
+                    <div class="apr-pie-grid">
+
+                        <span class="apr-pie-izq">Sistema EduPlanner</span>
+
+                        <span class="apr-pie-centro">Reporte de Aprobados y Reprobados</span>
+
+                        <span class="apr-pie-der">
+
+                            Generado: @fechaGeneracion
+
+                            <span class="apr-pie-pagina"></span>
+
+                        </span>
+
+                    </div>
+
+                </footer>
+
+            }
+
+            else
+
+            {
+
+                <div class="alert alert-warning text-center mb-0">
+
+                    <i class="bi bi-exclamation-triangle"></i> No hay datos para los filtros seleccionados.
+
+                </div>
+
+            }
+
         </div>
 
-        <div class="info-section">
-            <div class="row g-2">
-                <div class="col-md-4"><strong>Coordinador(a):</strong> @Model.ProfesorCoordinador</div>
-                <div class="col-md-2"><strong>Trimestre:</strong> @Model.Trimestre</div>
-                <div class="col-md-2"><strong>Año:</strong> @Model.AnoLectivo</div>
-                <div class="col-md-4"><strong>Alcance:</strong> @Model.NivelEducativo</div>
-            </div>
-        </div>
-
-        @if (Model.Estadisticas != null && Model.Estadisticas.Any())
-        {
-            @await Html.PartialAsync("_TablaReporte", Model)
-
-            <div class="row mt-4">
-                <div class="col-12 text-end">
-                    <small class="text-muted">Generado: @TimeZoneService.ToLocalDisplayString(Model.FechaGeneracion, "dd/MM/yyyy HH:mm")</small>
-                </div>
-            </div>
-
-            <div class="row mt-5">
-                <div class="col-md-6 text-center">
-                    <hr style="width: 75%; margin: 0 auto;">
-                    <p class="mt-2 mb-0"><strong>Profesor(a) Coordinador(a)</strong></p>
-                </div>
-                <div class="col-md-6 text-center">
-                    <hr style="width: 75%; margin: 0 auto;">
-                    <p class="mt-2 mb-0"><strong>Director(a)</strong></p>
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="alert alert-warning text-center mb-0">
-                <i class="bi bi-exclamation-triangle"></i> No hay datos para los filtros seleccionados.
-            </div>
-        }
     </div>
+
+
 
     @if (autoPrint)
+
     {
-        <script>window.addEventListener('load', function () { window.print(); });</script>
+
+        <script>
+
+            window.addEventListener('load', function () {
+
+                setTimeout(function () { window.print(); }, 400);
+
+            });
+
+        </script>
+
     }
+
 </body>
+
 </html>
+
