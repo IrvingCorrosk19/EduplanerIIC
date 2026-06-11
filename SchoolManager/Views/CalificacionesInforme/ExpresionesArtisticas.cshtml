@@ -31,7 +31,6 @@
             </div>
             <div class="mt-3 d-flex flex-wrap gap-2">
                 <button type="button" id="btn-vista" class="btn btn-primary btn-sm" disabled>Ver reporte</button>
-                <button type="button" id="btn-pdf" class="btn btn-outline-primary btn-sm" disabled>Descargar PDF</button>
                 <button type="button" id="btn-excel" class="btn btn-outline-secondary btn-sm" disabled>Descargar Excel (.xls)</button>
             </div>
         </form>
@@ -51,7 +50,7 @@ $(function () {
             '&groupId=' + encodeURIComponent($('#groupId').val()) +
             '&gradeLevelId=' + encodeURIComponent($('#gradeLevelId').val());
     }
-    function setBtns(ok) { $('#btn-vista,#btn-pdf,#btn-excel').prop('disabled', !ok); }
+    function setBtns(ok) { $('#btn-vista,#btn-excel').prop('disabled', !ok); }
     $('#nivelEducativo').change(function () {
         $('#grupoCombo').prop('disabled', true).html('<option value="">Cargando...</option>');
         $('#groupId,#gradeLevelId').val(''); setBtns(false);
@@ -69,7 +68,6 @@ $(function () {
         setBtns(!!(p[0] && p[1]));
     });
     $('#btn-vista').click(() => { if ($('#groupId').val()) window.open('@Url.Action("VistaPreviaExpresionesArtisticas", "CalificacionesInforme")' + params(), '_blank'); });
-    $('#btn-pdf').click(() => { if ($('#groupId').val()) window.location.href = '@Url.Action("ExportarPdfExpresionesArtisticas", "CalificacionesInforme")' + params(); });
     $('#btn-excel').click(() => { if ($('#groupId').val()) window.location.href = '@Url.Action("ExportarExcel", "CalificacionesInforme")' + params() + '&tipo=expresionesArtisticas'; });
 });
 </script>

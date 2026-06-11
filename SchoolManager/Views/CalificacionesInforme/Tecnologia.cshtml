@@ -11,7 +11,7 @@
                 <a href="@Url.Action("Index", "Reportes")" class="text-muted small">&larr; Catálogo de reportes</a>
                 <h1 class="m-0 mt-1" style="font-size:1.35rem;">Calificaciones — Tecnología</h1>
                 <p class="text-muted small mb-0">
-                    Formato oficial MEDUCA. Genere la vista para imprimir o guardar en PDF; también puede descargar el Excel (.xls) con la misma plantilla.
+                    Formato oficial MEDUCA. Genere la vista para imprimir; también puede descargar el Excel (.xls) con la misma plantilla.
                     @if (esDocente)
                     {
                         <span> Solo verá <strong>sus asignaciones</strong>.</span>
@@ -50,9 +50,6 @@
                 <button type="button" id="btn-vista" class="btn btn-primary btn-sm" disabled>
                     Ver reporte (imprimir)
                 </button>
-                <button type="button" id="btn-pdf" class="btn btn-outline-primary btn-sm" disabled>
-                    Descargar PDF
-                </button>
                 <button type="button" id="btn-excel" class="btn btn-outline-secondary btn-sm" disabled>
                     Descargar Excel (.xls)
                 </button>
@@ -80,7 +77,7 @@
             function resetGrupo() {
                 $('#grupoCombo').prop('disabled', true).html('<option value="">-- Seleccione grado primero --</option>');
                 $('#groupId, #gradeLevelId').val('');
-                $('#btn-vista, #btn-pdf, #btn-excel').prop('disabled', true);
+                $('#btn-vista, #btn-excel').prop('disabled', true);
             }
 
             function cargarGrupos(nivel) {
@@ -107,7 +104,7 @@
                 $('#groupId').val(p[0] || '');
                 $('#gradeLevelId').val(p[1] || '');
                 const ok = p[0] && p[1];
-                $('#btn-vista, #btn-pdf, #btn-excel').prop('disabled', !ok);
+                $('#btn-vista, #btn-excel').prop('disabled', !ok);
             });
 
             function paramsUrl() {
@@ -122,11 +119,6 @@
             $('#btn-vista').click(function () {
                 if (!$('#groupId').val()) return;
                 window.open('@Url.Action("VistaPreviaTecnologia", "CalificacionesInforme")' + paramsUrl(), '_blank');
-            });
-
-            $('#btn-pdf').click(function () {
-                if (!$('#groupId').val()) return;
-                window.location.href = '@Url.Action("ExportarPdfTecnologia", "CalificacionesInforme")' + paramsUrl();
             });
 
             $('#btn-excel').click(function () {

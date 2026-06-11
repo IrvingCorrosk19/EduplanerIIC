@@ -35,7 +35,6 @@
             </div>
             <div class="mt-3 d-flex flex-wrap gap-2">
                 <button type="button" id="btn-vista" class="btn btn-primary btn-sm" disabled>Ver reporte</button>
-                <button type="button" id="btn-pdf" class="btn btn-outline-primary btn-sm" disabled>Descargar PDF</button>
                 <button type="button" id="btn-excel" class="btn btn-outline-secondary btn-sm" disabled>Descargar Excel (.xls)</button>
             </div>
         </form>
@@ -55,7 +54,7 @@ $(function () {
             '&groupId=' + encodeURIComponent($('#groupId').val()) +
             '&gradeLevelId=' + encodeURIComponent($('#gradeLevelId').val());
     }
-    function setBtns(ok) { $('#btn-vista,#btn-pdf,#btn-excel').prop('disabled', !ok); }
+    function setBtns(ok) { $('#btn-vista,#btn-excel').prop('disabled', !ok); }
     $('#nivelEducativo').change(function () {
         $('#materiaId').prop('disabled', true).html('<option value="">Cargando...</option>');
         $('#grupoCombo').prop('disabled', true).html('<option value="">--</option>');
@@ -85,7 +84,6 @@ $(function () {
         setBtns(!!(p[0] && p[1] && $('#materiaId').val()));
     });
     $('#btn-vista').click(() => { if ($('#groupId').val()) window.open('@Url.Action("VistaPrevia", "FormatoCarpetasReport")' + params(), '_blank'); });
-    $('#btn-pdf').click(() => { if ($('#groupId').val()) window.location.href = '@Url.Action("ExportarPdf", "FormatoCarpetasReport")' + params(); });
     $('#btn-excel').click(() => { if ($('#groupId').val()) window.location.href = '@Url.Action("ExportarExcel", "FormatoCarpetasReport")' + params(); });
 });
 </script>

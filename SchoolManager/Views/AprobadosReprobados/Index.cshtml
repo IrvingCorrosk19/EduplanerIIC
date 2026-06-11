@@ -136,9 +136,6 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-vista-todas">
                         <i class="bi bi-eye"></i> Vista completa
                     </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm" id="btn-pdf-todas">
-                        <i class="bi bi-file-pdf"></i> PDF consolidado
-                    </button>
                 </div>
             </div>
         </div>
@@ -155,7 +152,7 @@
                     <button type="button" class="btn btn-light btn-sm" id="btn-vista-previa">
                         <i class="bi bi-eye"></i> Vista completa
                     </button>
-                    <button type="button" class="btn btn-light btn-sm" id="btn-exportar-pdf">
+                    <button type="button" class="btn btn-light btn-sm d-none" id="btn-exportar-pdf">
                         <i class="bi bi-file-pdf"></i> PDF
                     </button>
                 </div>
@@ -278,11 +275,6 @@
                 abrirVistaPrevia(true, false);
             });
 
-            $('#btn-pdf-todas').click(function () {
-                if (!validarTrimestre()) return;
-                window.location.href = buildExportUrl('@Url.Action("ExportarPdf", "AprobadosReprobados")', true);
-            });
-
             $('#filtro-form').submit(function (e) {
                 e.preventDefault();
                 if (!validarFiltrosCompletos()) return;
@@ -311,6 +303,7 @@
                                     ? 'Reporte consolidado (' + (response.data.cantidadAsignaciones || 0) + ' asignaciones)'
                                     : 'Reporte generado'
                             );
+                            $('#btn-exportar-pdf').toggleClass('d-none', ultimoEsConsolidado);
                             $('#reporte-container').slideDown();
                         } else {
                             Swal.fire('Error', response.message, 'error');
