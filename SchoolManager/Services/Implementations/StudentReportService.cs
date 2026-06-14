@@ -67,12 +67,12 @@ namespace SchoolManager.Services.Implementations
                     return null;
                 }
 
-                // Obtener TODOS los trimestres de la escuela del estudiante (desde la tabla Trimesters)
+                // Todos los trimestres de la escuela (activos y cerrados) para consulta del estudiante
                 _logger.LogInformation("Buscando trimestres disponibles para la escuela: {SchoolId}", studentUser.SchoolId);
                 Console.WriteLine($"Buscando trimestres disponibles para la escuela: {studentUser.SchoolId}");
 
                 var trimesters = await _context.Trimesters
-                    .Where(t => t.SchoolId == studentUser.SchoolId && t.IsActive)
+                    .Where(t => t.SchoolId == studentUser.SchoolId)
                     .OrderBy(t => t.Order)
                     .Select(t => t.Name)
                     .ToListAsync();
