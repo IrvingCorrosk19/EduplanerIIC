@@ -29,6 +29,8 @@ public partial class Trimester
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
+    public virtual ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
+
     public virtual School? School { get; set; }
 
     public virtual AcademicYear? AcademicYear { get; set; }

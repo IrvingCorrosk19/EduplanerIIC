@@ -121,6 +121,7 @@ public static class ReportesInstitucionalesBulkLoader
 
         var minDate = trimesterEntities.Min(t => DateOnly.FromDateTime(t.StartDate));
         var maxDate = trimesterEntities.Max(t => DateOnly.FromDateTime(t.EndDate));
+        var trimesterIds = trimesterEntities.Select(t => t.Id).ToList();
 
         var registros = await context.Attendances
             .AsNoTracking()
@@ -128,9 +129,16 @@ public static class ReportesInstitucionalesBulkLoader
                 a.GroupId == groupId &&
                 a.StudentId.HasValue &&
                 studentIds.Contains(a.StudentId.Value) &&
-                a.Date >= minDate &&
-                a.Date <= maxDate)
-            .Select(a => new { StudentId = a.StudentId!.Value, a.Date, a.Status })
+                ((a.TrimesterId.HasValue && trimesterIds.Contains(a.TrimesterId.Value)) ||
+                 (!a.TrimesterId.HasValue && a.Date >= minDate && a.Date <= maxDate)))
+            .Select(a => new
+            {
+                StudentId = a.StudentId!.Value,
+                a.Date,
+                a.Status,
+                a.TrimesterId,
+                a.AcademicYearId
+            })
             .ToListAsync();
 
         foreach (var trim in trimesterEntities)
@@ -142,8 +150,11 @@ public static class ReportesInstitucionalesBulkLoader
             {
                 var delEstudiante = registros.Where(r =>
                     r.StudentId == studentId &&
-                    r.Date >= start &&
-                    r.Date <= end);
+                    (r.TrimesterId == trim.Id ||
+                     (!r.TrimesterId.HasValue &&
+                      (!r.AcademicYearId.HasValue || trim.AcademicYearId == null || r.AcademicYearId == trim.AcademicYearId) &&
+                      r.Date >= start &&
+                      r.Date <= end)));
 
                 var ausencias = delEstudiante.Count(r =>
                     string.Equals(r.Status, "absent", StringComparison.OrdinalIgnoreCase));

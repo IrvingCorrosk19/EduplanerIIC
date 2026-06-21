@@ -35,6 +35,8 @@ public partial class AcademicYear
 
     public virtual ICollection<StudentActivityScore> StudentActivityScores { get; set; } = new List<StudentActivityScore>();
 
+    public virtual ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
+
     public virtual User? CreatedByUser { get; set; }
 
     public virtual User? UpdatedByUser { get; set; }

@@ -27,6 +27,7 @@ public class AttendanceService : IAttendanceService
         // Configurar campos de auditoría y SchoolId
         await AuditHelper.SetAuditFieldsForCreateAsync(attendance, _currentUserService);
         await AuditHelper.SetSchoolIdAsync(attendance, _currentUserService);
+        await ResolveAcademicScopeAsync(attendance);
         
         _context.Attendances.Add(attendance);
         await _context.SaveChangesAsync();
@@ -154,9 +155,13 @@ public class AttendanceService : IAttendanceService
                 GroupId = dto.GroupId,
                 GradeId = dto.GradeId,
                 Date = dto.Date,
-                Status = dto.Status,
-                CreatedAt = DateTime.UtcNow
+                Status = dto.Status
             };
+
+            await AuditHelper.SetAuditFieldsForCreateAsync(attendance, _currentUserService);
+            await AuditHelper.SetSchoolIdAsync(attendance, _currentUserService);
+            await ResolveAcademicScopeAsync(attendance);
+
             _context.Attendances.Add(attendance);
         }
         await _context.SaveChangesAsync();
@@ -201,6 +206,55 @@ public class AttendanceService : IAttendanceService
         }).ToList<object>();
 
         return resultado;
+    }
+
+    private async Task ResolveAcademicScopeAsync(Attendance attendance)
+    {
+        var schoolId = attendance.SchoolId;
+
+        if (!schoolId.HasValue)
+        {
+            var currentUserSchool = await _currentUserService.GetCurrentUserSchoolAsync();
+            schoolId = currentUserSchool?.Id;
+            attendance.SchoolId = schoolId;
+        }
+
+        if (!schoolId.HasValue)
+        {
+            throw new InvalidOperationException("No se pudo determinar la escuela para registrar la asistencia.");
+        }
+
+        var attendanceStart = attendance.Date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var attendanceEnd = attendance.Date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+
+        var academicYear = await _context.AcademicYears
+            .Where(ay => ay.SchoolId == schoolId.Value
+                && ay.IsActive
+                && ay.StartDate <= attendanceEnd
+                && ay.EndDate >= attendanceStart)
+            .OrderByDescending(ay => ay.StartDate)
+            .FirstOrDefaultAsync();
+
+        if (academicYear == null)
+        {
+            throw new InvalidOperationException($"No existe un año académico activo para la fecha {attendance.Date:yyyy-MM-dd}.");
+        }
+
+        var trimester = await _context.Trimesters
+            .Where(t => t.SchoolId == schoolId.Value
+                && (t.AcademicYearId == academicYear.Id || t.AcademicYearId == null)
+                && t.StartDate <= attendanceEnd
+                && t.EndDate >= attendanceStart)
+            .OrderBy(t => t.Order)
+            .FirstOrDefaultAsync();
+
+        if (trimester == null)
+        {
+            throw new InvalidOperationException($"No existe un trimestre configurado para la fecha {attendance.Date:yyyy-MM-dd}.");
+        }
+
+        attendance.AcademicYearId = academicYear.Id;
+        attendance.TrimesterId = trimester.Id;
     }
 }
 }

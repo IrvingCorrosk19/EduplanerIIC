@@ -44,6 +44,42 @@ namespace SchoolManager.Services.Implementations
             }
         }
 
+        private async Task<Trimester?> GetTrimesterConfigAsync(Guid? schoolId, string trimesterName, AcademicYear? academicYear)
+        {
+            var query = _context.Trimesters
+                .Where(t => t.Name == trimesterName);
+
+            if (schoolId.HasValue)
+            {
+                query = query.Where(t => t.SchoolId == schoolId.Value);
+            }
+
+            if (academicYear != null)
+            {
+                query = query.Where(t => t.AcademicYearId == academicYear.Id || t.AcademicYearId == null);
+            }
+
+            return await query
+                .OrderByDescending(t => academicYear != null && t.AcademicYearId == academicYear.Id)
+                .ThenBy(t => t.Order)
+                .FirstOrDefaultAsync();
+        }
+
+        private IQueryable<Attendance> BuildHistoricalAttendanceQuery(Guid studentId, Trimester trimesterConfig, AcademicYear? academicYear)
+        {
+            var startDate = DateOnly.FromDateTime(trimesterConfig.StartDate);
+            var endDate = DateOnly.FromDateTime(trimesterConfig.EndDate);
+
+            return _context.Attendances
+                .Where(a =>
+                    a.StudentId == studentId &&
+                    (a.TrimesterId == trimesterConfig.Id ||
+                     (!a.TrimesterId.HasValue &&
+                      (!a.AcademicYearId.HasValue || academicYear == null || a.AcademicYearId == academicYear.Id) &&
+                      a.Date >= startDate &&
+                      a.Date <= endDate)));
+        }
+
         public async Task<StudentReportDto> GetReportByStudentIdAsync(Guid studentId)
         {
             try
@@ -212,18 +248,11 @@ namespace SchoolManager.Services.Implementations
             }).ToList();
 
             // --- ASISTENCIA POR TRIMESTRE ---
-            var trimesterConfig = await _context.Trimesters.FirstOrDefaultAsync(t => t.Name == selectedTrimester);
+            var trimesterConfig = await GetTrimesterConfigAsync(studentUser.SchoolId, selectedTrimester, activeAcademicYear);
             var attendanceByTrimester = new List<AttendanceDto>();
             if (trimesterConfig != null)
             {
-                var startDate = DateOnly.FromDateTime(trimesterConfig.StartDate);
-                var endDate = DateOnly.FromDateTime(trimesterConfig.EndDate);
-
-                var asistencias = await _context.Attendances
-                    .Where(a => 
-                        a.StudentId == studentId && 
-                        a.Date >= startDate && 
-                        a.Date <= endDate)
+                var asistencias = await BuildHistoricalAttendanceQuery(studentId, trimesterConfig, activeAcademicYear)
                     .ToListAsync();
 
                 attendanceByTrimester.Add(new AttendanceDto
@@ -240,14 +269,7 @@ namespace SchoolManager.Services.Implementations
             var attendanceByMonth = new List<AttendanceDto>();
             if (trimesterConfig != null)
             {
-                var startDate = DateOnly.FromDateTime(trimesterConfig.StartDate);
-                var endDate = DateOnly.FromDateTime(trimesterConfig.EndDate);
-
-                var attendanceByMonthRaw = await _context.Attendances
-                    .Where(a => 
-                        a.StudentId == studentId && 
-                        a.Date >= startDate && 
-                        a.Date <= endDate)
+                var attendanceByMonthRaw = await BuildHistoricalAttendanceQuery(studentId, trimesterConfig, activeAcademicYear)
                     .GroupBy(a => new { a.Date.Year, a.Date.Month })
                     .Select(g => new
                     {
@@ -451,18 +473,11 @@ namespace SchoolManager.Services.Implementations
             }).ToList();
 
             // --- ASISTENCIA POR TRIMESTRE ---
-            var trimesterConfig = await _context.Trimesters.FirstOrDefaultAsync(t => t.Name == trimester);
+            var trimesterConfig = await GetTrimesterConfigAsync(studentUser.SchoolId, trimester, activeAcademicYear);
             var attendanceByTrimester = new List<AttendanceDto>();
             if (trimesterConfig != null)
             {
-                var startDate = DateOnly.FromDateTime(trimesterConfig.StartDate);
-                var endDate = DateOnly.FromDateTime(trimesterConfig.EndDate);
-
-                var asistencias = await _context.Attendances
-                    .Where(a => 
-                        a.StudentId == studentId && 
-                        a.Date >= startDate && 
-                        a.Date <= endDate)
+                var asistencias = await BuildHistoricalAttendanceQuery(studentId, trimesterConfig, activeAcademicYear)
                     .ToListAsync();
 
                 attendanceByTrimester.Add(new AttendanceDto
@@ -479,14 +494,7 @@ namespace SchoolManager.Services.Implementations
             var attendanceByMonth = new List<AttendanceDto>();
             if (trimesterConfig != null)
             {
-                var startDate = DateOnly.FromDateTime(trimesterConfig.StartDate);
-                var endDate = DateOnly.FromDateTime(trimesterConfig.EndDate);
-
-                var attendanceByMonthRaw = await _context.Attendances
-                    .Where(a => 
-                        a.StudentId == studentId && 
-                        a.Date >= startDate && 
-                        a.Date <= endDate)
+                var attendanceByMonthRaw = await BuildHistoricalAttendanceQuery(studentId, trimesterConfig, activeAcademicYear)
                     .GroupBy(a => new { a.Date.Year, a.Date.Month })
                     .Select(g => new
                     {

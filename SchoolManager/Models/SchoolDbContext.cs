@@ -336,9 +336,18 @@ public partial class SchoolDbContext : DbContext
 
             entity.HasIndex(e => e.TeacherId, "IX_attendance_teacher_id");
 
+            entity.HasIndex(e => e.TrimesterId, "IX_Attendance_TrimesterId");
+
+            entity.HasIndex(e => e.AcademicYearId, "IX_Attendance_AcademicYearId");
+
+            entity.HasIndex(e => new { e.Date, e.TrimesterId }, "IX_Attendance_Date_Trimester");
+
+            entity.HasIndex(e => new { e.StudentId, e.TrimesterId }, "IX_Attendance_Student_Trimester");
+
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
+            entity.Property(e => e.AcademicYearId).HasColumnName("academic_year_id");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp with time zone")
@@ -351,6 +360,7 @@ public partial class SchoolDbContext : DbContext
                 .HasColumnName("status");
             entity.Property(e => e.StudentId).HasColumnName("student_id");
             entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
+            entity.Property(e => e.TrimesterId).HasColumnName("trimester_id");
 
             entity.HasOne(d => d.Grade).WithMany(p => p.Attendances)
                 .HasForeignKey(d => d.GradeId)
@@ -367,6 +377,14 @@ public partial class SchoolDbContext : DbContext
             entity.HasOne(d => d.Teacher).WithMany(p => p.AttendanceTeachers)
                 .HasForeignKey(d => d.TeacherId)
                 .HasConstraintName("attendance_teacher_id_fkey");
+
+            entity.HasOne(d => d.Trimester).WithMany(p => p.Attendances)
+                .HasForeignKey(d => d.TrimesterId)
+                .HasConstraintName("attendance_trimester_id_fkey");
+
+            entity.HasOne(d => d.AcademicYear).WithMany(p => p.Attendances)
+                .HasForeignKey(d => d.AcademicYearId)
+                .HasConstraintName("attendance_academic_year_id_fkey");
 
             entity.Property(e => e.SchoolId).HasColumnName("school_id");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
