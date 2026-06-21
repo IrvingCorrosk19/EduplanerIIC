@@ -9,3 +9,50 @@
 .reporte-carpetas .ri-tabla .col-at { width: 2.5%; font-size: 8pt; }
 .reporte-carpetas .ri-tabla thead th { font-size: 8pt; padding: 2pt !important; }
 .reporte-carpetas .ri-tabla thead tr.subhead th { font-weight: normal; font-size: 7.5pt; }
+
+.reporte-carpetas .ri-signature-footer {
+    margin-top: 18pt;
+    page-break-inside: avoid;
+}
+
+.reporte-carpetas .ri-signature-row {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    margin-bottom: 16pt;
+}
+
+.reporte-carpetas .ri-signature-block {
+    display: table-cell;
+    width: 50%;
+    padding: 0 26pt;
+    text-align: center;
+    vertical-align: bottom;
+}
+
+.reporte-carpetas .ri-signature-line {
+    height: 20pt;
+    border-bottom: 1.5pt solid #000;
+    margin-bottom: 4pt;
+}
+
+.reporte-carpetas .ri-signature-label {
+    font-size: 10pt;
+    font-weight: 700;
+}
+
+.reporte-carpetas .ri-observation-box {
+    margin-top: 4pt;
+}
+
+.reporte-carpetas .ri-observation-title {
+    font-size: 11pt;
+    font-weight: 700;
+    margin-bottom: 6pt;
+}
+
+.reporte-carpetas .ri-observation-lines span {
+    display: block;
+    height: 18pt;
+    border-bottom: 1pt solid #000;
+}

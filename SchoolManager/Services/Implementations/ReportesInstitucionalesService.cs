@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NPOI.HSSF.UserModel;
+using NPOI.SS.UserModel;
+using NPOI.SS.Util;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using SchoolManager.Models;
@@ -628,7 +630,109 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 13, totalT);
         }
 
+        AgregarPieFirmasFormatoCarpetas(workbook, sheet);
+
         return ReportePlantillaNpoiHelper.EscribirLibro(workbook);
+    }
+
+    private static void AgregarPieFirmasFormatoCarpetas(HSSFWorkbook workbook, ISheet sheet)
+    {
+        const int primeraCol = 0;
+        const int ultimaCol = 13;
+        var filaInicio = FilaDatosCarpetas0 + MaxFilasEstudiantesCarpetas + 2;
+
+        RemoverRegionesCombinadasEnRango(sheet, filaInicio, filaInicio + 9);
+
+        var titleFont = workbook.CreateFont();
+        titleFont.IsBold = true;
+        titleFont.FontHeightInPoints = 11;
+
+        var labelFont = workbook.CreateFont();
+        labelFont.IsBold = true;
+        labelFont.FontHeightInPoints = 10;
+
+        var centeredStyle = workbook.CreateCellStyle();
+        centeredStyle.Alignment = NPOI.SS.UserModel.HorizontalAlignment.Center;
+        centeredStyle.VerticalAlignment = NPOI.SS.UserModel.VerticalAlignment.Center;
+        centeredStyle.SetFont(labelFont);
+
+        var lineStyle = workbook.CreateCellStyle();
+        lineStyle.BorderBottom = NPOI.SS.UserModel.BorderStyle.Medium;
+        lineStyle.BottomBorderColor = IndexedColors.Black.Index;
+
+        var titleStyle = workbook.CreateCellStyle();
+        titleStyle.Alignment = NPOI.SS.UserModel.HorizontalAlignment.Left;
+        titleStyle.VerticalAlignment = NPOI.SS.UserModel.VerticalAlignment.Center;
+        titleStyle.SetFont(titleFont);
+
+        var observationLineStyle = workbook.CreateCellStyle();
+        observationLineStyle.BorderBottom = NPOI.SS.UserModel.BorderStyle.Thin;
+        observationLineStyle.BottomBorderColor = IndexedColors.Black.Index;
+
+        CrearFila(sheet, filaInicio, 20);
+        Combinar(sheet, filaInicio, 1, 5);
+        AplicarEstilo(sheet, filaInicio, 1, 5, lineStyle);
+        Combinar(sheet, filaInicio, 8, 12);
+        AplicarEstilo(sheet, filaInicio, 8, 12, lineStyle);
+
+        CrearFila(sheet, filaInicio + 1, 18);
+        EstablecerCelda(sheet, filaInicio + 1, 1, "Firma del Docente", centeredStyle);
+        Combinar(sheet, filaInicio + 1, 1, 5);
+        EstablecerCelda(sheet, filaInicio + 1, 8, "Firma del Director(a)", centeredStyle);
+        Combinar(sheet, filaInicio + 1, 8, 12);
+
+        CrearFila(sheet, filaInicio + 3, 20);
+        EstablecerCelda(sheet, filaInicio + 3, primeraCol, "Observación:", titleStyle);
+        Combinar(sheet, filaInicio + 3, primeraCol, ultimaCol);
+
+        for (var row = filaInicio + 5; row <= filaInicio + 8; row++)
+        {
+            CrearFila(sheet, row, 19);
+            Combinar(sheet, row, primeraCol, ultimaCol);
+            AplicarEstilo(sheet, row, primeraCol, ultimaCol, observationLineStyle);
+        }
+    }
+
+    private static IRow CrearFila(ISheet sheet, int rowIndex, short heightPoints)
+    {
+        var row = sheet.GetRow(rowIndex) ?? sheet.CreateRow(rowIndex);
+        row.HeightInPoints = heightPoints;
+        return row;
+    }
+
+    private static void EstablecerCelda(ISheet sheet, int rowIndex, int columnIndex, string text, ICellStyle style)
+    {
+        var row = sheet.GetRow(rowIndex) ?? sheet.CreateRow(rowIndex);
+        var cell = row.GetCell(columnIndex) ?? row.CreateCell(columnIndex);
+        cell.SetCellValue(text);
+        cell.CellStyle = style;
+    }
+
+    private static void AplicarEstilo(ISheet sheet, int rowIndex, int fromColumn, int toColumn, ICellStyle style)
+    {
+        var row = sheet.GetRow(rowIndex) ?? sheet.CreateRow(rowIndex);
+        for (var column = fromColumn; column <= toColumn; column++)
+        {
+            var cell = row.GetCell(column) ?? row.CreateCell(column);
+            cell.CellStyle = style;
+        }
+    }
+
+    private static void Combinar(ISheet sheet, int rowIndex, int fromColumn, int toColumn)
+    {
+        sheet.AddMergedRegion(new CellRangeAddress(rowIndex, rowIndex, fromColumn, toColumn));
+    }
+
+    private static void RemoverRegionesCombinadasEnRango(ISheet sheet, int firstRow, int lastRow)
+    {
+        for (var i = sheet.NumMergedRegions - 1; i >= 0; i--)
+        {
+            var region = sheet.GetMergedRegion(i);
+            if (region.FirstRow <= lastRow && region.LastRow >= firstRow)
+            {
+                sheet.RemoveMergedRegion(i);
+            }
+        }
     }
 
     private async Task ValidarAsignacionAsync(
