@@ -77,6 +77,8 @@ public class AttendanceService : IAttendanceService
             .Include(a => a.Student)
             .Include(a => a.Group)
             .Include(a => a.Grade)
+            .Include(a => a.Trimester)
+            .Include(a => a.AcademicYear)
             .OrderBy(a => a.Date)
             .ThenBy(a => a.Student.Name)
             .ToListAsync();
@@ -201,6 +203,8 @@ public class AttendanceService : IAttendanceService
             documentId = a.Student?.DocumentId,
             fecha = a.Date.ToString("yyyy-MM-dd"),
             estado = a.Status,
+            trimestre = a.Trimester?.Name ?? "-",
+            anioAcademico = a.AcademicYear?.Name ?? "-",
             grupo = a.Group?.Name,
             grado = a.Grade?.Name
         }).ToList<object>();
@@ -248,6 +252,11 @@ public class AttendanceService : IAttendanceService
             .OrderBy(t => t.Order)
             .FirstOrDefaultAsync();
 
+        trimester ??= await ResolveInstitutionalTrimesterFallbackAsync(
+            schoolId.Value,
+            academicYear,
+            attendance.Date);
+
         if (trimester == null)
         {
             throw new InvalidOperationException($"No existe un trimestre configurado para la fecha {attendance.Date:yyyy-MM-dd}.");
@@ -255,6 +264,27 @@ public class AttendanceService : IAttendanceService
 
         attendance.AcademicYearId = academicYear.Id;
         attendance.TrimesterId = trimester.Id;
+    }
+
+    private async Task<Trimester?> ResolveInstitutionalTrimesterFallbackAsync(
+        Guid schoolId,
+        AcademicYear academicYear,
+        DateOnly attendanceDate)
+    {
+        if (academicYear.Name != "2026")
+        {
+            return null;
+        }
+
+        var targetTrimesterName = attendanceDate >= new DateOnly(2026, 6, 8) ? "2T" : "1T";
+
+        return await _context.Trimesters
+            .Where(t => t.SchoolId == schoolId
+                && t.Name == targetTrimesterName
+                && (t.AcademicYearId == academicYear.Id || t.AcademicYearId == null))
+            .OrderByDescending(t => t.AcademicYearId == academicYear.Id)
+            .ThenBy(t => t.Order)
+            .FirstOrDefaultAsync();
     }
 }
 }
