@@ -67,7 +67,8 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
                 FullName = u.Name + " " + u.LastName,
                 Cedula = u.DocumentId,
                 Grade = u.StudentAssignments.Where(sa => sa.IsActive).Select(sa => sa.Grade.Name).FirstOrDefault() ?? "Sin asignar",
-                Group = u.StudentAssignments.Where(sa => sa.IsActive).Select(sa => sa.Group.Name).FirstOrDefault() ?? "Sin asignar"
+                Group = u.StudentAssignments.Where(sa => sa.IsActive).Select(sa => sa.Group.Name).FirstOrDefault() ?? "Sin asignar",
+                HasPhoto = u.PhotoUrl != null && u.PhotoUrl != ""
             })
             .ToListAsync();
 
@@ -92,7 +93,8 @@ public class ClubParentsPaymentService : IClubParentsPaymentService
                 Grade = x.Grade ?? "Sin asignar",
                 Group = x.Group ?? "Sin asignar",
                 CarnetStatus = access?.CarnetStatus ?? CarnetPendiente,
-                PlatformAccessStatus = access?.PlatformAccessStatus ?? PlatformPendiente
+                PlatformAccessStatus = access?.PlatformAccessStatus ?? PlatformPendiente,
+                HasPhoto = x.HasPhoto
             };
         }).OrderBy(x => x.FullName).ToList();
 
