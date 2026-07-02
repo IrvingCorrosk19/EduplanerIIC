@@ -154,6 +154,14 @@
                         <input type="text" id="filterDocumentId" class="form-control form-control-sm"
                                placeholder="Buscar por cédula (contiene)" autocomplete="off" />
                     </div>
+                    <div class="col-md-3">
+                        <label for="filterCarnet" class="form-label mb-1">Estado carnet (pago)</label>
+                        <select id="filterCarnet" class="form-select form-select-sm">
+                            <option value="">Todos</option>
+                            <option value="pagado">Pagado</option>
+                            <option value="pendiente">Pendiente</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="idcard-bulk-print-actions">
@@ -192,6 +200,7 @@
                                 <th>Grado</th>
                                 <th>Grupo</th>
                                 <th>Jornada</th>
+                                <th>Carnet (pago)</th>
                                 <th>Estado impresión</th>
                                 <th>Acción</th>
                             </tr>
@@ -228,6 +237,7 @@ $(function(){
                 d.shift = $('#filterShift').val();
                 d.printed = $('#filterPrinted').val();
                 d.documentId = ($('#filterDocumentId').val() || '').trim();
+                d.carnet = $('#filterCarnet').val();
             },
             dataSrc: 'data',
             xhrFields: { withCredentials: true },
@@ -240,7 +250,10 @@ $(function(){
                 orderable: false,
                 searchable: false,
                 width: '35px',
-                render: function(data) {
+                render: function(data, type, row) {
+                    if (row.carnetStatus !== 'Pagado') {
+                        return '<input type="checkbox" class="form-check-input" disabled title="Carnet pendiente de pago: no imprimible" />';
+                    }
                     return `<input type="checkbox" class="student-check" value="${data}" ${selectedStudentIds.has(String(data)) ? 'checked' : ''} />`;
                 }
             },
@@ -271,6 +284,15 @@ $(function(){
             { data: 'grade', title: 'Grado' },
             { data: 'group', title: 'Grupo' },
             { data: 'shift', title: 'Jornada' },
+            {
+                data: 'carnetStatus',
+                title: 'Carnet (pago)',
+                render: function(data) {
+                    return data === 'Pagado'
+                        ? '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Pagado</span>'
+                        : '<span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> Pendiente</span>';
+                }
+            },
             {
                 data: null,
                 title: 'Estado impresión',
@@ -340,7 +362,8 @@ $(function(){
             group: $('#filterGroup').val() || '',
             shift: $('#filterShift').val() || '',
             printed: $('#filterPrinted').val() || '',
-            documentId: ($('#filterDocumentId').val() || '').trim()
+            documentId: ($('#filterDocumentId').val() || '').trim(),
+            carnet: $('#filterCarnet').val() || ''
         };
     }
 
@@ -384,7 +407,7 @@ $(function(){
         });
     }
 
-    $('#filterGrade, #filterGroup, #filterShift, #filterPrinted').on('change', function() {
+    $('#filterGrade, #filterGroup, #filterShift, #filterPrinted, #filterCarnet').on('change', function() {
         reloadTableFromFilters();
     });
 

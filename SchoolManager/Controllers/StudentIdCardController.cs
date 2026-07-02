@@ -487,7 +487,8 @@ public class StudentIdCardController : Controller
         string? group = null,
         string? shift = null,
         string? printed = null,
-        string? documentId = null)
+        string? documentId = null,
+        string? carnet = null)
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var schoolId = currentUser?.SchoolId;
@@ -497,12 +498,13 @@ public class StudentIdCardController : Controller
             currentUser?.Id, schoolId, isSuperAdmin);
 
         var query = ApplyStudentIdCardListFilters(
-            BuildEligibleStudentQuery(currentUser),
+            BuildCarnetListStudentQuery(currentUser),
             grade,
             group,
             shift,
             printed,
-            documentId);
+            documentId,
+            carnet);
 
         // Una sola subconsulta a student_id_cards por fila (IsPrinted + PrintedAt) en lugar de dos correlacionadas.
         var rawRows = await query
@@ -524,6 +526,10 @@ public class StudentIdCardController : Controller
                     .Where(sa => sa.IsActive)
                     .Select(sa => sa.Shift != null ? sa.Shift.Name : null)
                     .FirstOrDefault() ?? "Sin jornada",
+                carnetStatus = _context.StudentPaymentAccesses
+                    .Where(spa => spa.StudentId == u.Id)
+                    .Select(spa => spa.CarnetStatus)
+                    .FirstOrDefault() ?? "Pendiente",
                 cardPrint = _context.StudentIdCards
                     .Where(c => c.StudentId == u.Id && c.Status == "active")
                     .Select(c => new { c.IsPrinted, c.PrintedAt })
@@ -541,6 +547,7 @@ public class StudentIdCardController : Controller
                 x.grade,
                 x.group,
                 x.shift,
+                x.carnetStatus,
                 isPrinted = x.cardPrint != null && x.cardPrint.IsPrinted,
                 printedAt = x.cardPrint == null ? (DateTime?)null : x.cardPrint.PrintedAt
             })
@@ -557,7 +564,7 @@ public class StudentIdCardController : Controller
     public async Task<IActionResult> ListFilters()
     {
         var currentUser = await _currentUserService.GetCurrentUserAsync();
-        var query = BuildEligibleStudentQuery(currentUser);
+        var query = BuildCarnetListStudentQuery(currentUser);
 
         var baseAssignments = query.SelectMany(u => u.StudentAssignments.Where(sa => sa.IsActive));
 
@@ -591,8 +598,10 @@ public class StudentIdCardController : Controller
         string? group = null,
         string? shift = null,
         string? printed = null,
-        string? documentId = null)
+        string? documentId = null,
+        string? carnet = null)
     {
+        // La selección para impresión masiva se mantiene solo sobre carnets pagados.
         var currentUser = await _currentUserService.GetCurrentUserAsync();
         var query = ApplyStudentIdCardListFilters(
             BuildEligibleStudentQuery(currentUser),
@@ -600,7 +609,8 @@ public class StudentIdCardController : Controller
             group,
             shift,
             printed,
-            documentId);
+            documentId,
+            carnet);
 
         var ids = await query.Select(u => u.Id).ToListAsync();
         return Json(new { ids });
@@ -613,13 +623,15 @@ public class StudentIdCardController : Controller
         string? group,
         string? shift,
         string? printed,
-        string? documentId)
+        string? documentId,
+        string? carnet)
     {
         var gradeFilter = string.IsNullOrWhiteSpace(grade) ? null : grade.Trim();
         var groupFilter = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
         var shiftFilter = string.IsNullOrWhiteSpace(shift) ? null : shift.Trim();
         var printedFilter = string.IsNullOrWhiteSpace(printed) ? null : printed.Trim().ToLowerInvariant();
         var documentIdFilter = string.IsNullOrWhiteSpace(documentId) ? null : documentId.Trim();
+        var carnetFilter = string.IsNullOrWhiteSpace(carnet) ? null : carnet.Trim().ToLowerInvariant();
 
         if (!string.IsNullOrWhiteSpace(gradeFilter))
         {
@@ -652,10 +664,21 @@ public class StudentIdCardController : Controller
             query = query.Where(u =>
                 u.DocumentId != null && EF.Functions.ILike(u.DocumentId, pattern));
         }
+        if (carnetFilter is "pagado")
+        {
+            query = query.Where(u => _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
+        }
+        else if (carnetFilter is "pendiente")
+        {
+            query = query.Where(u => _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pendiente"));
+        }
 
         return query;
     }
 
+    /// <summary>Solo carnets pagados: base para impresión masiva y selección.</summary>
     private IQueryable<User> BuildEligibleStudentQuery(User? currentUser)
     {
         var schoolId = currentUser?.SchoolId;
@@ -665,6 +688,24 @@ public class StudentIdCardController : Controller
         var query = StudentRoleFilter.WhereIsStudent(_context.Users)
             .Where(u => _context.StudentPaymentAccesses
                 .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
+
+        if (schoolId.HasValue && !isSuperAdmin)
+            query = query.Where(u => u.SchoolId == schoolId.Value);
+
+        return query;
+    }
+
+    /// <summary>Listado del carnet: incluye pagados y pendientes para mostrar y filtrar su estado.</summary>
+    private IQueryable<User> BuildCarnetListStudentQuery(User? currentUser)
+    {
+        var schoolId = currentUser?.SchoolId;
+        var isSuperAdmin = currentUser?.Role != null &&
+            string.Equals(currentUser.Role, "superadmin", StringComparison.OrdinalIgnoreCase);
+
+        var query = StudentRoleFilter.WhereIsStudent(_context.Users)
+            .Where(u => _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == u.Id
+                    && (spa.CarnetStatus == "Pagado" || spa.CarnetStatus == "Pendiente")));
 
         if (schoolId.HasValue && !isSuperAdmin)
             query = query.Where(u => u.SchoolId == schoolId.Value);
