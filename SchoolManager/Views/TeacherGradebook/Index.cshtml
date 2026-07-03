@@ -3211,7 +3211,7 @@
                             $('#resultadosHistorial').html('<p class="text-muted">No se encontraron asistencias para los filtros seleccionados.</p>');
                             return;
                         }
-                        let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead><tr><th>Estudiante</th><th>Fecha</th><th>Estado</th><th>Grupo</th><th>Grado</th></tr></thead><tbody>`;
+                        let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead><tr><th>Estudiante</th><th>Fecha</th><th>Trimestre</th><th>Año académico</th><th>Estado</th><th>Grupo</th><th>Grado</th></tr></thead><tbody>`;
                         data.forEach(a => {
                             let badge = '';
                             if (a.estado === 'present') badge = '<span class="badge bg-success">Presente</span>';
@@ -3224,6 +3224,8 @@
                                     <small class="text-muted">${a.documentId || 'Sin cédula'}</small>
                                 </td>
                                 <td>${a.fecha}</td>
+                                <td><span class="badge bg-primary">${a.trimestre || '-'}</span></td>
+                                <td>${a.anioAcademico || '-'}</td>
                                 <td>${badge}</td>
                                 <td>${a.grupo || '-'}</td>
                                 <td>${a.grado || '-'}</td>

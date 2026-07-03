@@ -35,7 +35,10 @@
       "Bash(powershell -Command \"[System.Reflection.Assembly]::LoadFile\\(''C:\\\\Users\\\\irvin\\\\.nuget\\\\packages\\\\questpdf\\\\2025.12.3\\\\lib\\\\net8.0\\\\QuestPDF.dll''\\) | Out-Null; [System.AppDomain]::CurrentDomain.GetAssemblies\\(\\) | Where-Object { $_.GetName\\(\\).Name -eq ''QuestPDF'' } | ForEach-Object { $_.GetTypes\\(\\) | Where-Object { $_.Name -eq ''TextSpanDescriptor'' -or $_.Name -eq ''TextDescriptor'' } | ForEach-Object { $_.GetMethods\\(\\) | Where-Object { $_.Name -match ''Line|Clamp|Max'' } | Select-Object -ExpandProperty Name } }\")",
       "Bash(powershell -command \"& { Add-Type -Path ''''C:/Users/irvin/.nuget/packages/questpdf/2024.10.3/lib/net8.0/QuestPDF.dll''''; [QuestPDF.Fluent.ContainerExtensions] | Get-Member -Static | Where-Object { $_ame -like ''''*Line*'''' -or $_ame -like ''''*Overflow*'''' }}\")",
       "Bash(PGPASSWORD=\"2c2GygJl2ArUP5fKuFDsRtWFYC4NJdtk\" \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -h dpg-d3jfdcb3fgac73cblbag-a.oregon-postgres.render.com -U admin -d schoolmanagement_xqks -p 5432 --pset=pager=off -c \":*)",
-      "Bash(find C:ProyectosEduplanerIICSchoolManager -type f -name *StudentQrToken* -o -name *CardNumber* -o -name *SafeImage*)"
+      "Bash(find C:ProyectosEduplanerIICSchoolManager -type f -name *StudentQrToken* -o -name *CardNumber* -o -name *SafeImage*)",
+      "Bash(grep -l \"StudentAssignment\" /c/Proyectos/EduplanerIIC/SchoolManager/Migrations/*.cs)",
+      "Bash(grep -r \"IsUnique\\\\|unique\\\\|UNIQUE\" /c/Proyectos/EduplanerIIC/SchoolManager/Models/*.cs)",
+      "Bash(grep -E \"\\\\.\\(cs\\)$\")"
     ]
   }
 }

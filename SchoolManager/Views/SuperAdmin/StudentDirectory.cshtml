@@ -70,6 +70,25 @@
                         }
                     </select>
                 </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label" for="CarnetStatus">Estado carnet (pago)</label>
+                    <select class="form-select" id="CarnetStatus" name="CarnetStatus">
+                        @{
+                            var carnetOpts = new[] { ("", "Todos"), ("pagado", "Pagado"), ("pendiente", "Pendiente") };
+                        }
+                        @foreach (var o in carnetOpts)
+                        {
+                            if (string.Equals(f.CarnetStatus ?? "", o.Item1, StringComparison.Ordinal))
+                            {
+                                <option value="@o.Item1" selected>@o.Item2</option>
+                            }
+                            else
+                            {
+                                <option value="@o.Item1">@o.Item2</option>
+                            }
+                        }
+                    </select>
+                </div>
                 <div class="col-12">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="OnlyWithoutAssignment" name="OnlyWithoutAssignment" value="true"
@@ -133,6 +152,7 @@
                     <th>Jornada (matrícula)</th>
                     <th>Jornada (perfil)</th>
                     <th>Estado</th>
+                    <th>Carnet (pago)</th>
                     <th>Foto</th>
                 </tr>
             </thead>
@@ -140,14 +160,14 @@
                 @if (!Model.Rows.Any())
                 {
                     <tr class="no-results-row">
-                        <td colspan="11" class="text-center text-muted py-4">No hay resultados con los filtros actuales.</td>
+                        <td colspan="12" class="text-center text-muted py-4">No hay resultados con los filtros actuales.</td>
                     </tr>
                 }
                 else
                 {
                     foreach (var row in Model.Rows)
                     {
-                        <tr data-search="@($"{row.FullName} {row.DocumentId} {row.Email} {row.SchoolName} {row.GradeLevelName} {row.GroupName} {row.ShiftName} {row.UserShift} {row.Status}")">
+                        <tr data-search="@($"{row.FullName} {row.DocumentId} {row.Email} {row.SchoolName} {row.GradeLevelName} {row.GroupName} {row.ShiftName} {row.UserShift} {row.Status} {row.CarnetStatus}")">
                             <td>
                                 <img src="@UserPhotoLinks.HrefListThumbnail(row.PhotoUrl)" alt="Foto @row.FullName" class="student-thumb" loading="lazy" decoding="async" />
                             </td>
@@ -176,6 +196,16 @@
                                 else
                                 {
                                     <span class="badge bg-secondary">@(string.IsNullOrWhiteSpace(row.Status) ? "—" : row.Status)</span>
+                                }
+                            </td>
+                            <td>
+                                @if (string.Equals(row.CarnetStatus, "Pagado", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Pagado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pendiente</span>
                                 }
                             </td>
                             <td>

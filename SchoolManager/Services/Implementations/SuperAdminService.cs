@@ -1081,6 +1081,12 @@ public class SuperAdminService : ISuperAdminService
                 (sa.Student.DocumentId != null && EF.Functions.ILike(sa.Student.DocumentId, p)));
         }
 
+        var carnetAssignment = string.IsNullOrWhiteSpace(filter.CarnetStatus) ? null : filter.CarnetStatus.Trim().ToLowerInvariant();
+        if (carnetAssignment is "pagado")
+            saQuery = saQuery.Where(sa => _context.StudentPaymentAccesses.Any(spa => spa.StudentId == sa.StudentId && spa.CarnetStatus == "Pagado"));
+        else if (carnetAssignment is "pendiente")
+            saQuery = saQuery.Where(sa => !_context.StudentPaymentAccesses.Any(spa => spa.StudentId == sa.StudentId && spa.CarnetStatus == "Pagado"));
+
         return saQuery.Select(sa => new SuperAdminStudentDirectoryRowVm
         {
             UserId = sa.StudentId,
@@ -1096,7 +1102,9 @@ public class SuperAdminService : ISuperAdminService
             ShiftName = sa.Shift != null ? sa.Shift.Name : null,
             UserShift = sa.Student.Shift,
             Status = sa.Student.Status ?? "",
-            HasActiveAssignment = true
+            HasActiveAssignment = true,
+            CarnetStatus = _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == sa.StudentId && spa.CarnetStatus == "Pagado") ? "Pagado" : "Pendiente"
         });
     }
 
@@ -1123,6 +1131,12 @@ public class SuperAdminService : ISuperAdminService
                 (u.DocumentId != null && EF.Functions.ILike(u.DocumentId, p)));
         }
 
+        var carnetOrphan = string.IsNullOrWhiteSpace(filter.CarnetStatus) ? null : filter.CarnetStatus.Trim().ToLowerInvariant();
+        if (carnetOrphan is "pagado")
+            q = q.Where(u => _context.StudentPaymentAccesses.Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
+        else if (carnetOrphan is "pendiente")
+            q = q.Where(u => !_context.StudentPaymentAccesses.Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado"));
+
         return q.Select(u => new SuperAdminStudentDirectoryRowVm
         {
             UserId = u.Id,
@@ -1138,7 +1152,9 @@ public class SuperAdminService : ISuperAdminService
             ShiftName = null,
             UserShift = u.Shift,
             Status = u.Status ?? "",
-            HasActiveAssignment = false
+            HasActiveAssignment = false,
+            CarnetStatus = _context.StudentPaymentAccesses
+                .Any(spa => spa.StudentId == u.Id && spa.CarnetStatus == "Pagado") ? "Pagado" : "Pendiente"
         });
     }
 

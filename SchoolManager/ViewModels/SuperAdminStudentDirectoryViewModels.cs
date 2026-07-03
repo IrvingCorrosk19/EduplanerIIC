@@ -13,6 +13,9 @@ public class SuperAdminStudentDirectoryFilterVm
     /// <summary>Todos | active | inactive</summary>
     public string? UserStatus { get; set; }
 
+    /// <summary>Todos | pagado | pendiente (estado de pago del carnet).</summary>
+    public string? CarnetStatus { get; set; }
+
     public bool OnlyWithoutAssignment { get; set; }
 
     /// <summary>Página 1-based.</summary>
@@ -38,6 +41,9 @@ public class SuperAdminStudentDirectoryRowVm
     public string? UserShift { get; set; }
     public string Status { get; set; } = "";
     public bool HasActiveAssignment { get; set; }
+
+    /// <summary>Pagado | Pendiente (estado de pago del carnet).</summary>
+    public string CarnetStatus { get; set; } = "Pendiente";
 }
 
 public class SuperAdminStudentDirectoryPageVm
@@ -76,6 +82,8 @@ public class SuperAdminStudentDirectoryPageVm
             d["ShiftId"] = Filter.ShiftId.Value.ToString("D");
         if (!string.IsNullOrEmpty(Filter.UserStatus))
             d["UserStatus"] = Filter.UserStatus!;
+        if (!string.IsNullOrEmpty(Filter.CarnetStatus))
+            d["CarnetStatus"] = Filter.CarnetStatus!;
         if (Filter.OnlyWithoutAssignment)
             d["OnlyWithoutAssignment"] = "true";
         return d;
