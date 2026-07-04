@@ -17,6 +17,7 @@ public class SuperAdminController : Controller
 
     private readonly ISuperAdminService _superAdminService;
     private readonly IUserPhotoService _userPhotoService;
+    private readonly IFileStorageService _fileStorage;
     private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly SchoolDbContext _db;
     private readonly ILogger<SuperAdminController> _logger;
@@ -24,12 +25,14 @@ public class SuperAdminController : Controller
     public SuperAdminController(
         ISuperAdminService superAdminService,
         IUserPhotoService userPhotoService,
+        IFileStorageService fileStorage,
         IWebHostEnvironment webHostEnvironment,
         SchoolDbContext db,
         ILogger<SuperAdminController> logger)
     {
         _superAdminService = superAdminService;
         _userPhotoService = userPhotoService;
+        _fileStorage = fileStorage;
         _webHostEnvironment = webHostEnvironment;
         _db = db;
         _logger = logger;
@@ -116,6 +119,55 @@ public class SuperAdminController : Controller
         filter ??= new SuperAdminStudentDirectoryFilterVm();
         var page = await _superAdminService.GetStudentDirectoryPageAsync(filter);
         return View(page);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> StudentDirectoryDownloadPhoto(Guid userId)
+    {
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+            return NotFound();
+
+        var role = (user.Role ?? "").ToLowerInvariant();
+        if (role is not ("student" or "estudiante" or "alumno"))
+            return NotFound();
+
+        if (string.IsNullOrWhiteSpace(user.PhotoUrl))
+            return NotFound("El estudiante no tiene foto.");
+
+        try
+        {
+            var bytes = await _fileStorage.GetUserPhotoBytesAsync(user.PhotoUrl.Trim());
+            if (bytes == null || bytes.Length == 0)
+                return NotFound("No se pudo obtener la foto.");
+
+            var ext = user.PhotoUrl.Contains(".png", StringComparison.OrdinalIgnoreCase) ? "png" : "jpg";
+            var contentType = ext == "png" ? "image/png" : "image/jpeg";
+            var fileName = BuildStudentPhotoDownloadFileName(user.Name, user.LastName, user.DocumentId, ext);
+            return File(bytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error descargando foto de estudiante {UserId} desde StudentDirectory", userId);
+            return NotFound("No se pudo descargar la foto.");
+        }
+    }
+
+    private static string BuildStudentPhotoDownloadFileName(string? name, string? lastName, string? documentId, string ext)
+    {
+        static string Sanitize(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            var chars = value.Trim().Where(c => char.IsLetterOrDigit(c) || c is ' ' or '-' or '_').ToArray();
+            var s = new string(chars).Trim();
+            return string.IsNullOrWhiteSpace(s) ? "" : s.Replace(' ', '-');
+        }
+
+        var parts = new[] { Sanitize(name), Sanitize(lastName), Sanitize(documentId) }
+            .Where(p => !string.IsNullOrEmpty(p))
+            .ToList();
+        var baseName = parts.Count > 0 ? string.Join("_", parts) : "estudiante";
+        return $"{baseName}.{ext}";
     }
 
     [HttpPost]
