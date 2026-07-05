@@ -8,6 +8,7 @@ using SchoolManager.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Implementations;
+using SchoolManager.Services.Helpers;
 
 namespace SchoolManager.Services
 {
@@ -375,27 +376,65 @@ namespace SchoolManager.Services
 
             var subjectSet = subjectIds as HashSet<Guid> ?? subjectIds.ToHashSet();
 
-            var rows = await (
-                from score in _context.StudentActivityScores.AsNoTracking()
-                join activity in _context.Activities.AsNoTracking() on score.ActivityId equals activity.Id
-                where activity.GroupId == groupId
-                    && activity.GradeLevelId == gradeLevelId
-                    && activity.Trimester == trimester
-                    && activity.SubjectId != null
-                    && subjectSet.Contains(activity.SubjectId.Value)
-                select new { score.StudentId, SubjectId = activity.SubjectId!.Value, score.Score }
-            ).ToListAsync();
+            var activities = await _context.Activities.AsNoTracking()
+                .Where(a => a.GroupId == groupId
+                    && a.GradeLevelId == gradeLevelId
+                    && a.Trimester == trimester
+                    && a.SubjectId != null
+                    && subjectSet.Contains(a.SubjectId.Value))
+                .Select(a => new { a.Id, SubjectId = a.SubjectId!.Value, a.Type })
+                .ToListAsync();
 
-            return rows
-                .Where(x => x.Score.HasValue)
-                .GroupBy(x => (x.StudentId, x.SubjectId))
-                .Select(g => new CounselorSubjectAverageDto
+            if (activities.Count == 0)
+                return Array.Empty<CounselorSubjectAverageDto>();
+
+            var activityIds = activities.Select(a => a.Id).ToList();
+
+            var scores = await _context.StudentActivityScores.AsNoTracking()
+                .Where(s => activityIds.Contains(s.ActivityId) && s.Score.HasValue)
+                .Select(s => new { s.StudentId, s.ActivityId, s.Score })
+                .ToListAsync();
+
+            if (scores.Count == 0)
+                return Array.Empty<CounselorSubjectAverageDto>();
+
+            var activitiesBySubject = activities
+                .GroupBy(a => a.SubjectId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var studentIds = scores.Select(s => s.StudentId).Distinct();
+
+            var results = new List<CounselorSubjectAverageDto>();
+
+            foreach (var studentId in studentIds)
+            {
+                foreach (var subjectId in subjectSet)
                 {
-                    StudentId = g.Key.StudentId,
-                    SubjectId = g.Key.SubjectId,
-                    AverageScore = g.Average(x => (double)x.Score!.Value)
-                })
-                .ToList();
+                    if (!activitiesBySubject.TryGetValue(subjectId, out var subjectActivities))
+                        continue;
+
+                    var acts = subjectActivities
+                        .Select(a => new Activity { Id = a.Id, Type = a.Type })
+                        .ToList();
+
+                    var scoreDict = acts.ToDictionary(
+                        a => a.Id,
+                        a => scores.FirstOrDefault(s => s.StudentId == studentId && s.ActivityId == a.Id)?.Score);
+
+                    var final = GradebookFinalGradeCalculator.CalcularNotaFinal(acts, scoreDict);
+                    if (!final.HasValue)
+                        continue;
+
+                    results.Add(new CounselorSubjectAverageDto
+                    {
+                        StudentId = studentId,
+                        SubjectId = subjectId,
+                        AverageScore = (double)final.Value
+                    });
+                }
+            }
+
+            return results;
         }
 
         public async Task<List<PromedioFinalDto>> GetPromediosFinalesAsync(GetNotesDto notes)
@@ -415,28 +454,26 @@ namespace SchoolManager.Services
                 .ThenBy(s => s.Name)
                 .ToListAsync();
 
-            // 2. Obtener todas las notas del grupo, materia, grado y docente
-            var notasPorTrimestre = await _context.StudentActivityScores
-                .Join(_context.Activities,
-                    score => score.ActivityId,
-                    activity => activity.Id,
-                    (score, activity) => new
-                    {
-                        StudentId = score.StudentId,
-                        Score = score.Score,
-                        Trimester = activity.Trimester,
-                        ActivityType = activity.Type,
-                        SubjectId = activity.SubjectId,
-                        GroupId = activity.GroupId,
-                        GradeLevelId = activity.GradeLevelId,
-                        TeacherId = activity.TeacherId
-                    })
-                .Where(x => x.SubjectId == notes.SubjectId &&
-                           x.GroupId == notes.GroupId &&
-                           x.GradeLevelId == notes.GradeLevelId &&
-                           x.TeacherId == notes.TeacherId
-                           && (string.IsNullOrEmpty(notes.Trimester) || x.Trimester == notes.Trimester))
+            // 2. Actividades y notas del grupo, materia, grado y docente
+            var activities = await _context.Activities.AsNoTracking()
+                .Where(a => a.SubjectId == notes.SubjectId
+                    && a.GroupId == notes.GroupId
+                    && a.GradeLevelId == notes.GradeLevelId
+                    && a.TeacherId == notes.TeacherId
+                    && (string.IsNullOrEmpty(notes.Trimester) || a.Trimester == notes.Trimester))
+                .Select(a => new { a.Id, a.Trimester, a.Type })
                 .ToListAsync();
+
+            var activityIds = activities.Select(a => a.Id).ToList();
+
+            var allScores = activityIds.Count == 0
+                ? new List<(Guid StudentId, Guid ActivityId, decimal? Score)>()
+                : (await _context.StudentActivityScores.AsNoTracking()
+                    .Where(s => activityIds.Contains(s.ActivityId))
+                    .Select(s => new { s.StudentId, s.ActivityId, s.Score })
+                    .ToListAsync())
+                    .Select(s => (s.StudentId, s.ActivityId, s.Score))
+                    .ToList();
 
             // 3. Usar siempre los tres trimestres estándar
             var trimestres = new List<string> { "1T", "2T", "3T" };
@@ -447,33 +484,34 @@ namespace SchoolManager.Services
             {
                 foreach (var trimestre in trimestres)
                 {
-                    var notasEstudianteTrimestre = notasPorTrimestre
-                        .Where(x => x.StudentId == student.Id && x.Trimester == trimestre)
+                    var actsTrimestre = activities
+                        .Where(a => a.Trimester == trimestre)
+                        .Select(a => new Activity { Id = a.Id, Type = a.Type })
                         .ToList();
 
-                    var notasValidas = notasEstudianteTrimestre.Where(x => x.Score.HasValue).ToList();
+                    var scoreDict = actsTrimestre.ToDictionary(
+                        a => a.Id,
+                        a => allScores.FirstOrDefault(s => s.StudentId == student.Id && s.ActivityId == a.Id).Score);
+
+                    var notaFinal = actsTrimestre.Count > 0
+                        ? GradebookFinalGradeCalculator.CalcularNotaFinal(actsTrimestre, scoreDict)
+                        : null;
+
+                    var promedioNotasApreciacion = GradebookFinalGradeCalculator.GetTruncatedTypeAverage(
+                        actsTrimestre, scoreDict, "notas de apreciación");
+                    var promedioEjerciciosDiarios = GradebookFinalGradeCalculator.GetTruncatedTypeAverage(
+                        actsTrimestre, scoreDict, "ejercicios diarios");
+
+                    var promedioExamenFinal = GradebookFinalGradeCalculator.GetTruncatedTypeAverage(
+                        actsTrimestre, scoreDict, "examen final");
+                    var promedioRecuperacion = GradebookFinalGradeCalculator.GetTruncatedTypeAverage(
+                        actsTrimestre, scoreDict, "recuperación");
+                    if (promedioRecuperacion.HasValue)
+                        promedioExamenFinal = promedioRecuperacion;
 
                     // Siempre armar el nombre correctamente como "Apellido, Nombre"
                     var nombre = $"{(student.LastName ?? "").Trim()}, {(student.Name ?? "").Trim()}".Trim();
                     if (string.IsNullOrWhiteSpace(nombre) || nombre == ",") nombre = "(Sin nombre)";
-
-                    // Calcular promedios por tipo de actividad con los nuevos nombres
-                    var promedioNotasApreciacion = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "notas de apreciación" && x.Score.HasValue)
-                        .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "notas de apreciación" && x.Score.HasValue).Average(x => x.Score.Value) : (decimal?)null;
-                    
-                    var promedioEjerciciosDiarios = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "ejercicios diarios" && x.Score.HasValue)
-                        .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "ejercicios diarios" && x.Score.HasValue).Average(x => x.Score.Value) : (decimal?)null;
-                    
-                    var promedioExamenFinal = notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "examen final" && x.Score.HasValue)
-                        .Any() ? notasEstudianteTrimestre.Where(x => x.ActivityType.ToLower() == "examen final" && x.Score.HasValue).Average(x => x.Score.Value) : (decimal?)null;
-
-                    // Calcular nota final como el promedio de los 3 promedios (solo los que tienen valor)
-                    var promediosConValor = new[] { promedioNotasApreciacion, promedioEjerciciosDiarios, promedioExamenFinal }
-                        .Where(p => p.HasValue)
-                        .Select(p => p.Value)
-                        .ToList();
-                    
-                    var notaFinal = promediosConValor.Any() ? promediosConValor.Average() : (decimal?)null;
 
                     promedios.Add(new PromedioFinalDto
                     {

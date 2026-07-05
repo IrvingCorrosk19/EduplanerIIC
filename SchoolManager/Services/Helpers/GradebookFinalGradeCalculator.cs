@@ -1,3 +1,4 @@
+using System.Globalization;
 using SchoolManager.Models;
 
 namespace SchoolManager.Services.Helpers;
@@ -8,6 +9,33 @@ namespace SchoolManager.Services.Helpers;
 public static class GradebookFinalGradeCalculator
 {
     public static decimal TruncateOneDecimal(decimal value) => Math.Floor(value * 10m) / 10m;
+
+    /// <summary>Formatea una nota ya truncada (o la trunca antes de mostrar). Nunca redondea.</summary>
+    public static string FormatTruncatedGrade(decimal value)
+    {
+        var truncated = TruncateOneDecimal(value);
+        return truncated.ToString("0.0", CultureInfo.InvariantCulture);
+    }
+
+    public static decimal? GetTruncatedTypeAverage(
+        IReadOnlyList<Activity> activities,
+        IReadOnlyDictionary<Guid, decimal?> scores,
+        string typeKey)
+    {
+        var acts = activities
+            .Where(a => NormalizeActivityType(a.Type) == typeKey)
+            .ToList();
+        if (acts.Count == 0)
+            return null;
+
+        var values = acts
+            .Select(a => scores.TryGetValue(a.Id, out var v) ? v : null)
+            .Where(v => v.HasValue)
+            .Select(v => v!.Value)
+            .ToList();
+
+        return values.Count > 0 ? TruncateOneDecimal(values.Average()) : null;
+    }
 
     public static string NormalizeActivityType(string? type) => (type ?? "").Trim().ToLowerInvariant();
 

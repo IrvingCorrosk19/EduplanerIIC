@@ -1,8 +1,36 @@
 @model SchoolManager.Dtos.StudentReportDto
+@using SchoolManager.Services.Helpers
+@using SchoolManager.Models
 @{
     ViewData["Title"] = "Reporte del Estudiante";
     Layout = "_AdminLayout";
     var studentId = ViewBag.StudentId;
+}
+
+@functions {
+    private static decimal? CalcSubjectFinal(IEnumerable<SchoolManager.Dtos.GradeDto> subjectGrades)
+    {
+        var rows = subjectGrades.Where(g => g.Value.HasValue && g.ActivityId != Guid.Empty).ToList();
+        if (rows.Count == 0) return null;
+        var acts = rows
+            .GroupBy(g => g.ActivityId)
+            .Select(g => new Activity { Id = g.Key, Type = g.First().Type })
+            .ToList();
+        var dict = rows
+            .GroupBy(g => g.ActivityId)
+            .ToDictionary(g => g.Key, g => g.First().Value);
+        return GradebookFinalGradeCalculator.CalcularNotaFinal(acts, dict);
+    }
+
+    private static decimal? CalcTypeAvgTruncated(IEnumerable<SchoolManager.Dtos.GradeDto> typeGrades)
+    {
+        var values = typeGrades.Where(g => g.Value.HasValue).Select(g => g.Value!.Value).ToList();
+        if (values.Count == 0) return null;
+        return GradebookFinalGradeCalculator.TruncateOneDecimal(values.Average());
+    }
+
+    private static string FmtGrade(decimal value) => GradebookFinalGradeCalculator.FormatTruncatedGrade(value);
+    private static string FmtGrade(decimal? value) => value.HasValue ? FmtGrade(value.Value) : "-";
 }
 
 <style>
@@ -265,23 +293,16 @@
 
                                     bool firstRowForSubject = true;
                                     int totalRowsForSubject = 0;
-                                    List<decimal> promediosTipos = new List<decimal>();
 
-                                    // Primero contar filas y calcular promedios POR TIPO
+                                    // Primero contar filas por tipo
                                     foreach (var tipoActividad in tiposActividad)
                                     {
                                         var actividadesTipo = subjectGroup
                                             .Where(tipoActividad.Filtro)
                                             .OrderBy(g => g.ActivityName)
                                             .ToList();
-                                        
                                         if (actividadesTipo.Any())
-                                        {
                                             totalRowsForSubject += actividadesTipo.Count;
-                                            // Calcular el promedio de este TIPO de actividad
-                                            var promedio = actividadesTipo.Average(g => g.Value.Value);
-                                            promediosTipos.Add(promedio);
-                                        }
                                     }
 
                                     // Si no hay actividades, mostrar mensaje
@@ -295,9 +316,8 @@
                                         continue;
                                     }
 
-                                    // Calcular promedio final (promedio de los promedios de cada tipo)
-                                    decimal? promedioFinal = promediosTipos.Any() ? (decimal?)promediosTipos.Average() : null;
-                                    
+                                    var promedioFinal = CalcSubjectFinal(subjectGroup);
+
                                     if (promedioFinal.HasValue)
                                     {
                                         totalPromedios += promedioFinal.Value;
@@ -306,18 +326,18 @@
 
                                     // Ahora renderizar todas las filas
                                     int rowIndexForSubject = 0;
-                                    
+
                                     foreach (var tipoActividad in tiposActividad)
                                     {
                                         var actividadesTipo = subjectGroup
                                             .Where(tipoActividad.Filtro)
                                             .OrderBy(g => g.ActivityName)
                                             .ToList();
-                                        
+
                                         if (!actividadesTipo.Any()) continue;
 
                                         bool firstRowForType = true;
-                                        decimal promedioTipo = actividadesTipo.Average(g => g.Value.Value);
+                                        var promedioTipo = CalcTypeAvgTruncated(actividadesTipo);
 
                                         foreach (var actividad in actividadesTipo)
                                         {
@@ -341,7 +361,7 @@
                                                 <td style="text-align: left; padding-left: 1rem;">@actividad.ActivityName</td>
                                                 <td class="text-center" style="font-weight: 600;">
                                                     <span class="badge @(actividad.Value >= 3.0m ? "bg-success" : "bg-danger")">
-                                                        @actividad.Value.Value.ToString("0.0")
+                                                        @FmtGrade(actividad.Value!.Value)
                                                     </span>
                                                 </td>
                                                 
@@ -350,7 +370,7 @@
                                                     <!-- Última fila del tipo: mostrar promedio del tipo -->
                                                     <td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
                                                         <span class="@(promedioTipo >= 3.0m ? "text-success" : "text-danger")">
-                                                            ⌀ @promedioTipo.ToString("0.0")
+                                                            ⌀ @FmtGrade(promedioTipo)
                                                         </span>
                                                     </td>
                                                 }
@@ -369,7 +389,7 @@
                                         <td colspan="3" class="text-end fw-bold" style="font-size: 1.05rem;">PROMEDIO FINAL DE @materia.ToUpper():</td>
                                         <td class="text-center fw-bold" style="font-size: 1.2rem;">
                                             <span class="@(promedioFinal >= 3.0m ? "text-success" : "text-danger")">
-                                                @promedioFinal.Value.ToString("0.0")
+                                                @FmtGrade(promedioFinal)
                                             </span>
                                         </td>
                                     </tr>
@@ -381,7 +401,9 @@
                                 <td colspan="4" class="text-end" style="font-size: 1.1rem;"><strong>PROMEDIO GENERAL DEL TRIMESTRE:</strong></td>
                                 <td id="grades-average" class="text-center fw-bold" style="font-size: 1.2rem;">
                                     @{
-                                        var promedioGeneral = materiaCount > 0 ? (totalPromedios / materiaCount).ToString("0.0") : "0.0";
+                                        var promedioGeneral = materiaCount > 0
+                                            ? GradebookFinalGradeCalculator.FormatTruncatedGrade(totalPromedios / materiaCount)
+                                            : "0.0";
                                     }
                                     <span class="@(materiaCount > 0 && (totalPromedios / materiaCount) >= 3.0m ? "text-success" : "text-danger")">@promedioGeneral</span>
                                 </td>
@@ -577,6 +599,48 @@
         }
         // Variable global para almacenar todas las calificaciones
         let allGrades = @Html.Raw(Json.Serialize(Model.Grades));
+
+        function truncGrade1(value) {
+            const n = parseFloat(value);
+            if (isNaN(n)) return 0;
+            return Math.floor(n * 10) / 10;
+        }
+
+        function fmtGrade(value) {
+            return truncGrade1(value).toFixed(1);
+        }
+
+        function normalizeActivityType(type) {
+            return (type || '').trim().toLowerCase();
+        }
+
+        function calcSubjectFinalJs(subjectGrades) {
+            const typeOrder = ['notas de apreciación', 'ejercicios diarios', 'examen final', 'recuperación'];
+            const typeAvgs = {};
+            const typesWithScores = new Set();
+
+            typeOrder.forEach(function (typeKey) {
+                const acts = subjectGrades.filter(function (g) {
+                    return normalizeActivityType(g.type) === typeKey && g.value != null;
+                });
+                if (acts.length === 0) return;
+                typesWithScores.add(typeKey);
+                const avg = acts.reduce(function (sum, g) { return sum + g.value; }, 0) / acts.length;
+                typeAvgs[typeKey] = truncGrade1(avg);
+            });
+
+            if (Object.keys(typeAvgs).length === 0) return null;
+
+            if (typesWithScores.has('recuperación')) {
+                typeAvgs['examen final'] = typeAvgs['recuperación'] ?? 0;
+            }
+
+            const typesForFinal = Array.from(typesWithScores).filter(function (t) { return t !== 'recuperación'; });
+            if (typesForFinal.length === 0) return null;
+
+            const final = typesForFinal.reduce(function (sum, t) { return sum + typeAvgs[t]; }, 0) / typesForFinal.length;
+            return truncGrade1(final);
+        }
         
         // Función para filtrar y mostrar calificaciones agrupadas por materia
         function filterAndDisplayGrades(grades) {
@@ -628,15 +692,12 @@
                 
                 let firstRowForSubject = true;
                 let totalRowsForSubject = 0;
-                let promediosTipos = [];
                 
-                // Contar filas y calcular promedios por tipo
+                // Contar filas por tipo
                 tiposActividad.forEach(tipo => {
                     const actividadesTipo = subjectGrades.filter(tipo.filtro).sort((a, b) => a.activityName.localeCompare(b.activityName));
                     if (actividadesTipo.length > 0) {
                         totalRowsForSubject += actividadesTipo.length;
-                        const promedio = actividadesTipo.reduce((sum, g) => sum + g.value, 0) / actividadesTipo.length;
-                        promediosTipos.push(promedio);
                     }
                 });
                 
@@ -651,9 +712,7 @@
                     return;
                 }
                 
-                // Calcular promedio final
-                const promedioFinal = promediosTipos.length > 0 ? 
-                    promediosTipos.reduce((a, b) => a + b, 0) / promediosTipos.length : null;
+                const promedioFinal = calcSubjectFinalJs(subjectGrades);
                 
                 if (promedioFinal !== null) {
                     totalPromediosMaterias += promedioFinal;
@@ -669,7 +728,8 @@
                     if (actividadesTipo.length === 0) return;
                     
                     let firstRowForType = true;
-                    const promedioTipo = actividadesTipo.reduce((sum, g) => sum + g.value, 0) / actividadesTipo.length;
+                    const promedioTipoRaw = actividadesTipo.reduce((sum, g) => sum + g.value, 0) / actividadesTipo.length;
+                    const promedioTipo = truncGrade1(promedioTipoRaw);
                     
                     actividadesTipo.forEach((actividad, index) => {
                         const isLastActivityOfType = index === actividadesTipo.length - 1;
@@ -693,7 +753,7 @@
                         rowHtml += `
                             <td style="text-align: left; padding-left: 1rem;">${actividad.activityName}</td>
                             <td class="text-center" style="font-weight: 600;">
-                                <span class="badge ${badgeClass}">${actividad.value.toFixed(1)}</span>
+                                <span class="badge ${badgeClass}">${fmtGrade(actividad.value)}</span>
                             </td>
                         `;
                         
@@ -702,7 +762,7 @@
                             // Última fila del tipo: mostrar promedio del tipo
                             const tipoClass = promedioTipo >= 3.0 ? 'text-success' : 'text-danger';
                             rowHtml += `<td style="vertical-align: middle; background-color: #e3f2fd;" class="text-center fw-bold">
-                                <span class="${tipoClass}">⌀ ${promedioTipo.toFixed(1)}</span>
+                                <span class="${tipoClass}">⌀ ${fmtGrade(promedioTipo)}</span>
                             </td>`;
                         } else {
                             // Celda vacía
@@ -721,16 +781,17 @@
                     <tr style="background-color: #fff3cd; border-top: 2px solid #2563eb;">
                         <td colspan="3" class="text-end fw-bold" style="font-size: 1.05rem;">PROMEDIO FINAL DE ${subject.toUpperCase()}:</td>
                         <td class="text-center fw-bold" style="font-size: 1.2rem;">
-                            <span class="${finalClass}">${promedioFinal.toFixed(1)}</span>
+                            <span class="${finalClass}">${fmtGrade(promedioFinal)}</span>
                         </td>
                     </tr>
                 `;
                 gradesTbody.append(finalRowHtml);
             });
             
-            const promedioGeneral = materiaCount > 0 ? totalPromediosMaterias / materiaCount : 0;
+            const promedioGeneralRaw = materiaCount > 0 ? totalPromediosMaterias / materiaCount : 0;
+            const promedioGeneral = truncGrade1(promedioGeneralRaw);
             const avgClass = promedioGeneral >= 3.0 ? 'text-success' : 'text-danger';
-            $('#grades-average').html(`<span class="${avgClass}" style="font-size: 1.2rem;">${promedioGeneral.toFixed(1)}</span>`);
+            $('#grades-average').html(`<span class="${avgClass}" style="font-size: 1.2rem;">${fmtGrade(promedioGeneral)}</span>`);
             $('#grades-tab .badge').text(grades.length);
         }
 

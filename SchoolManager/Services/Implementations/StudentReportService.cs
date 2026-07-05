@@ -237,6 +237,7 @@ namespace SchoolManager.Services.Implementations
 
             var grades = studentScores.Select(a => new GradeDto
             {
+                ActivityId = a.ActivityId,
                 Subject = a.SubjectId.HasValue ? subjects.GetValueOrDefault(a.SubjectId.Value, "Desconocida") : "Desconocida",
                 Teacher = a.TeacherId.HasValue ? teachers.GetValueOrDefault(a.TeacherId.Value, "Desconocido") : "Desconocido",
                 ActivityName = a.Name,
@@ -462,6 +463,7 @@ namespace SchoolManager.Services.Implementations
 
             var grades = studentScores.Select(a => new GradeDto
             {
+                ActivityId = a.Id,
                 Subject = a.Subject?.Name ?? "Desconocida",
                 Teacher = a.Teacher != null ? $"{a.Teacher.Name} {a.Teacher.LastName}" : "Desconocido",
                 ActivityName = a.Name,
