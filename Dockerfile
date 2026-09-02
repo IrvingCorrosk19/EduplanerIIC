@@ -6,7 +6,8 @@ WORKDIR /src
 COPY ["SchoolManager.sln", "./"]
 COPY ["SchoolManager/SchoolManager.csproj", "SchoolManager/"]
 COPY ["SchoolManager/libman.json", "SchoolManager/"]
-RUN dotnet restore
+# Restaurar solo la app web. El .sln incluye SchoolManager.Tests, que no forma parte de la imagen.
+RUN dotnet restore "SchoolManager/SchoolManager.csproj"
 
 # Copiar el resto del código fuente
 COPY SchoolManager/ SchoolManager/
