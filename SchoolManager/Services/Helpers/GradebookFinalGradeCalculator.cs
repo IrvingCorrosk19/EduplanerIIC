@@ -10,6 +10,18 @@ public static class GradebookFinalGradeCalculator
 {
     public static decimal TruncateOneDecimal(decimal value) => Math.Floor(value * 10m) / 10m;
 
+    /// <summary>
+    /// Promedio de celdas visibles (null = vacío, 0.0 cuenta). Replica calcAverages de Index.cshtml.
+    /// </summary>
+    public static decimal TruncatedAverageOrZero(IEnumerable<decimal?> cellValues)
+    {
+        var values = cellValues.Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        return values.Count > 0 ? TruncateOneDecimal(values.Average()) : 0m;
+    }
+
+    public static bool HasAnyScore(IEnumerable<decimal?> cellValues) =>
+        cellValues.Any(v => v.HasValue);
+
     /// <summary>Formatea una nota ya truncada (o la trunca antes de mostrar). Nunca redondea.</summary>
     public static string FormatTruncatedGrade(decimal value)
     {

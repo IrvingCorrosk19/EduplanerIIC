@@ -138,7 +138,8 @@ truncFinalGrade = floor(43.666…) / 10 = 4.3
 | Registrar Notas | GetNotasCargadas + calcAverages | Por tipo + trunc | **Sí** |
 | Promedios Finales / Resumen | GetPromediosFinales | Promedio plano por tipo sin truncar | **No** (servidor) |
 | Consejería | GetCounselorGroupAverages | Promedio plano total | **No** (distinto algoritmo) |
-| PDF | ExportRegistroPdf | GradebookFinalGradeCalculator | **Sí** |
+| PDF | ExportRegistroPdf | `GradebookFinalGradeCalculator` vía fuente canónica `ITeacherGradebookRegistroService` + `GradebookPdfRenderer` | **Sí** |
+| Excel | ExportRegistroExcel | La misma fuente canónica + `GradebookExcelRenderer` (EPPlus, valores oficiales, sin recálculo) | **Sí** |
 
 El profesor puede ver **valores distintos** según la pestaña que consulte; para el caso reportado, la referencia **4.3** corresponde al algoritmo de **Registrar Notas** (columna Nota Final).
 

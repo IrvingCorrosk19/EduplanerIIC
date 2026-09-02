@@ -9,6 +9,7 @@ using SchoolManager.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Interfaces;
 using SchoolManager.ViewModels;
+using SchoolManager.Services.Helpers;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -29,6 +30,7 @@ namespace SchoolManager.Controllers
         private readonly ISubjectAssignmentService _subjectAssignmentService;
         private readonly IDocumentStorageService _documentStorage;
         private readonly ITeacherGradebookPdfService _gradebookPdfService;
+        private readonly ITeacherGradebookExcelService _gradebookExcelService;
         private readonly ILogger<TeacherGradebookController> _logger;
 
 
@@ -45,6 +47,7 @@ namespace SchoolManager.Controllers
             ISubjectAssignmentService subjectAssignmentService,
             IDocumentStorageService documentStorage,
             ITeacherGradebookPdfService gradebookPdfService,
+            ITeacherGradebookExcelService gradebookExcelService,
             ILogger<TeacherGradebookController> logger)
             
         {
@@ -60,6 +63,7 @@ namespace SchoolManager.Controllers
             _counselorAssignmentService = counselorAssignmentService;
             _subjectAssignmentService = subjectAssignmentService;
             _gradebookPdfService = gradebookPdfService;
+            _gradebookExcelService = gradebookExcelService;
             _logger = logger;
             
         }
@@ -394,11 +398,46 @@ namespace SchoolManager.Controllers
             {
                 return BadRequest(ex.Message);
             }
+            catch (ArgumentException)
+            {
+                return BadRequest("Debe indicar trimestre, materia, grupo y grado.");
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generando PDF registro calificaciones. GroupId={GroupId}, SubjectId={SubjectId}, GradeLevelId={GradeLevelId}, Trimester={Trimester}",
                     groupId, subjectId, gradeLevelId, trimester);
                 return StatusCode(500, "Error al generar el PDF del registro de calificaciones.");
+            }
+        }
+
+        // GET: /TeacherGradebook/ExportRegistroExcel?groupId=...&trimester=...&subjectId=...&gradeLevelId=...
+        [HttpGet]
+        public async Task<IActionResult> ExportRegistroExcel(Guid groupId, string trimester, Guid subjectId, Guid gradeLevelId)
+        {
+            if (groupId == Guid.Empty || subjectId == Guid.Empty || gradeLevelId == Guid.Empty || string.IsNullOrWhiteSpace(trimester))
+                return BadRequest("Debe indicar trimestre, materia, grupo y grado.");
+
+            try
+            {
+                var teacherId = GetTeacherId();
+                var (content, fileName) = await _gradebookExcelService.GenerateRegistroExcelAsync(
+                    teacherId, groupId, trimester, subjectId, gradeLevelId);
+
+                return File(content, GradebookExcelLayout.XlsxContentType, fileName);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, "No tiene permiso para exportar este registro.");
+            }
+            catch (ArgumentException)
+            {
+                return BadRequest("Los filtros indicados no son válidos.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generando Excel registro calificaciones. GroupId={GroupId}, SubjectId={SubjectId}, GradeLevelId={GradeLevelId}, Trimester={Trimester}",
+                    groupId, subjectId, gradeLevelId, trimester);
+                return StatusCode(500, "Error al generar el Excel del registro de calificaciones.");
             }
         }
 

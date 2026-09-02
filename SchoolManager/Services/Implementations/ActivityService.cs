@@ -4,6 +4,7 @@ using SchoolManager.Interfaces;      // ⇦ IActivityService, IFileStorage
 using SchoolManager.Models;          // ⇦ SchoolDbContext, Activity
 using SchoolManager.Services.Interfaces;
 using SchoolManager.Services.Implementations;
+using SchoolManager.Services.Helpers;
 
 namespace SchoolManager.Services
 {
@@ -242,14 +243,14 @@ namespace SchoolManager.Services
                 return new List<ActivityHeaderDto>();
             }
 
-            var query = _context.Activities
-                .Where(a => a.TeacherId == teacherId
-                         && a.GroupId == groupId
-                         && a.Trimester == trimesterCode
-                         && a.SchoolId == currentUserSchool.Id
-                         && a.TrimesterId == trimestre.Id
-                         && a.SubjectId == subjectId
-                         && a.GradeLevelId == gradeLevelId);
+            var query = _context.Activities.VisibleOnTeacherGradebookIndex(
+                teacherId,
+                groupId,
+                subjectId,
+                gradeLevelId,
+                currentUserSchool.Id,
+                trimestre.Id,
+                trimesterCode);
 
             var list = await query
                 .OrderBy(a => a.CreatedAt)

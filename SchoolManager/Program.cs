@@ -286,7 +286,9 @@ builder.Services.AddScoped<IInstitutionalCredentialHtmlCaptureService, Instituti
 builder.Services.AddScoped<IInstitutionalCredentialService, InstitutionalCredentialService>();
 builder.Services.AddScoped<ITeacherWorkPlanService, TeacherWorkPlanService>();
 builder.Services.AddScoped<ITeacherWorkPlanPdfService, TeacherWorkPlanPdfService>();
+builder.Services.AddScoped<ITeacherGradebookRegistroService, TeacherGradebookRegistroService>();
 builder.Services.AddScoped<ITeacherGradebookPdfService, TeacherGradebookPdfService>();
+builder.Services.AddScoped<ITeacherGradebookExcelService, TeacherGradebookExcelService>();
 builder.Services.AddScoped<IDirectorWorkPlanService, DirectorWorkPlanService>();
 builder.Services.AddScoped<IUserPasswordManagementService, UserPasswordManagementService>();
 builder.Services.AddScoped<IBulkPasswordEmailService, BulkPasswordEmailService>();

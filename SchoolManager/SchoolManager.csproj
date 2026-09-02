@@ -57,4 +57,8 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SchoolManager.Tests" />
+  </ItemGroup>
+
 </Project>

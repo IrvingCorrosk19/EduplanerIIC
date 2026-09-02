@@ -381,6 +381,57 @@
         vertical-align: -0.1em;
     }
 
+    .gradebook-export-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .btn-export-excel {
+        background: #15803d;
+        color: #ffffff;
+        border: 2px solid rgba(255, 255, 255, 0.85);
+        font-weight: 600;
+        padding: 0.45rem 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        transition: all 0.2s ease;
+    }
+
+    .btn-export-excel:hover,
+    .btn-export-excel:focus {
+        background: #166534;
+        color: #ffffff;
+        border-color: #ffffff;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+        transform: translateY(-1px);
+    }
+
+    .btn-export-excel .bi {
+        font-size: 1.05rem;
+        vertical-align: -0.1em;
+    }
+
+    .btn-export-pdf:disabled,
+    .btn-export-excel:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    @@media (max-width: 576px) {
+        .gradebook-export-actions {
+            width: 100%;
+        }
+
+        .gradebook-export-actions .btn {
+            flex: 1 1 auto;
+        }
+    }
+
     .card-body {
         padding: 1.5rem;
     }
@@ -878,9 +929,14 @@
                         <i class="bi bi-journal-check fs-4"></i>
                         <h5 class="mb-0">Registro de Calificaciones</h5>
                     </div>
-                    <button type="button" id="btnExportRegistroPdf" class="btn btn-export-pdf btn-sm" title="Imprimir registro en PDF">
+                    <div class="gradebook-export-actions">
+                    <button type="button" id="btnExportRegistroPdf" class="btn btn-export-pdf btn-sm" title="Imprimir registro en PDF" aria-label="Imprimir registro en PDF">
                         <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir PDF
                     </button>
+                    <button type="button" id="btnExportRegistroExcel" class="btn btn-export-excel btn-sm" title="Exportar registro a Excel" aria-label="Exportar registro a Excel">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+                    </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="row g-3 align-items-end mb-3">
@@ -2549,6 +2605,7 @@
             });
 
             $('#selGroup, #selTrimester').on('change', () => {
+                syncGradebookExportButtons();
                 const combo = $('#selGroup').val();
                 const trimester = $('#selTrimester').val();
                 if (combo && trimester) {
@@ -2715,6 +2772,90 @@
                 const url = `/TeacherGradebook/ExportRegistroPdf?groupId=${groupId}&trimester=${encodeURIComponent(trimester)}&subjectId=${subjectId}&gradeLevelId=${gradeLevelId}`;
                 window.open(url, '_blank');
             });
+
+            $('#btnExportRegistroExcel').on('click', function () {
+                exportRegistroExcel();
+            });
+
+            function gradebookFiltersReady() {
+                return !!$('#selGroup').val() && !!$('#selTrimester').val();
+            }
+
+            function syncGradebookExportButtons() {
+                const ok = gradebookFiltersReady();
+                $('#btnExportRegistroPdf, #btnExportRegistroExcel').prop('disabled', !ok);
+            }
+
+            function parseContentDispositionFileName(disposition) {
+                if (!disposition) return null;
+                const utf = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+                if (utf) {
+                    try { return decodeURIComponent(utf[1]); } catch { return utf[1]; }
+                }
+                const simple = /filename="?([^";]+)"?/i.exec(disposition);
+                return simple ? simple[1] : null;
+            }
+
+            function exportRegistroExcel() {
+                const combo = $('#selGroup').val();
+                const trimester = $('#selTrimester').val();
+                if (!combo || !trimester) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Seleccione filtros',
+                        text: 'Elija trimestre y materia/grupo antes de exportar el Excel.'
+                    });
+                    return;
+                }
+
+                const [subjectId, groupId, gradeLevelId] = combo.split('|');
+                const url = `/TeacherGradebook/ExportRegistroExcel?groupId=${groupId}&trimester=${encodeURIComponent(trimester)}&subjectId=${subjectId}&gradeLevelId=${gradeLevelId}`;
+
+                Swal.fire({
+                    title: 'Generando Excel',
+                    text: 'Espere un momento…',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                fetch(url, { credentials: 'same-origin' })
+                    .then(async (res) => {
+                        if (!res.ok) {
+                            const status = res.status;
+                            if (status === 403) throw new Error('forbidden');
+                            if (status === 400) throw new Error('bad-request');
+                            throw new Error('failed');
+                        }
+                        const blob = await res.blob();
+                        const fileName = parseContentDispositionFileName(res.headers.get('Content-Disposition'))
+                            || 'Registro_Calificaciones.xlsx';
+                        const objectUrl = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = objectUrl;
+                        a.download = fileName;
+                        a.rel = 'noopener';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(objectUrl);
+                        Swal.close();
+                    })
+                    .catch((err) => {
+                        let text = 'No se pudo generar el Excel. Verifique los filtros e inténtelo de nuevo.';
+                        if (err && err.message === 'forbidden')
+                            text = 'No tiene permiso para exportar este registro.';
+                        else if (err && err.message === 'bad-request')
+                            text = 'Verifique trimestre, materia, grupo y grado.';
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se pudo exportar',
+                            text
+                        });
+                    });
+            }
+
+            syncGradebookExportButtons();
 
             // Llamar a la función cuando se cambie de grupo o se haga clic en la pestaña
             $('#selGroup').on('change', loadPromediosFinales);
