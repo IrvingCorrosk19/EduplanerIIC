@@ -5,7 +5,7 @@ using QuestPDF.Infrastructure;
 namespace SchoolManager.Services.Helpers;
 
 /// <summary>
-/// Medidas de página legal apaisada: 14 pulgadas de ancho × 8.5 de alto (hoja larga horizontal).
+/// Medidas de página legal vertical: 8.5 pulgadas de ancho × 14 de alto (hoja larga).
 /// </summary>
 public static class GradebookPdfLayout
 {
@@ -17,8 +17,8 @@ public static class GradebookPdfLayout
     public const float MarginHorizontal = 20f;
     public const float MarginVertical = 16f;
 
-    /// <summary>Legal horizontal: el lado largo (14") es el ancho.</summary>
-    public static readonly PageSize PageSize = new(14f, 8.5f, Unit.Inch);
+    /// <summary>Legal vertical: el lado largo (14") es la altura.</summary>
+    public static readonly PageSize PageSize = new(8.5f, 14f, Unit.Inch);
     public static float PageWidth => PageSize.Width;
     public static float PageHeight => PageSize.Height;
     public static float ContentWidth => PageWidth - (2f * MarginHorizontal);

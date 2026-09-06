@@ -148,7 +148,7 @@ public class GradebookPdfRendererTests
         var pdfPath = Path.Combine(dir, "Registro_Calificaciones_1T_corregido.pdf");
         File.WriteAllBytes(pdfPath, pdf);
         var pdfText = System.Text.Encoding.ASCII.GetString(pdf);
-        Assert.Contains("/MediaBox [0 0 1008 612]", pdfText);
+        Assert.Contains("/MediaBox [0 0 612 1008]", pdfText);
 
         var images = Images(model);
         var page = 1;

@@ -7,11 +7,11 @@ namespace SchoolManager.Tests;
 public class GradebookPdfLayoutTests
 {
     [Fact]
-    public void PageSize_IsLegalLandscape()
+    public void PageSize_IsLegalPortrait()
     {
-        Assert.True(GradebookPdfLayout.PageWidth > GradebookPdfLayout.PageHeight);
-        Assert.Equal(14f * 72f, GradebookPdfLayout.PageWidth, 2);
-        Assert.Equal(8.5f * 72f, GradebookPdfLayout.PageHeight, 2);
+        Assert.True(GradebookPdfLayout.PageHeight > GradebookPdfLayout.PageWidth);
+        Assert.Equal(8.5f * 72f, GradebookPdfLayout.PageWidth, 2);
+        Assert.Equal(14f * 72f, GradebookPdfLayout.PageHeight, 2);
     }
 
     [Fact]
