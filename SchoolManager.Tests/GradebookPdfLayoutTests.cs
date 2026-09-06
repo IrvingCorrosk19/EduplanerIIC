@@ -1,3 +1,4 @@
+using QuestPDF.Helpers;
 using SchoolManager.Dtos;
 using SchoolManager.Services.Helpers;
 using SchoolManager.Services.Implementations;
@@ -6,6 +7,17 @@ namespace SchoolManager.Tests;
 
 public class GradebookPdfLayoutTests
 {
+    [Fact]
+    public void PageSize_IsLegalLandscape()
+    {
+        var legalLandscape = PageSizes.Legal.Landscape();
+        Assert.Equal(legalLandscape.Width, GradebookPdfLayout.PageWidth);
+        Assert.Equal(legalLandscape.Height, GradebookPdfLayout.PageHeight);
+        Assert.True(GradebookPdfLayout.PageWidth > GradebookPdfLayout.PageHeight);
+        Assert.Equal(14f * 72f, GradebookPdfLayout.PageWidth, 2);
+        Assert.Equal(8.5f * 72f, GradebookPdfLayout.PageHeight, 2);
+    }
+
     [Fact]
     public void MinFontSize_IsAtLeast8()
     {

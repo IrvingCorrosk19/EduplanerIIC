@@ -52,7 +52,7 @@ public static class GradebookPdfRenderer
         bool emptyBlock,
         GradebookPdfTableBlock? block)
     {
-        page.Size(PageSizes.A4.Landscape());
+        page.Size(GradebookPdfLayout.PageSize);
         page.MarginHorizontal(GradebookPdfLayout.MarginHorizontal);
         page.MarginVertical(GradebookPdfLayout.MarginVertical);
         page.DefaultTextStyle(x => x
