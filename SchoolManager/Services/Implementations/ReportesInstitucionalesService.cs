@@ -4,6 +4,8 @@ using NPOI.SS.UserModel;
 using NPOI.SS.Util;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
+using SchoolManager.Dtos;
+using SchoolManager.Interfaces;
 using SchoolManager.Models;
 using SchoolManager.Services.Helpers;
 using SchoolManager.Services.Interfaces;
@@ -21,6 +23,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
     private readonly SchoolDbContext _context;
     private readonly IAprobadosReprobadosService _aprobadosReprobadosService;
+    private readonly IStudentActivityScoreService _scoreService;
     private readonly IWebHostEnvironment _environment;
     private readonly Dictionary<(Guid GroupId, Guid GradeLevelId), ReportesGrupoBulkData> _bulkCache = new();
 
@@ -34,10 +37,12 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
     public ReportesInstitucionalesService(
         SchoolDbContext context,
         IAprobadosReprobadosService aprobadosReprobadosService,
+        IStudentActivityScoreService scoreService,
         IWebHostEnvironment environment)
     {
         _context = context;
         _aprobadosReprobadosService = aprobadosReprobadosService;
+        _scoreService = scoreService;
         _environment = environment;
     }
 
@@ -474,10 +479,10 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
         var estudiantes = bulk.Estudiantes;
-        var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
-        var trimesterEntities = bulk.TrimesterEntities
-            .Where(t => trimestres.Contains(t.Name))
-            .ToList();
+        var trimestresCalculo = new[] { "1T", "2T", "3T" };
+        var notasGradebook = await CargarNotasFinalesGradebookAsync(
+            groupId, gradeLevelId, materiaId, teacherScopeId);
+        var trimesterEntities = bulk.TrimesterEntities.ToList();
 
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
         var anio = DateTime.UtcNow.Year;
@@ -491,11 +496,12 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             decimal? n1 = null, n2 = null, n3 = null;
             int a1 = 0, t1 = 0, a2 = 0, t2 = 0, a3 = 0, t3 = 0;
 
-            for (var i = 0; i < trimestres.Count && i < 3; i++)
+            for (var i = 0; i < trimestresCalculo.Length; i++)
             {
-                var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[i]);
-                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinalComoGradebook(
-                    bulk, est.StudentId, trimestres[i], materiaId, schoolId, teacherScopeId);
+                var trimestre = trimestresCalculo[i];
+                var trimesterEntity = trimesterEntities.FirstOrDefault(x =>
+                    string.Equals(x.Name, trimestre, StringComparison.OrdinalIgnoreCase));
+                var prom = NotaGradebook(notasGradebook, est.StudentId, trimestre);
                 var (ausencias, tardanzas) = ReportesInstitucionalesBulkLoader.ContarAsistencia(
                     bulk, est.StudentId, trimesterEntity);
 
@@ -538,7 +544,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             ProfesorNombre = profesorNombre,
             GrupoEtiqueta = etiquetaGrupo,
             MateriaNombre = materia.Name,
-            TrimestresEncabezado = trimestres.Take(3).ToList(),
+            TrimestresEncabezado = trimestresCalculo,
             Filas = filas,
             FilasPlantillaVacias = 0
         };
@@ -566,10 +572,10 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
         var estudiantes = bulk.Estudiantes;
-        var trimestres = await _aprobadosReprobadosService.ObtenerTrimestresDisponiblesAsync(schoolId);
-        var trimesterEntities = bulk.TrimesterEntities
-            .Where(t => trimestres.Contains(t.Name))
-            .ToList();
+        var trimestresCalculo = new[] { "1T", "2T", "3T" };
+        var notasGradebook = await CargarNotasFinalesGradebookAsync(
+            groupId, gradeLevelId, materiaId, teacherScopeId);
+        var trimesterEntities = bulk.TrimesterEntities.ToList();
 
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
         var anio = DateTime.UtcNow.Year;
@@ -612,11 +618,12 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             var totalA = 0;
             var totalT = 0;
 
-            for (var t = 0; t < trimestres.Count && t < colsNotaTrim.Length; t++)
+            for (var t = 0; t < trimestresCalculo.Length && t < colsNotaTrim.Length; t++)
             {
-                var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[t]);
-                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinalComoGradebook(
-                    bulk, est.StudentId, trimestres[t], materiaId, schoolId, teacherScopeId);
+                var trimestre = trimestresCalculo[t];
+                var trimesterEntity = trimesterEntities.FirstOrDefault(x =>
+                    string.Equals(x.Name, trimestre, StringComparison.OrdinalIgnoreCase));
+                var prom = NotaGradebook(notasGradebook, est.StudentId, trimestre);
                 ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colsNotaTrim[t], prom);
                 if (prom.HasValue)
                     promediosTrim.Add(prom.Value);
@@ -741,6 +748,58 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             }
         }
     }
+
+    private async Task<Dictionary<(Guid StudentId, string Trimestre), decimal?>> CargarNotasFinalesGradebookAsync(
+        Guid groupId,
+        Guid gradeLevelId,
+        Guid materiaId,
+        Guid? teacherScopeId)
+    {
+        var result = new Dictionary<(Guid, string), decimal?>();
+        var teacherId = await ResolverDocenteCarpetasAsync(groupId, gradeLevelId, materiaId, teacherScopeId);
+        if (!teacherId.HasValue)
+            return result;
+
+        var promedios = await _scoreService.GetPromediosFinalesAsync(new GetNotesDto
+        {
+            TeacherId = teacherId.Value,
+            SubjectId = materiaId,
+            GroupId = groupId,
+            GradeLevelId = gradeLevelId,
+            Trimester = ""
+        });
+
+        foreach (var p in promedios)
+        {
+            if (!Guid.TryParse(p.StudentId, out var studentId))
+                continue;
+            result[(studentId, p.Trimester)] = p.NotaFinal;
+        }
+
+        return result;
+    }
+
+    private async Task<Guid?> ResolverDocenteCarpetasAsync(
+        Guid groupId, Guid gradeLevelId, Guid materiaId, Guid? teacherScopeId)
+    {
+        if (teacherScopeId is Guid id && id != Guid.Empty)
+            return id;
+
+        return await _context.TeacherAssignments
+            .AsNoTracking()
+            .Where(ta =>
+                ta.SubjectAssignment.GroupId == groupId &&
+                ta.SubjectAssignment.GradeLevelId == gradeLevelId &&
+                ta.SubjectAssignment.SubjectId == materiaId)
+            .Select(ta => (Guid?)ta.TeacherId)
+            .FirstOrDefaultAsync();
+    }
+
+    private static decimal? NotaGradebook(
+        IReadOnlyDictionary<(Guid StudentId, string Trimestre), decimal?> notas,
+        Guid studentId,
+        string trimestre) =>
+        notas.TryGetValue((studentId, trimestre), out var n) ? n : null;
 
     private async Task ValidarAsignacionAsync(
         Guid groupId, Guid gradeLevelId, Guid? teacherScopeId, Guid? materiaId)

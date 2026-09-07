@@ -442,8 +442,6 @@ namespace SchoolManager.Services
             if (notes.SubjectId == Guid.Empty || notes.GradeLevelId == Guid.Empty)
                 return new List<PromedioFinalDto>();
 
-            // 1. Obtener todos los estudiantes del grupo y grado usando solo User y StudentAssignment
-            // Ordenar alfabéticamente por apellido primero, luego por nombre
             var students = await _context.StudentAssignments
                 .Where(sa => sa.GroupId == notes.GroupId && sa.GradeId == notes.GradeLevelId)
                 .Join(_context.Users,
@@ -454,17 +452,54 @@ namespace SchoolManager.Services
                 .ThenBy(s => s.Name)
                 .ToListAsync();
 
-            // 2. Actividades y notas del grupo, materia, grado y docente
-            var activities = await _context.Activities.AsNoTracking()
-                .Where(a => a.SubjectId == notes.SubjectId
-                    && a.GroupId == notes.GroupId
-                    && a.GradeLevelId == notes.GradeLevelId
-                    && a.TeacherId == notes.TeacherId
-                    && (string.IsNullOrEmpty(notes.Trimester) || a.Trimester == notes.Trimester))
-                .Select(a => new { a.Id, a.Trimester, a.Type })
-                .ToListAsync();
+            var school = await _currentUserService.GetCurrentUserSchoolAsync();
+            var trimestres = new List<string> { "1T", "2T", "3T" };
+            var headersByTrim = new Dictionary<string, List<ActivityHeaderDto>>(StringComparer.Ordinal);
 
-            var activityIds = activities.Select(a => a.Id).ToList();
+            foreach (var trimestre in trimestres)
+            {
+                if (!string.IsNullOrEmpty(notes.Trimester) && notes.Trimester != trimestre)
+                {
+                    headersByTrim[trimestre] = new List<ActivityHeaderDto>();
+                    continue;
+                }
+
+                if (school == null)
+                {
+                    headersByTrim[trimestre] = new List<ActivityHeaderDto>();
+                    continue;
+                }
+
+                var trimestreEnt = await _context.Trimesters.AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Name == trimestre && t.SchoolId == school.Id);
+
+                if (trimestreEnt == null)
+                {
+                    headersByTrim[trimestre] = new List<ActivityHeaderDto>();
+                    continue;
+                }
+
+                headersByTrim[trimestre] = await _context.Activities.AsNoTracking()
+                    .VisibleOnTeacherGradebookIndex(
+                        notes.TeacherId,
+                        notes.GroupId,
+                        notes.SubjectId,
+                        notes.GradeLevelId,
+                        school.Id,
+                        trimestreEnt.Id,
+                        trimestre)
+                    .OrderBy(a => a.CreatedAt)
+                    .Select(a => new ActivityHeaderDto
+                    {
+                        Id = a.Id,
+                        Name = a.Name,
+                        Type = a.Type,
+                        DueDate = a.DueDate
+                    })
+                    .ToListAsync();
+            }
+
+            var activityIds = headersByTrim.Values.SelectMany(v => v.Select(a => a.Id)).Distinct().ToList();
 
             var allScores = activityIds.Count == 0
                 ? new List<(Guid StudentId, Guid ActivityId, decimal? Score)>()
@@ -475,26 +510,26 @@ namespace SchoolManager.Services
                     .Select(s => (s.StudentId, s.ActivityId, s.Score))
                     .ToList();
 
-            // 3. Usar siempre los tres trimestres estándar
-            var trimestres = new List<string> { "1T", "2T", "3T" };
-
-            // 4. Construir la lista de promedios por estudiante y trimestre
             var promedios = new List<PromedioFinalDto>();
             foreach (var student in students)
             {
                 foreach (var trimestre in trimestres)
                 {
-                    var actsTrimestre = activities
-                        .Where(a => a.Trimester == trimestre)
+                    var headers = headersByTrim[trimestre];
+                    var scoreDict = new Dictionary<Guid, decimal?>();
+                    foreach (var act in headers)
+                    {
+                        var score = allScores.FirstOrDefault(s =>
+                            s.StudentId == student.Id && s.ActivityId == act.Id).Score;
+                        scoreDict[act.Id] = score;
+                    }
+
+                    var actsTrimestre = headers
                         .Select(a => new Activity { Id = a.Id, Type = a.Type })
                         .ToList();
 
-                    var scoreDict = actsTrimestre.ToDictionary(
-                        a => a.Id,
-                        a => allScores.FirstOrDefault(s => s.StudentId == student.Id && s.ActivityId == a.Id).Score);
-
-                    var notaFinal = actsTrimestre.Count > 0
-                        ? GradebookFinalGradeCalculator.CalcularNotaFinal(actsTrimestre, scoreDict)
+                    var notaFinal = headers.Count > 0
+                        ? GradebookFinalGradeCalculator.CalcularNotaFinalFromVisibleActivities(headers, scoreDict)
                         : null;
 
                     var promedioNotasApreciacion = GradebookFinalGradeCalculator.GetTruncatedTypeAverage(
@@ -509,7 +544,6 @@ namespace SchoolManager.Services
                     if (promedioRecuperacion.HasValue)
                         promedioExamenFinal = promedioRecuperacion;
 
-                    // Siempre armar el nombre correctamente como "Apellido, Nombre"
                     var nombre = $"{(student.LastName ?? "").Trim()}, {(student.Name ?? "").Trim()}".Trim();
                     if (string.IsNullOrWhiteSpace(nombre) || nombre == ",") nombre = "(Sin nombre)";
 
