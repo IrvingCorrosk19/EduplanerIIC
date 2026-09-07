@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SchoolManager.Dtos;
 using SchoolManager.Models;
 using SchoolManager.ViewModels;
 
@@ -20,10 +21,14 @@ public sealed class ReportesGrupoBulkData
 public sealed class ReportesActivityRow
 {
     public Guid Id { get; init; }
+    public string Name { get; init; } = "";
     public string Type { get; init; } = "";
     public string? Trimester { get; init; }
     public Guid? TrimesterId { get; init; }
     public Guid? SubjectId { get; init; }
+    public Guid? TeacherId { get; init; }
+    public Guid? SchoolId { get; init; }
+    public DateTime? CreatedAt { get; init; }
     public string SubjectName { get; init; } = "";
 }
 
@@ -77,10 +82,14 @@ public static class ReportesInstitucionalesBulkLoader
             .Select(a => new ReportesActivityRow
             {
                 Id = a.Id,
+                Name = a.Name,
                 Type = a.Type,
                 Trimester = a.Trimester,
                 TrimesterId = a.TrimesterId,
                 SubjectId = a.SubjectId,
+                TeacherId = a.TeacherId,
+                SchoolId = a.SchoolId,
+                CreatedAt = a.CreatedAt,
                 SubjectName = a.Subject!.Name
             })
             .ToListAsync();
@@ -196,6 +205,47 @@ public static class ReportesInstitucionalesBulkLoader
         }).ToList();
 
         return GradebookFinalGradeCalculator.CalcularNotaFinal(acts, scoreDict);
+    }
+
+    /// <summary>
+    /// Nota trimestral idéntica a TeacherGradebook/Index (registro de notas):
+    /// materia exacta, docente, trimestre+escuela del gradebook, columnas visibles y truncamiento.
+    /// </summary>
+    public static decimal? CalcularNotaFinalComoGradebook(
+        ReportesGrupoBulkData bulk,
+        Guid studentId,
+        string trimestre,
+        Guid subjectId,
+        Guid schoolId,
+        Guid? teacherId)
+    {
+        if (!bulk.TrimesterNameToId.TryGetValue(trimestre, out var trimesterId) || trimesterId == Guid.Empty)
+            return null;
+
+        var actividades = bulk.Activities
+            .Where(a =>
+                a.SubjectId == subjectId &&
+                (!teacherId.HasValue || a.TeacherId == teacherId.Value) &&
+                GradebookActivityScope.MatchesTenantAndTrimester(
+                    a.SchoolId, a.TrimesterId, a.Trimester, schoolId, trimesterId, trimestre))
+            .OrderBy(a => a.CreatedAt)
+            .ToList();
+
+        if (actividades.Count == 0)
+            return null;
+
+        var headers = actividades.Select(a => new ActivityHeaderDto
+        {
+            Id = a.Id,
+            Name = a.Name,
+            Type = a.Type
+        }).ToList();
+
+        var scoreDict = new Dictionary<Guid, decimal?>();
+        foreach (var a in actividades)
+            scoreDict[a.Id] = bulk.Scores.TryGetValue((studentId, a.Id), out var s) ? s : null;
+
+        return GradebookFinalGradeCalculator.CalcularNotaFinalFromVisibleActivities(headers, scoreDict);
     }
 
     public static (int Ausencias, int Tardanzas) ContarAsistencia(

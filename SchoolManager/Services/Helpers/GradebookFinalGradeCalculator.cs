@@ -1,4 +1,5 @@
 using System.Globalization;
+using SchoolManager.Dtos;
 using SchoolManager.Models;
 
 namespace SchoolManager.Services.Helpers;
@@ -15,7 +16,10 @@ public static class GradebookFinalGradeCalculator
     /// </summary>
     public static decimal TruncatedAverageOrZero(IEnumerable<decimal?> cellValues)
     {
-        var values = cellValues.Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        var values = cellValues
+            .Where(v => v.HasValue)
+            .Select(v => TruncateOneDecimal(v!.Value))
+            .ToList();
         return values.Count > 0 ? TruncateOneDecimal(values.Average()) : 0m;
     }
 
@@ -43,7 +47,7 @@ public static class GradebookFinalGradeCalculator
         var values = acts
             .Select(a => scores.TryGetValue(a.Id, out var v) ? v : null)
             .Where(v => v.HasValue)
-            .Select(v => v!.Value)
+            .Select(v => TruncateOneDecimal(v!.Value))
             .ToList();
 
         return values.Count > 0 ? TruncateOneDecimal(values.Average()) : null;
@@ -76,7 +80,7 @@ public static class GradebookFinalGradeCalculator
             var values = acts
                 .Select(a => scores.TryGetValue(a.Id, out var v) ? v : null)
                 .Where(v => v.HasValue)
-                .Select(v => v!.Value)
+                .Select(v => TruncateOneDecimal(v!.Value))
                 .ToList();
 
             if (values.Count > 0)
@@ -87,6 +91,36 @@ public static class GradebookFinalGradeCalculator
 
         if (typeAvgs.Count == 0)
             return null;
+
+        return ComputeFinalGradeFromTypeAverages(typeAvgs, typesWithScores);
+    }
+
+    /// <summary>
+    /// Misma nota que TeacherGradebook/Index y el PDF de registro:
+    /// columnas visibles (tipos fijos + deduplicación tipo+nombre) y truncamiento por celda.
+    /// </summary>
+    public static decimal? CalcularNotaFinalFromVisibleActivities(
+        IEnumerable<ActivityHeaderDto> activities,
+        IReadOnlyDictionary<Guid, decimal?> scores)
+    {
+        var typeSections = GradebookVisibleActivitySelector.SelectVisibleColumns(activities);
+        if (typeSections.Count == 0)
+            return null;
+
+        var typeAvgs = new Dictionary<string, decimal>();
+        var typesWithScores = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var section in typeSections)
+        {
+            var cells = section.Activities
+                .Select(a => GradebookVisibleActivitySelector.ResolveScore(a, scores))
+                .ToList();
+
+            if (HasAnyScore(cells))
+                typesWithScores.Add(section.TypeKey);
+
+            typeAvgs[section.TypeKey] = TruncatedAverageOrZero(cells);
+        }
 
         return ComputeFinalGradeFromTypeAverages(typeAvgs, typesWithScores);
     }

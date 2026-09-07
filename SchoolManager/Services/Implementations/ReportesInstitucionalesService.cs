@@ -483,7 +483,6 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
         var anio = DateTime.UtcNow.Year;
         var filas = new List<FormatoCarpetasFilaViewModel>();
-        var palabrasMateria = new[] { materia.Name };
 
         foreach (var est in estudiantes)
         {
@@ -496,8 +495,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             for (var i = 0; i < trimestres.Count && i < 3; i++)
             {
                 var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[i]);
-                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinal(
-                    bulk, est.StudentId, trimestres[i], palabrasMateria);
+                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinalComoGradebook(
+                    bulk, est.StudentId, trimestres[i], materiaId, schoolId, teacherScopeId);
                 var (ausencias, tardanzas) = ReportesInstitucionalesBulkLoader.ContarAsistencia(
                     bulk, est.StudentId, trimesterEntity);
 
@@ -578,7 +577,6 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         var ruta = ReportePlantillaNpoiHelper.ResolverPlantilla(ReportesDir, "Carpetas");
         var workbook = ReportePlantillaNpoiHelper.CargarPlantilla(ruta);
         var sheet = workbook.GetSheetAt(0);
-        var palabrasMateria = new[] { materia.Name };
 
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 1, 0, school.Name.ToUpperInvariant());
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 2, 0, "Informe de Calificaciones, Ausencias y Tardanzas");
@@ -609,8 +607,8 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             for (var t = 0; t < trimestres.Count && t < colsNotaTrim.Length; t++)
             {
                 var trimesterEntity = trimesterEntities.FirstOrDefault(x => x.Name == trimestres[t]);
-                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinal(
-                    bulk, est.StudentId, trimestres[t], palabrasMateria);
+                var prom = ReportesInstitucionalesBulkLoader.CalcularNotaFinalComoGradebook(
+                    bulk, est.StudentId, trimestres[t], materiaId, schoolId, teacherScopeId);
                 ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colsNotaTrim[t], prom);
                 if (prom.HasValue)
                     promediosTrim.Add(prom.Value);
