@@ -18,7 +18,6 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
     private const int FilaDatosCalificaciones0 = 9;
     private const int MaxFilasEstudiantesCalificaciones = 75;
     private const int FilaDatosCarpetas0 = 12;
-    private const int MaxFilasEstudiantesCarpetas = 40;
 
     private readonly SchoolDbContext _context;
     private readonly IAprobadosReprobadosService _aprobadosReprobadosService;
@@ -541,7 +540,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             MateriaNombre = materia.Name,
             TrimestresEncabezado = trimestres.Take(3).ToList(),
             Filas = filas,
-            FilasPlantillaVacias = Math.Max(0, MaxFilasEstudiantesCarpetas - filas.Count)
+            FilasPlantillaVacias = 0
         };
     }
 
@@ -586,7 +585,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 7, 1, $"Grupo: {etiquetaGrupo}");
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 7, 6, $"Asignatura: {materia.Name}");
 
-        var filasDatos = Math.Max(MaxFilasEstudiantesCarpetas, estudiantes.Count);
+        var filasDatos = Math.Max(estudiantes.Count, 1);
         var ultimaFilaDatos = FilaDatosCarpetas0 + filasDatos - 1;
         const int ultimaColCarpetas = 13;
 
@@ -638,9 +637,6 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 12, totalA);
             ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 13, totalT);
         }
-
-        for (var i = estudiantes.Count; i < filasDatos; i++)
-            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, FilaDatosCarpetas0 + i, 0, i + 1);
 
         AgregarPieFirmasFormatoCarpetas(workbook, sheet, ultimaFilaDatos + 3);
 
