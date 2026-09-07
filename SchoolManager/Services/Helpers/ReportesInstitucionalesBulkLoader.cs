@@ -54,7 +54,7 @@ public static class ReportesInstitucionalesBulkLoader
         {
             Numero = i + 1,
             StudentId = e.Id,
-            Nombre = $"{e.Name} {e.LastName}".Trim()
+            Nombre = FormatearApellidoNombre(e.LastName, e.Name)
         }).ToList();
 
         var studentIds = estudiantes.Select(e => e.StudentId).ToList();
@@ -270,4 +270,16 @@ public static class ReportesInstitucionalesBulkLoader
 
     private static bool PalabrasClaveCoinciden(string subjectName, IEnumerable<string> palabrasClave) =>
         palabrasClave.Any(p => subjectName.Contains(p, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Mismo formato que TeacherGradebook: "Apellido, Nombre".</summary>
+    private static string FormatearApellidoNombre(string? lastName, string? name)
+    {
+        var apellido = (lastName ?? "").Trim();
+        var nombre = (name ?? "").Trim();
+        if (string.IsNullOrEmpty(apellido))
+            return nombre;
+        if (string.IsNullOrEmpty(nombre))
+            return apellido;
+        return $"{apellido}, {nombre}";
+    }
 }
