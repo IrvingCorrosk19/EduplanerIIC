@@ -1,5 +1,6 @@
 using NPOI.HSSF.UserModel;
 using NPOI.SS.UserModel;
+using SchoolManager.Services.Helpers;
 
 namespace SchoolManager.Services.Implementations;
 
@@ -75,5 +76,6 @@ internal static class ReportePlantillaNpoiHelper
     }
 
     public static void EstablecerNota(ISheet sheet, int fila0, int col0, decimal? nota) =>
-        EstablecerNumero(sheet, fila0, col0, nota.HasValue ? (double)Math.Round(nota.Value, 1) : null);
+        EstablecerNumero(sheet, fila0, col0,
+            nota.HasValue ? (double)GradebookFinalGradeCalculator.TruncateOneDecimal(nota.Value) : null);
 }

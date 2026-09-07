@@ -517,7 +517,9 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 NotaTrim1 = n1,
                 NotaTrim2 = n2,
                 NotaTrim3 = n3,
-                PromedioFinal = promediosTrim.Count > 0 ? Math.Round(promediosTrim.Average(), 1) : null,
+                PromedioFinal = promediosTrim.Count > 0
+                    ? GradebookFinalGradeCalculator.TruncateOneDecimal(promediosTrim.Average())
+                    : null,
                 AusenciasT1 = a1,
                 TardanzasT1 = t1,
                 AusenciasT2 = a2,
@@ -623,7 +625,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             }
 
             var promFinal = promediosTrim.Count > 0
-                ? Math.Round(promediosTrim.Average(), 1)
+                ? GradebookFinalGradeCalculator.TruncateOneDecimal(promediosTrim.Average())
                 : (decimal?)null;
             ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, 5, promFinal);
             ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 12, totalA);

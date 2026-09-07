@@ -1,3 +1,5 @@
+using SchoolManager.Services.Helpers;
+
 namespace SchoolManager.ViewModels;
 
 public enum InformeCalificacionesTipo
@@ -157,5 +159,5 @@ public class FormatoCarpetasFilaViewModel
     public int TotalTardanzas { get; set; }
 
     public static string FormatearNota(decimal? nota) =>
-        CalificacionesTecnologiaFilaViewModel.FormatearNota(nota);
+        nota.HasValue ? GradebookFinalGradeCalculator.FormatTruncatedGrade(nota.Value) : "";
 }
