@@ -586,9 +586,18 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 7, 1, $"Grupo: {etiquetaGrupo}");
         ReportePlantillaNpoiHelper.EstablecerTexto(sheet, 7, 6, $"Asignatura: {materia.Name}");
 
-        ReportePlantillaNpoiHelper.LimpiarRangoDatos(
-            sheet, FilaDatosCarpetas0, FilaDatosCarpetas0 + MaxFilasEstudiantesCarpetas - 1,
-            0, 13);
+        var filasDatos = Math.Max(MaxFilasEstudiantesCarpetas, estudiantes.Count);
+        var ultimaFilaDatos = FilaDatosCarpetas0 + filasDatos - 1;
+        const int ultimaColCarpetas = 13;
+
+        // La plantilla solo tiene ~23 filas de alumnos; después hay firmas y celdas combinadas.
+        ReportePlantillaNpoiHelper.RemoverRegionesCombinadasDesde(sheet, FilaDatosCarpetas0);
+        ReportePlantillaNpoiHelper.LimpiarFilasHastaElFinal(sheet, FilaDatosCarpetas0, 0, ultimaColCarpetas);
+        ReportePlantillaNpoiHelper.ClonarEstiloYLimpiarFilas(
+            sheet, FilaDatosCarpetas0, FilaDatosCarpetas0, ultimaFilaDatos, 0, ultimaColCarpetas);
+
+        foreach (var colAt in new[] { 6, 7, 8, 9, 10, 11, 12, 13 })
+            ReportePlantillaNpoiHelper.AsegurarAnchoMinimo(sheet, colAt, 1600);
 
         var colsNotaTrim = new[] { 2, 3, 4 };
         var colsAt = new[] { (6, 7), (8, 9), (10, 11) };
@@ -630,16 +639,18 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 13, totalT);
         }
 
-        AgregarPieFirmasFormatoCarpetas(workbook, sheet);
+        for (var i = estudiantes.Count; i < filasDatos; i++)
+            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, FilaDatosCarpetas0 + i, 0, i + 1);
+
+        AgregarPieFirmasFormatoCarpetas(workbook, sheet, ultimaFilaDatos + 3);
 
         return ReportePlantillaNpoiHelper.EscribirLibro(workbook);
     }
 
-    private static void AgregarPieFirmasFormatoCarpetas(HSSFWorkbook workbook, ISheet sheet)
+    private static void AgregarPieFirmasFormatoCarpetas(HSSFWorkbook workbook, ISheet sheet, int filaInicio)
     {
         const int primeraCol = 0;
         const int ultimaCol = 13;
-        var filaInicio = FilaDatosCarpetas0 + MaxFilasEstudiantesCarpetas + 2;
 
         RemoverRegionesCombinadasEnRango(sheet, filaInicio, filaInicio + 9);
 

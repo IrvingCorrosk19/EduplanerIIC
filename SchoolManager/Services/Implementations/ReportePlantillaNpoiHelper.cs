@@ -78,4 +78,54 @@ internal static class ReportePlantillaNpoiHelper
     public static void EstablecerNota(ISheet sheet, int fila0, int col0, decimal? nota) =>
         EstablecerNumero(sheet, fila0, col0,
             nota.HasValue ? (double)GradebookFinalGradeCalculator.TruncateOneDecimal(nota.Value) : null);
+
+    public static void RemoverRegionesCombinadasDesde(ISheet sheet, int firstRow)
+    {
+        for (var i = sheet.NumMergedRegions - 1; i >= 0; i--)
+        {
+            if (sheet.GetMergedRegion(i).LastRow >= firstRow)
+                sheet.RemoveMergedRegion(i);
+        }
+    }
+
+    public static void ClonarEstiloYLimpiarFilas(
+        ISheet sheet, int filaEstilo0, int filaInicio0, int filaFin0, int colInicio, int colFin)
+    {
+        var proto = sheet.GetRow(filaEstilo0);
+        if (proto == null)
+            return;
+
+        for (var r = filaInicio0; r <= filaFin0; r++)
+        {
+            var fila = sheet.GetRow(r) ?? sheet.CreateRow(r);
+            fila.Height = proto.Height;
+            for (var c = colInicio; c <= colFin; c++)
+            {
+                var protoCell = proto.GetCell(c);
+                var celda = fila.GetCell(c) ?? fila.CreateCell(c);
+                if (protoCell?.CellStyle != null)
+                    celda.CellStyle = protoCell.CellStyle;
+                celda.SetBlank();
+            }
+        }
+    }
+
+    public static void AsegurarAnchoMinimo(ISheet sheet, int col0, int width)
+    {
+        if (sheet.GetColumnWidth(col0) < width)
+            sheet.SetColumnWidth(col0, width);
+    }
+
+    public static void LimpiarFilasHastaElFinal(ISheet sheet, int filaInicio0, int colInicio, int colFin)
+    {
+        var last = sheet.LastRowNum;
+        for (var r = filaInicio0; r <= last; r++)
+        {
+            var fila = sheet.GetRow(r);
+            if (fila == null)
+                continue;
+            for (var c = colInicio; c <= colFin; c++)
+                fila.GetCell(c)?.SetBlank();
+        }
+    }
 }
