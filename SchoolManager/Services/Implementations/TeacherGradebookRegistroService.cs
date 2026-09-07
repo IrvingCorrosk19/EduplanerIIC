@@ -18,6 +18,7 @@ public class TeacherGradebookRegistroService : ITeacherGradebookRegistroService
     private readonly ICurrentUserService _currentUserService;
     private readonly IAcademicYearService _academicYearService;
     private readonly ITimeZoneService _timeZoneService;
+    private readonly IStudentActivityScoreService _scoreService;
 
     public TeacherGradebookRegistroService(
         SchoolDbContext context,
@@ -25,7 +26,8 @@ public class TeacherGradebookRegistroService : ITeacherGradebookRegistroService
         IStudentService studentService,
         ICurrentUserService currentUserService,
         IAcademicYearService academicYearService,
-        ITimeZoneService timeZoneService)
+        ITimeZoneService timeZoneService,
+        IStudentActivityScoreService scoreService)
     {
         _context = context;
         _activityService = activityService;
@@ -33,6 +35,7 @@ public class TeacherGradebookRegistroService : ITeacherGradebookRegistroService
         _currentUserService = currentUserService;
         _academicYearService = academicYearService;
         _timeZoneService = timeZoneService;
+        _scoreService = scoreService;
     }
 
     public async Task<GradebookPdfDto> GetRegistroAsync(
@@ -126,6 +129,19 @@ public class TeacherGradebookRegistroService : ITeacherGradebookRegistroService
                         .GroupBy(x => x.ActivityId)
                         .ToDictionary(x => x.Key, x => x.First().Score));
 
+        var promediosIndex = await _scoreService.GetPromediosFinalesAsync(new GetNotesDto
+        {
+            TeacherId = teacherId,
+            SubjectId = subjectId,
+            GroupId = groupId,
+            GradeLevelId = gradeLevelId,
+            Trimester = trimester
+        });
+        var notaFinalPorEstudiante = promediosIndex
+            .Where(p => string.Equals(p.Trimester, trimester, StringComparison.Ordinal))
+            .GroupBy(p => p.StudentId)
+            .ToDictionary(g => g.Key, g => g.First().NotaFinal, StringComparer.OrdinalIgnoreCase);
+
         var studentRows = new List<GradebookPdfStudentRowDto>();
         var index = 1;
         foreach (var stu in students)
@@ -134,7 +150,6 @@ public class TeacherGradebookRegistroService : ITeacherGradebookRegistroService
             scores ??= new Dictionary<Guid, decimal?>();
 
             var typeAvgs = new Dictionary<string, decimal>();
-            var typesWithScores = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var section in typeSections)
             {
@@ -142,15 +157,10 @@ public class TeacherGradebookRegistroService : ITeacherGradebookRegistroService
                     .Select(a => GradebookVisibleActivitySelector.ResolveScore(a, scores))
                     .ToList();
 
-                if (GradebookFinalGradeCalculator.HasAnyScore(cells))
-                    typesWithScores.Add(section.TypeKey);
-
                 typeAvgs[section.TypeKey] = GradebookFinalGradeCalculator.TruncatedAverageOrZero(cells);
             }
 
-            var finalNullable = typeSections.Count == 0
-                ? null
-                : GradebookFinalGradeCalculator.ComputeFinalGradeFromTypeAverages(typeAvgs, typesWithScores);
+            notaFinalPorEstudiante.TryGetValue(stu.StudentId.ToString(), out var finalNullable);
 
             studentRows.Add(new GradebookPdfStudentRowDto
             {

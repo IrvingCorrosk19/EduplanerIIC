@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -19,19 +20,22 @@ namespace SchoolManager.Services
         private readonly ICurrentUserService _currentUserService;
         private readonly IAcademicYearService _academicYearService;
         private readonly IDocumentStorageService _documentStorage;
+        private readonly IActivityService _activityService;
 
         public StudentActivityScoreService(
             SchoolDbContext context,
             ITrimesterService trimesterService,
             ICurrentUserService currentUserService,
             IAcademicYearService academicYearService,
-            IDocumentStorageService documentStorage)
+            IDocumentStorageService documentStorage,
+            IActivityService activityService)
         {
             _context = context;
             _trimesterService = trimesterService;
             _currentUserService = currentUserService;
             _academicYearService = academicYearService;
             _documentStorage = documentStorage;
+            _activityService = activityService;
         }
 
         /* ------------ 1. Guardar / actualizar notas ------------ */
@@ -455,60 +459,39 @@ namespace SchoolManager.Services
             var school = await _currentUserService.GetCurrentUserSchoolAsync();
             var trimestres = new List<string> { "1T", "2T", "3T" };
             var headersByTrim = new Dictionary<string, List<ActivityHeaderDto>>(StringComparer.Ordinal);
+            var notasFiltroByTrim = new Dictionary<string, List<StudentNotaDto>>(StringComparer.Ordinal);
 
             foreach (var trimestre in trimestres)
             {
                 if (!string.IsNullOrEmpty(notes.Trimester) && notes.Trimester != trimestre)
                 {
                     headersByTrim[trimestre] = new List<ActivityHeaderDto>();
+                    notasFiltroByTrim[trimestre] = new List<StudentNotaDto>();
                     continue;
                 }
 
                 if (school == null)
                 {
                     headersByTrim[trimestre] = new List<ActivityHeaderDto>();
+                    notasFiltroByTrim[trimestre] = new List<StudentNotaDto>();
                     continue;
                 }
 
-                var trimestreEnt = await _context.Trimesters.AsNoTracking()
-                    .FirstOrDefaultAsync(t => t.Name == trimestre && t.SchoolId == school.Id);
-
-                if (trimestreEnt == null)
-                {
-                    headersByTrim[trimestre] = new List<ActivityHeaderDto>();
-                    continue;
-                }
-
-                headersByTrim[trimestre] = await _context.Activities.AsNoTracking()
-                    .VisibleOnTeacherGradebookIndex(
-                        notes.TeacherId,
-                        notes.GroupId,
-                        notes.SubjectId,
-                        notes.GradeLevelId,
-                        school.Id,
-                        trimestreEnt.Id,
-                        trimestre)
-                    .OrderBy(a => a.CreatedAt)
-                    .Select(a => new ActivityHeaderDto
-                    {
-                        Id = a.Id,
-                        Name = a.Name,
-                        Type = a.Type,
-                        DueDate = a.DueDate
-                    })
-                    .ToListAsync();
-            }
-
-            var activityIds = headersByTrim.Values.SelectMany(v => v.Select(a => a.Id)).Distinct().ToList();
-
-            var allScores = activityIds.Count == 0
-                ? new List<(Guid StudentId, Guid ActivityId, decimal? Score)>()
-                : (await _context.StudentActivityScores.AsNoTracking()
-                    .Where(s => activityIds.Contains(s.ActivityId))
-                    .Select(s => new { s.StudentId, s.ActivityId, s.Score })
-                    .ToListAsync())
-                    .Select(s => (s.StudentId, s.ActivityId, s.Score))
+                // Misma consulta de actividades que GetNotasCargadas / TeacherGradebook/Index.
+                headersByTrim[trimestre] = (await _activityService.GetByTeacherGroupTrimesterAsync(
+                    notes.TeacherId, notes.GroupId, trimestre, notes.SubjectId, notes.GradeLevelId))
                     .ToList();
+
+                // Mismo set de notas que Index: match por tipo+nombre (FirstOrDefault), no por ActivityId.
+                notasFiltroByTrim[trimestre] = await GetNotasPorFiltroAsync(new GetNotesDto
+                {
+                    TeacherId = notes.TeacherId,
+                    SubjectId = notes.SubjectId,
+                    GroupId = notes.GroupId,
+                    GradeLevelId = notes.GradeLevelId,
+                    Trimester = trimestre
+                });
+            }
 
             var promedios = new List<PromedioFinalDto>();
             foreach (var student in students)
@@ -516,12 +499,19 @@ namespace SchoolManager.Services
                 foreach (var trimestre in trimestres)
                 {
                     var headers = headersByTrim[trimestre];
+                    var alumno = notasFiltroByTrim[trimestre]
+                        .FirstOrDefault(n => n.StudentId == student.Id.ToString());
+                    var notasAlumno = alumno?.Notas ?? new List<NotaDetalleDto>();
+                    var celdasIndex = TeacherGradebookIndexCalculator.BuildNotasPorActividad(headers, notasAlumno);
+
                     var scoreDict = new Dictionary<Guid, decimal?>();
-                    foreach (var act in headers)
+                    foreach (var celda in celdasIndex)
                     {
-                        var score = allScores.FirstOrDefault(s =>
-                            s.StudentId == student.Id && s.ActivityId == act.Id).Score;
-                        scoreDict[act.Id] = score;
+                        decimal? score = null;
+                        if (!string.IsNullOrEmpty(celda.Nota)
+                            && decimal.TryParse(celda.Nota, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed))
+                            score = parsed;
+                        scoreDict[celda.Id] = score;
                     }
 
                     var actsTrimestre = headers
@@ -529,7 +519,7 @@ namespace SchoolManager.Services
                         .ToList();
 
                     var notaFinal = headers.Count > 0
-                        ? GradebookFinalGradeCalculator.CalcularNotaFinalFromVisibleActivities(headers, scoreDict)
+                        ? TeacherGradebookIndexCalculator.CalcularNotaFinal(celdasIndex)
                         : null;
 
                     var promedioNotasApreciacion = GradebookFinalGradeCalculator.GetTruncatedTypeAverage(

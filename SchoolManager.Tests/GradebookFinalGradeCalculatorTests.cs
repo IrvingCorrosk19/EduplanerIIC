@@ -55,6 +55,25 @@ public class GradebookFinalGradeCalculatorTests
     }
 
     [Fact]
+    public void TwoTypeAverages_2_7_And_2_8_FinalIs_2_7_Never_2_8()
+    {
+        var typeAvgs = new Dictionary<string, decimal>
+        {
+            ["notas de apreciación"] = 2.7m,
+            ["ejercicios diarios"] = 2.8m
+        };
+        var withScores = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "notas de apreciación", "ejercicios diarios"
+        };
+
+        var final = GradebookFinalGradeCalculator.ComputeFinalGradeFromTypeAverages(typeAvgs, withScores);
+        Assert.Equal(2.7m, final);
+        Assert.Equal("2.7", GradebookFinalGradeCalculator.FormatTruncatedGrade(final!.Value));
+        Assert.NotEqual("2.8", GradebookFinalGradeCalculator.FormatTruncatedGrade(2.75m));
+    }
+
+    [Fact]
     public void RecoveryWithoutExamScores_DoesNotInjectExamIntoFinal_LikeIndexJs()
     {
         var typeAvgs = new Dictionary<string, decimal>

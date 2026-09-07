@@ -161,7 +161,6 @@ namespace SchoolManager.Controllers
             // Actividades solo de la misma materia y el mismo grado que el combo seleccionado
             var activities = await _activitySvc.GetByTeacherGroupTrimesterAsync(
                 notes.TeacherId, notes.GroupId, notes.Trimester, notes.SubjectId, notes.GradeLevelId);
-            var actividadesPorTipo = activities.GroupBy(a => a.Type.ToLower()).ToDictionary(g => g.Key, g => g.ToList());
 
             // Obtener las notas existentes (como antes)
             var notas = await _scoreSvc.GetNotasPorFiltroAsync(notes);
@@ -183,23 +182,17 @@ namespace SchoolManager.Controllers
             var data = estudiantes.Select(studentId => {
                 var alumno = notas.FirstOrDefault(n => n.StudentId == studentId);
                 var notasAlumno = alumno?.Notas ?? new List<NotaDetalleDto>();
-                var notasPorActividad = new List<object>();
-
-                foreach (var tipo in actividadesPorTipo.Keys)
-                {
-                    foreach (var act in actividadesPorTipo[tipo])
-                    {
-                        var nota = notasAlumno.FirstOrDefault(n => n.Tipo.ToLower() == tipo && n.Actividad == act.Name);
-                        notasPorActividad.Add(new {
-                            tipo = tipo,
-                            actividad = act.Name,
-                            nota = nota != null ? nota.Nota : null,
-                            pdfUrl = act.PdfUrl,
-                            id = act.Id,
-                            dueDate = act.DueDate
-                        });
-                    }
-                }
+                var notasPorActividad = TeacherGradebookIndexCalculator
+                    .BuildNotasPorActividad(activities, notasAlumno)
+                    .Select(c => (object)new {
+                        tipo = c.Tipo,
+                        actividad = c.Actividad,
+                        nota = c.Nota,
+                        pdfUrl = c.PdfUrl,
+                        id = c.Id,
+                        dueDate = c.DueDate
+                    })
+                    .ToList();
 
                 return new {
                     studentId = studentId,

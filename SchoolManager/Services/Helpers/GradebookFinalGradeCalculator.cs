@@ -96,98 +96,24 @@ public static class GradebookFinalGradeCalculator
     }
 
     /// <summary>
-    /// Misma nota final que TeacherGradebook/Index (<c>loadNotasCargadas</c> + <c>calcAverages</c>).
-    /// Reglas: nunca redondear; truncar a 1 decimal en cada celda, en el promedio por tipo
-    /// y en la nota final. Recuperación sustituye el examen. Duplicados tipo+nombre: gana la última.
-    /// Ejemplo: promedios de tipo 2.7 y 2.8 → (2.75) → 2.7, no 2.8.
+    /// Delega en <see cref="TeacherGradebookIndexCalculator"/> (misma nota que Index).
+    /// Convierte scores por Id al payload de GetNotasCargadas: FirstOrDefault por tipo+nombre.
     /// </summary>
     public static decimal? CalcularNotaFinalFromVisibleActivities(
         IEnumerable<ActivityHeaderDto> activities,
         IReadOnlyDictionary<Guid, decimal?> scores)
     {
-        var namesByType = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        var cellByTypeName = new Dictionary<(string Type, string Name), double?>();
-
-        foreach (var act in activities)
+        var acts = activities as IList<ActivityHeaderDto> ?? activities.ToList();
+        var notasAlumno = acts.Select(a => new NotaDetalleDto
         {
-            var typeKey = NormalizeActivityType(act.Type);
-            if (!GradebookVisibleActivitySelector.ViewTypeOrder.Contains(typeKey, StringComparer.Ordinal))
-                continue;
+            Tipo = a.Type,
+            Actividad = a.Name,
+            Nota = scores.TryGetValue(a.Id, out var raw) && raw.HasValue
+                ? raw.Value.ToString("0.00", CultureInfo.InvariantCulture)
+                : ""
+        }).ToList();
 
-            if (!namesByType.TryGetValue(typeKey, out var names))
-            {
-                names = new List<string>();
-                namesByType[typeKey] = names;
-            }
-
-            if (!names.Contains(act.Name, StringComparer.Ordinal))
-                names.Add(act.Name);
-
-            scores.TryGetValue(act.Id, out var raw);
-            cellByTypeName[(typeKey, act.Name)] = ToIndexCell(raw);
-        }
-
-        if (namesByType.Count == 0)
-            return null;
-
-        var typeAvgs = new Dictionary<string, double>(StringComparer.Ordinal);
-        var typeHasScores = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var typeKey in GradebookVisibleActivitySelector.ViewTypeOrder)
-        {
-            if (!namesByType.TryGetValue(typeKey, out var names) || names.Count == 0)
-                continue;
-
-            var valid = names
-                .Select(n => cellByTypeName.GetValueOrDefault((typeKey, n)))
-                .Where(v => v.HasValue)
-                .Select(v => v!.Value)
-                .ToList();
-
-            if (valid.Count > 0)
-                typeHasScores.Add(typeKey);
-
-            var avg = valid.Count > 0 ? valid.Sum() / valid.Count : 0.0;
-            typeAvgs[typeKey] = TruncateLikeJs(avg);
-        }
-
-        if (typeAvgs.Count == 0)
-            return null;
-
-        var typesForFinal = typeAvgs.Keys
-            .Where(t => t != "recuperación")
-            .ToList();
-
-        if (typeHasScores.Contains("recuperación"))
-        {
-            typeAvgs["examen final"] = typeAvgs.GetValueOrDefault("recuperación");
-            typesForFinal = typesForFinal.Where(t => t != "recuperación").ToList();
-        }
-
-        var validAvgs = typesForFinal.Where(t => typeHasScores.Contains(t)).ToList();
-        if (validAvgs.Count == 0)
-            return null;
-
-        var finalGrade = validAvgs.Sum(t => typeAvgs[t]) / validAvgs.Count;
-        return (decimal)TruncateLikeJs(finalGrade);
-    }
-
-    /// <summary>Replica <c>Math.floor(value * 10) / 10</c> de Index.cshtml. Nunca redondea.</summary>
-    public static double TruncateLikeJs(double value) => Math.Floor(value * 10.0) / 10.0;
-
-    /// <summary>
-    /// Misma celda que Index: ToString("0.00") y luego truncar a 1 decimal (GetNotasCargadas).
-    /// </summary>
-    private static double? ToIndexCell(decimal? score)
-    {
-        if (!score.HasValue)
-            return null;
-
-        var text = score.Value.ToString("0.00", CultureInfo.InvariantCulture);
-        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var n))
-            return null;
-
-        return TruncateLikeJs(n);
+        return TeacherGradebookIndexCalculator.CalcularNotaFinal(acts, notasAlumno);
     }
 
     public static decimal? ComputeFinalGradeFromTypeAverages(
