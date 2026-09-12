@@ -144,6 +144,16 @@ if (args.Length > 0 && args[0] == "--create-local-admin")
     return;
 }
 
+if (args.Length > 0 && args[0] == "--verify-attendance-subject")
+{
+    var connStr = PostgresConnectionResolver.Resolve(builder.Configuration);
+    if (string.IsNullOrEmpty(connStr)) { Console.WriteLine("Falta conexión: DefaultConnection, ConnectionStrings__DefaultConnection o DATABASE_URL."); Environment.Exit(1); return; }
+    var opts = new DbContextOptionsBuilder<SchoolDbContext>().UseNpgsql(connStr).Options;
+    using var ctx = new SchoolDbContext(opts);
+    await SchoolManager.Scripts.VerifyAttendanceSubjectCorrection.RunAsync(ctx);
+    return;
+}
+
 // Crear tabla student_payment_access en Render (módulo Club de Padres). No arranca la app.
 if (args.Length > 0 && args[0] == "--apply-render-student-payment-access")
 {
@@ -192,7 +202,7 @@ var npgsqlConnectionString = PostgresConnectionResolver.Resolve(builder.Configur
         "Falta cadena de base de datos. Configure ConnectionStrings:DefaultConnection, la variable de entorno ConnectionStrings__DefaultConnection o DATABASE_URL (Render PostgreSQL).");
 builder.Services.AddDbContext<SchoolDbContext>(options =>
 {
-    options.UseNpgsql(npgsqlConnectionString);
+    options.UseNpgsql(npgsqlConnectionString, npgsql => npgsql.CommandTimeout(600));
 
     // Configurar Entity Framework para manejar DateTime automáticamente
     options.ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.RowLimitingOperationWithoutOrderByWarning));

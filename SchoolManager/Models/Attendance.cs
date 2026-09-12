@@ -21,6 +21,8 @@ public partial class Attendance
 
     public Guid? AcademicYearId { get; set; }
 
+    public Guid? SubjectId { get; set; }
+
     public DateOnly Date { get; set; }
 
     public string Status { get; set; } = null!;
@@ -40,6 +42,8 @@ public partial class Attendance
     public virtual Trimester? Trimester { get; set; }
 
     public virtual AcademicYear? AcademicYear { get; set; }
+
+    public virtual Subject? Subject { get; set; }
 
     public virtual School? School { get; set; }
 

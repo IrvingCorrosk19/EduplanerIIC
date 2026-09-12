@@ -25,7 +25,7 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
     private readonly IAprobadosReprobadosService _aprobadosReprobadosService;
     private readonly IStudentActivityScoreService _scoreService;
     private readonly IWebHostEnvironment _environment;
-    private readonly Dictionary<(Guid GroupId, Guid GradeLevelId), ReportesGrupoBulkData> _bulkCache = new();
+    private readonly Dictionary<(Guid GroupId, Guid GradeLevelId, Guid SubjectId), ReportesGrupoBulkData> _bulkCache = new();
 
     private static readonly string[] ColumnasHabitos =
     {
@@ -48,12 +48,14 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
     private string ReportesDir => Path.Combine(_environment.ContentRootPath, "Reportes");
 
-    private async Task<ReportesGrupoBulkData> GetBulkAsync(Guid schoolId, Guid groupId, Guid gradeLevelId)
+    private async Task<ReportesGrupoBulkData> GetBulkAsync(
+        Guid schoolId, Guid groupId, Guid gradeLevelId, Guid? subjectId = null)
     {
-        var key = (groupId, gradeLevelId);
+        var key = (groupId, gradeLevelId, subjectId ?? Guid.Empty);
         if (!_bulkCache.TryGetValue(key, out var bulk))
         {
-            bulk = await ReportesInstitucionalesBulkLoader.LoadAsync(_context, schoolId, groupId, gradeLevelId);
+            bulk = await ReportesInstitucionalesBulkLoader.LoadAsync(
+                _context, schoolId, groupId, gradeLevelId, subjectId);
             _bulkCache[key] = bulk;
         }
         return bulk;
@@ -477,12 +479,11 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
 
-        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
+        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId, materiaId);
         var estudiantes = bulk.Estudiantes;
         var trimestresCalculo = new[] { "1T", "2T", "3T" };
         var notasGradebook = await CargarNotasFinalesGradebookAsync(
             groupId, gradeLevelId, materiaId, teacherScopeId);
-        var trimesterEntities = bulk.TrimesterEntities.ToList();
 
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
         var anio = DateTime.UtcNow.Year;
@@ -491,27 +492,17 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
         foreach (var est in estudiantes)
         {
             var promediosTrim = new List<decimal>();
-            var totalA = 0;
-            var totalT = 0;
             decimal? n1 = null, n2 = null, n3 = null;
-            int a1 = 0, t1 = 0, a2 = 0, t2 = 0, a3 = 0, t3 = 0;
+            var att = FormatoCarpetasAttendanceCalculator.FromBulk(bulk, est.StudentId);
 
             for (var i = 0; i < trimestresCalculo.Length; i++)
             {
                 var trimestre = trimestresCalculo[i];
-                var trimesterEntity = trimesterEntities.FirstOrDefault(x =>
-                    string.Equals(x.Name, trimestre, StringComparison.OrdinalIgnoreCase));
                 var prom = NotaGradebook(notasGradebook, est.StudentId, trimestre);
-                var (ausencias, tardanzas) = ReportesInstitucionalesBulkLoader.ContarAsistencia(
-                    bulk, est.StudentId, trimesterEntity);
-
-                if (i == 0) { n1 = prom; a1 = ausencias; t1 = tardanzas; }
-                else if (i == 1) { n2 = prom; a2 = ausencias; t2 = tardanzas; }
-                else { n3 = prom; a3 = ausencias; t3 = tardanzas; }
-
+                if (i == 0) n1 = prom;
+                else if (i == 1) n2 = prom;
+                else n3 = prom;
                 if (prom.HasValue) promediosTrim.Add(prom.Value);
-                totalA += ausencias;
-                totalT += tardanzas;
             }
 
             filas.Add(new FormatoCarpetasFilaViewModel
@@ -524,14 +515,14 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
                 PromedioFinal = promediosTrim.Count > 0
                     ? GradebookFinalGradeCalculator.TruncateOneDecimal(promediosTrim.Average())
                     : null,
-                AusenciasT1 = a1,
-                TardanzasT1 = t1,
-                AusenciasT2 = a2,
-                TardanzasT2 = t2,
-                AusenciasT3 = a3,
-                TardanzasT3 = t3,
-                TotalAusencias = totalA,
-                TotalTardanzas = totalT
+                AusenciasT1 = att.AusenciasT1,
+                TardanzasT1 = att.TardanzasT1,
+                AusenciasT2 = att.AusenciasT2,
+                TardanzasT2 = att.TardanzasT2,
+                AusenciasT3 = att.AusenciasT3,
+                TardanzasT3 = att.TardanzasT3,
+                TotalAusencias = att.TotalAusencias,
+                TotalTardanzas = att.TotalTardanzas
             });
         }
 
@@ -570,12 +561,11 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
 
         await ValidarAsignacionAsync(groupId, gradeLevelId, teacherScopeId, materiaId);
 
-        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId);
+        var bulk = await GetBulkAsync(schoolId, groupId, gradeLevelId, materiaId);
         var estudiantes = bulk.Estudiantes;
         var trimestresCalculo = new[] { "1T", "2T", "3T" };
         var notasGradebook = await CargarNotasFinalesGradebookAsync(
             groupId, gradeLevelId, materiaId, teacherScopeId);
-        var trimesterEntities = bulk.TrimesterEntities.ToList();
 
         var etiquetaGrupo = FormatearEtiquetaGrupoInforme(gradeLevel?.Name, grupo.Name, grupo.Grade);
         var anio = DateTime.UtcNow.Year;
@@ -615,34 +605,29 @@ public class ReportesInstitucionalesService : IReportesInstitucionalesService
             ReportePlantillaNpoiHelper.EstablecerTexto(sheet, fila, 1, est.Nombre);
 
             var promediosTrim = new List<decimal>();
-            var totalA = 0;
-            var totalT = 0;
+            var att = FormatoCarpetasAttendanceCalculator.FromBulk(bulk, est.StudentId);
+            var ausenciasPorTrim = new[] { att.AusenciasT1, att.AusenciasT2, att.AusenciasT3 };
+            var tardanzasPorTrim = new[] { att.TardanzasT1, att.TardanzasT2, att.TardanzasT3 };
 
             for (var t = 0; t < trimestresCalculo.Length && t < colsNotaTrim.Length; t++)
             {
                 var trimestre = trimestresCalculo[t];
-                var trimesterEntity = trimesterEntities.FirstOrDefault(x =>
-                    string.Equals(x.Name, trimestre, StringComparison.OrdinalIgnoreCase));
                 var prom = NotaGradebook(notasGradebook, est.StudentId, trimestre);
                 ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, colsNotaTrim[t], prom);
                 if (prom.HasValue)
                     promediosTrim.Add(prom.Value);
 
-                var (ausencias, tardanzas) = ReportesInstitucionalesBulkLoader.ContarAsistencia(
-                    bulk, est.StudentId, trimesterEntity);
                 var (colA, colT) = colsAt[t];
-                ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colA, ausencias);
-                ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colT, tardanzas);
-                totalA += ausencias;
-                totalT += tardanzas;
+                ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colA, ausenciasPorTrim[t]);
+                ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, colT, tardanzasPorTrim[t]);
             }
 
             var promFinal = promediosTrim.Count > 0
                 ? GradebookFinalGradeCalculator.TruncateOneDecimal(promediosTrim.Average())
                 : (decimal?)null;
             ReportePlantillaNpoiHelper.EstablecerNota(sheet, fila, 5, promFinal);
-            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 12, totalA);
-            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 13, totalT);
+            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 12, att.TotalAusencias);
+            ReportePlantillaNpoiHelper.EstablecerNumero(sheet, fila, 13, att.TotalTardanzas);
         }
 
         AgregarPieFirmasFormatoCarpetas(workbook, sheet, ultimaFilaDatos + 3);

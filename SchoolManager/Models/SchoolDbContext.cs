@@ -344,6 +344,12 @@ public partial class SchoolDbContext : DbContext
 
             entity.HasIndex(e => new { e.StudentId, e.TrimesterId }, "IX_Attendance_Student_Trimester");
 
+            entity.HasIndex(e => e.SubjectId, "IX_Attendance_SubjectId");
+
+            entity.HasIndex(
+                e => new { e.StudentId, e.SubjectId, e.GroupId, e.GradeId, e.Date },
+                "IX_Attendance_Student_Subject_Group_Grade_Date");
+
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
@@ -361,6 +367,7 @@ public partial class SchoolDbContext : DbContext
             entity.Property(e => e.StudentId).HasColumnName("student_id");
             entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
             entity.Property(e => e.TrimesterId).HasColumnName("trimester_id");
+            entity.Property(e => e.SubjectId).HasColumnName("subject_id");
 
             entity.HasOne(d => d.Grade).WithMany(p => p.Attendances)
                 .HasForeignKey(d => d.GradeId)
@@ -385,6 +392,11 @@ public partial class SchoolDbContext : DbContext
             entity.HasOne(d => d.AcademicYear).WithMany(p => p.Attendances)
                 .HasForeignKey(d => d.AcademicYearId)
                 .HasConstraintName("attendance_academic_year_id_fkey");
+
+            entity.HasOne(d => d.Subject).WithMany(p => p.Attendances)
+                .HasForeignKey(d => d.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("attendance_subject_id_fkey");
 
             entity.Property(e => e.SchoolId).HasColumnName("school_id");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");

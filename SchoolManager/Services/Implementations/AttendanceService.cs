@@ -1,6 +1,7 @@
 ﻿using SchoolManager.Models;
 using Microsoft.EntityFrameworkCore;
 using SchoolManager.Dtos;
+using SchoolManager.Services.Helpers;
 using SchoolManager.Services.Interfaces;
 
 namespace SchoolManager.Services.Implementations
@@ -149,15 +150,45 @@ public class AttendanceService : IAttendanceService
 
         foreach (var dto in attendances)
         {
+            if (dto.StudentId == Guid.Empty || dto.GroupId == Guid.Empty || dto.GradeId == Guid.Empty)
+                throw new ArgumentException("Estudiante, grupo y grado son obligatorios.");
+            if (dto.SubjectId == Guid.Empty)
+                throw new ArgumentException("La materia es obligatoria para guardar asistencia.");
+
+            var candidates = await _context.Attendances
+                .Where(a =>
+                    a.StudentId == dto.StudentId
+                    && a.GroupId == dto.GroupId
+                    && a.GradeId == dto.GradeId
+                    && a.Date == dto.Date)
+                .ToListAsync();
+            var existing = AttendanceSaveDecision.SelectExisting(
+                candidates, dto.StudentId, dto.SubjectId, dto.GroupId, dto.GradeId, dto.Date);
+
+            if (!AttendanceSaveDecision.ShouldInsert(existing))
+            {
+                foreach (var row in existing)
+                {
+                    row.Status = dto.Status;
+                    row.TeacherId = dto.TeacherId;
+                    row.SubjectId = dto.SubjectId;
+                    await AuditHelper.SetAuditFieldsForUpdateAsync(row, _currentUserService);
+                    await ResolveAcademicScopeAsync(row);
+                }
+                continue;
+            }
+
             var attendance = new Attendance
             {
                 Id = Guid.NewGuid(),
                 StudentId = dto.StudentId,
                 TeacherId = dto.TeacherId,
+                SubjectId = dto.SubjectId,
                 GroupId = dto.GroupId,
                 GradeId = dto.GradeId,
                 Date = dto.Date,
-                Status = dto.Status
+                Status = dto.Status,
+                TrimesterId = dto.TrimesterId
             };
 
             await AuditHelper.SetAuditFieldsForCreateAsync(attendance, _currentUserService);
@@ -169,10 +200,15 @@ public class AttendanceService : IAttendanceService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<AttendanceResponseDto>> GetAttendancesByDateAsync(Guid groupId, Guid gradeId, DateOnly date)
+    public async Task<List<AttendanceResponseDto>> GetAttendancesByDateAsync(
+        Guid groupId, Guid gradeId, DateOnly date, Guid? subjectId = null)
     {
-        return await _context.Attendances
-            .Where(a => a.GroupId == groupId && a.GradeId == gradeId && a.Date == date)
+        var query = _context.Attendances
+            .Where(a => a.GroupId == groupId && a.GradeId == gradeId && a.Date == date);
+        if (subjectId.HasValue && subjectId.Value != Guid.Empty)
+            query = query.Where(a => a.SubjectId == subjectId.Value);
+
+        return await query
             .Include(a => a.Student)
             .Select(a => new AttendanceResponseDto
             {
@@ -244,47 +280,15 @@ public class AttendanceService : IAttendanceService
             throw new InvalidOperationException($"No existe un año académico activo para la fecha {attendance.Date:yyyy-MM-dd}.");
         }
 
-        var trimester = await _context.Trimesters
+        var official = await _context.Trimesters
             .Where(t => t.SchoolId == schoolId.Value
-                && (t.AcademicYearId == academicYear.Id || t.AcademicYearId == null)
-                && t.StartDate <= attendanceEnd
-                && t.EndDate >= attendanceStart)
-            .OrderBy(t => t.Order)
-            .FirstOrDefaultAsync();
+                && (t.AcademicYearId == academicYear.Id || t.AcademicYearId == null))
+            .ToListAsync();
 
-        trimester ??= await ResolveInstitutionalTrimesterFallbackAsync(
-            schoolId.Value,
-            academicYear,
-            attendance.Date);
-
-        if (trimester == null)
-        {
-            throw new InvalidOperationException($"No existe un trimestre configurado para la fecha {attendance.Date:yyyy-MM-dd}.");
-        }
+        var trimester = AttendanceOfficialCalendar.ResolveOfficialTrimester(attendance.Date, official);
 
         attendance.AcademicYearId = academicYear.Id;
-        attendance.TrimesterId = trimester.Id;
-    }
-
-    private async Task<Trimester?> ResolveInstitutionalTrimesterFallbackAsync(
-        Guid schoolId,
-        AcademicYear academicYear,
-        DateOnly attendanceDate)
-    {
-        if (academicYear.Name != "2026")
-        {
-            return null;
-        }
-
-        var targetTrimesterName = attendanceDate >= new DateOnly(2026, 6, 8) ? "2T" : "1T";
-
-        return await _context.Trimesters
-            .Where(t => t.SchoolId == schoolId
-                && t.Name == targetTrimesterName
-                && (t.AcademicYearId == academicYear.Id || t.AcademicYearId == null))
-            .OrderByDescending(t => t.AcademicYearId == academicYear.Id)
-            .ThenBy(t => t.Order)
-            .FirstOrDefaultAsync();
+        attendance.TrimesterId = trimester?.Id;
     }
 }
 }

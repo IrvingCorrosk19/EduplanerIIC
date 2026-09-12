@@ -2354,7 +2354,7 @@
                     fecha ? $.ajax({
                         url: '/TeacherGradebookDuplicate/GetAttendancesByDate',
                         method: 'GET',
-                        data: { groupId: groupId, gradeId: gradeLevelId, date: fecha }
+                        data: { groupId: groupId, gradeId: gradeLevelId, date: fecha, subjectId: subjectId }
                     }) : Promise.resolve([])
                 ]).then(([students, attendances]) => {
                     const asistenciaBody = $('#asistenciaBody');
@@ -2521,6 +2521,7 @@
                     attendances.push({
                         studentId: studentId,
                         teacherId: teacherId,
+                        subjectId: subjectId,
                         groupId: groupId,
                         gradeId: gradeLevelId,
                         date: fecha,

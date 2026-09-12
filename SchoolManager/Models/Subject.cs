@@ -29,6 +29,8 @@ public partial class Subject
 
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
+    public virtual ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
+
     public virtual Area? Area { get; set; }
 
     public virtual ICollection<DisciplineReport> DisciplineReports { get; set; } = new List<DisciplineReport>();

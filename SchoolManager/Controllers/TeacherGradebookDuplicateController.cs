@@ -529,11 +529,11 @@ namespace SchoolManager.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAttendancesByDate(Guid groupId, Guid gradeId, DateOnly date)
+        public async Task<IActionResult> GetAttendancesByDate(Guid groupId, Guid gradeId, DateOnly date, Guid? subjectId = null)
         {
             try
             {
-                var attendances = await _attendanceService.GetAttendancesByDateAsync(groupId, gradeId, date);
+                var attendances = await _attendanceService.GetAttendancesByDateAsync(groupId, gradeId, date, subjectId);
                 return Ok(attendances);
             }
             catch (Exception ex)

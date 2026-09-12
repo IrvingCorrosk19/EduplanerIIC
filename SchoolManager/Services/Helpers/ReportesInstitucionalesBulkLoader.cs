@@ -16,6 +16,8 @@ public sealed class ReportesGrupoBulkData
     public Dictionary<(Guid StudentId, Guid ActivityId), decimal?> Scores { get; init; } = new();
     public Dictionary<(Guid StudentId, Guid TrimesterId), (int Ausencias, int Tardanzas)> Attendance { get; init; } = new();
     public IReadOnlyList<Trimester> TrimesterEntities { get; init; } = Array.Empty<Trimester>();
+    public Guid? SubjectId { get; init; }
+    public Guid? AcademicYearId { get; init; }
 }
 
 public sealed class ReportesActivityRow
@@ -38,7 +40,8 @@ public static class ReportesInstitucionalesBulkLoader
         SchoolDbContext context,
         Guid schoolId,
         Guid groupId,
-        Guid gradeLevelId)
+        Guid gradeLevelId,
+        Guid? subjectId = null)
     {
         var estudiantesRaw = await context.StudentAssignments
             .AsNoTracking()
@@ -105,7 +108,16 @@ public static class ReportesInstitucionalesBulkLoader
                 .ToListAsync())
                 .ToDictionary(s => (s.StudentId, s.ActivityId), s => s.Score);
 
-        var attendance = await LoadAttendanceAsync(context, groupId, studentIds, trimesterEntities);
+        var activeYear = await context.AcademicYears.AsNoTracking()
+            .Where(y => y.SchoolId == schoolId && y.IsActive)
+            .OrderByDescending(y => y.StartDate)
+            .FirstOrDefaultAsync();
+
+        var officialTrimesters = AttendanceOfficialCalendar.OfficialForSchoolYear(
+            trimesterEntities, schoolId, activeYear?.Id).ToList();
+
+        var attendance = await LoadAttendanceAsync(
+            context, schoolId, groupId, gradeLevelId, subjectId, studentIds, officialTrimesters, activeYear?.Id);
 
         return new ReportesGrupoBulkData
         {
@@ -114,67 +126,64 @@ public static class ReportesInstitucionalesBulkLoader
             Activities = activities,
             Scores = scores,
             Attendance = attendance,
-            TrimesterEntities = trimesterEntities
+            TrimesterEntities = officialTrimesters.Count > 0 ? officialTrimesters : trimesterEntities,
+            SubjectId = subjectId,
+            AcademicYearId = activeYear?.Id
         };
     }
 
     private static async Task<Dictionary<(Guid, Guid), (int, int)>> LoadAttendanceAsync(
         SchoolDbContext context,
+        Guid schoolId,
         Guid groupId,
+        Guid gradeLevelId,
+        Guid? subjectId,
         List<Guid> studentIds,
-        List<Trimester> trimesterEntities)
+        List<Trimester> officialTrimesters,
+        Guid? academicYearId)
     {
-        var result = new Dictionary<(Guid, Guid), (int, int)>();
-        if (studentIds.Count == 0 || trimesterEntities.Count == 0)
-            return result;
-
-        var minDate = trimesterEntities.Min(t => DateOnly.FromDateTime(t.StartDate));
-        var maxDate = trimesterEntities.Max(t => DateOnly.FromDateTime(t.EndDate));
-        var trimesterIds = trimesterEntities.Select(t => t.Id).ToList();
+        if (studentIds.Count == 0 || officialTrimesters.Count == 0
+            || !subjectId.HasValue || subjectId.Value == Guid.Empty)
+            return new Dictionary<(Guid, Guid), (int, int)>();
 
         var registros = await context.Attendances
             .AsNoTracking()
             .Where(a =>
-                a.GroupId == groupId &&
-                a.StudentId.HasValue &&
-                studentIds.Contains(a.StudentId.Value) &&
-                ((a.TrimesterId.HasValue && trimesterIds.Contains(a.TrimesterId.Value)) ||
-                 (!a.TrimesterId.HasValue && a.Date >= minDate && a.Date <= maxDate)))
-            .Select(a => new
+                a.SubjectId == subjectId
+                && a.GroupId == groupId
+                && a.GradeId == gradeLevelId
+                && (a.SchoolId == null || a.SchoolId == schoolId)
+                && a.StudentId.HasValue
+                && studentIds.Contains(a.StudentId.Value)
+                && (academicYearId == null
+                    || a.AcademicYearId == null
+                    || a.AcademicYearId == academicYearId))
+            .Select(a => new AttendanceSubjectAggregator.AttendanceDayRow
             {
                 StudentId = a.StudentId!.Value,
-                a.Date,
-                a.Status,
-                a.TrimesterId,
-                a.AcademicYearId
+                SchoolId = a.SchoolId,
+                GroupId = a.GroupId,
+                GradeId = a.GradeId,
+                SubjectId = a.SubjectId,
+                AcademicYearId = a.AcademicYearId,
+                Date = a.Date,
+                Status = a.Status
             })
             .ToListAsync();
 
-        foreach (var trim in trimesterEntities)
+        var aggregated = AttendanceSubjectAggregator.AggregateByOfficialTrimester(
+            registros, officialTrimesters, subjectId.Value, schoolId, groupId, gradeLevelId, academicYearId);
+
+        foreach (var studentId in studentIds)
         {
-            var start = DateOnly.FromDateTime(trim.StartDate);
-            var end = DateOnly.FromDateTime(trim.EndDate);
-
-            foreach (var studentId in studentIds)
+            foreach (var trim in officialTrimesters)
             {
-                var delEstudiante = registros.Where(r =>
-                    r.StudentId == studentId &&
-                    (r.TrimesterId == trim.Id ||
-                     (!r.TrimesterId.HasValue &&
-                      (!r.AcademicYearId.HasValue || trim.AcademicYearId == null || r.AcademicYearId == trim.AcademicYearId) &&
-                      r.Date >= start &&
-                      r.Date <= end)));
-
-                var ausencias = delEstudiante.Count(r =>
-                    string.Equals(r.Status, "absent", StringComparison.OrdinalIgnoreCase));
-                var tardanzas = delEstudiante.Count(r =>
-                    string.Equals(r.Status, "late", StringComparison.OrdinalIgnoreCase));
-
-                result[(studentId, trim.Id)] = (ausencias, tardanzas);
+                if (!aggregated.ContainsKey((studentId, trim.Id)))
+                    aggregated[(studentId, trim.Id)] = (0, 0);
             }
         }
 
-        return result;
+        return aggregated;
     }
 
     public static decimal? CalcularNotaFinal(
